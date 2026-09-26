@@ -1,5 +1,9 @@
 # Аудит всех GitHub issues — 26 сентября 2026
 
+> Follow-up, 2026-09-27: [#220 native read isolation](GPT_READ_ISOLATION_2026-09-27.md)
+> is implemented and verified in controlled tests. Runtime installation is tracked
+> separately; P1 mutation admission remains open.
+
 ## Снимок и границы проверки
 
 Репозиторий: `EriArk/codex-web-interface`. Получены **129 issues: 74 открытых и 55 закрытых**, включая описания и комментарии. Pull requests в это число не входят. Сопоставлены требования/acceptance, последующие решения владельца в `AGENTS.md`, текущий код, тестовые сценарии и записи предыдущей проверки. База исходников: **`main` / `44b700a`**; этот документ — результат анализа, не выпуск исправлений.

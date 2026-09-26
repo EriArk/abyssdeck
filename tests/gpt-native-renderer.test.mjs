@@ -792,3 +792,36 @@ test("partial intermediate output does not cancel an ongoing native turn", async
   });
   assert.equal(result.state, "running");
 });
+
+test("a pre-mutation history read cannot overwrite a newer canonical cache entry", async () => {
+  const f = fixture(),
+    fingerprint = await f.binding();
+  const first = Promise.withResolvers(),
+    entered = Promise.withResolvers();
+  const original = f.service.kWt.safeGet;
+  let calls = 0;
+  f.service.kWt.safeGet = async (...args) => {
+    if (++calls === 1) {
+      const old = structuredClone(await original(...args));
+      entered.resolve();
+      await first.promise;
+      return old;
+    }
+    return original(...args);
+  };
+  const request = {
+    operation: "readConversation",
+    conversationId,
+    accountFingerprint: fingerprint,
+  };
+  const old = f.read(request, true);
+  await entered.promise;
+  f.runtime[Symbol.for("codex-web.native-history")].delete(fingerprint + ":" + conversationId);
+  f.node(2, "after mutation");
+  const fresh = await f.read(request, true);
+  first.resolve();
+  await old;
+  const cached = await f.read(request, true);
+  assert.equal(cached.currentNode, fresh.currentNode);
+  assert.equal(calls, 2, "late old read must not replace the newer snapshot");
+});

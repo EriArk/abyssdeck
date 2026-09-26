@@ -1,5 +1,9 @@
 # Linux ChatGPT evaluation — #193
 
+> Follow-up, 2026-09-27: [#220 native read isolation](GPT_READ_ISOLATION_2026-09-27.md)
+> is implemented and verified in controlled tests. Runtime installation is tracked
+> separately; P1 mutation admission remains open.
+
 Current installation checkpoint (2026-09-20): the owner's native GPT integration is installed with engine `b273f5e` and UI `15f50f8`, schema 28. Earlier canary-only / pending-installation statements below describe their dated stages. They do not imply the ordinary owner workflow still awaits migration, nor does installation prove every advanced operation or independent-member provisioning. Remaining work is classified in the [current issue audit](ISSUE_AUDIT_2026-09-20.md).
 
 Date: 2026-09-19. **Owner integration candidate verified; coordinated main-engine installation still waits for active Codex work.** The private native runtime now uses Chromium's sandbox. Main-site wiring, native dictation and account isolation are implemented; real ordinary-web new-chat/upload/reload and Russian transcription passed. Earlier dated sections are historical. See the final admission section for actual installed/pending scope; full native feature parity is not claimed.

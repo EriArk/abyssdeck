@@ -78,11 +78,12 @@ const historySchema = z
 /** Private typed native transport. Dispatch requires the host's disposable-chat
  * canary allowlist; this client never selects the main GptService provider. */
 export class NativeGptReadClient {
-  private queue: { run: () => Promise<void>; interactive: boolean; readOnly: boolean }[] = [];
-  private draining = false;
-  private interactiveBurst = 0;
+  private lanes = {
+    read: { active: 0, limit: 2, queue: [] as Array<() => Promise<void>> },
+    media: { active: 0, limit: 1, queue: [] as Array<() => Promise<void>> },
+    write: { active: 0, limit: 1, queue: [] as Array<() => Promise<void>> },
+  };
   private reads = new Map<string, Promise<unknown>>();
-  private waiting = 0;
   constructor(
     private readonly binding: { socketPath: string; userId: string },
     private readonly authorize: () => void,
@@ -93,73 +94,72 @@ export class NativeGptReadClient {
   }
   private async call(input: Record<string, unknown>, cancellation?: AbortSignal): Promise<unknown> {
     this.authorize();
-    const readOnly = [
-      "readConversationGraph",
-      "readModels",
-      "readCatalog",
-      "readPins",
-      "readProjects",
-      "readProject",
-      "readProjectConversations",
-    ].includes(String(input.operation));
-    const key = readOnly && !cancellation ? JSON.stringify(input) : undefined;
-    if (!readOnly) this.reads.clear(); // Never share a pre-mutation snapshot with a later read.
+    // Only typed operations proven not to navigate/change renderer selection.
+    // Media has its own serial lane: chunk offsets and stream lifetime are mutable.
+    const laneName = ["openMedia", "readMedia", "closeMedia", "readArtifact"].includes(
+      String(input.operation),
+    )
+      ? "media"
+      : [
+            "readConversationGraph",
+            "readConversation",
+            "readModels",
+            "readCatalog",
+            "readPins",
+            "readProjects",
+            "readProject",
+            "readProjectConversations",
+            "inspectProject",
+            "listArtifacts",
+          ].includes(String(input.operation)) ||
+          (input.operation === "workspace" &&
+            ["scheduledList", "scheduledRead", "activity"].includes(String(input.action)))
+        ? "read"
+        : "write";
+    const lane = this.lanes[laneName];
+    const key = laneName === "read" && !cancellation ? JSON.stringify(input) : undefined;
+    if (laneName === "write") this.reads.clear();
     const shared = key ? this.reads.get(key) : undefined;
-    if (shared) return shared;
-    if (this.waiting >= 64) fail("BUSY");
-    this.waiting++;
-    const interactive = [
-      "prepareDispatch",
-      "dispatchText",
-      "stopDispatch",
-      "reconcileDispatch",
-      "reviewDispatch",
-      "uploadFile",
-      "stageUpload",
-      "uploadStoredFile",
-    ].includes(String(input.operation));
+    if (shared) {
+      const result = await shared;
+      this.authorize();
+      return result;
+    }
+    // A saturated upload/write lane never consumes the read admission budget.
+    if (lane.queue.length + lane.active >= 64) fail("BUSY");
     const task = new Promise<unknown>((resolve, reject) => {
-      this.queue.push({
-        interactive,
-        readOnly,
-        run: async () => {
-          try {
-            cancellation?.throwIfAborted();
-            resolve(await this.request(input, cancellation));
-          } catch (error) {
-            reject(error);
-          }
-        },
+      lane.queue.push(async () => {
+        try {
+          cancellation?.throwIfAborted();
+          this.authorize();
+          // Reads admitted while a mutation waited must not survive its boundary.
+          if (laneName === "write") this.reads.clear();
+          resolve(await this.request(input, cancellation));
+        } catch (error) {
+          reject(error);
+        } finally {
+          if (laneName === "write") this.reads.clear();
+        }
       });
     });
     if (key) this.reads.set(key, task);
-    void this.drain();
+    this.drain(laneName);
     try {
       return await task;
     } finally {
-      this.waiting--;
       if (key && this.reads.get(key) === task) this.reads.delete(key);
     }
   }
-  private async drain() {
-    if (this.draining) return;
-    this.draining = true;
-    try {
-      while (this.queue.length) {
-        // Reorder only past queued reads. Mutations remain ordered, and every
-        // fourth interactive operation yields to the oldest background read.
-        const candidate =
-          this.interactiveBurst < 4 ? this.queue.findIndex((entry) => entry.interactive) : -1;
-        const index =
-          candidate > 0 && this.queue.slice(0, candidate).every((entry) => entry.readOnly)
-            ? candidate
-            : 0;
-        const entry = this.queue.splice(index, 1)[0]!;
-        this.interactiveBurst = entry.interactive ? this.interactiveBurst + 1 : 0;
-        await entry.run();
-      }
-    } finally {
-      this.draining = false;
+  private drain(name: keyof NativeGptReadClient["lanes"]) {
+    const lane = this.lanes[name];
+    while (lane.active < lane.limit && lane.queue.length) {
+      const run = lane.queue.shift();
+      if (!run) break;
+      lane.active++;
+      void run().finally(() => {
+        lane.active--;
+        this.drain(name);
+      });
     }
   }
   async activate() {

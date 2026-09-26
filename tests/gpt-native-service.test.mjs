@@ -90,7 +90,7 @@ test("private native service exposes typed read projection and checksum-verified
   await assert.rejects(f.client.download(conversationId, "message", file.id), /ARTIFACT_CHECKSUM/);
   assert.equal((await f.client.status()).writesEnabled, false);
 });
-test("one Hub client serializes parallel reads and rechecks revoked authority when queued work starts", async (t) => {
+test("one Hub client coalesces identical reads and discards responses after revoked authority", async (t) => {
   const f = await fixture(t);
   let release;
   f.state.gate = new Promise((resolve) => {

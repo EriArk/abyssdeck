@@ -173,6 +173,9 @@ export async function nativeRead(request, load = () => import('app://-/assets/ap
  if(saved?.value&&now-saved.at<historyTtl)conversation=saved.value;
  else try {
   gate.check();
+  // A parallel read or a mutation may invalidate this entry while fetch awaits.
+  // Never repopulate the cache with an older response after that boundary.
+  const reading={at:now,bytes:0};cache.set(key,reading);
   const principal=before.principal;
   // The default safeGet retries history failures internally; use the pinned,
   // principal-bound native transport once and respect its rate-limit response.
@@ -193,7 +196,7 @@ export async function nativeRead(request, load = () => import('app://-/assets/ap
   finally{reader.releaseLock();}
   text+=decoder.decode();conversation=JSON.parse(text);
   if((await account()).fingerprint!==before.fingerprint)fail('ACCOUNT_CHANGED');
-  cache.set(key,{value:conversation,bytes,at:Date.now(),retryAt:0});
+  if(cache.get(key)===reading)cache.set(key,{value:conversation,bytes,at:now,retryAt:0});
   gate.success();
   let total=0;for(const v of cache.values())total+=v.bytes??0;
   for(const [k,v] of cache){if(total<=64*1024**2)break;if(k!==key){cache.delete(k);total-=v.bytes??0;}}

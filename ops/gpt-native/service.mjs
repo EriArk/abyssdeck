@@ -20,6 +20,9 @@ export class NativeReadService {
     this.statePath = statePath;
     this.uploads=new NativeStoredUploads(dirname(statePath)+'/uploads');
     this.busy = false;
+    this.reads = new Map();
+    this.readActive = 0;
+    this.mediaActive = 0;
     this.instanceId = randomUUID();
     this.leases = new Set();
     privatePath(dirname(statePath), 'isDirectory');
@@ -79,13 +82,13 @@ export class NativeReadService {
       this.livePending=true;
       try{return await this.canary.live(input,this.reader);}finally{this.livePending=false;}
     }
-    if (this.busy) fail('BUSY');
     if (['beginManual', 'endManual', 'resumeManual'].includes(input.operation)) {
+      if (this.busy || this.readActive || this.mediaActive || this.livePending) fail('BUSY');
       if (input.operation !== 'resumeManual' && !uuid(input.leaseId)) fail('INVALID_REQUEST');
       const previous = new Set(this.leases);
       if (input.operation === 'beginManual') {
         // Recovery must remain reachable when a receipt cannot be reconciled.
-        // The service writer lock above excludes an in-flight adapter operation;
+        // The active-lane checks exclude in-flight adapter operations;
         // the lease blocks new ones without clearing receipts or stopping responses.
         if (this.leases.size >= 8 && !this.leases.has(input.leaseId)) fail('BUSY');
         this.leases.add(input.leaseId);
@@ -95,7 +98,32 @@ export class NativeReadService {
       return { manual: this.leases.size > 0, writesEnabled: false };
     }
     if (this.leases.size) fail('MANUAL_RECOVERY');
+    const readOnly = ['readConversationGraph','readConversation','readModels','readCatalog',
+      'readPins','readProjects','readProject','readProjectConversations','inspectProject','listArtifacts'].includes(input.operation) || (input.operation==='workspace' && ['scheduledList','scheduledRead','activity'].includes(input.action));
+    const media = ['openMedia','readMedia','closeMedia','readArtifact'].includes(input.operation);
+    if (readOnly || media) {
+      // Separate clients (Hub/recovery gateway) share the same service limits.
+      const key = readOnly ? JSON.stringify(input) : null;
+      if (key && this.reads.has(key)) return this.reads.get(key);
+      const counter = media ? 'mediaActive' : 'readActive', limit = media ? 1 : 2;
+      if (this[counter] >= limit) fail('BUSY');
+      this[counter]++;
+      const task = Promise.resolve().then(() => {
+        const {operation,userId:ignored,...args}=input;
+        const bound={...args,accountFingerprint:this.accountFingerprint};
+        if(operation==='workspace')return this.reader.workspace({...bound,operation:args.action});
+        return this.reader[operation](bound);
+      });
+      if (key) this.reads.set(key,task);
+      try { return await task; }
+      finally {
+        this[counter]--;
+        if(key && this.reads.get(key)===task)this.reads.delete(key);
+      }
+    }
+    if (this.busy) fail('BUSY');
     this.busy = true;
+    this.reads.clear();
     try {
       const { operation, userId: ignored, ...args } = input;
       const bound={...args,accountFingerprint:this.accountFingerprint};
@@ -124,7 +152,7 @@ export class NativeReadService {
       }
       if(operation==='workspace')return await this.reader.workspace({...bound,operation:args.action});
       return await this.reader[operation]({ ...args, accountFingerprint: this.accountFingerprint });
-    } finally { this.busy = false; }
+    } finally { this.reads.clear(); this.busy = false; }
   }
 }
 

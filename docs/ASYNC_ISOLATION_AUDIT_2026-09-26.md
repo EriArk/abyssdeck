@@ -1,5 +1,9 @@
 # Async isolation audit — 2026-09-26
 
+> Follow-up, 2026-09-27: [#220 native read isolation](GPT_READ_ISOLATION_2026-09-27.md)
+> is implemented and verified in controlled tests. Runtime installation is tracked
+> separately; P1 mutation admission remains open.
+
 ## Why this audit exists
 
 A GPT failure exposed a broader architectural question:

@@ -3,38 +3,32 @@ import test from "node:test";
 import { NativeGptReadClient } from "../apps/hub/dist/gpt-native.js";
 import { NativeGptProvider } from "../apps/hub/dist/gpt-native-provider.js";
 
-test("interactive calls skip queued reads, coalesce duplicates and preserve mutation order", async () => {
+test("reads coalesce independently of ordered writes and invalidate sharing on write completion", async () => {
   const client = new NativeGptReadClient(
     { socketPath: "/private/adapter.sock", userId: "10000000-0000-4000-8000-000000000001" },
     () => {},
   );
-  let release;
-  const gate = new Promise((resolve) => {
-    release = resolve;
-  });
+  const write = Promise.withResolvers(),
+    read = Promise.withResolvers();
   const calls = [];
   client.request = async (input) => {
-    calls.push(input.operation + (input.id ?? ""));
-    if (input.id === "first") await gate;
+    calls.push(input.operation);
+    if (input.operation === "dispatchText") await write.promise;
+    if (input.operation === "readCatalog") await read.promise;
     return {};
   };
-  const tasks = [client.call({ operation: "readCatalog", id: "first" })];
-  tasks.push(client.call({ operation: "readConversationGraph", id: "a" }));
-  tasks.push(client.call({ operation: "readConversationGraph", id: "a" }));
-  tasks.push(client.call({ operation: "prepareDispatch" }));
-  tasks.push(client.call({ operation: "libraryMutation" }));
-  tasks.push(client.call({ operation: "dispatchText" }));
-  tasks.push(client.call({ operation: "readConversationGraph", id: "a" }));
-  release();
-  await Promise.all(tasks);
-  assert.deepEqual(calls, [
-    "readCatalogfirst",
-    "prepareDispatch",
-    "readConversationGrapha",
-    "libraryMutation",
-    "dispatchText",
-    "readConversationGrapha",
-  ]);
+  const sending = client.call({ operation: "dispatchText" });
+  const a = client.call({ operation: "readCatalog" });
+  const b = client.call({ operation: "readCatalog" });
+  const following = client.call({ operation: "libraryMutation" });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(calls, ["dispatchText", "readCatalog"]);
+  write.resolve();
+  await Promise.all([sending, following]);
+  const c = client.call({ operation: "readCatalog" });
+  read.resolve();
+  await Promise.all([a, b, c]);
+  assert.deepEqual(calls, ["dispatchText", "readCatalog", "libraryMutation", "readCatalog"]);
 });
 
 test("readiness shares model verification and invalidates it on native restart or manual mode", async () => {
@@ -94,7 +88,7 @@ test("native status bypasses a pending renderer read; mutations remain serialize
   try {
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(status?.busy, true, "heartbeat must finish before history is released");
-    assert.equal(calls.includes("dispatchText"), false, "writer still waits for renderer");
+    assert.equal(calls.includes("dispatchText"), true, "writer is independent of a safe read");
   } finally {
     release({});
     await Promise.all([history, send, heartbeat]);
