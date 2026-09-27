@@ -32,5 +32,11 @@ Validation:
   each (phone, keyboard-height phone, tablet and wide). Actual screenshots checked
   across all four themes. These are browser checks, not physical iPhone acceptance.
 
-Source is ready for the guarded Hub/web release. Activation is tracked separately
-in CURRENT_STATUS.md. Native adapters remain at the verified e845adb hotfix.
+Installed release: `6b75d45`, both actual Hub and engine images. The ordinary idle
+guard returned `idle: true`; no forced update was used. Team cold checkpoint and
+restore/admission verification succeeded. Maintenance reports `installed`.
+Web ID: `a38e7afaeec7137af75c2ae5441120f2dbd6fe6d821f11db68406dc4098822c7`.
+Authenticated installed conversation catalog (including invitations), internal
+notices and health returned HTTP 200. No invitations/messages were sent in the
+live installation; mutation acceptance used isolated test accounts.
+Native adapters remain at the verified e845adb hotfix.
