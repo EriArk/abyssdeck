@@ -15,7 +15,7 @@
 
 - The workspace bell is for internal events: messages, invitations, shared access and discussions, completed work and plans. It must not poll GitHub or wait for machine connectivity.
 - GitHub assignments/review/check attention belongs in Space Activity, with internal source viewers and local read marks. Keep existing internal notifications and exact private source navigation; reading a notice never replays work.
-- Keep GPT chat notifications in a separate "?????? GPT" tab with its own unread count. The default "???????" tab contains human/shared events, Codex work and plans (including GPT plans). Switching tabs preserves scroll and never marks notifications read.
+- Keep GPT chat notifications in a separate "Ответы GPT" tab with its own unread count. The default "События" tab contains human/shared events, Codex work and plans (including GPT plans). Switching tabs preserves scroll and never marks notifications read.
 
 
 ## Owner-requested save continuity everywhere (2026-09-26)
