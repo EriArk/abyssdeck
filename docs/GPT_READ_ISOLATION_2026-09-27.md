@@ -49,3 +49,41 @@ Later checkpoint, 27 September: Hub and engine `44a5d7c` are running and healthy
 Owner/member native service images remain staged; the unfinished GPT receipt still
 prevents their ordinary restart. The separate Windows runtime follow-up is recorded
 in [Project entry/runtime verification](PROJECT_ENTRY_RUNTIME_2026-09-27.md).
+
+
+## Mixed-version regression and correction
+
+The later owner report of a completed answer alongside both a generic request
+error and an offline banner was reproducible against the installed owner runtime.
+The Hub's catalog and project routes concurrently request pins; the installed
+single-lock native adapter rejected one read with `NATIVE_BUSY`. A concurrent
+model validation could then label a responsive native account unavailable. The
+reported native image was intact: its authenticated stream returned 1,241,010
+JPEG bytes when read alone.
+
+The Hub now negotiates independent-read support before selecting lanes. Without
+that explicit capability, all queued operations use the legacy serial lane.
+Status remains outside that queue. Capability status requests fall back only on
+an explicit unsupported-request response; the new adapter retains the exact old
+status shape for old callers. This supports either upgrade order without assuming
+that a built native image is the installed one.
+
+Only read/media operations explicitly rejected with `NATIVE_BUSY` receive up to
+two bounded admission retries. Mutation requests and ambiguous transport/chunk
+failures are never replayed. Busy account/model validation reports busy and does
+not grant send readiness; later successful validation restores normal status.
+Catalog startup failures stay in navigation, clear on successful refresh, and no
+longer label a completed send as failed. Existing explicit-action errors remain.
+Private GPT image elements retry failed loads twice and then stop. Loaded images
+keep their DOM/source across normal history refreshes; failed image reads never
+resend a message. External signed image URLs are not changed or retried.
+
+Verification: 51 focused native provider/service/transport/media/upload/recovery
+checks; Chromium and WebKit cover failing navigation with a successful answer,
+quiet scoped recovery, transient and permanent image failures, stable image DOM,
+retained drafts and zero sends. Existing delayed-health/wake recovery and wrapping
+checks also pass in both engines. A read-only probe using the corrected client
+against the actual installed legacy owner adapter successfully completed two
+concurrent batches of catalog, pins, projects, models and the exact reported image.
+No native restart, new prompt, receipt clearing or production message replay was
+performed. Physical iPhone acceptance remains pending owner use.

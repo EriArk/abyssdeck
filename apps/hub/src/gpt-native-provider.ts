@@ -62,6 +62,7 @@ export class NativeGptProvider {
   }
   async connection(): Promise<GptConnection> {
     const status = await this.workspace.client.status();
+    let waiting = false;
     // Status alone proves the supervisor is alive, not that the account is usable.
     if (status.manual) {
       this.verified = undefined;
@@ -77,17 +78,22 @@ export class NativeGptProvider {
       const check = this.checking;
       try {
         await check.task;
+      } catch (error) {
+        if (!(error instanceof Error) || error.message !== "NATIVE_BUSY") throw error;
+        // Admission contention is not a broken connection. Do not grant send
+        // readiness until the native account/model check actually succeeds.
+        waiting = true;
       } finally {
         if (this.checking === check) this.checking = undefined;
       }
     }
-    const state = status.manual ? "attention" : "healthy";
+    const state = status.manual ? "attention" : waiting ? "busy" : "healthy";
     return {
       configured: true,
       state,
       message: gptConnectionMessages[state],
       canRead: !status.manual,
-      canSend: !status.manual,
+      canSend: !status.manual && !waiting,
       activeJobs: 0,
       unknownJobs: 0,
       connectUrl: "/gpt-connect?runtime=native",

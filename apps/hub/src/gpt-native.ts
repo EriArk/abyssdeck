@@ -78,7 +78,10 @@ const historySchema = z
 /** Private typed native transport. Dispatch requires the host's disposable-chat
  * canary allowlist; this client never selects the main GptService provider. */
 export class NativeGptReadClient {
+  private independentReads = false;
+  private negotiated?: Promise<void>;
   private lanes = {
+    legacy: { active: 0, limit: 1, queue: [] as Array<() => Promise<void>> },
     read: { active: 0, limit: 2, queue: [] as Array<() => Promise<void>> },
     media: { active: 0, limit: 1, queue: [] as Array<() => Promise<void>> },
     write: { active: 0, limit: 1, queue: [] as Array<() => Promise<void>> },
@@ -93,6 +96,17 @@ export class NativeGptReadClient {
     if (!isAbsolute(binding.socketPath)) fail("INVALID_SOCKET");
   }
   private async call(input: Record<string, unknown>, cancellation?: AbortSignal): Promise<unknown> {
+    this.authorize();
+    // Old installed adapters have one renderer lock. Negotiate before enabling
+    // parallel lanes; a newer Hub must not flood an older adapter with BUSY.
+    if (!this.negotiated) {
+      const pending = this.status().then(() => {});
+      this.negotiated = pending;
+      void pending.catch(() => {
+        if (this.negotiated === pending) this.negotiated = undefined;
+      });
+    }
+    await this.negotiated;
     this.authorize();
     // Only typed operations proven not to navigate/change renderer selection.
     // Media has its own serial lane: chunk offsets and stream lifetime are mutable.
@@ -116,7 +130,8 @@ export class NativeGptReadClient {
             ["scheduledList", "scheduledRead", "activity"].includes(String(input.action)))
         ? "read"
         : "write";
-    const lane = this.lanes[laneName];
+    const admittedLane = this.independentReads ? laneName : "legacy";
+    const lane = this.lanes[admittedLane];
     const key = laneName === "read" && !cancellation ? JSON.stringify(input) : undefined;
     if (laneName === "write") this.reads.clear();
     const shared = key ? this.reads.get(key) : undefined;
@@ -134,7 +149,27 @@ export class NativeGptReadClient {
           this.authorize();
           // Reads admitted while a mutation waited must not survive its boundary.
           if (laneName === "write") this.reads.clear();
-          resolve(await this.request(input, cancellation));
+          let result: unknown;
+          for (let attempt = 0; ; attempt++) {
+            try {
+              result = await this.request(input, cancellation);
+              break;
+            } catch (error) {
+              // BUSY explicitly rejected admission. Never retry a write or an
+              // ambiguous transport error, including media chunk acknowledgements.
+              if (
+                laneName === "write" ||
+                attempt >= 2 ||
+                !(error instanceof Error) ||
+                error.message !== "NATIVE_BUSY"
+              )
+                throw error;
+              await new Promise((done) => setTimeout(done, 150 * (attempt + 1)));
+              cancellation?.throwIfAborted();
+              this.authorize();
+            }
+          }
+          resolve(result);
         } catch (error) {
           reject(error);
         } finally {
@@ -143,7 +178,7 @@ export class NativeGptReadClient {
       });
     });
     if (key) this.reads.set(key, task);
-    this.drain(laneName);
+    this.drain(admittedLane);
     try {
       return await task;
     } finally {
@@ -393,19 +428,27 @@ export class NativeGptReadClient {
       );
   }
   async status() {
-    return (
-      z
-        .object({
-          instanceId: uuid,
-          manual: z.boolean(),
-          busy: z.boolean(),
-          writesEnabled: z.boolean(),
-        })
-        .strict()
-        // The supervisor serves status without taking its renderer lock. Do not
-        // queue this heartbeat behind a slow history read or a large upload.
-        .parse(await this.request({ operation: "status" }))
-    );
+    let response: unknown;
+    try {
+      response = await this.request({ operation: "status", capabilities: true });
+    } catch (error) {
+      if (!(error instanceof Error) || error.message !== "NATIVE_INVALID_REQUEST") throw error;
+      response = await this.request({ operation: "status" });
+    }
+    const value = z
+      .object({
+        instanceId: uuid,
+        manual: z.boolean(),
+        busy: z.boolean(),
+        writesEnabled: z.boolean(),
+        independentReads: z.literal(true).optional(),
+      })
+      .strict()
+      // The supervisor serves status without taking its renderer lock. Do not
+      // queue this heartbeat behind a slow history read or a large upload.
+      .parse(response);
+    this.independentReads = value.independentReads === true;
+    return value;
   }
   async catalog(offset = 0, archived = false) {
     z.number().int().min(0).max(10000).parse(offset);

@@ -29,6 +29,7 @@ import { composerShortcut } from "./composerShortcut";
 import { useDictation } from "./Dictation";
 import { DownloadLink } from "./DownloadLink";
 import { EntityMenu, type LibraryChange, type LibraryEntity, libraryEvent } from "./EntityMenu";
+import { GptImage } from "./GptImage";
 import { useGptNativeOperations } from "./GptNativeOperations";
 import { GptProgress } from "./GptProgress";
 import { GptProjectPending } from "./GptProjectContent";
@@ -76,7 +77,7 @@ const Files = memo(function Files({ files }: { files: GptFile[] }) {
       {files.map((file) => (
         <DownloadLink key={file.id} href={file.url} name={file.name} className="gpt-file-download">
           {file.image ? (
-            <img src={workspaceMediaUrl(file.url)} alt={file.name} loading="lazy" />
+            <GptImage src={file.url} alt={file.name} />
           ) : (
             <>
               <Icon name="file" />
@@ -159,7 +160,7 @@ function ResponseResults({
             file.image ? (
               <span className="message-generated-image" key={file.id}>
                 <button type="button" onClick={() => onArtifact(file.url)} aria-label={file.name}>
-                  <img src={workspaceMediaUrl(file.url)} alt={file.name} loading="lazy" />
+                  <GptImage src={file.url} alt={file.name} />
                 </button>
               </span>
             ) : (
@@ -421,6 +422,7 @@ export function GptWorkspace({
     if (version !== catalogVersion.current) return;
     gptCache.catalogAt = Date.now();
     setCatalogLoaded(true);
+    setLoadNotice("");
     const metadata = new Map(
       (data.library ?? []).filter((e) => e.kind === "thread").map((e) => [e.id, e]),
     );
@@ -473,7 +475,7 @@ export function GptWorkspace({
             items.some((t) => t.id === selectedRef.current && t.projectId === d.id)))
       )
         setSelected("");
-      void refresh().catch((e) => setNotice(messageOf(e)));
+      void refresh().catch(() => {});
     };
     const visible = () => {
       if (!document.hidden) void refresh().catch(() => {});
@@ -494,30 +496,23 @@ export function GptWorkspace({
       attempt = 0;
     let retry: ReturnType<typeof setTimeout>;
     const load = async () => {
-      // Read navigation immediately, independently of the native connection probe.
-      const catalogRead = catalog(false, 0, false).then(
-        () => null,
-        (error: unknown) => error,
-      );
+      // Navigation failures belong to navigation, never to the active send.
       try {
-        const status = await readConnection();
-        if (disposed) return;
-        if (!status.configured) {
-          setLoadNotice("Подключение GPT ещё не настроено.");
-          return;
-        }
-        const catalogError = await catalogRead;
-        if (catalogError) throw catalogError;
+        await catalog(false, 0, false);
         if (disposed) return;
         setLoadNotice("");
       } catch (error) {
         if (disposed) return;
         attempt++;
-        if (attempt >= 3) setLoadNotice(messageOf(error));
+        if (attempt >= 3) {
+          setLoadNotice("Не удалось обновить список диалогов.");
+          return;
+        }
         // Only read catalog/settings metadata again; never repeat an action or send.
         retry = setTimeout(() => void load(), Math.min(15000, attempt * 2000));
       }
     };
+    void readConnection().catch(() => {});
     void load();
     if (Date.now() - gptCache.projectsAt >= 30000)
       void api<{ items: GptProject[]; conversations: GptConversation[] }>("/gpt/projects")
@@ -1602,7 +1597,7 @@ export function GptWorkspace({
           storageKey="gpt-threads"
           searching={!!search.trim()}
         />
-        {!catalogLoaded && items.length === 0 && (
+        {(loadNotice || (!catalogLoaded && items.length === 0)) && (
           <p className="muted" role="status">
             {loadNotice || "Загружаются диалоги…"}
           </p>
@@ -1739,16 +1734,15 @@ export function GptWorkspace({
           </button>
         </header>
       )}
-      {(notice || loadNotice || connectionError) && (
+      {(notice || connectionError) && (
         <div className="global-notice" role="status">
-          <span>{notice || loadNotice || connectionError}</span>
+          <span>{notice || connectionError}</span>
           <button
             type="button"
             className="icon-button"
             aria-label="Закрыть уведомление"
             onClick={() => {
               setNotice("");
-              setLoadNotice("");
               setConnectionError("");
             }}
           >

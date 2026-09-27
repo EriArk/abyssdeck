@@ -86,6 +86,89 @@ async function fixture(t) {
   };
 }
 
+test("new Hub serializes a legacy installed adapter; old Hub status remains compatible", async (t) => {
+  const f = await fixture(t);
+  const request = f.service.request.bind(f.service);
+  const plain = await request({ userId, operation: "status" });
+  assert.deepEqual(Object.keys(plain).sort(), ["busy", "instanceId", "manual", "writesEnabled"]);
+  assert.equal(
+    (await request({ userId, operation: "status", capabilities: true })).independentReads,
+    true,
+  );
+  let active = 0,
+    busy = 0;
+  f.service.request = async (input) => {
+    if (input.operation === "status") {
+      if (input.capabilities) throw Error("NATIVE_INVALID_REQUEST");
+      return plain;
+    }
+    if (active) {
+      busy++;
+      throw Error("NATIVE_BUSY");
+    }
+    active++;
+    try {
+      await new Promise((r) => setTimeout(r, 30));
+      return await request(input);
+    } finally {
+      active--;
+    }
+  };
+  await Promise.all(
+    ["readCatalog", "readPins", "readProjects", "readModels", "openMedia", "closeMedia"].map(
+      (operation) => f.client.call({ operation }),
+    ),
+  );
+  assert.equal(busy, 0, "capability negotiation prevents the production catalog/pins race");
+  assert.equal(f.calls.length, 6);
+});
+
+test("only explicitly unadmitted reads retry BUSY, finitely; mutations and ambiguous errors never replay", async (t) => {
+  const f = await fixture(t);
+  const request = f.service.request.bind(f.service);
+  let calls = 0,
+    failure = "NATIVE_BUSY";
+  f.service.request = async (input) => {
+    if (input.operation === "status") return request(input);
+    calls++;
+    if (failure) throw Error(failure);
+    return request(input);
+  };
+  await assert.rejects(f.client.call({ operation: "readCatalog" }), /NATIVE_BUSY/);
+  assert.equal(calls, 3);
+  calls = 0;
+  await assert.rejects(f.client.call({ operation: "dispatchText" }), /NATIVE_BUSY/);
+  assert.equal(calls, 1);
+  calls = 0;
+  failure = "NATIVE_TIMEOUT";
+  await assert.rejects(f.client.call({ operation: "readMedia" }), /NATIVE_TIMEOUT/);
+  assert.equal(calls, 1, "uncertain chunk acknowledgement must not advance the stream twice");
+  failure = "";
+  await f.client.call({ operation: "readCatalog" });
+  assert.equal(calls, 2);
+});
+
+test("a busy readiness read does not claim disconnection or grant unverified send readiness", async (t) => {
+  const f = await fixture(t);
+  const provider = new NativeGptProvider({ client: f.client });
+  f.reader.readModels = async () => {
+    throw Error("NATIVE_BUSY");
+  };
+  const waiting = await provider.connection();
+  assert.equal(waiting.state, "busy");
+  assert.equal(waiting.canSend, false);
+  f.reader.readModels = async () => ({
+    versions: [{ id: "latest", label: "Latest", enabled: true, presets: [] }],
+  });
+  assert.equal((await provider.connection()).state, "healthy");
+  // Expiry followed by authentication failure must remain a real failure.
+  provider.verified.until = 0;
+  f.reader.readModels = async () => {
+    throw Error("NATIVE_ACCOUNT_CHANGED");
+  };
+  await assert.rejects(provider.connection(), /ACCOUNT_CHANGED/);
+});
+
 test("held 20-second dispatch leaves history, navigation, media and readiness readable without another send", {
   timeout: 30000,
 }, async (t) => {
@@ -219,6 +302,14 @@ test("saturated read admission does not consume writer admission; read responses
   let reads = 0,
     writes = 0;
   client.request = async (input) => {
+    if (input.operation === "status")
+      return {
+        instanceId: userId,
+        busy: false,
+        manual: false,
+        writesEnabled: true,
+        independentReads: true,
+      };
     if (input.operation === "readCatalog") {
       reads++;
       await gate.promise;

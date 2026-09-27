@@ -69,12 +69,15 @@ export class NativeReadService {
       ...canaryFields,
       openMedia:['transferId','conversationId','messageId','fileId','projectId'], readMedia:['transferId','offset'], closeMedia:['transferId'],
       workspace:['action','id','conversationId','version','cursor'],
-      status: [], beginManual: ['leaseId'], endManual: ['leaseId'], resumeManual: [],
+      status: ['capabilities'], beginManual: ['leaseId'], endManual: ['leaseId'], resumeManual: [],
       inspectProject: ['projectId'], readModels: [], readPins: [], readConversationGraph:['conversationId'], readProjects:['cursor'], readProject:['projectId'], readProjectConversations:['projectId','cursor'], readCatalog:['offset','archived'], readConversation: ['conversationId', 'before'],
       listArtifacts: ['conversationId', 'before'], readArtifact: ['conversationId', 'messageId', 'artifactId'],
     }[input.operation];
     if (!Array.isArray(fields) || Object.keys(input).some(k => !['userId', 'operation', ...fields].includes(k))) fail('INVALID_REQUEST');
-    if (input.operation === 'status') return { instanceId: this.instanceId, manual: this.leases.size > 0, busy: this.busy, writesEnabled: this.canary?.ownerMode===true };
+    if (input.operation === 'status') {
+      if(input.capabilities!==undefined&&input.capabilities!==true)fail('INVALID_REQUEST');
+      return { instanceId: this.instanceId, manual: this.leases.size > 0, busy: this.busy, writesEnabled: this.canary?.ownerMode===true, ...(input.capabilities?{independentReads:true}:{}) };
+    }
     // A read of already received text must not queue behind a writer/history read.
     if(input.operation==='readLive'){
       if(this.leases.size)fail('MANUAL_RECOVERY');
