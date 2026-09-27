@@ -24,7 +24,7 @@ export async function nativeComposer(request, read, load = () => import('app://-
  const summary=()=>bounded(m.M9.appActions.runInPrimaryWindow({action:{type:'app.get_summary'}}));
  const home=s=>s?.schemaVersion===1&&s.window?.route?.kind==='home'&&s.window.route.pathname==='/'&&!s.window.thread;
  const ui=()=>{
-  const editors=all('[role="textbox"][contenteditable="true"]');
+  const editors=all('[data-composer-body] [role="textbox"][contenteditable="true"]');
   if(editors.length!==1)fail('COMPOSER_UNAVAILABLE');
   const editor=editors[0],body=editor.closest('[data-composer-body]');
   if(!body)fail('COMPOSER_UNAVAILABLE');

@@ -66,7 +66,7 @@ function fixture() {
       },
       querySelectorAll: (s) =>
         ({
-          '[role="textbox"][contenteditable="true"]': [editor],
+          '[data-composer-body] [role="textbox"][contenteditable="true"]': [editor],
           'button[aria-label="Stop"]': stopping ? [send] : [],
           'button[aria-label="Send"]': [send],
           "button[aria-pressed]": mode === "Chat" ? [chat] : [],

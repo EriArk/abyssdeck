@@ -26,7 +26,8 @@ export async function nativeControl(request, read, load = () => import('app://-/
  };
  const controls = () => {
   const visible = selector => [...runtime.document.querySelectorAll(selector)].filter(e=>e.getClientRects().length && !e.disabled);
-  const editors=visible('[role="textbox"][contenteditable="true"]');
+  // Native answer documents are editable too. Only the message composer owns a draft.
+  const editors=visible('[data-composer-body] [role="textbox"][contenteditable="true"]');
   const attachments=editors.flatMap(e=>[...(e.closest?.('[data-composer-body]')?.querySelectorAll('button[aria-label]')??[])])
    .filter(e=>/^Remove /.test(e.getAttribute('aria-label')??''));
   return {stop:visible('button[aria-label="Stop"]'), send:visible('button[aria-label="Send"]'),
