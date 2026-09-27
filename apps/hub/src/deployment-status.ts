@@ -29,9 +29,26 @@ export function deploymentBlockers(
       count: codex,
       label: "Codex: работа, вопрос или непроверенное состояние",
     });
+  const pausedNativeSchema = [
+    "gpt_job_providers",
+    "gpt_native_read_health",
+    "gpt_native_receipts",
+  ].every((name) =>
+    store.db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(name),
+  );
+  // A durably paused native receipt is unresolved delivery, not live Hub work.
+  // NativeGptJobs never polls/replays it on restart. Keep the receipt untouched;
+  // replacing the separate native process still requires its own idle admission.
+  const pausedNative = pausedNativeSchema
+    ? ` AND NOT (j.status='unknown' AND j.error IS 'NATIVE_CHAT_PAUSED'
+        AND EXISTS (SELECT 1 FROM gpt_job_providers p WHERE p.jobId=j.id AND p.provider='native')
+        AND EXISTS (SELECT 1 FROM gpt_native_read_health h WHERE h.jobId=j.id AND h.paused=1 AND h.failures>=3)
+        AND EXISTS (SELECT 1 FROM gpt_native_receipts r WHERE r.jobId=j.id))`
+    : "";
   add(
     "gpt",
-    "SELECT count(*) n FROM gpt_jobs WHERE status IN ('queued','preparing','running','unknown')",
+    "SELECT count(*) n FROM gpt_jobs j WHERE j.status IN ('queued','preparing','running','unknown')" +
+      pausedNative,
     "GPT: отправка или ответ ещё не завершены",
   );
   add(
