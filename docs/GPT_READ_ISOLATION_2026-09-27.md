@@ -87,3 +87,26 @@ against the actual installed legacy owner adapter successfully completed two
 concurrent batches of catalog, pins, projects, models and the exact reported image.
 No native restart, new prompt, receipt clearing or production message replay was
 performed. Physical iPhone acceptance remains pending owner use.
+
+
+## Installed acceptance checkpoint
+
+27 September: the running engine is `codex-web-hub:bfc36bd`; maintenance confirms
+that exact revision installed. The published web manifest matches its built
+assets and includes the separate GPT notification tab. The private owner adapter
+is still `26.915.31945-audit-e744924`, so this verifies the compatibility correction
+against the actual legacy installation, not just the new staged native image.
+
+Through the running engine's authenticated owner HTTP routes, two concurrent
+batches of status, conversation catalog, projects, models, conversation history
+and the reported native image all returned HTTP 200. Both status responses were
+`healthy` with `canSend: true`; both image streams were complete JPEGs of
+1,241,010 bytes. The previously reported older conversation also returned history
+successfully. The unrelated paused job's stored record was identical before and
+after; no prompt was submitted and the temporary diagnostic session was removed.
+
+The old uncertain job still blocks ordinary maintenance readiness. It does not
+block the verified chat reads or account send readiness. Native adapter image
+activation remains a separate guarded operation; neither its profile nor its
+pending receipts were changed for this acceptance check. Physical iPhone use is
+still the owner's final device check.
