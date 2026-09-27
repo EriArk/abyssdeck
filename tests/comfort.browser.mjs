@@ -363,6 +363,12 @@ try {
           key && status && Math.abs(key.y - status.y) < 10,
           JSON.stringify({ name, theme, width, key, status }),
         );
+        const panel = await progress.locator("..").boundingBox();
+        assert(
+          Math.abs(panel.height - key.height) <= 1,
+          JSON.stringify({ name, theme, width, panel, key }),
+        );
+        assert(Math.abs(panel.y - key.y) <= 1, JSON.stringify({ name, theme, width, panel, key }));
         assert(key.x >= status.x + status.width - 1);
         assert(key.width < 44 && key.width >= 32);
         assert(await row.evaluate((el) => el.scrollWidth <= el.clientWidth + 1));

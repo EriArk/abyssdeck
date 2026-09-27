@@ -145,3 +145,7 @@ selection and resumes following. Keep the loading ring in a reserved 18px slot
 above the 44px attachment button in the left composer column in both clients.
 Long embedded reference buttons are content: their labels must wrap, including
 unbroken names, without widening the message or its scroller.
+
+Chat status alignment (27 September): the progress panel and navigation keys have
+the same 36px visible height and aligned top/bottom edges. Transparent vertical
+hit extensions preserve 44px touch access for progress and stop controls.

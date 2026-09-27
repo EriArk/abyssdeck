@@ -133,6 +133,15 @@ export function registerCommunication(
         .send(file.data);
     });
   });
+  const cleanup = setInterval(() => {
+    try {
+      communication.lifetime.sweep();
+    } catch (error) {
+      app.log.warn({ err: error }, "Result copy cleanup deferred");
+    }
+  }, 3600000);
+  cleanup.unref();
+  app.addHook("onClose", async () => clearInterval(cleanup));
   app.post(
     "/api/team/result-snapshots",
     { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } },
@@ -150,10 +159,19 @@ export function registerCommunication(
       const prior = communication.db
         .prepare("SELECT 1 FROM team_receipts WHERE userId=? AND scope='result.capture' AND key=?")
         .get(user, operation);
-      if (prior)
-        return communication.team.once(user, "result.capture", operation, source, () => {
-          throw Error("unreachable");
-        });
+      if (prior) {
+        const saved = communication.team.once<{ id: string }>(
+          user,
+          "result.capture",
+          operation,
+          source,
+          () => {
+            throw Error("unreachable");
+          },
+        );
+        communication.ownerSnapshot(user, saved.id);
+        return saved;
+      }
       if (source.client === "human") {
         const row = communication.db
           .prepare(
@@ -276,7 +294,16 @@ export function registerCommunication(
         .get(id(req), user);
     if (!handoff) throw new HubError(404, "HANDOFF_UNAVAILABLE", "Материал недоступен.");
     const { runtime } = await personal(user);
-    actor(req);
+    const check = () => {
+      actor(req);
+      if (
+        !communication.db
+          .prepare("SELECT 1 FROM result_ai_handoffs WHERE id=? AND ownerId=? AND dismissed=0")
+          .get(String(handoff.id), user)
+      )
+        throw new HubError(404, "HANDOFF_UNAVAILABLE", "Материал недоступен.");
+    };
+    check();
     if (binding(runtime, String(handoff.threadId)) !== handoff.binding)
       throw new HubError(
         409,
@@ -287,15 +314,25 @@ export function registerCommunication(
     // Only native GPT attachment staging duplicates bytes; it retains the exact snapshot hash.
     // The human share continues to reference its single immutable object.
     const file = await runtime.gpt.putFile(snapshot.title, snapshot.data, String(handoff.id));
-    actor(req);
+    check();
     if (binding(runtime, String(handoff.threadId)) !== handoff.binding)
       throw new HubError(409, "HANDOFF_BINDING_CHANGED", "Привязка чата изменилась.");
     return { file, snapshotId: snapshot.id, sha256: snapshot.sha256 };
   });
   app.delete("/api/team/result-handoffs/:id", write, (req) => {
-    communication.db
-      .prepare("UPDATE result_ai_handoffs SET dismissed=1 WHERE id=? AND ownerId=?")
-      .run(id(req), actor(req));
+    const user = actor(req),
+      handoffId = id(req);
+    const row = communication.db
+      .prepare(
+        "SELECT snapshotId FROM result_ai_handoffs WHERE id=? AND ownerId=? AND dismissed<>1",
+      )
+      .get(handoffId, user);
+    if (row) {
+      communication.lifetime.touch(String(row.snapshotId));
+      communication.db
+        .prepare("UPDATE result_ai_handoffs SET dismissed=1 WHERE id=? AND ownerId=?")
+        .run(handoffId, user);
+    }
     return { ok: true };
   });
   app.get("/api/team/result-snapshots/:id/grants", (req) => ({

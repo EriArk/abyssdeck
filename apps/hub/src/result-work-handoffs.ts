@@ -96,7 +96,7 @@ export function registerResultWorkHandoffs(
       if (
         Number(
           communication.db
-            .prepare("SELECT count(*) n FROM result_ai_handoffs WHERE ownerId=?")
+            .prepare("SELECT count(*) n FROM result_ai_handoffs WHERE ownerId=? AND dismissed<>1")
             .get(user)?.n,
         ) >= 2000
       )
@@ -163,6 +163,12 @@ export function registerResultWorkHandoffs(
     const { runtime } = await personal(user);
     const check = () => {
       actor(req);
+      if (
+        !communication.db
+          .prepare("SELECT 1 FROM result_ai_handoffs WHERE id=? AND ownerId=? AND dismissed<>1")
+          .get(id, user)
+      )
+        throw new HubError(404, "HANDOFF_UNAVAILABLE", "Материал недоступен.");
       if (target(runtime, d).binding !== saved.binding) throw changed();
     };
     check();

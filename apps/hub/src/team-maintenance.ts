@@ -189,8 +189,14 @@ function chatRows(db: DatabaseSync) {
       const table =
         namespace === "shared_result" ? "shared_result_files" : `${namespace}_chat_files`;
       if (!db.prepare("SELECT name FROM sqlite_master WHERE name=?").get(table)) return [];
+      const lifetime =
+        namespace === "shared_result" &&
+        db.prepare("SELECT 1 FROM sqlite_master WHERE name='result_snapshot_lifetime'").get();
+      const retained = lifetime
+        ? " WHERE NOT EXISTS(SELECT 1 FROM result_snapshot_lifetime l WHERE l.id=shared_result_files.id AND l.collectedAt IS NOT NULL)"
+        : "";
       return db
-        .prepare(`SELECT id,bytes,sha256 FROM ${table} ORDER BY id`)
+        .prepare(`SELECT id,bytes,sha256 FROM ${table}${retained} ORDER BY id`)
         .all()
         .map((row) => ({
           namespace,

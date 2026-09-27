@@ -129,6 +129,7 @@ function ResultShareWindow({ result, onClose }: { result: ResultItem; onClose: (
         }
       })
       .catch((e) => {
+        if (e?.code === "RESULT_COPY_EXPIRED") request.clear();
         if (live.current) setError(messageOf(e));
       });
     void Promise.all([

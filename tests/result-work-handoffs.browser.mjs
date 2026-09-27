@@ -62,6 +62,27 @@ try {
       .filter({ has: page.getByText("Altar", { exact: true }) });
     await project.getByRole("button", { name: kind, exact: true }).click();
   };
+  const captureKeys = [];
+  await page.route("**/api/team/result-snapshots", async (route) => {
+    captureKeys.push(route.request().headers()["idempotency-key"]);
+    if (captureKeys.length === 1)
+      return route.fulfill({
+        status: 410,
+        json: { error: { code: "RESULT_COPY_EXPIRED", message: "Временная копия очищена" } },
+      });
+    return route.fallback();
+  });
+  await card.getByRole("button", { name: "Отправить", exact: true }).click();
+  await expect(share.getByRole("alert")).toContainText("Временная копия очищена");
+  await share.getByRole("button", { name: "Повторить", exact: true }).click();
+  await expect.poll(() => captureKeys.length).toBe(2);
+  assert.notEqual(
+    captureKeys[0],
+    captureKeys[1],
+    "only a confirmed expired capture gets a new preparation key",
+  );
+  await expect(share.getByRole("alert")).toHaveCount(0);
+  await share.getByRole("button", { name: "Закрыть отправку", exact: true }).click();
   await choose("Разбор задач");
   for (const theme of ["organizer", "crt-green", "hitech-2000s", "classic-dark"])
     for (const [width, height] of [

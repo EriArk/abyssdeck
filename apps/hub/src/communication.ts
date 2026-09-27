@@ -11,6 +11,7 @@ import {
 import type { BrainstormRooms } from "./brainstorm.js";
 import { CollaborationChat } from "./collaboration-chat.js";
 import type { CollaborationSpaces } from "./collaboration-spaces.js";
+import { ResultSnapshotLifetime } from "./result-snapshot-lifetime.js";
 import { readSharedFile, sharedAssetPath } from "./team-assets.js";
 import type { TeamProjects } from "./team-projects.js";
 
@@ -19,6 +20,7 @@ const missing = () =>
 export class Communication {
   readonly chat: CollaborationChat;
   readonly root: string;
+  readonly lifetime: ResultSnapshotLifetime;
   constructor(
     readonly team: TeamProjects,
     readonly rooms: BrainstormRooms,
@@ -63,6 +65,7 @@ export class Communication {
     );
     this.root = join(dirname(team.registry.path), "space-chat-files", "shared_result");
     mkdirSync(this.root, { recursive: true, mode: 0o700 });
+    this.lifetime = new ResultSnapshotLifetime(this);
     for (const kind of ["conversation", "space", "brainstorm"] as const) {
       this.destinationChat(kind).resultCards = (id, message) => this.cards(kind, id, message);
     }
@@ -229,34 +232,53 @@ export class Communication {
     const old = this.db
       .prepare("SELECT * FROM shared_result_files WHERE ownerId=? AND source=? AND sha256=?")
       .get(actor, identity, sha256);
-    if (old) {
+    if (old && !this.lifetime.removed(String(old.id))) {
       this.bytes(old);
       return this.snapshot(old);
     }
+    this.lifetime.sweep();
     if (
-      Number(this.db.prepare("SELECT coalesce(sum(bytes),0) n FROM shared_result_files").get()?.n) +
+      Number(
+        this.db
+          .prepare(
+            "SELECT coalesce(sum(f.bytes),0) n FROM shared_result_files f LEFT JOIN result_snapshot_lifetime l ON l.id=f.id WHERE l.removedAt IS NULL",
+          )
+          .get()?.n,
+      ) +
         file.data.length >
       1024 ** 3
     )
       throw new HubError(507, "SHARE_STORAGE_FULL", "Хранилище пересылок заполнено.");
-    const id = randomUUID();
+    const id = old ? String(old.id) : randomUUID();
     // biome-ignore lint/suspicious/noControlCharactersInRegex: download name only
     const name = file.name.replace(/[\u0000-\u001f\u007f/\\]/g, "_").slice(0, 180) || "Результат";
-    writeFileSync(sharedAssetPath(this.root, id), file.data, { flag: "wx", mode: 0o600 });
     try {
-      this.db
-        .prepare("INSERT INTO shared_result_files VALUES(?,?,?,?,?,?,?,?)")
-        .run(
-          id,
-          actor,
-          identity,
-          name,
-          file.mime.slice(0, 120),
-          file.data.length,
-          sha256,
-          Date.now(),
-        );
+      writeFileSync(sharedAssetPath(this.root, id), file.data, { flag: "wx", mode: 0o600 });
+    } catch (error) {
+      // Recover an interrupted explicit recapture after its bytes were written.
+      // Never overwrite a mismatching or untrusted file at the immutable ID.
+      if (!old || (error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      readSharedFile(this.root, { id, bytes: Number(old.bytes), sha256: String(old.sha256) });
+    }
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      if (!old)
+        this.db
+          .prepare("INSERT INTO shared_result_files VALUES(?,?,?,?,?,?,?,?)")
+          .run(
+            id,
+            actor,
+            identity,
+            name,
+            file.mime.slice(0, 120),
+            file.data.length,
+            sha256,
+            Date.now(),
+          );
+      this.lifetime.restore(id);
+      this.db.exec("COMMIT");
     } catch (e) {
+      this.db.exec("ROLLBACK");
       unlinkSync(sharedAssetPath(this.root, id));
       throw e;
     }
@@ -274,6 +296,7 @@ export class Communication {
     };
   }
   private bytes(r: Record<string, unknown>) {
+    this.lifetime.touch(String(r.id));
     return readSharedFile(this.root, {
       id: String(r.id),
       bytes: Number(r.bytes),
@@ -342,7 +365,9 @@ export class Communication {
     return row;
   }
   describe(actor: string, id: string) {
-    return this.snapshot(this.authorizedShare(actor, id));
+    const row = this.authorizedShare(actor, id);
+    this.lifetime.touch(String(row.id));
+    return this.snapshot(row);
   }
   read(actor: string, id: string) {
     const row = this.authorizedShare(actor, id);
@@ -364,6 +389,7 @@ export class Communication {
         .get(snapshotId, actor)
     )
       throw missing();
+    this.lifetime.touch(snapshotId);
     return this.db
       .prepare(
         "SELECT id,kind,destinationId,revoked,createdAt FROM result_share_grants WHERE snapshotId=? ORDER BY createdAt DESC",
@@ -376,7 +402,12 @@ export class Communication {
       !this.db.prepare("SELECT 1 FROM result_share_grants WHERE id=? AND ownerId=?").get(id, actor)
     )
       throw missing();
-    this.db.prepare("UPDATE result_share_grants SET revoked=1 WHERE id=?").run(id);
+    const row = this.db.prepare("SELECT snapshotId FROM result_share_grants WHERE id=?").get(id)!;
+    // Restart grace only on the first explicit revoke, not on receipt retries.
+    const changed = this.db
+      .prepare("UPDATE result_share_grants SET revoked=1 WHERE id=? AND revoked=0")
+      .run(id);
+    if (changed.changes) this.lifetime.touch(String(row.snapshotId));
     return { ok: true };
   }
 }

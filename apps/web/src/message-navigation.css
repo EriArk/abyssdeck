@@ -126,3 +126,23 @@
   outline-offset: -1px;
   border-radius: 6px;
 }
+
+/* Equal 36px visible surfaces with the same 44px vertical touch envelope. */
+:root .chat-status-row :is(.turn-status, .gpt-progress) {
+  height: 36px;
+  min-height: 36px;
+  margin-block: 4px;
+}
+:root .chat-status-row :is(.turn-status-toggle, .gpt-progress-toggle),
+:root .chat-status-row :is(.turn-status, .gpt-progress) > .icon-button {
+  position: relative;
+  height: 34px;
+  min-height: 34px;
+  padding-block: 0;
+}
+:root .chat-status-row :is(.turn-status-toggle, .gpt-progress-toggle)::after,
+:root .chat-status-row :is(.turn-status, .gpt-progress) > .icon-button::after {
+  content: "";
+  position: absolute;
+  inset: -5px 0;
+}
