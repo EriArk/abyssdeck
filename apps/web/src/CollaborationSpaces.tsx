@@ -58,6 +58,7 @@ export function SpaceBell({ spaces }: { spaces: SpacesController }) {
   const count =
     (workNotices.value?.items.length ?? 0) +
     conversations.items.reduce((n, c) => n + (c.muted ? 0 : c.unread), 0) +
+    conversations.invitations.length +
     spaces.catalog.invitations.length +
     spaces.catalog.spaces.reduce(
       (sum, s) =>
@@ -425,6 +426,7 @@ function SpaceWindowContent({
                 !!workNotices.value &&
                 !workNotices.value.items.some((notice) => !isGptNotice(notice)) &&
                 !conversations.items.some((c) => c.unread && !c.muted) &&
+                conversations.invitations.length === 0 &&
                 spaces.catalog.invitations.length === 0 &&
                 !spaces.catalog.spaces.some(
                   (s) =>

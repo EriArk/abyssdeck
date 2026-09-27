@@ -8,6 +8,14 @@ export type HumanConversation = {
   muted: boolean;
   updatedAt: number;
   preview?: string;
+  membersVersion?: number;
+  invitations?: { id: string; userId: string; name: string }[];
+};
+export type HumanGroupInvitation = {
+  id: string;
+  conversationId: string;
+  title: string;
+  ownerName: string;
 };
 export type SharedResultCard = {
   id: string;

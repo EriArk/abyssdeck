@@ -1,8 +1,9 @@
-import type { HumanConversation, TeamContact } from "@codex-web/shared";
+import type { HumanConversation, HumanGroupInvitation, TeamContact } from "@codex-web/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { pageWorkspace } from "./accountStorage";
 import { api, messageOf } from "./api";
+import { ConversationMembers, GroupInvitations } from "./ConversationMembers";
 import { Icon } from "./icons";
 import { durableKey } from "./ResultSharing";
 import { SpaceChat } from "./SpaceChat";
@@ -16,6 +17,7 @@ export const openHumanConversation = (id = "") =>
   window.dispatchEvent(new CustomEvent(openEvent, { detail: id }));
 export function useHumanConversations() {
   const [items, setItems] = useState<HumanConversation[]>([]),
+    [invitations, setInvitations] = useState<HumanGroupInvitation[]>([]),
     [error, setError] = useState(""),
     [ready, setReady] = useState(false);
   const active = useRef(true),
@@ -23,10 +25,13 @@ export function useHumanConversations() {
   const refresh = useCallback(() => {
     if (!pageWorkspace) return Promise.resolve();
     if (pending.current) return pending.current;
-    pending.current = api<{ items: HumanConversation[] }>("/team/conversations")
+    pending.current = api<{ items: HumanConversation[]; invitations?: HumanGroupInvitation[] }>(
+      "/team/conversations",
+    )
       .then((r) => {
         if (active.current) {
           setItems(r.items);
+          setInvitations(r.invitations ?? []);
           setReady(true);
           setError("");
         }
@@ -50,7 +55,7 @@ export function useHumanConversations() {
       clearInterval(timer);
     };
   }, [refresh]);
-  return { items, error, refresh, ready };
+  return { items, invitations, error, refresh, ready };
 }
 export function CommunicationLauncher() {
   const catalog = useHumanConversations(),
@@ -69,7 +74,10 @@ export function CommunicationLauncher() {
     return () => window.removeEventListener(openEvent, show);
   }, [catalog.refresh]);
   if (!pageWorkspace) return null;
-  const count = catalog.items.reduce((n, c) => n + (c.muted ? 0 : c.unread), 0);
+  const count = catalog.items.reduce(
+    (n, c) => n + (c.muted ? 0 : c.unread),
+    catalog.invitations.length,
+  );
   return (
     <>
       <button
@@ -88,9 +96,20 @@ export function CommunicationLauncher() {
   );
 }
 export function CommunicationNotices() {
-  const { items } = useHumanConversations();
+  const { items, invitations } = useHumanConversations();
   return (
     <>
+      {invitations.map((i) => (
+        <button
+          type="button"
+          className="space-card"
+          key={i.id}
+          onClick={() => openHumanConversation()}
+        >
+          <strong>{i.title}</strong>
+          <span>Приглашение в группу от {i.ownerName}</span>
+        </button>
+      ))}
       {items
         .filter((c) => c.unread && !c.muted)
         .map((c) => (
@@ -273,6 +292,11 @@ function CommunicationWindow({
                 onChange={(e) => setQuery(e.target.value)}
               />
               <div className="communication-rows">
+                <GroupInvitations
+                  items={catalog.invitations}
+                  refresh={catalog.refresh}
+                  select={select}
+                />
                 {chats.map((c) => (
                   <button
                     type="button"
@@ -444,54 +468,16 @@ function CommunicationWindow({
                 </button>
               </header>
               {settings && (
-                <div className="communication-settings">
-                  <p>{current.members.map((m) => m.name).join(", ")}</p>
-                  <div>
-                    <button
-                      type="button"
-                      className="secondary"
-                      aria-pressed={current.muted}
-                      disabled={busy}
-                      onClick={() => {
-                        setBusy(true);
-                        void api(`/team/conversations/${current.id}`, {
-                          method: "PUT",
-                          body: { muted: !current.muted },
-                        })
-                          .then(catalog.refresh)
-                          .catch((e) => setError(messageOf(e)))
-                          .finally(() => setBusy(false));
-                      }}
-                    >
-                      {current.muted ? "Включить уведомления" : "Без уведомлений"}
-                    </button>
-                    <button
-                      type="button"
-                      className="secondary"
-                      disabled={busy}
-                      onClick={() => {
-                        if (
-                          window.confirm(
-                            "Покинуть разговор? Доступ к сообщениям и материалам этого разговора будет закрыт.",
-                          )
-                        ) {
-                          setBusy(true);
-                          void api(`/team/conversations/${current.id}`, { method: "DELETE" })
-                            .then(() => {
-                              setVisited((old) => old.filter((id) => id !== current.id));
-                              setSelected("");
-                              setSettings(false);
-                              return catalog.refresh();
-                            })
-                            .catch((e) => setError(messageOf(e)))
-                            .finally(() => setBusy(false));
-                        }
-                      }}
-                    >
-                      Покинуть
-                    </button>
-                  </div>
-                </div>
+                <ConversationMembers
+                  conversation={current}
+                  refresh={catalog.refresh}
+                  onClose={() => setSettings(false)}
+                  onLeft={() => {
+                    setVisited((old) => old.filter((id) => id !== current.id));
+                    setSelected("");
+                    setSettings(false);
+                  }}
+                />
               )}
               {error && <p role="alert">{error}</p>}
             </>

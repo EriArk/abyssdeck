@@ -568,3 +568,131 @@
   grid-column: 1 / -1;
   overflow-wrap: anywhere;
 }
+
+:root[data-theme] dialog.conversation-members-window.workspace-window[open] {
+  width: min(560px, calc(100vw - 24px));
+  height: auto;
+  min-height: 0;
+  max-width: none;
+  max-height: calc(var(--app-height, 100dvh) - 24px);
+  top: calc(var(--app-top, 0px) + var(--app-height, 100dvh) / 2);
+  left: 0;
+  right: 0;
+  bottom: auto;
+  margin: 0 auto;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.conversation-members-window > .notebook-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.conversation-members-window > .notebook-heading > div {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+.conversation-members-window .notebook-heading small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.conversation-members-window .icon-button {
+  min-width: 44px;
+  min-height: 44px;
+  flex-shrink: 0;
+}
+.conversation-members-body {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 16px;
+  display: grid;
+  gap: 20px;
+  background: var(--window-screen);
+  color: var(--ink);
+  border: 1px solid var(--window-edge);
+  border-radius: 8px;
+  box-shadow: var(--window-screen-shadow);
+}
+.group-section-heading,
+.group-member-list > li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+.group-member-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+.group-member-list > li {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+.group-member-name {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  overflow-wrap: anywhere;
+}
+.group-member-name small,
+.group-invitation small {
+  color: var(--muted);
+}
+.group-member-controls {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.group-personal-settings,
+.group-add-member,
+.group-invitations,
+.group-invitation {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.group-invitations:empty {
+  display: none;
+}
+.group-invitation {
+  padding: 12px;
+  margin-bottom: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow-wrap: anywhere;
+}
+.group-add-member {
+  padding: 12px 0;
+}
+.group-add-member .team-contact-list {
+  max-height: 180px;
+  overflow: auto;
+}
+.group-invitation p,
+.group-add-member p,
+.group-personal-settings p {
+  font-size: 0.875em;
+  margin: 0;
+  color: var(--muted);
+}
+.group-action-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.group-action-pair button,
+.group-personal-settings button,
+.group-add-member > button {
+  min-width: 0;
+  min-height: 44px;
+  white-space: normal;
+}

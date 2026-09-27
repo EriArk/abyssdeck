@@ -29,6 +29,8 @@ export class Communication {
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS human_conversations(id TEXT PRIMARY KEY,ownerId TEXT NOT NULL REFERENCES team_users(id),title TEXT NOT NULL,dmKey TEXT UNIQUE,createdAt INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS human_members(conversationId TEXT NOT NULL REFERENCES human_conversations(id),userId TEXT NOT NULL REFERENCES team_users(id),active INTEGER NOT NULL DEFAULT 1,muted INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(conversationId,userId));
+      CREATE TABLE IF NOT EXISTS human_group_versions(conversationId TEXT PRIMARY KEY REFERENCES human_conversations(id),version INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS human_group_invitations(id TEXT NOT NULL UNIQUE,conversationId TEXT NOT NULL REFERENCES human_conversations(id),userId TEXT NOT NULL REFERENCES team_users(id),state TEXT NOT NULL,createdAt INTEGER NOT NULL,PRIMARY KEY(conversationId,userId));
       CREATE TABLE IF NOT EXISTS shared_result_files(id TEXT PRIMARY KEY,ownerId TEXT NOT NULL REFERENCES team_users(id),source TEXT NOT NULL,name TEXT NOT NULL,mime TEXT NOT NULL,bytes INTEGER NOT NULL,sha256 TEXT NOT NULL,createdAt INTEGER NOT NULL,UNIQUE(ownerId,source,sha256));
       CREATE TABLE IF NOT EXISTS result_share_grants(id TEXT PRIMARY KEY,snapshotId TEXT NOT NULL REFERENCES shared_result_files(id),ownerId TEXT NOT NULL REFERENCES team_users(id),kind TEXT NOT NULL,destinationId TEXT NOT NULL,messageId TEXT NOT NULL,revoked INTEGER NOT NULL DEFAULT 0,createdAt INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS result_ai_handoffs(id TEXT PRIMARY KEY,ownerId TEXT NOT NULL REFERENCES team_users(id),snapshotId TEXT NOT NULL REFERENCES shared_result_files(id),threadId TEXT NOT NULL,binding TEXT NOT NULL,dismissed INTEGER NOT NULL DEFAULT 0,createdAt INTEGER NOT NULL);
@@ -111,6 +113,16 @@ export class Communication {
             .join(", ") || "Личный разговор"
         : String(row.title),
       members,
+      membersVersion: this.membersVersion(id),
+      invitations:
+        !row.dmKey && row.ownerId === actor
+          ? this.db
+              .prepare(
+                `SELECT i.id,i.userId,u.name FROM human_group_invitations i JOIN team_users u ON u.id=i.userId WHERE i.conversationId=? AND i.state='pending' ORDER BY i.createdAt,i.id`,
+              )
+              .all(id)
+              .map((r) => ({ id: String(r.id), userId: String(r.userId), name: String(r.name) }))
+          : [],
       unread: this.chat.unread(actor, id),
       muted: !!this.db
         .prepare("SELECT muted FROM human_members WHERE conversationId=? AND userId=?")
@@ -201,11 +213,196 @@ export class Communication {
     return this.detail(actor, id);
   }
   leave(actor: string, id: string) {
-    this.access(actor, id);
+    return this.team.registry.transaction(() => {
+      const row = this.access(actor, id);
+      if (!row.dmKey && row.ownerId === actor && this.memberCount(id) > 1)
+        throw new HubError(
+          409,
+          "GROUP_OWNER_REQUIRED",
+          "Сначала передай группу другому участнику.",
+        );
+      this.db
+        .prepare("UPDATE human_members SET active=0 WHERE conversationId=? AND userId=?")
+        .run(id, actor);
+      this.bumpMembers(id);
+      if (!row.dmKey && row.ownerId === actor)
+        this.db
+          .prepare(
+            "UPDATE human_group_invitations SET state='revoked' WHERE conversationId=? AND state='pending'",
+          )
+          .run(id);
+      return { ok: true };
+    });
+  }
+  private membersVersion(id: string) {
+    return Number(
+      this.db.prepare("SELECT version FROM human_group_versions WHERE conversationId=?").get(id)
+        ?.version ?? 0,
+    );
+  }
+  private bumpMembers(id: string) {
     this.db
-      .prepare("UPDATE human_members SET active=0 WHERE conversationId=? AND userId=?")
-      .run(id, actor);
-    return { ok: true };
+      .prepare(
+        "INSERT INTO human_group_versions VALUES(?,1) ON CONFLICT(conversationId) DO UPDATE SET version=version+1",
+      )
+      .run(id);
+  }
+  private memberCount(id: string) {
+    return Number(
+      this.db
+        .prepare("SELECT count(*) n FROM human_members WHERE conversationId=? AND active=1")
+        .get(id)?.n,
+    );
+  }
+  private groupOwner(actor: string, id: string) {
+    const row = this.access(actor, id);
+    if (row.dmKey || row.ownerId !== actor)
+      throw new HubError(403, "GROUP_OWNER_ONLY", "Участниками управляет владелец группы.");
+  }
+  groupChange(
+    actor: string,
+    id: string,
+    key: string,
+    input: {
+      action: "invite" | "remove" | "transfer" | "revoke";
+      userId: string;
+      version: number;
+    },
+  ) {
+    this.access(actor, id);
+    return this.team.once(actor, "conversation.members", key, { id, ...input }, () => {
+      this.groupOwner(actor, id);
+      if (this.membersVersion(id) !== input.version)
+        throw new HubError(
+          409,
+          "GROUP_CHANGED",
+          "Состав группы изменился. Проверь обновлённый список.",
+        );
+      const target = this.db
+        .prepare("SELECT active FROM human_members WHERE conversationId=? AND userId=?")
+        .get(id, input.userId);
+      if (input.userId === actor)
+        throw new HubError(400, "GROUP_SELF", "Для себя используй выход из разговора.");
+      if (input.action === "invite") {
+        this.team.registry.active(input.userId);
+        if (target?.active)
+          throw new HubError(409, "GROUP_MEMBER_EXISTS", "Этот человек уже в группе.");
+        if (
+          this.db
+            .prepare(
+              "SELECT 1 FROM human_group_invitations WHERE conversationId=? AND userId=? AND state='pending'",
+            )
+            .get(id, input.userId)
+        )
+          throw new HubError(409, "GROUP_INVITATION_EXISTS", "Приглашение уже отправлено.");
+        const pending = Number(
+          this.db
+            .prepare(
+              "SELECT count(*) n FROM human_group_invitations WHERE conversationId=? AND state='pending'",
+            )
+            .get(id)?.n,
+        );
+        if (this.memberCount(id) + pending >= 8)
+          throw new HubError(
+            409,
+            "GROUP_FULL",
+            "В группе до 8 человек, включая ожидающие приглашения.",
+          );
+        this.db
+          .prepare(
+            "INSERT INTO human_group_invitations VALUES(?,?,?,'pending',?) ON CONFLICT(conversationId,userId) DO UPDATE SET id=excluded.id,state='pending',createdAt=excluded.createdAt",
+          )
+          .run(key, id, input.userId, Date.now());
+      } else if (input.action === "revoke") {
+        const changed = this.db
+          .prepare(
+            "UPDATE human_group_invitations SET state='revoked' WHERE conversationId=? AND userId=? AND state='pending'",
+          )
+          .run(id, input.userId);
+        if (!changed.changes) throw missing();
+      } else {
+        if (!target?.active) throw missing();
+        if (input.action === "transfer") {
+          this.team.registry.active(input.userId);
+          this.db
+            .prepare("UPDATE human_conversations SET ownerId=? WHERE id=?")
+            .run(input.userId, id);
+          // Invitations are issued by an owner; a successor makes their own decisions.
+          this.db
+            .prepare(
+              "UPDATE human_group_invitations SET state='revoked' WHERE conversationId=? AND state='pending'",
+            )
+            .run(id);
+        } else
+          this.db
+            .prepare("UPDATE human_members SET active=0 WHERE conversationId=? AND userId=?")
+            .run(id, input.userId);
+      }
+      this.bumpMembers(id);
+      return { ok: true };
+    });
+  }
+  invitations(actor: string) {
+    this.team.registry.active(actor);
+    return this.db
+      .prepare(`SELECT i.id,i.conversationId,c.title,u.name ownerName FROM human_group_invitations i
+      JOIN human_conversations c ON c.id=i.conversationId JOIN team_users u ON u.id=c.ownerId
+      JOIN human_members m ON m.conversationId=c.id AND m.userId=c.ownerId AND m.active=1
+      WHERE i.userId=? AND i.state='pending' AND u.state='active' ORDER BY i.createdAt DESC LIMIT 200`)
+      .all(actor)
+      .map((r) => ({
+        id: String(r.id),
+        conversationId: String(r.conversationId),
+        title: String(r.title),
+        ownerName: String(r.ownerName),
+      }));
+  }
+  answerInvitation(actor: string, invitationId: string, key: string, accept: boolean) {
+    this.team.registry.active(actor);
+    // Exact invitation epoch: old receipts cannot restore a removed membership.
+    const invitation = this.db
+      .prepare("SELECT * FROM human_group_invitations WHERE id=? AND userId=?")
+      .get(invitationId, actor);
+    if (!invitation) throw missing();
+    return this.team.once(
+      actor,
+      "conversation.invitation.answer",
+      key,
+      { invitationId, accept },
+      () => {
+        if (invitation.state !== "pending")
+          throw new HubError(
+            409,
+            "GROUP_INVITATION_CLOSED",
+            "Приглашение уже обработано или отозвано.",
+          );
+        const id = String(invitation.conversationId);
+        const row = this.db.prepare("SELECT ownerId FROM human_conversations WHERE id=?").get(id)!;
+        this.groupOwner(String(row.ownerId), id);
+        if (accept) {
+          if (this.memberCount(id) >= 8)
+            throw new HubError(409, "GROUP_FULL", "В группе уже 8 участников.");
+          if (
+            Number(
+              this.db
+                .prepare("SELECT count(*) n FROM human_members WHERE userId=? AND active=1")
+                .get(actor)?.n,
+            ) >= 200
+          )
+            throw new HubError(409, "CONVERSATION_LIMIT", "Достигнут лимит разговоров.");
+          this.db
+            .prepare(
+              "INSERT INTO human_members(conversationId,userId) VALUES(?,?) ON CONFLICT(conversationId,userId) DO UPDATE SET active=1",
+            )
+            .run(id, actor);
+        }
+        this.db
+          .prepare("UPDATE human_group_invitations SET state=? WHERE id=?")
+          .run(accept ? "accepted" : "declined", invitationId);
+        this.bumpMembers(id);
+        return { ok: true };
+      },
+    );
   }
   destinationChat(kind: ResultShareDestination["kind"]) {
     return kind === "conversation"

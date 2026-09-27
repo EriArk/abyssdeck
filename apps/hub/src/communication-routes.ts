@@ -33,7 +33,33 @@ export function registerCommunication(
     actor(req);
     return target;
   });
-  app.get("/api/team/conversations", (req) => ({ items: communication.list(actor(req)) }));
+  app.get("/api/team/conversations", (req) => ({
+    items: communication.list(actor(req)),
+    invitations: communication.invitations(actor(req)),
+  }));
+  app.post("/api/team/conversation-invitations/:id", write, (req) =>
+    communication.answerInvitation(
+      actor(req),
+      id(req),
+      key(req),
+      z.object({ accept: z.boolean() }).strict().parse(req.body).accept,
+    ),
+  );
+  app.post("/api/team/conversations/:id/members", write, (req) =>
+    communication.groupChange(
+      actor(req),
+      id(req),
+      key(req),
+      z
+        .object({
+          action: z.enum(["invite", "remove", "transfer", "revoke"]),
+          userId: uuid,
+          version: z.number().int().nonnegative(),
+        })
+        .strict()
+        .parse(req.body),
+    ),
+  );
   app.post("/api/team/conversations", write, (req) =>
     communication.create(
       actor(req),
