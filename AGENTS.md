@@ -1,5 +1,10 @@
 # AGENTS.md
 
+## Owner-requested chat reading controls (2026-09-27)
+
+- Previous/next selects one adjacent public chat message with a thin themed outline. Keep the viewport still while the selected message is visible; only reveal an offscreen edge when necessary. Preserve canonical pagination and never send from navigation. End clears selection and resumes following.
+- Place the small composer loading indicator above the attachment plus in the left input column in both clients. Reserve its space; never cover text or Send.
+
 ## Owner-requested automatic GPT recovery (2026-09-27)
 
 - Recover temporary connection/read failures automatically; do not leave a chat

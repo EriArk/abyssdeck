@@ -137,3 +137,11 @@ Message navigation is one compact three-key overlay within the reading viewport,
 above the composer; preserve exact message identity and canonical paged history.
 
 Owner correction, 27 September: message Previous/Next/End controls share the task-progress row on its right in Codex and GPT. Use compact 36px visible keys with 44px hit areas, no separate framed floating strip or reserved message-space gap. Truncate collapsed progress labels within the available width; expanded public details retain the full row width.
+
+Chat reading controls (27 September): previous/next selects one public message with
+an inset 1px themed outline; keep visible content stationary and reveal only the
+nearest offscreen edge. Oversized visible answers do not jump. End clears the
+selection and resumes following. Keep the loading ring in a reserved 18px slot
+above the 44px attachment button in the left composer column in both clients.
+Long embedded reference buttons are content: their labels must wrap, including
+unbroken names, without widening the message or its scroller.

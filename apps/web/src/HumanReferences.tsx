@@ -71,7 +71,7 @@ export function HumanReferenceLink({ href, children }: { href?: string; children
       <>
         <button
           type="button"
-          className="secondary"
+          className="secondary human-reference-link"
           onClick={() => {
             setError("");
             const verify = async () => {
@@ -106,7 +106,11 @@ export function HumanReferenceLink({ href, children }: { href?: string; children
   if (href && parseGitHubReference(href))
     return (
       <>
-        <button type="button" className="secondary" onClick={() => setOpen(true)}>
+        <button
+          type="button"
+          className="secondary human-reference-link"
+          onClick={() => setOpen(true)}
+        >
           {children}
         </button>
         {open && (

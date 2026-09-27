@@ -31,11 +31,19 @@ export function MessageNavigation(props: Props) {
     const index = items.findIndex((el) => el.getBoundingClientRect().bottom > line + 1);
     return index < 0 ? items.length - 1 : index;
   };
+  const mark = (items = elements()) => {
+    for (const el of items) {
+      if (target.current && el.dataset.chatMessage === target.current)
+        el.dataset.navigationSelected = "true";
+      else delete el.dataset.navigationSelected;
+    }
+  };
   const refresh = () => {
     const p = current.current,
       root = p.scroller.current,
       items = elements(),
       index = position(items);
+    mark(items);
     const next = {
       previous: index > 0 || p.hasOlder,
       next: index >= 0 && index < items.length - 1,
@@ -84,6 +92,9 @@ export function MessageNavigation(props: Props) {
     resize.observe(root);
     refresh();
     return () => {
+      target.current = "";
+      mark();
+      delete root.dataset.messageNavigation;
       cancelAnimationFrame(scheduled);
       observer.disconnect();
       resize.disconnect();
@@ -133,7 +144,18 @@ export function MessageNavigation(props: Props) {
       const el = items[index + direction];
       if (!el) return;
       target.current = el.dataset.chatMessage ?? "";
-      root.scrollTop += el.getBoundingClientRect().top - root.getBoundingClientRect().top - 16;
+      mark(items);
+      const viewport = root.getBoundingClientRect(),
+        bounds = el.getBoundingClientRect(),
+        top = viewport.top + 8,
+        bottom = viewport.bottom - 8;
+      // Keep visible messages still. Oversized answers stay put while any part
+      // remains visible; entering one from outside reveals its nearest edge.
+      if (bounds.height > bottom - top) {
+        if (bounds.top >= bottom) root.scrollTop += bounds.top - top;
+        else if (bounds.bottom <= top) root.scrollTop += bounds.bottom - bottom;
+      } else if (bounds.top < top) root.scrollTop += bounds.top - top;
+      else if (bounds.bottom > bottom) root.scrollTop += bounds.bottom - bottom;
     } catch {
       /* Existing canonical history feedback owns failures; a tap can try again. */
     } finally {

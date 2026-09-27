@@ -111,3 +111,18 @@
 .chat-reading-area .message-body :is(h1, h2, h3, h4, h5, h6, p, a) {
   overflow-wrap: anywhere;
 }
+
+/* Reference titles are message content, including long GitHub issue names. */
+.human-reference-link.secondary {
+  display: inline-block;
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: start;
+}
+.chat-reading-area [data-chat-message][data-navigation-selected] {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+  border-radius: 6px;
+}

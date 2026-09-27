@@ -55,7 +55,17 @@
   color: var(--muted);
 }
 
-/* Shared project navigation and creation. */
+.composer-tools {
+  display: grid;
+  grid-template-columns: 44px;
+  align-self: end;
+  gap: 0;
+}
+/* Reserve the left loading slot so send preparation never shifts the field. */
+.composer-loading-slot {
+  width: 44px;
+  height: 18px;
+}
 .composer-loading {
   display: flex;
   flex: none;

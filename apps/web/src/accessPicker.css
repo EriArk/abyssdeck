@@ -1,9 +1,3 @@
-.composer-tools {
-  display: grid;
-  grid-template-columns: 44px;
-  align-self: end;
-  gap: 0;
-}
 .composer .composer-input textarea {
   align-self: stretch;
   min-height: 88px;

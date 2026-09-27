@@ -965,11 +965,6 @@ export function Chat({
               {attachments.busy ? attachments.progress || "Загружаем вложение…" : attachments.error}
             </div>
           )}
-          {(state.loading || options.loading || sending || queue.busy) && (
-            <div className="composer-loading" role="status" aria-label="Загрузка чата Codex">
-              <span className="spinner" aria-hidden="true" />
-            </div>
-          )}
           <div className="composer-input">
             <input
               ref={fileInput}
@@ -984,6 +979,13 @@ export function Chat({
               }}
             />
             <div className="composer-tools">
+              <div className="composer-loading-slot">
+                {(state.loading || options.loading || sending || queue.busy) && (
+                  <div className="composer-loading" role="status" aria-label="Загрузка чата Codex">
+                    <span className="spinner" aria-hidden="true" />
+                  </div>
+                )}
+              </div>
               <button
                 type="button"
                 className="icon-button attach-button"

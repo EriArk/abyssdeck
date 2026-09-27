@@ -18,7 +18,9 @@ const text =
   "\n```\n\n" +
   "[Very long reference](https://example.org/" +
   "a".repeat(250) +
-  ")";
+  ")\n\n[Master research knowledge base and mandatory Codex workflow](https://github.com/example/project/issues/123)\n\n[" +
+  "LongUnbrokenIssueTitle".repeat(15) +
+  "](https://github.com/example/project/pull/124)";
 f.sessions.catalog.history = async (t) => ({ ...f.store.history(t.id), nextBefore: null });
 f.store.db.prepare("UPDATE threads SET origin='web' WHERE id=?").run(f.thread.id);
 f.store.append(

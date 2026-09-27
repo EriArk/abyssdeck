@@ -2245,21 +2245,29 @@ export function GptWorkspace({
                   {uploadProgress}
                 </div>
               )}
-              {(preparingSend || busy) && (
-                <div className="composer-loading" role="status" aria-label="Загрузка чата GPT">
-                  <span className="spinner" aria-hidden="true" />
-                </div>
-              )}
               <div className="gpt-input-row">
-                <button
-                  type="button"
-                  className="icon-button"
-                  disabled={uploading}
-                  aria-label="Добавить файлы"
-                  onClick={() => input.current?.click()}
-                >
-                  {uploading ? <span className="spinner" /> : <Icon name="plus" />}
-                </button>
+                <div className="composer-tools">
+                  <div className="composer-loading-slot">
+                    {(preparingSend || busy) && (
+                      <div
+                        className="composer-loading"
+                        role="status"
+                        aria-label="Загрузка чата GPT"
+                      >
+                        <span className="spinner" aria-hidden="true" />
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className="icon-button"
+                    disabled={uploading}
+                    aria-label="Добавить файлы"
+                    onClick={() => input.current?.click()}
+                  >
+                    {uploading ? <span className="spinner" /> : <Icon name="plus" />}
+                  </button>
+                </div>
                 <AutoTextarea
                   ref={composer}
                   aria-label="Сообщение GPT"

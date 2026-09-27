@@ -27,7 +27,9 @@ const message = (n) => ({
   role: n % 2 ? "assistant" : "user",
   phase: "final_answer",
   complete: true,
-  text: `Сообщение ${n}\n\n` + "Длинная строка для проверки читаемости и переходов. ".repeat(12),
+  text:
+    `Сообщение ${n}\n\n` +
+    "Длинная строка для проверки читаемости и переходов. ".repeat(n >= 4 ? 1 : 12),
   files: [],
   createdAt: "2026-09-27T00:00:00Z",
   turnId: "turn" + n,
@@ -128,9 +130,43 @@ try {
       },
     });
   });
+  let releaseCapabilities;
+  await page.route("**/api/projects/*/capabilities", async (route) => {
+    await new Promise((resolve) => {
+      releaseCapabilities = resolve;
+    });
+    return route.fallback();
+  });
   await page.goto(origin);
   const composer = page.getByRole("textbox", { name: "Сообщение Codex" });
   await composer.fill("Сохранить этот черновик\nвторая строка");
+  const loading = page.locator(".composer-tools .composer-loading .spinner");
+  await expect(loading).toBeVisible();
+  for (const theme of ["crt-green", "organizer", "hitech-2000s", "classic-dark"]) {
+    await page.evaluate((t) => (document.documentElement.dataset.theme = t), theme);
+    const ring = await loading.boundingBox(),
+      plus = await page.locator(".composer-tools .attach-button").boundingBox(),
+      field = await composer.boundingBox();
+    assert(ring.y + ring.height <= plus.y);
+    assert(Math.abs(ring.x + ring.width / 2 - plus.x - plus.width / 2) < 1);
+    assert(ring.x + ring.width <= field.x);
+    await page.screenshot({ path: `.local/qa-comfort/${engine}-codex-loading-${theme}.png` });
+  }
+  const toolsHeight = await page.locator(".composer-tools").evaluate((el) => el.clientHeight);
+  await expect.poll(() => !!releaseCapabilities).toBe(true);
+  releaseCapabilities();
+  await expect(loading).toHaveCount(0);
+  assert.equal(
+    await page
+      .locator(".composer-tools")
+      .evaluate(
+        (el) =>
+          el.clientHeight -
+          (el.querySelector(".access-picker")?.getBoundingClientRect().height ?? 0),
+      ),
+    toolsHeight,
+  );
+  await page.evaluate(() => (document.documentElement.dataset.theme = "crt-green"));
   await composer.blur();
   const nav = page.locator(".chat-pane .message-navigation");
   const align = async (scope, id) =>
@@ -156,18 +192,55 @@ try {
           ),
       )
       .toBeLessThanOrEqual(2);
+  const selected = async (scope, id) => {
+    const item = page.locator(`${scope} [data-chat-message="${id}"]`);
+    await expect(item).toHaveAttribute("data-navigation-selected", "true");
+    await expect(page.locator(`${scope} [data-navigation-selected]`)).toHaveCount(1);
+    await expect(item).toHaveCSS("outline-width", "1px");
+    assert(
+      await item.evaluate((el) => {
+        const r = el.closest(".chat-scroll,.gpt-message-scroll").getBoundingClientRect();
+        const b = el.getBoundingClientRect();
+        return b.bottom > r.top && b.top < r.bottom;
+      }),
+      "selected message is visible without forced top alignment",
+    );
+  };
+  const visibleSteps = async (scope, nav) => {
+    for (const id of ["m4", "m5"]) {
+      await nav.getByRole("button", { name: "Следующее сообщение" }).click();
+      await selected(scope, id);
+    }
+    const top = await page.locator(scope).evaluate((el) => el.scrollTop);
+    await nav.getByRole("button", { name: "Предыдущее сообщение" }).click();
+    await selected(scope, "m4");
+    assert.equal(
+      await page.locator(scope).evaluate((el) => el.scrollTop),
+      top,
+      "visible previous stays still",
+    );
+    await nav.getByRole("button", { name: "Следующее сообщение" }).click();
+    await selected(scope, "m5");
+    assert.equal(
+      await page.locator(scope).evaluate((el) => el.scrollTop),
+      top,
+      "visible next stays still",
+    );
+  };
   await expect(page.locator('[data-chat-message="m3"]')).toBeVisible();
   await align(".chat-scroll", "m3");
   await nav.getByRole("button", { name: "Предыдущее сообщение" }).click();
-  await at(".chat-scroll", "m2");
+  await selected(".chat-scroll", "m2");
   await nav.getByRole("button", { name: "Предыдущее сообщение" }).click();
-  await at(".chat-scroll", "m1");
+  await selected(".chat-scroll", "m1");
   assert.equal(olderCodex, 1);
   await nav.getByRole("button", { name: "Следующее сообщение" }).click();
-  await at(".chat-scroll", "m2");
+  await selected(".chat-scroll", "m2");
   await nav.getByRole("button", { name: "Следующее сообщение" }).click();
-  await at(".chat-scroll", "m3");
+  await selected(".chat-scroll", "m3");
+  await visibleSteps(".chat-scroll", nav);
   await nav.getByRole("button", { name: "В конец чата" }).click();
+  await expect(page.locator(".chat-scroll [data-navigation-selected]")).toHaveCount(0);
   await expect
     .poll(() =>
       page
@@ -277,6 +350,13 @@ try {
         [1366, 1024],
       ]) {
         await page.setViewportSize({ width, height });
+        await expect
+          .poll(async () => {
+            const a = await row.locator(".message-navigation button").first().boundingBox();
+            const b = await progress.boundingBox();
+            return a && b ? Math.abs(a.y - b.y) : Infinity;
+          })
+          .toBeLessThan(10);
         const key = await row.locator(".message-navigation button").first().boundingBox(),
           status = await progress.boundingBox();
         assert(
@@ -329,10 +409,13 @@ try {
   await at(".gpt-message-scroll", "m2");
   const gnav = page.locator(".gpt-chat .message-navigation");
   await gnav.getByRole("button", { name: "Предыдущее сообщение" }).click();
-  await at(".gpt-message-scroll", "m1");
+  await selected(".gpt-message-scroll", "m1");
   assert.equal(olderGpt, 1);
   await gnav.getByRole("button", { name: "Следующее сообщение" }).click();
-  await at(".gpt-message-scroll", "m2");
+  await selected(".gpt-message-scroll", "m2");
+  await gnav.getByRole("button", { name: "Следующее сообщение" }).click();
+  await selected(".gpt-message-scroll", "m3");
+  await visibleSteps(".gpt-message-scroll", gnav);
   await expect(page.getByRole("button", { name: "Ход ответа GPT", exact: true })).toBeVisible();
   await inspectRow(
     page.locator(".gpt-status-row"),

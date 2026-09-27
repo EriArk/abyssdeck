@@ -155,7 +155,12 @@ try {
       await expect(loading).toBeVisible();
       const ring = await loading.boundingBox(),
         field = await editor.boundingBox();
-      assert(ring.y + ring.height <= field.y, "loading ring is above, not over the input");
+      const plus = await page
+        .getByRole("button", { name: "Добавить файлы", exact: true })
+        .boundingBox();
+      assert(ring.y + ring.height <= plus.y, "loading ring is above attachment button");
+      assert(Math.abs(ring.x + ring.width / 2 - plus.x - plus.width / 2) < 1);
+      assert(ring.x + ring.width <= field.x, "loading ring stays left of the text");
       assert(
         await loading.evaluate(
           (el) =>
@@ -163,6 +168,10 @@ try {
             parseFloat(getComputedStyle(el).height) <= 14,
         ),
       );
+      for (const theme of ["crt-green", "organizer", "hitech-2000s", "classic-dark"]) {
+        await page.evaluate((t) => (document.documentElement.dataset.theme = t), theme);
+        await page.screenshot({ path: `.local/qa-gpt-send-ready/${name}-loading-${theme}.png` });
+      }
       await page
         .locator(".gpt-composer")
         .evaluate((form) =>

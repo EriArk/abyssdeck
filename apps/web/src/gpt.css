@@ -119,11 +119,14 @@
 .gpt-composer:focus-within {
   border-color: var(--accent);
 }
-.gpt-input-row > button {
+.gpt-input-row > .composer-tools {
+  flex: none;
+  margin-bottom: 4px;
+}
+.gpt-input-row > .composer-tools > button {
   flex: none;
   min-width: 44px;
   height: 44px;
-  margin-bottom: 4px;
 }
 .gpt-input-row > button[type="submit"] {
   border-radius: 9px;
