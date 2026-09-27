@@ -12,6 +12,8 @@ Follow-up 27 September: [personal scale, message navigation and directed GitHub 
 
 > Follow-up: [exact Windows file launch](FILE_LAUNCH_2026-09-27.md) implements #180 through Results and Files, with installed interactive-helper verification, immutable source checks and durable non-replayed receipts. Historical rows below retain the original audit assessment.
 
+> Follow-up, 2026-09-27: [#166 current native Computer Use recheck](COMPUTER_USE_DIAGNOSIS.md) reproduces the missing desktop-owned pipe with current runtime paths, through the installed Companion and a fresh official skill call. Native Computer Use remains unavailable in that standalone session; this is a supported-host integration dependency, not a completed fix or another runtime-path repair pass.
+
 ## Снимок и границы проверки
 
 Репозиторий: `EriArk/codex-web-interface`. Получены **129 issues: 74 открытых и 55 закрытых**, включая описания и комментарии. Pull requests в это число не входят. Сопоставлены требования/acceptance, последующие решения владельца в `AGENTS.md`, текущий код, тестовые сценарии и записи предыдущей проверки. База исходников: **`main` / `44b700a`**; этот документ — результат анализа, не выпуск исправлений.
