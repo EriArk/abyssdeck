@@ -157,3 +157,40 @@ Physical iPhone/iPad acceptance remains pending.
 This is a coordinated Hub/web/native-adapter release; the Windows helper contracts
 are unchanged. Activation follows ordinary maintenance and is recorded below.
 The owner's explicitly deferred paused send was not inspected or reconciled.
+
+
+### P1 release handoff
+
+Release `338ef6a` is committed and pushed to `main`. All **127** focused tests
+pass. The operation, native-project and native-library browser suites pass in
+both Chromium and WebKit. The clean release passes repository checks, both
+TypeScript checks, production build and isolated production-image smoke.
+
+The published web manifest is
+`968ab5729414e444e83ebc74fc38cff125f870e97c77668e98fd358ab0177349`.
+At the handoff, engine `788d09e` remains installed; ordinary maintenance reports
+`waiting` for `338ef6a` through `codex-web-mutations-338ef6a.service`. Its admission
+check returned `idle: false`. No forced update was requested.
+
+Both exact-source native images are built and their adapter hashes verified:
+`26.915.31945-mutations-owner-338ef6a` and
+`26.915.31945-mutations-member-338ef6a`. They are **not activated**. The owner's
+installed adapter remains `26.915.31945-audit-e744924`; it can therefore retain
+its previous conservative mutation restrictions even after Hub activation.
+Complete installed acceptance requires the coordinated native upgrade during a
+safe idle window, with the existing profiles and receipts preserved. The Hub
+updater does not implicitly replace those native containers.
+
+Evidence is stored in the private Linux lab: `mutation-verification.json`,
+`mutation-native-images.json`, `mutation-all-tests.log`, the three
+`mutation-*-browser.log` files and `mutation-image-smoke.log`. Earlier team
+checkpoint/rollback evidence was retained because that infrastructure and schema
+are unchanged; it is not presented as a newly repeated test. Windows helper
+contracts are unchanged. The deferred paused send was not inspected, reconciled
+or replayed. Physical iPhone/iPad acceptance remains pending owner use.
+
+Next proposed functional packet remains Result forwarding into Work/Intake and
+multi-file HTML previews (#213), reasoning High (`high`), after owner continuation.
+Before that packet, read the installed release status and finish native activation
+only if ordinary maintenance conditions allow it; never consume or clear an
+uncertain send to obtain an idle state.
