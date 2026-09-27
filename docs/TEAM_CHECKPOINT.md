@@ -1,5 +1,7 @@
 # Checkpoint at the end of the long team pass — 2026-09-13
 
+> Historical record. Current remaining work and installed status: [CURRENT_STATUS.md](CURRENT_STATUS.md). Old next-stage proposals are not the active queue.
+
 The owner asked to finish this pass and continue in short sessions. Code is on `feat/team-workspaces`; checked stages are committed and pushed. This document is the restart point, not a claim that every team acceptance gate is complete.
 
 ## Enabled-Team maintenance tooling verified — 2026-09-13

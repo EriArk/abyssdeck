@@ -1,5 +1,7 @@
 # Аудит всех GitHub issues — 26 сентября 2026
 
+> Historical record. Current remaining work and installed status: [CURRENT_STATUS.md](CURRENT_STATUS.md). Old next-stage proposals are not the active queue.
+
 > Follow-up 2026-09-27: #213 Work/Intake attachment handoffs and frozen local HTML
 > dependencies shipped in `1ed3c98`; unreferenced copy reclamation shipped in
 > `2221c43`. See [current sharing behavior](COMMUNICATION.md) and

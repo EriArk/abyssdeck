@@ -1,5 +1,9 @@
 # AGENTS.md
 
+## Current work tracking
+
+- Before proposing a stage, reconcile recent commits with `docs/CURRENT_STATUS.md` and actual installed versions. Historical next-stage proposals are not the active queue. Do not offer implemented work again; distinguish source completion, activation and acceptance.
+
 ## Owner-requested native pins and message stepping (2026-09-27)
 
 - GPT pins preserve native order independently of recent activity. Project-bound
