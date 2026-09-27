@@ -252,6 +252,14 @@ export class GptService {
             connectUrl: "/gpt-connect?runtime=native" as const,
           }))
         : normalizeGptConnection(raw, this.available());
+      if (this.native && this.compatibilityFailure && value.state === "healthy") {
+        try {
+          if (!this.modelsPending) this.modelCache = undefined;
+          await this.models();
+        } catch {
+          // Keep the gate until model validation succeeds; this is only a read.
+        }
+      }
       this.connectionCache = { value, until: Date.now() + 5000 };
     }
     const activeJobs = Number(
@@ -290,7 +298,8 @@ export class GptService {
     };
   }
   async reconnect(): Promise<GptConnection> {
-    if (this.working || this.libraryBusy || this.nativeBlocked()) return this.connection();
+    if (!this.native && (this.working || this.libraryBusy || this.nativeBlocked()))
+      return this.connection();
     this.compatibilityFailure = false;
     this.modelCache = undefined;
     const state = await this.connection(true);
@@ -906,6 +915,9 @@ export class GptService {
       })
       .parse(data);
     this.modelCache = { value, expires: Date.now() + 15 * 60000 };
+    // A fresh validated catalog is authoritative recovery evidence. Never replay
+    // a send or remove its receipt just because account reads work again.
+    if (this.native) this.compatibilityFailure = false;
     return value;
   }
   private liveRead?: {

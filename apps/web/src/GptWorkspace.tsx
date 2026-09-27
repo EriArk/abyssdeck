@@ -234,9 +234,46 @@ export function GptWorkspace({
 }) {
   const [overviewProject, setOverviewProject] = useState<GptProject | null>(null);
   const connectionRequest = useRef(0);
+  const [connectionError, setConnectionError] = useState("");
+  const connectionRead = useRef<Promise<GptConnection> | null>(null);
+  const connectionAbort = useRef<AbortController | null>(null);
+  const readConnection = useCallback(() => {
+    if (connectionRead.current) return connectionRead.current;
+    const request = ++connectionRequest.current;
+    const controller = new AbortController();
+    connectionAbort.current = controller;
+    const task = api<GptConnection>("/gpt/status", { signal: controller.signal })
+      .then((next) => {
+        if (request === connectionRequest.current && !controller.signal.aborted) {
+          setConnection(next);
+          setReady(next.canSend);
+          if (next.state === "healthy") setConnectionError("");
+        }
+        return next;
+      })
+      .finally(() => {
+        if (connectionRead.current === task) {
+          connectionRead.current = null;
+          connectionAbort.current = null;
+        }
+      });
+    connectionRead.current = task;
+    return task;
+  }, []);
+  useEffect(
+    () => () => {
+      connectionRequest.current++;
+      connectionAbort.current?.abort();
+      connectionRead.current = null;
+    },
+    [],
+  );
   const [connection, setConnection] = useState<GptConnection | null>(null);
   const [checkingConnection, setCheckingConnection] = useState(false);
   const checkConnection = async () => {
+    if (checkingConnection) return;
+    connectionAbort.current?.abort();
+    connectionRead.current = null;
     setCheckingConnection(true);
     const request = ++connectionRequest.current;
     try {
@@ -244,6 +281,7 @@ export function GptWorkspace({
       if (request === connectionRequest.current) {
         setConnection(next);
         setReady(next.canSend);
+        if (next.state === "healthy") setConnectionError("");
       }
       if (next.canSend) {
         const catalog = await api<GptModels>("/gpt/models");
@@ -257,7 +295,7 @@ export function GptWorkspace({
         gptCache.models = catalog;
       }
     } catch (e) {
-      setNotice(messageOf(e));
+      setConnectionError(messageOf(e));
     } finally {
       setCheckingConnection(false);
     }
@@ -462,13 +500,8 @@ export function GptWorkspace({
         (error: unknown) => error,
       );
       try {
-        const request = ++connectionRequest.current;
-        const status = await api<GptConnection>("/gpt/status");
+        const status = await readConnection();
         if (disposed) return;
-        if (request === connectionRequest.current) {
-          setConnection(status);
-          setReady(status.canSend);
-        }
         if (!status.configured) {
           setLoadNotice("Подключение GPT ещё не настроено.");
           return;
@@ -502,7 +535,7 @@ export function GptWorkspace({
       disposed = true;
       clearTimeout(retry);
     };
-  }, [catalog]);
+  }, [catalog, readConnection]);
   const projectEmbedded = !!projectChat;
   useLayoutEffect(() => {
     try {
@@ -615,14 +648,9 @@ export function GptWorkspace({
     let disposed = false;
     const refresh = async () => {
       if (document.visibilityState !== "visible") return;
-      const request = ++connectionRequest.current;
       try {
-        const next = await api<GptConnection>("/gpt/status");
-        if (!disposed && request === connectionRequest.current) {
-          setConnection(next);
-          setReady(next.canSend);
-          return next;
-        }
+        const next = await readConnection();
+        if (!disposed) return next;
       } catch {
         /* Current drafts remain editable through a transient Hub outage. */
       }
@@ -644,13 +672,17 @@ export function GptWorkspace({
     const interval = setInterval(() => void refresh(), 10000);
     window.addEventListener(gptSettingsChanged, changed);
     document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("online", refresh);
+    window.addEventListener("pageshow", refresh);
     return () => {
       disposed = true;
       clearInterval(interval);
+      window.removeEventListener("online", refresh);
+      window.removeEventListener("pageshow", refresh);
       window.removeEventListener(gptSettingsChanged, changed);
       document.removeEventListener("visibilitychange", refresh);
     };
-  }, []);
+  }, [readConnection]);
   useEffect(() => {
     let disposed = false;
     let retry: ReturnType<typeof setTimeout>;
@@ -1707,9 +1739,9 @@ export function GptWorkspace({
           </button>
         </header>
       )}
-      {(notice || loadNotice) && (
+      {(notice || loadNotice || connectionError) && (
         <div className="global-notice" role="status">
-          <span>{notice || loadNotice}</span>
+          <span>{notice || loadNotice || connectionError}</span>
           <button
             type="button"
             className="icon-button"
@@ -1717,6 +1749,7 @@ export function GptWorkspace({
             onClick={() => {
               setNotice("");
               setLoadNotice("");
+              setConnectionError("");
             }}
           >
             <Icon name="close" />

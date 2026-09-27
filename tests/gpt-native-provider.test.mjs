@@ -495,3 +495,30 @@ test("preparation recovery is bounded and never retries account or settings erro
   assert.equal(service.job(key).status, "failed");
   assert.equal(f.state.sends, 0);
 });
+
+test("native connection recovers automatically from a transient catalog failure without replaying receipts", async (t) => {
+  const f = setup(t),
+    service = f.open(),
+    key = randomUUID();
+  await service.close(); // isolate health reads from the ordinary job scheduler
+  f.store.db
+    .prepare("INSERT INTO gpt_native_library VALUES(?,'thread',?,?,'unknown')")
+    .run(key, f.conversationId, JSON.stringify({ action: "rename", name: "Pending" }));
+  const before = f.store.db.prepare("SELECT * FROM gpt_native_library WHERE key=?").get(key);
+  const models = f.client.models;
+  let broken = true;
+  f.client.models = async () => {
+    if (broken) throw Error("NATIVE_BUSY");
+    return models();
+  };
+  service.compatibilityFailure = true;
+  assert.equal((await service.connection(true)).canSend, false);
+  broken = false;
+  assert.equal((await service.connection(true)).state, "healthy");
+  assert.equal((await service.connection()).canSend, true);
+  assert.equal(f.state.sends, 0);
+  assert.deepEqual(
+    f.store.db.prepare("SELECT * FROM gpt_native_library WHERE key=?").get(key),
+    before,
+  );
+});

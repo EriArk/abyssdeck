@@ -1,5 +1,16 @@
 # AGENTS.md
 
+## Owner-requested automatic GPT recovery (2026-09-27)
+
+- Recover temporary connection/read failures automatically; do not leave a chat
+  permanently labelled broken after the connection becomes healthy. Coalesce
+  status probes so slow responses cannot be starved by the next polling tick.
+- Revalidate on visibility, page restoration and network recovery. Preserve
+  drafts, exact uncertain receipts and the three-failure dispatch cap. Health
+  recovery never replays a send, clears a receipt or restarts a native response.
+- Long text/code inside chat messages wraps within its pane in both clients;
+  a message must never create horizontal scrolling for the entire chat.
+
 ## Owner-requested internal notifications (2026-09-27)
 
 - The workspace bell is for internal events: messages, invitations, shared access and discussions, completed work and plans. It must not poll GitHub or wait for machine connectivity.

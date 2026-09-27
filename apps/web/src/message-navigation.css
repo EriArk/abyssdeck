@@ -3,12 +3,16 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
+  width: 100%;
   flex: 1;
   overflow: hidden;
 }
 .chat-reading-area > :is(.chat-scroll, .gpt-message-scroll) {
   flex: 1;
   min-height: 0;
+  min-width: 0;
+  width: 100%;
 }
 .chat-status-row {
   display: grid;
@@ -93,4 +97,17 @@
 }
 .gpt-status-row .gpt-progress-toggle > svg:not(:last-child) {
   display: none;
+}
+
+/* Long markdown belongs to its message, never to the whole scroll viewport. */
+.chat-reading-area :is(.message, .message-body, .copyable-block, .code-disclosure) {
+  min-width: 0;
+  max-width: 100%;
+}
+.chat-reading-area .message-body :is(pre, code) {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.chat-reading-area .message-body :is(h1, h2, h3, h4, h5, h6, p, a) {
+  overflow-wrap: anywhere;
 }
