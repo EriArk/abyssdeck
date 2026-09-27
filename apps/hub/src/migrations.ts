@@ -351,6 +351,15 @@ export const migrations: readonly Migration[] = [
       `);
     },
   },
+  {
+    version: 29,
+    name: "persistent-codex-runtime-bindings",
+    up(db) {
+      db.exec(
+        "CREATE TABLE codex_runtime_bindings(machineId TEXT PRIMARY KEY,binding TEXT NOT NULL,capability TEXT NOT NULL,instanceId TEXT,accountHash TEXT)",
+      );
+    },
+  },
 ];
 export const SCHEMA_VERSION = migrations.at(-1)?.version ?? 0;
 

@@ -17,6 +17,7 @@ import { pageWorkspace, accountLocalStorage as storage } from "./accountStorage"
 import { api } from "./api";
 import { CollapsibleCode } from "./CollapsibleCode";
 import { CopyButton } from "./CopyButton";
+import { HumanReferenceLink } from "./HumanReferences";
 import { Icon } from "./icons";
 import { MarkdownTable } from "./MarkdownTable";
 import { SharedExecutionPanel } from "./SharedExecution";
@@ -60,11 +61,7 @@ const markdown = (text: string) => (
       pre: CollapsibleCode,
       table: MarkdownTable,
       img: ({ alt }) => <span>{alt || "Изображение"}</span>,
-      a: ({ href, children }) => (
-        <a href={href} target="_blank" rel="noopener noreferrer">
-          {children}
-        </a>
-      ),
+      a: ({ href, children }) => <HumanReferenceLink href={href}>{children}</HumanReferenceLink>,
     }}
   >
     {text}

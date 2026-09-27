@@ -1,8 +1,9 @@
-import type { ProjectScope } from "@codex-web/shared";
-import { type ReactNode, useRef, useState } from "react";
+import { type ProjectScope, parseGitHubReference } from "@codex-web/shared";
+import { type ReactNode, useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { type ActivitySourceTarget, ActivitySourceWindow } from "./ActivitySourceWindow";
 import { api, messageOf } from "./api";
+import { GitHubLinkContext } from "./GitHubLinkContext";
 import { Icon } from "./icons";
 import { PersonalProjectPicker } from "./SharedPublication";
 import { useSharedResource } from "./sharedResources";
@@ -60,6 +61,7 @@ function ReferenceChoices({ onChoose }: { onChoose: (text: string) => void }) {
   );
 }
 export function HumanReferenceLink({ href, children }: { href?: string; children: ReactNode }) {
+  const projectId = useContext(GitHubLinkContext);
   const [open, setOpen] = useState(false),
     [error, setError] = useState("");
   const room = href?.match(/^\/#room=([a-f0-9-]{36})$/),
@@ -101,13 +103,15 @@ export function HumanReferenceLink({ href, children }: { href?: string; children
         {error && <span role="alert">{error}</span>}
       </>
     );
-  if (href && /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/(?:issues|pull)\/[1-9]\d*$/.test(href))
+  if (href && parseGitHubReference(href))
     return (
       <>
         <button type="button" className="secondary" onClick={() => setOpen(true)}>
           {children}
         </button>
-        {open && <GitHubReference url={href} onClose={() => setOpen(false)} />}
+        {open && (
+          <GitHubReference url={href} projectId={projectId} onClose={() => setOpen(false)} />
+        )}
       </>
     );
   return (
@@ -116,13 +120,43 @@ export function HumanReferenceLink({ href, children }: { href?: string; children
     </a>
   );
 }
-function GitHubReference({ url, onClose }: { url: string; onClose: () => void }) {
+function GitHubReference({
+  url,
+  projectId,
+  onClose,
+}: {
+  url: string;
+  projectId?: string;
+  onClose: () => void;
+}) {
   const ref = useRef<HTMLDialogElement>(null);
   useWorkspaceDialog(ref);
-  const [project, setProject] = useState<ProjectScope | null>(null),
+  const [project, setProject] = useState<ProjectScope | null>(
+      projectId ? { client: "codex", projectId, name: "" } : null,
+    ),
     [target, setTarget] = useState<ActivitySourceTarget | null>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (!projectId) return;
+    const controller = new AbortController();
+    setBusy(true);
+    void api<ActivitySourceTarget>(`/projects/${encodeURIComponent(projectId)}/github/reference`, {
+      method: "POST",
+      body: { url },
+      signal: controller.signal,
+    })
+      .then((value) => {
+        if (!controller.signal.aborted) setTarget(value);
+      })
+      .catch((e) => {
+        if (!controller.signal.aborted) setError(messageOf(e));
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setBusy(false);
+      });
+    return () => controller.abort();
+  }, [projectId, url]);
   return createPortal(
     <dialog
       ref={ref}
@@ -159,10 +193,13 @@ function GitHubReference({ url, onClose }: { url: string; onClose: () => void })
             if (!project) return;
             setBusy(true);
             setError("");
-            void api<ActivitySourceTarget>("/team/communication/github", {
-              method: "POST",
-              body: { projectId: project.projectId, url },
-            })
+            void api<ActivitySourceTarget>(
+              `/projects/${encodeURIComponent(project.projectId)}/github/reference`,
+              {
+                method: "POST",
+                body: { url },
+              },
+            )
               .then(setTarget)
               .catch((e) => setError(messageOf(e)))
               .finally(() => setBusy(false));
@@ -178,7 +215,7 @@ function GitHubReference({ url, onClose }: { url: string; onClose: () => void })
         <ActivitySourceWindow
           target={target}
           personalProjectId={project.projectId}
-          onClose={() => setTarget(null)}
+          onClose={projectId ? onClose : () => setTarget(null)}
         />
       )}
     </dialog>,

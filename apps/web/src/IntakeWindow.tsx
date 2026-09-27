@@ -23,6 +23,7 @@ import { ProjectActionPanel } from "./ProjectAction";
 import { ResultFeed } from "./ResultFeed";
 import type { Approval } from "./types";
 import { useWorkspaceDialog } from "./useWorkspaceDialog";
+import { WindowHeading, WindowScope } from "./WindowHeading";
 import "./intake.css";
 
 type Props = {
@@ -237,398 +238,411 @@ export function IntakeWindow({
   const running =
     !!data && ["running", "starting", "waiting_approval", "unknown"].includes(data.status);
   return (
-    <dialog
-      ref={dialog}
-      className="intake-window workspace-window"
-      aria-label={`Разбор · ${name}`}
-      onCancel={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        onClose();
-      }}
-    >
-      <header className="panel-heading notebook-heading">
-        <div>
-          <h2>Разбор входящего</h2>
-          <small title={name}>{name}</small>
-          <small>Только чтение</small>
-        </div>
-        <IssueDrawerButton targetId={projectId} className="icon-button intake-issues" />
-        {data?.threadId && (
-          <CodexScheduleButton
-            key={projectId + ":" + data.threadId}
-            projectId={projectId}
-            threadId={data.threadId}
-            chatRole="intake"
-          />
-        )}
-        {data?.threadId && (
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="Результаты разбора"
-            onClick={() => {
-              setArtifact(null);
-              setResultsOpen(true);
-            }}
-          >
-            <Icon name="folder" />
-          </button>
-        )}
-        <button type="button" className="icon-button" aria-label="Закрыть разбор" onClick={onClose}>
-          <Icon name="close" />
-        </button>
-      </header>
-      <div className="intake-scroll shared-scroll" ref={scroll}>
-        {error && (
-          <p className="notice" role="alert">
-            {error}
-          </p>
-        )}
-        {!data && <p role="status">Загружаю…</p>}
-        {data && !data.threadId && !data.creationUnknown && (
-          <p className="muted">
-            Опиши задачу или выбери источники. Codex изучит код и подготовит план. Реализация
-            запускается отдельно.
-          </p>
-        )}
-        {before.current !== null && (
-          <button
-            type="button"
-            className="secondary"
-            disabled={busy}
-            onClick={() =>
-              void act(async () => {
-                const page = await api<IntakeState>(path + "/history", {
-                  method: "POST",
-                  body: { before: String(before.current) },
-                });
-                before.current = page.before;
-                merge(page, true);
-              })
-            }
-          >
-            Ранее
-          </button>
-        )}
-        {data?.messages.map((m) => (
-          <article className="intake-message" key={m.id}>
-            <header>
-              <strong>{m.role === "user" ? "Вы" : "Codex · разбор"}</strong>
-              {m.role === "assistant" && !running && (
-                <IssueCollect
-                  text={m.text}
-                  source={{ client: "codex", threadId: data.threadId!, messageId: m.id, projectId }}
-                  targetId={projectId}
-                />
-              )}
-              <CopyButton text={m.text} />
-            </header>
-            <MessageText
-              text={m.text}
-              issueSource={
-                m.role === "assistant" && !running
-                  ? { client: "codex", threadId: data.threadId!, messageId: m.id, projectId }
-                  : undefined
-              }
-              complete={!running}
-              onArtifact={
-                m.role === "assistant"
-                  ? (source) => {
-                      setArtifact({
-                        scope: data.threadId!,
-                        endpoint: `/threads/${data.threadId}/results/reveal`,
-                        reference: { source, messageId: m.id, turnId: m.turnId },
-                      });
-                      setResultsOpen(true);
-                    }
-                  : undefined
-              }
-              resolveImage={
-                m.role === "assistant"
-                  ? async (source) =>
-                      (
-                        await api<ResultItem>(`/threads/${data.threadId}/results/reveal`, {
-                          method: "POST",
-                          body: { source, messageId: m.id, turnId: m.turnId },
-                        })
-                      ).payload.url as string | undefined
-                  : undefined
-              }
+    <WindowScope label="Разобрать задачу">
+      <dialog
+        ref={dialog}
+        className="intake-window workspace-window"
+        aria-label={`Разбор · ${name}`}
+        onCancel={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onClose();
+        }}
+      >
+        <WindowHeading
+          title="Разобрать задачу"
+          context={name + " · Только чтение"}
+          onClose={onClose}
+          closeLabel="Закрыть разбор"
+        >
+          <IssueDrawerButton targetId={projectId} className="icon-button intake-issues" />
+          {data?.threadId && (
+            <CodexScheduleButton
+              key={projectId + ":" + data.threadId}
+              projectId={projectId}
+              threadId={data.threadId}
+              chatRole="intake"
             />
-            {m.role === "assistant" && !running && (
-              <button
-                className="secondary"
-                type="button"
-                onClick={() => {
-                  setReview({ messageId: m.id, text: m.text });
-                  setAction(null);
-                }}
-              >
-                Подготовить к работе
-              </button>
-            )}
-          </article>
-        ))}
-        {!!data?.requests.some((r) => r.sources.length) && (
-          <details className="intake-sources">
-            <summary>Источники</summary>
-            {[
-              ...new Map(data.requests.flatMap((r) => r.sources).map((s) => [s.key, s])).values(),
-            ].map((s) => (
-              <button
-                className="secondary"
-                type="button"
-                key={s.key}
-                onClick={() => {
-                  const [kind, n] = s.key.split(":");
-                  setSource({
-                    key: s.key,
-                    repositoryId: s.repositoryId,
-                    kind: kind as GitHubActivitySource["kind"],
-                    title: s.title,
-                    url: s.url,
-                    ...(kind === "commit" ? { sha: n } : { number: Number(n) }),
-                    at: "",
-                    author: null,
-                    authorName: "",
-                  });
-                }}
-              >
-                {s.title}
-              </button>
-            ))}
-          </details>
-        )}
-        {data?.approvals.map((value) => {
-          const a = value as unknown as Approval;
-          return a.kind === "question" ? (
-            <ApprovalCard
-              key={a.id}
-              approval={a}
-              busy={busy}
-              onDecision={() => {}}
-              onAnswer={(id, answers) =>
-                void act(async () => {
-                  await api(`/approvals/${id}/answers`, {
-                    method: "POST",
-                    key: crypto.randomUUID(),
-                    body: { answers },
-                  });
-                  merge(await api<IntakeState>(path));
-                })
-              }
-            />
-          ) : (
+          )}
+          {data?.threadId && (
             <button
-              key={a.id}
+              type="button"
+              className="icon-button"
+              aria-label="Результаты разбора"
+              onClick={() => {
+                setArtifact(null);
+                setResultsOpen(true);
+              }}
+            >
+              <Icon name="folder" />
+            </button>
+          )}
+        </WindowHeading>
+        <div className="intake-scroll shared-scroll" ref={scroll}>
+          {error && (
+            <p className="notice" role="alert">
+              {error}
+            </p>
+          )}
+          {!data && <p role="status">Загружаю…</p>}
+          {data && !data.threadId && !data.creationUnknown && (
+            <p className="muted">
+              Опиши задачу или выбери источники. Codex изучит код и подготовит план. Реализация
+              запускается отдельно.
+            </p>
+          )}
+          {before.current !== null && (
+            <button
               type="button"
               className="secondary"
               disabled={busy}
               onClick={() =>
                 void act(async () => {
-                  await api(`/approvals/${a.id}${a.kind === "elicitation" ? "/elicitation" : ""}`, {
+                  const page = await api<IntakeState>(path + "/history", {
                     method: "POST",
-                    key: crypto.randomUUID(),
-                    body:
-                      a.kind === "elicitation" ? { action: "decline" } : { decision: "decline" },
+                    body: { before: String(before.current) },
                   });
-                  merge(await api<IntakeState>(path));
+                  before.current = page.before;
+                  merge(page, true);
                 })
               }
             >
-              Продолжить без дополнительного доступа
+              Ранее
             </button>
-          );
-        })}
-        {review && (
-          <section className="intake-review">
-            <h3>Передача в рабочий чат</h3>
-            <p className="muted">
-              Проверь интерпретацию, план, открытые вопросы и критерии проверки.
-            </p>
-            <AutoTextarea
-              aria-label="Пакет для работы"
-              value={review.text}
-              maxLength={6000}
-              rows={10}
-              onChange={(e) => setReview({ ...review, text: e.target.value })}
-            />
-            <div className="intake-actions">
-              <button
-                type="button"
-                disabled={busy || !review.text.trim() || review.text.length > 6000}
-                onClick={() => void prepare()}
-              >
-                Проверить передачу
-              </button>
-              <button type="button" className="secondary" onClick={() => setReview(null)}>
-                Отмена
-              </button>
-            </div>
-          </section>
-        )}
-        {action && (
-          <ProjectActionPanel
-            initial={action}
-            onChange={onAction}
-            onOpen={(target) => {
-              onWork?.(target);
-              onClose();
-            }}
-            onClose={() => {
-              setAction(null);
-              storage.removeItem(`intake-action:${projectId}`);
-            }}
-          />
-        )}
-        {(data?.creationUnknown || data?.status === "missing") && (
-          <details open>
-            <summary>Восстановить привязку</summary>
-            <p>Укажи точный native ID отдельного чата этого проекта.</p>
-            <input
-              aria-label="Идентификатор чата Intake"
-              value={native}
-              onChange={(e) => setNative(e.target.value)}
-            />
-            <button
-              type="button"
-              disabled={busy || !native.trim()}
-              onClick={() =>
-                void act(async () =>
-                  merge(
-                    await api<IntakeState>(path + "/recover", {
-                      method: "POST",
-                      body: { nativeId: native.trim(), revision: data.revision, confirm: true },
-                    }),
-                  ),
-                )
-              }
-            >
-              Привязать чат
-            </button>
-            {!data.creationUnknown && (
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => {
-                  if (!replaceConfirmed) {
-                    setReplaceConfirmed(true);
-                    return;
-                  }
-                  void act(async () => {
-                    const s = await api<IntakeState>(path + "/recover", {
-                      method: "POST",
-                      body: { nativeId: null, revision: data.revision, confirm: true },
+          )}
+          {data?.messages.map((m) => (
+            <article className="intake-message" key={m.id}>
+              <header>
+                <strong>{m.role === "user" ? "Вы" : "Codex · разбор"}</strong>
+                {m.role === "assistant" && !running && (
+                  <IssueCollect
+                    text={m.text}
+                    source={{
+                      client: "codex",
+                      threadId: data.threadId!,
+                      messageId: m.id,
+                      projectId,
+                    }}
+                    targetId={projectId}
+                  />
+                )}
+                <CopyButton text={m.text} />
+              </header>
+              <MessageText
+                text={m.text}
+                issueSource={
+                  m.role === "assistant" && !running
+                    ? { client: "codex", threadId: data.threadId!, messageId: m.id, projectId }
+                    : undefined
+                }
+                complete={!running}
+                onArtifact={
+                  m.role === "assistant"
+                    ? (source) => {
+                        setArtifact({
+                          scope: data.threadId!,
+                          endpoint: `/threads/${data.threadId}/results/reveal`,
+                          reference: { source, messageId: m.id, turnId: m.turnId },
+                        });
+                        setResultsOpen(true);
+                      }
+                    : undefined
+                }
+                resolveImage={
+                  m.role === "assistant"
+                    ? async (source) =>
+                        (
+                          await api<ResultItem>(`/threads/${data.threadId}/results/reveal`, {
+                            method: "POST",
+                            body: { source, messageId: m.id, turnId: m.turnId },
+                          })
+                        ).payload.url as string | undefined
+                    : undefined
+                }
+              />
+              {m.role === "assistant" && !running && (
+                <button
+                  className="secondary"
+                  type="button"
+                  onClick={() => {
+                    setReview({ messageId: m.id, text: m.text });
+                    setAction(null);
+                  }}
+                >
+                  Подготовить к работе
+                </button>
+              )}
+            </article>
+          ))}
+          {!!data?.requests.some((r) => r.sources.length) && (
+            <details className="intake-sources">
+              <summary>Источники</summary>
+              {[
+                ...new Map(data.requests.flatMap((r) => r.sources).map((s) => [s.key, s])).values(),
+              ].map((s) => (
+                <button
+                  className="secondary"
+                  type="button"
+                  key={s.key}
+                  onClick={() => {
+                    const [kind, n] = s.key.split(":");
+                    setSource({
+                      key: s.key,
+                      repositoryId: s.repositoryId,
+                      kind: kind as GitHubActivitySource["kind"],
+                      title: s.title,
+                      url: s.url,
+                      ...(kind === "commit" ? { sha: n } : { number: Number(n) }),
+                      at: "",
+                      author: null,
+                      authorName: "",
                     });
-                    if (live.current) setData(s);
-                  });
-                }}
-              >
-                {replaceConfirmed
-                  ? "Подтвердить новый разбор · прежняя история сохранится"
-                  : "Начать новый разбор"}
-              </button>
-            )}
-          </details>
-        )}
-      </div>
-      <form
-        className="intake-composer"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void send();
-        }}
-      >
-        {running && (
-          <div className="intake-actions">
-            <small role="status">
-              {data?.status === "unknown" ? "Проверь состояние отправки" : "Codex изучает задачу…"}
-            </small>
-            {data?.threadId && (
+                  }}
+                >
+                  {s.title}
+                </button>
+              ))}
+            </details>
+          )}
+          {data?.approvals.map((value) => {
+            const a = value as unknown as Approval;
+            return a.kind === "question" ? (
+              <ApprovalCard
+                key={a.id}
+                approval={a}
+                busy={busy}
+                onDecision={() => {}}
+                onAnswer={(id, answers) =>
+                  void act(async () => {
+                    await api(`/approvals/${id}/answers`, {
+                      method: "POST",
+                      key: crypto.randomUUID(),
+                      body: { answers },
+                    });
+                    merge(await api<IntakeState>(path));
+                  })
+                }
+              />
+            ) : (
               <button
+                key={a.id}
                 type="button"
                 className="secondary"
                 disabled={busy}
                 onClick={() =>
                   void act(async () => {
-                    if (data.status === "unknown")
-                      merge(await api<IntakeState>(path + "/resume", { method: "POST", body: {} }));
-                    else
-                      await api(`/threads/${data.threadId}/interrupt`, {
+                    await api(
+                      `/approvals/${a.id}${a.kind === "elicitation" ? "/elicitation" : ""}`,
+                      {
                         method: "POST",
                         key: crypto.randomUUID(),
-                        body: {},
-                      });
+                        body:
+                          a.kind === "elicitation"
+                            ? { action: "decline" }
+                            : { decision: "decline" },
+                      },
+                    );
+                    merge(await api<IntakeState>(path));
                   })
                 }
               >
-                {data?.status === "unknown" ? "Проверить" : "Остановить"}
+                Продолжить без дополнительного доступа
               </button>
-            )}
-          </div>
-        )}
-        <details>
-          <summary>Issues, PR и коммиты{refs ? ` · ${refs.split(/[\s,]+/).length}` : ""}</summary>
-          <label>
-            До пяти источников
-            <input
-              aria-label="Источники разбора"
-              value={refs}
-              placeholder="#42 или ссылка GitHub"
-              onChange={(e) => setRefs(e.target.value)}
+            );
+          })}
+          {review && (
+            <section className="intake-review">
+              <h3>Передача в рабочий чат</h3>
+              <p className="muted">
+                Проверь интерпретацию, план, открытые вопросы и критерии проверки.
+              </p>
+              <AutoTextarea
+                aria-label="Пакет для работы"
+                value={review.text}
+                maxLength={6000}
+                rows={10}
+                onChange={(e) => setReview({ ...review, text: e.target.value })}
+              />
+              <div className="intake-actions">
+                <button
+                  type="button"
+                  disabled={busy || !review.text.trim() || review.text.length > 6000}
+                  onClick={() => void prepare()}
+                >
+                  Проверить передачу
+                </button>
+                <button type="button" className="secondary" onClick={() => setReview(null)}>
+                  Отмена
+                </button>
+              </div>
+            </section>
+          )}
+          {action && (
+            <ProjectActionPanel
+              initial={action}
+              onChange={onAction}
+              onOpen={(target) => {
+                onWork?.(target);
+                onClose();
+              }}
+              onClose={() => {
+                setAction(null);
+                storage.removeItem(`intake-action:${projectId}`);
+              }}
             />
-          </label>
-        </details>
-        <ComposerOptions
-          analysisOnly
-          disabled={busy || running}
-          options={{
-            caps,
-            selection: settings,
-            loading: !caps,
-            saving: false,
-            error: "",
-            change: async (v) => setSettings({ ...v, mode: "default", access: "workspace" }),
-            reload: () => {
-              void api<Capabilities>(`/projects/${projectId}/capabilities`).then(setCaps);
-            },
-          }}
-        />
-        <div className="intake-input">
-          <AutoTextarea
-            aria-label="Сообщение для разбора"
-            value={draft}
-            maxLength={12000}
-            rows={2}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder="Что нужно изучить?"
-          />
-          <button
-            type="submit"
-            className="icon-button"
-            aria-label="Отправить на разбор"
-            disabled={busy || running || !data || !settings || !draft.trim()}
-          >
-            <Icon name="send" />
-          </button>
+          )}
+          {(data?.creationUnknown || data?.status === "missing") && (
+            <details open>
+              <summary>Восстановить привязку</summary>
+              <p>Укажи точный native ID отдельного чата этого проекта.</p>
+              <input
+                aria-label="Идентификатор чата Intake"
+                value={native}
+                onChange={(e) => setNative(e.target.value)}
+              />
+              <button
+                type="button"
+                disabled={busy || !native.trim()}
+                onClick={() =>
+                  void act(async () =>
+                    merge(
+                      await api<IntakeState>(path + "/recover", {
+                        method: "POST",
+                        body: { nativeId: native.trim(), revision: data.revision, confirm: true },
+                      }),
+                    ),
+                  )
+                }
+              >
+                Привязать чат
+              </button>
+              {!data.creationUnknown && (
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => {
+                    if (!replaceConfirmed) {
+                      setReplaceConfirmed(true);
+                      return;
+                    }
+                    void act(async () => {
+                      const s = await api<IntakeState>(path + "/recover", {
+                        method: "POST",
+                        body: { nativeId: null, revision: data.revision, confirm: true },
+                      });
+                      if (live.current) setData(s);
+                    });
+                  }}
+                >
+                  {replaceConfirmed
+                    ? "Подтвердить новый разбор · прежняя история сохранится"
+                    : "Начать новый разбор"}
+                </button>
+              )}
+            </details>
+          )}
         </div>
-      </form>
-      {source && (
-        <ActivitySourceWindow
-          personalProjectId={projectId}
-          target={{ projectId, repositoryId: source.repositoryId, source }}
-          onClose={() => setSource(null)}
-        />
-      )}
-      {resultsOpen && data?.threadId && (
-        <IntakeResults
-          threadId={data.threadId}
-          artifact={artifact}
-          onClose={() => setResultsOpen(false)}
-        />
-      )}
-    </dialog>
+        <form
+          className="intake-composer"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void send();
+          }}
+        >
+          {running && (
+            <div className="intake-actions">
+              <small role="status">
+                {data?.status === "unknown"
+                  ? "Проверь состояние отправки"
+                  : "Codex изучает задачу…"}
+              </small>
+              {data?.threadId && (
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={busy}
+                  onClick={() =>
+                    void act(async () => {
+                      if (data.status === "unknown")
+                        merge(
+                          await api<IntakeState>(path + "/resume", { method: "POST", body: {} }),
+                        );
+                      else
+                        await api(`/threads/${data.threadId}/interrupt`, {
+                          method: "POST",
+                          key: crypto.randomUUID(),
+                          body: {},
+                        });
+                    })
+                  }
+                >
+                  {data?.status === "unknown" ? "Проверить" : "Остановить"}
+                </button>
+              )}
+            </div>
+          )}
+          <details>
+            <summary>Issues, PR и коммиты{refs ? ` · ${refs.split(/[\s,]+/).length}` : ""}</summary>
+            <label>
+              До пяти источников
+              <input
+                aria-label="Источники разбора"
+                value={refs}
+                placeholder="#42 или ссылка GitHub"
+                onChange={(e) => setRefs(e.target.value)}
+              />
+            </label>
+          </details>
+          <ComposerOptions
+            analysisOnly
+            disabled={busy || running}
+            options={{
+              caps,
+              selection: settings,
+              loading: !caps,
+              saving: false,
+              error: "",
+              change: async (v) => setSettings({ ...v, mode: "default", access: "workspace" }),
+              reload: () => {
+                void api<Capabilities>(`/projects/${projectId}/capabilities`).then(setCaps);
+              },
+            }}
+          />
+          <div className="intake-input">
+            <AutoTextarea
+              aria-label="Сообщение для разбора"
+              value={draft}
+              maxLength={12000}
+              rows={2}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="Что нужно изучить?"
+            />
+            <button
+              type="submit"
+              className="icon-button"
+              aria-label="Отправить на разбор"
+              disabled={busy || running || !data || !settings || !draft.trim()}
+            >
+              <Icon name="send" />
+            </button>
+          </div>
+        </form>
+        {source && (
+          <ActivitySourceWindow
+            personalProjectId={projectId}
+            target={{ projectId, repositoryId: source.repositoryId, source }}
+            onClose={() => setSource(null)}
+          />
+        )}
+        {resultsOpen && data?.threadId && (
+          <IntakeResults
+            threadId={data.threadId}
+            artifact={artifact}
+            onClose={() => setResultsOpen(false)}
+          />
+        )}
+      </dialog>
+    </WindowScope>
   );
 }
 function IntakeResults({

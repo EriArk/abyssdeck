@@ -1,8 +1,10 @@
 import type { ProjectSetupInput, ProjectSetupOperation, SetupRepository } from "@codex-web/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AdvancedAgentSettings, ProfilePreview } from "./AgentProfileEditor";
+import { pageWorkspace } from "./accountStorage";
 import { accountLocalStorage as localStorage } from "./accountStorage.ts";
 import { ApiError, api, messageOf } from "./api";
+import { NewBrainstormRoom } from "./Brainstorm";
 import { Icon } from "./icons";
 import type { Machine, Project } from "./types";
 import "./project-setup.css";
@@ -50,6 +52,13 @@ function restore(draftKey: string) {
       return null;
     return {
       input: value.input,
+      intent: ["new", "local", "github"].includes(value.intent)
+        ? (value.intent as "new" | "local" | "github")
+        : null,
+      step:
+        Number.isInteger(value.step) && value.step >= 0 && value.step <= 3
+          ? (value.step as number)
+          : 0,
       operationId: typeof value.operationId === "string" ? value.operationId : "",
       attempt:
         typeof value.attempt?.body === "string" && typeof value.attempt?.key === "string"
@@ -109,8 +118,15 @@ function ProjectDialogContent({
     [seed],
   );
   if (restored.current && !matchesSeed(restored.current.input)) restored.current = null;
+  const [intent, setIntent] = useState<"new" | "local" | "github" | null>(() =>
+    seed
+      ? "github"
+      : (restored.current?.intent ??
+        (restored.current?.input.name || restored.current?.operationId ? "new" : null)),
+  );
+  const [brainstorm, setBrainstorm] = useState(false);
   const [input, setInput] = useState<ProjectSetupInput>(() => restored.current?.input ?? initial),
-    [step, setStep] = useState(0),
+    [step, setStep] = useState(restored.current?.step ?? 0),
     [editedPath, setEditedPath] = useState(!!restored.current?.input?.workingDirectory);
   const [operation, setOperation] = useState<ProjectSetupOperation | null>(null),
     [pending, setPending] = useState<ProjectSetupOperation[]>([]),
@@ -159,7 +175,10 @@ function ProjectDialogContent({
     setInput((old) => ({ ...old, ...patch }));
   }, []);
   const setRepository = (patch: Partial<ProjectSetupInput["repository"]>) =>
-    setField({ repository: { ...input.repository, ...patch } });
+    setField({
+      repository: { ...input.repository, ...patch },
+      ...(intent === "github" && !input.name && patch.name ? { name: patch.name } : {}),
+    });
   const appliedSeed = useRef<typeof seed>(undefined);
   useEffect(() => {
     if (!open || !seed || appliedSeed.current === seed || restored.current) return;
@@ -202,6 +221,8 @@ function ProjectDialogContent({
         storageKey,
         JSON.stringify({
           input,
+          intent,
+          step,
           attempt: attempt.current,
           operationId: operation?.id ?? persistedOperation.current,
         }),
@@ -211,7 +232,7 @@ function ProjectDialogContent({
         "Не удалось сохранить черновик на устройстве. Операция на сервере сохранится отдельно.",
       );
     }
-  }, [open, input, operation, storageKey]);
+  }, [open, input, intent, step, operation, storageKey]);
   useEffect(() => {
     if (!open) {
       dialog.current?.close();
@@ -345,7 +366,7 @@ function ProjectDialogContent({
       try {
         localStorage.setItem(
           storageKey,
-          JSON.stringify({ input: value, attempt: attempt.current, operationId: "" }),
+          JSON.stringify({ input: value, intent, step, attempt: attempt.current, operationId: "" }),
         );
       } catch {}
       const result = await api<ProjectSetupOperation>("/project-setup/prepare", {
@@ -377,6 +398,7 @@ function ProjectDialogContent({
       attempt.current = { body: "", key: "" };
       setOperation(null);
       setInput(initial);
+      setIntent(null);
       setEditedPath(false);
       setStep(0);
       try {
@@ -410,12 +432,28 @@ function ProjectDialogContent({
       setBusy(false);
     }
   };
+  const order =
+    intent === "github" && !seed ? [2, 0, 1, 3] : intent === "local" ? [0, 1, 3] : [0, 1, 2, 3];
   const next = () => {
-    if (step === 2) void review();
-    else {
-      setStep((v) => v + 1);
-      if (step === 1 && !seed?.repository && input.repository.mode !== "none") void loadRepos();
+    const following = order[order.indexOf(step) + 1];
+    if (following === 3) void review();
+    else if (following !== undefined) {
+      setStep(following);
+      if (following === 2 && !seed?.repository && input.repository.mode !== "none")
+        void loadRepos();
     }
+  };
+  const chooseIntent = (value: "new" | "local" | "github") => {
+    setIntent(value);
+    setField({
+      ...initial,
+      machineId: machine?.id ?? "",
+      createDirectory: value !== "local",
+      repository: { ...initial.repository, mode: value === "github" ? "connect" : "none" },
+    });
+    setEditedPath(false);
+    setStep(value === "github" ? 2 : 0);
+    if (value === "github") void loadRepos();
   };
   return (
     <dialog
@@ -447,25 +485,84 @@ function ProjectDialogContent({
           <Icon name="close" />
         </button>
       </header>
-      <ol className="setup-steps" aria-label="Этапы создания">
-        {["Проект", "Папка", "GitHub", "Проверка"].map((name, index) => (
-          <li
-            key={name}
-            aria-current={step === index ? "step" : undefined}
-            className={step === index ? "active" : step > index ? "done" : ""}
-          >
-            <span>{step > index ? <Icon name="check" size={13} /> : index + 1}</span>
-            {name}
-          </li>
-        ))}
-      </ol>
+      {intent && (
+        <ol className="setup-steps" aria-label="Этапы создания">
+          {order.map((index) => {
+            const name = ["Проект", "Папка", "GitHub", "Проверка"][index]!;
+            return (
+              <li
+                key={name}
+                aria-current={step === index ? "step" : undefined}
+                className={
+                  step === index
+                    ? "active"
+                    : order.indexOf(step) > order.indexOf(index)
+                      ? "done"
+                      : ""
+                }
+              >
+                <span>
+                  {order.indexOf(step) > order.indexOf(index) ? (
+                    <Icon name="check" size={13} />
+                  ) : (
+                    order.indexOf(index) + 1
+                  )}
+                </span>
+                {name}
+              </li>
+            );
+          })}
+        </ol>
+      )}
       <div className="setup-body">
+        {!intent && (
+          <section className="setup-intents" aria-label="С чего начать">
+            <p>С чего начнём?</p>
+            {(
+              [
+                ["new", "plus", "Новый проект", "Новая папка и необязательный GitHub"],
+                ["local", "folder", "Папка на компьютере", "Подключить существующий код и его Git"],
+                [
+                  "github",
+                  "repository",
+                  "Репозиторий GitHub",
+                  "Выбрать репозиторий и рабочую папку",
+                ],
+              ] as const
+            ).map(([value, icon, title, description]) => (
+              <button
+                key={value}
+                type="button"
+                className="secondary"
+                onClick={() => chooseIntent(value)}
+              >
+                <Icon name={icon} />
+                <span>
+                  <strong>{title}</strong>
+                  <small>{description}</small>
+                </span>
+                <Icon name="chevron" />
+              </button>
+            ))}
+            {pageWorkspace && (
+              <button type="button" className="secondary" onClick={() => setBrainstorm(true)}>
+                <Icon name="people" />
+                <span>
+                  <strong>Пока есть идея</strong>
+                  <small>Обсудить на доске брейншторма</small>
+                </span>
+                <Icon name="chevron" />
+              </button>
+            )}
+          </section>
+        )}
+
         {step === 3 && operation?.input.agentProfile && (
           <ProfilePreview
             rules={{ enabled: [], custom: "", agentProfile: operation.input.agentProfile }}
           />
         )}
-        {step === 0 && (
+        {intent && step === 0 && (
           <>
             <label className="field-label">
               Название
@@ -479,42 +576,45 @@ function ProjectDialogContent({
                 placeholder="Название проекта"
               />
             </label>
-            <label className="field-label">
-              Компьютер
-              <select
-                aria-label="Компьютер проекта"
-                value={machine?.id ?? ""}
-                disabled={locked}
-                onChange={(e) => {
-                  folderGeneration.current++;
-                  repoGeneration.current++;
-                  setBrowsing(false);
-                  setRepoBusy(false);
-                  setEditedPath(false);
-                  setBrowse(null);
-                  setRepos([]);
-                  setField({
-                    machineId: e.target.value,
-                    repository: {
-                      ...input.repository,
-                      owner: seed?.repository ? input.repository.owner : "",
-                    },
-                  });
-                }}
-              >
-                {machines.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <fieldset disabled={locked} className="agent-setup-fields">
-              <AdvancedAgentSettings
-                value={input.agentProfile ?? null}
-                onChange={(agentProfile) => setField({ agentProfile })}
-              />
-            </fieldset>
+            <details className="setup-advanced">
+              <summary>Компьютер и настройки</summary>
+              <label className="field-label">
+                Компьютер
+                <select
+                  aria-label="Компьютер проекта"
+                  value={machine?.id ?? ""}
+                  disabled={locked}
+                  onChange={(e) => {
+                    folderGeneration.current++;
+                    repoGeneration.current++;
+                    setBrowsing(false);
+                    setRepoBusy(false);
+                    setEditedPath(false);
+                    setBrowse(null);
+                    setRepos([]);
+                    setField({
+                      machineId: e.target.value,
+                      repository: {
+                        ...input.repository,
+                        owner: seed?.repository ? input.repository.owner : "",
+                      },
+                    });
+                  }}
+                >
+                  {machines.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <fieldset disabled={locked} className="agent-setup-fields">
+                <AdvancedAgentSettings
+                  value={input.agentProfile ?? null}
+                  onChange={(agentProfile) => setField({ agentProfile })}
+                />
+              </fieldset>
+            </details>
             {pending.length > 0 && (
               <details className="setup-pending">
                 <summary>
@@ -544,7 +644,7 @@ function ProjectDialogContent({
             )}
           </>
         )}
-        {step === 1 && (
+        {intent && step === 1 && (
           <>
             <div className="project-create-modes">
               <button
@@ -891,8 +991,10 @@ function ProjectDialogContent({
                   {operation.inspection.dirty ? " · есть изменения" : ""}
                 </small>
               )}
-              {operation.input.repository.mode === "connect" && operation.inspection.origin && (
-                <p>Папка уже связана с этим репозиторием.</p>
+              {operation.inspection.origin && (
+                <p>
+                  Подключённый репозиторий: <code>{operation.inspection.origin}</code>
+                </p>
               )}
             </section>
             {operation.state === "running" && (
@@ -917,92 +1019,110 @@ function ProjectDialogContent({
           <p className="form-error">Установленный Codex не поддерживает создание проектов.</p>
         )}
       </div>
-      <footer className="dialog-actions setup-footer">
-        {step > 0 && !locked && (
-          <button
-            type="button"
-            className="secondary"
-            onClick={() => {
-              if (seed?.resetReview && operation?.state === "prepared") {
-                setBusy(true);
-                void seed
-                  .resetReview(operation.inspection.fingerprint)
-                  .then(() => {
-                    setOperation(null);
-                    persistedOperation.current = "";
-                    attempt.current = { body: "", key: "" };
-                    setStep(2);
-                  })
-                  .catch((e) => setError(messageOf(e)))
-                  .finally(() => setBusy(false));
-                return;
+      {intent && (
+        <footer className="dialog-actions setup-footer">
+          {!locked && (
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => {
+                if (seed?.resetReview && operation?.state === "prepared") {
+                  setBusy(true);
+                  void seed
+                    .resetReview(operation.inspection.fingerprint)
+                    .then(() => {
+                      setOperation(null);
+                      persistedOperation.current = "";
+                      attempt.current = { body: "", key: "" };
+                      setStep(2);
+                    })
+                    .catch((e) => setError(messageOf(e)))
+                    .finally(() => setBusy(false));
+                  return;
+                }
+                const previous = order[order.indexOf(step) - 1];
+                if (previous === undefined && !seed) setIntent(null);
+                else setStep(previous ?? 0);
+                if (operation?.state === "failed") {
+                  attempt.current = { body: "", key: "" };
+                  setOperation(null);
+                  persistedOperation.current = "";
+                }
+              }}
+            >
+              Назад
+            </button>
+          )}
+          {step < 3 ? (
+            <button
+              type="button"
+              className="primary"
+              disabled={
+                busy ||
+                restoringOperation ||
+                (input.repository.mode !== "none" && repoBusy) ||
+                !machine ||
+                machine.canCreateProjects === false ||
+                !input.name.trim() ||
+                (step > 0 && !input.workingDirectory) ||
+                (step === 2 &&
+                  input.repository.mode !== "none" &&
+                  (!input.repository.owner || !input.repository.name))
               }
-              setStep((v) => v - 1);
-              if (operation?.state === "failed") {
-                attempt.current = { body: "", key: "" };
-                setOperation(null);
-                persistedOperation.current = "";
-              }
-            }}
-          >
-            Назад
-          </button>
-        )}
-        {step < 3 ? (
-          <button
-            type="button"
-            className="primary"
-            disabled={
-              busy ||
-              restoringOperation ||
-              (input.repository.mode !== "none" && repoBusy) ||
-              !machine ||
-              machine.canCreateProjects === false ||
-              !input.name.trim() ||
-              (step > 0 && !input.workingDirectory) ||
-              (step === 2 &&
-                input.repository.mode !== "none" &&
-                (!input.repository.owner || !input.repository.name))
-            }
-            onClick={next}
-          >
-            {busy ? (
-              <>
+              onClick={next}
+            >
+              {busy ? (
+                <>
+                  <span className="spinner" />
+                  Проверяем…
+                </>
+              ) : order[order.indexOf(step) + 1] === 3 ? (
+                "Проверить"
+              ) : (
+                "Далее"
+              )}
+              <Icon name="chevron" size={16} />
+            </button>
+          ) : operation?.state === "complete" ? (
+            <button type="button" className="primary" disabled={busy} onClick={() => void finish()}>
+              Открыть проект
+              <Icon name="chevron" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="primary"
+              disabled={busy || operation?.state === "running" || operation?.state === "failed"}
+              onClick={() => void execute()}
+            >
+              {operation?.state === "unknown"
+                ? "Проверить и продолжить"
+                : input.createDirectory
+                  ? "Создать проект"
+                  : "Подключить проект"}
+              {busy || operation?.state === "running" ? (
                 <span className="spinner" />
-                Проверяем…
-              </>
-            ) : step === 2 ? (
-              "Проверить"
-            ) : (
-              "Далее"
-            )}
-            <Icon name="chevron" size={16} />
-          </button>
-        ) : operation?.state === "complete" ? (
-          <button type="button" className="primary" disabled={busy} onClick={() => void finish()}>
-            Открыть проект
-            <Icon name="chevron" />
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="primary"
-            disabled={busy || operation?.state === "running" || operation?.state === "failed"}
-            onClick={() => void execute()}
-          >
-            {operation?.state === "unknown"
-              ? "Проверить и продолжить"
-              : input.createDirectory
-                ? "Создать проект"
-                : "Подключить проект"}
-            {busy || operation?.state === "running" ? (
-              <span className="spinner" />
-            ) : (
-              <Icon name="plus" size={17} />
-            )}
-          </button>
-        )}
-      </footer>
+              ) : (
+                <Icon name="plus" size={17} />
+              )}
+            </button>
+          )}
+        </footer>
+      )}
+      {brainstorm && (
+        <NewBrainstormRoom
+          onClose={() => setBrainstorm(false)}
+          onCreated={(room) => {
+            setBrainstorm(false);
+            onClose();
+            window.dispatchEvent(
+              new CustomEvent("open-shared-reference", {
+                detail: { kind: "brainstorm", id: room.id },
+              }),
+            );
+          }}
+        />
+      )}
     </dialog>
   );
 }

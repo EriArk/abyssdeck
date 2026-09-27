@@ -1,15 +1,24 @@
 import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { deploymentBlockers } from "./deployment-status.js";
-import { engineTerminalWork } from "./engine-client.js";
+import { enginePersistentThreads, engineTerminalWork } from "./engine-client.js";
 
 const config = JSON.parse(readFileSync(process.env.HUB_CONFIG ?? "/config/config.json", "utf8"));
 const db = new DatabaseSync(config.hub.databasePath, { readOnly: true });
-const blockers = deploymentBlockers({
-  db,
-  preferences: () =>
-    JSON.parse(String(db.prepare("SELECT value FROM preferences WHERE id=1").get()?.value ?? "{}")),
-});
+const persistent = await enginePersistentThreads(
+  process.env.HUB_ENGINE_SOCKET ?? "/run/codex-engine/engine.sock",
+).catch(() => new Set<string>());
+const blockers = deploymentBlockers(
+  {
+    db,
+    preferences: () =>
+      JSON.parse(
+        String(db.prepare("SELECT value FROM preferences WHERE id=1").get()?.value ?? "{}"),
+      ),
+  },
+  undefined,
+  persistent,
+);
 const terminalCount = Number(
   db.prepare("SELECT count(*) n FROM device_terminals WHERE state='open'").get()?.n ?? 0,
 );

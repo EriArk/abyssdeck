@@ -14,6 +14,7 @@ import { CopyButton } from "./CopyButton";
 import { Icon } from "./icons";
 import { SharedMarkdown } from "./SharedMaterialEditor";
 import { useWorkspaceDialog } from "./useWorkspaceDialog";
+import { WindowHeading, WindowScope } from "./WindowHeading";
 import "./issue-drawer.css";
 
 /** Keep block controls and their open dialogs mounted through background history refresh. */
@@ -74,9 +75,11 @@ export function IssueCollect({
 export function IssueDrawerButton({
   targetId,
   className = "secondary",
+  create = false,
 }: {
   targetId?: string;
   className?: string;
+  create?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -84,23 +87,27 @@ export function IssueDrawerButton({
       <button
         type="button"
         className={className}
-        aria-label="Подборка Issues"
-        title="Подборка Issues"
+        aria-label={create ? "Создать Issue" : "Подготовить Issues"}
+        title={create ? "Создать Issue" : "Подготовить Issues"}
         onClick={() => setOpen(true)}
       >
         <Icon name="plan" size={16} />
-        <span>Подборка Issues</span>
+        <span>{create ? "Создать Issue" : "Подготовить Issues"}</span>
       </button>
-      {open && <IssueDrawerWindow targetId={targetId} onClose={() => setOpen(false)} />}
+      {open && (
+        <IssueDrawerWindow targetId={targetId} create={create} onClose={() => setOpen(false)} />
+      )}
     </>
   );
 }
 export function IssueDrawerWindow({
   capture,
   targetId = "",
+  create = false,
   onClose,
 }: {
   capture?: Capture;
+  create?: boolean;
   targetId?: string;
   onClose: () => void;
 }) {
@@ -110,6 +117,20 @@ export function IssueDrawerWindow({
     [targets, setTargets] = useState<{ id: string; name: string }[]>([]),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
+  const [creating, setCreating] = useState(create);
+  const [manual, setManual] = useState<{ title: string; text: string; targetId: string }>(() => {
+    try {
+      const saved = JSON.parse(storage.getItem("issue-manual:" + targetId) ?? "null");
+      if (
+        saved &&
+        typeof saved.title === "string" &&
+        typeof saved.text === "string" &&
+        typeof saved.targetId === "string"
+      )
+        return { title: saved.title, text: saved.text, targetId: saved.targetId };
+    } catch {}
+    return { title: "", text: "", targetId: targetId ?? "" };
+  });
   const [incoming, setIncoming] = useState(capture),
     [editing, setEditing] = useState<IssueDraft | null>(null),
     [form, setForm] = useState({ title: "", body: "", targetId });
@@ -129,13 +150,32 @@ export function IssueDrawerWindow({
     if (live.current && !next.unchanged) {
       version.current = next.version ?? "";
       setData(next);
-      setPacket((old) =>
-        old
-          ? (next.batches.find((b) => b.id === old.id) ?? old)
-          : (next.batches.find((b) => b.state === "prepared" || b.state === "running") ?? null),
-      );
+      if (create) {
+        let receipt = "";
+        try {
+          receipt =
+            JSON.parse(storage.getItem("issue-manual-package:" + targetId) ?? "null")?.key ?? "";
+        } catch {}
+        const exact = next.batches.find((b) => b.id === receipt);
+        if (
+          exact &&
+          (["prepared", "running"].includes(exact.state) ||
+            exact.items.some((ref) =>
+              next.items.some((i) => i.id === ref.id && i.state === "unknown"),
+            ))
+        ) {
+          setPacket(exact);
+          setCreating(false);
+        } else
+          setPacket((old) => (old ? (next.batches.find((b) => b.id === old.id) ?? old) : null));
+      } else
+        setPacket((old) =>
+          old
+            ? (next.batches.find((b) => b.id === old.id) ?? old)
+            : (next.batches.find((b) => b.state === "prepared" || b.state === "running") ?? null),
+        );
     }
-  }, []);
+  }, [create, targetId]);
   useEffect(() => {
     live.current = true;
     void refresh().catch((e) => setError(messageOf(e)));
@@ -157,6 +197,23 @@ export function IssueDrawerWindow({
       clearInterval(timer);
     };
   }, [refresh]);
+  useEffect(() => {
+    if (
+      !create ||
+      packet?.state !== "settled" ||
+      !packet.items.every((ref) =>
+        data.items.some((i) => i.id === ref.id && i.state === "completed"),
+      )
+    )
+      return;
+    try {
+      const saved = JSON.parse(storage.getItem("issue-manual-package:" + targetId) ?? "null");
+      if (saved?.key !== packet.id) return;
+      for (const key of ["issue-manual:", "issue-manual-receipt:", "issue-manual-package:"])
+        storage.removeItem(key + targetId);
+      setManual({ title: "", text: "", targetId });
+    } catch {}
+  }, [create, packet, data.items, targetId]);
   const act = async (fn: () => Promise<void>) => {
     if (lock.current) return;
     lock.current = true;
@@ -231,6 +288,33 @@ export function IssueDrawerWindow({
       edit(saved);
       await refresh();
     });
+  const prepareManual = () =>
+    act(async () => {
+      storage.setItem("issue-manual:" + targetId, JSON.stringify(manual));
+      const id = keyFor("issue-manual-receipt:" + targetId, manual);
+      const item = await api<IssueDraft>(`/issue-drawer/manual/${id}`, {
+        method: "PUT",
+        body: manual,
+      });
+      const items = [{ id: item.id, revision: item.revision }];
+      const batch = keyFor("issue-manual-package:" + targetId, items);
+      const packet = await api<IssuePackage>(`/issue-drawer/packages/${batch}`, {
+        method: "PUT",
+        body: { items },
+      });
+      setPacket(packet);
+      setCreating(false);
+      await refresh();
+    });
+  const changeManual = (patch: Partial<typeof manual>) => {
+    const next = { ...manual, ...patch };
+    setManual(next);
+    try {
+      storage.setItem("issue-manual:" + targetId, JSON.stringify(next));
+    } catch {
+      setError("Не удалось сохранить черновик на устройстве.");
+    }
+  };
   const prepare = () =>
     act(async () => {
       const items = data.items
@@ -264,359 +348,405 @@ export function IssueDrawerWindow({
     cancelled: "Отменено",
   };
   return (
-    <dialog
-      ref={dialog}
-      className="workspace-window issue-drawer-window"
-      aria-label="Подборка Issues"
-      onCancel={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        onClose();
-      }}
-    >
-      <header className="panel-heading notebook-heading">
-        <h2>Подборка Issues</h2>
-        <button
-          className="icon-button"
-          type="button"
-          aria-label="Закрыть подборку"
-          onClick={onClose}
-        >
-          <Icon name="close" />
-        </button>
-      </header>
-      <div className="shared-scroll issue-drawer-scroll">
-        {error && (
-          <p className="notice" role="alert">
-            {error}
-          </p>
-        )}
-        {incoming && (
-          <section className="issue-capture">
-            <h3>Добавить выбранный текст</h3>
-            <div className="issue-exact">
-              <SharedMarkdown text={incoming.text} />
-            </div>
-            <button
-              type="button"
-              disabled={busy || incoming.text.length > 16000}
-              onClick={() => void add()}
-            >
-              Добавить в подборку
-            </button>
-            {incoming.text.length > 16000 && <p>Выбери отдельный блок до 16 000 символов.</p>}
-          </section>
-        )}
-        {!incoming && !data.items.length && (
-          <p className="muted">
-            Добавляй готовые блоки из обсуждения с GPT или разбора Codex. Публикация — после
-            проверки всей подборки.
-          </p>
-        )}
-        {data.items.map((i, index) => (
-          <article className="issue-draft-card" key={i.id}>
-            <header>
-              <div className="issue-draft-title">
-                {i.state === "draft" && (
-                  <label className="issue-draft-pick" htmlFor={`issue-pick-${i.id}`}>
-                    <input
-                      id={`issue-pick-${i.id}`}
-                      type="checkbox"
-                      aria-label={`Выбрать: ${i.title}`}
-                      checked={checked.includes(i.id)}
-                      onChange={(e) =>
-                        setChecked((old) =>
-                          e.target.checked ? [...old, i.id] : old.filter((id) => id !== i.id),
-                        )
-                      }
-                    />
-                  </label>
-                )}
-                <strong>{i.title}</strong>
-              </div>
-              <small>{labels[i.state]}</small>
-            </header>
-            <p className="muted">
-              {targets.find((p) => p.id === i.targetId)?.name ?? "Выбери проект"}
+    <WindowScope label={create ? "Создать Issue" : "Подготовить Issues"}>
+      <dialog
+        ref={dialog}
+        className="workspace-window issue-drawer-window"
+        aria-label="Подборка Issues"
+        onCancel={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onClose();
+        }}
+      >
+        <WindowHeading
+          title={create ? "Создать Issue" : "Подготовить Issues"}
+          context={undefined}
+          onClose={onClose}
+          closeLabel="Закрыть подборку"
+        />
+        <div className="shared-scroll issue-drawer-scroll">
+          {error && (
+            <p className="notice" role="alert">
+              {error}
             </p>
-            {i.error && <p role="status">{i.error}</p>}
-            <div className="issue-actions">
-              <button className="secondary" type="button" onClick={() => edit(i)}>
-                {["draft", "failed", "cancelled"].includes(i.state) ? "Изменить" : "Просмотреть"}
-              </button>
+          )}
+          {incoming && (
+            <section className="issue-capture">
+              <h3>Добавить выбранный текст</h3>
+              <div className="issue-exact">
+                <SharedMarkdown text={incoming.text} />
+              </div>
               <button
-                className="secondary"
                 type="button"
-                onClick={() =>
-                  void act(async () => {
-                    const v = await api<{ text: string }>(`/issue-drawer/items/${i.id}/source`);
-                    setSource({ text: v.text, original: i.original });
-                  })
-                }
+                disabled={busy || incoming.text.length > 16000}
+                onClick={() => void add()}
               >
-                Исходное сообщение
+                Добавить в подборку
               </button>
-              <CopyButton text={i.body} />
-              {i.result && (
-                <button
-                  className="secondary"
-                  type="button"
-                  onClick={() => {
-                    if (i.result)
-                      setResult({
-                        projectId: i.targetId,
-                        repositoryId: i.result.repositoryId,
-                        source: {
-                          kind: "issue",
-                          key: "issue:" + i.result!.number,
-                          number: i.result!.number,
-                          url: i.result!.url,
-                          title: i.title,
-                          author: null,
-                          authorName: "",
-                          at: "",
-                        },
-                      });
-                  }}
-                >
-                  Открыть Issue #{i.result.number}
-                </button>
-              )}
-              {i.state === "unknown" && (
-                <button
-                  type="button"
-                  className="secondary"
+              {incoming.text.length > 16000 && <p>Выбери отдельный блок до 16 000 символов.</p>}
+            </section>
+          )}
+          {!incoming && !data.items.length && (
+            <p className="muted">
+              Добавляй готовые блоки из обсуждения с GPT или разбора Codex. Публикация — после
+              проверки всей подборки.
+            </p>
+          )}
+          {creating && (
+            <section className="shared-form" aria-label="Новый Issue">
+              <label>
+                Название
+                <input
+                  value={manual.title}
+                  maxLength={200}
                   disabled={busy}
-                  onClick={() =>
-                    void act(async () => {
-                      await api(`/issue-drawer/items/${i.id}/reconcile`, {
-                        method: "POST",
-                        body: {},
-                      });
-                      await refresh();
-                    })
-                  }
-                >
-                  Проверить исход
-                </button>
-              )}
-              {i.state === "draft" && (
-                <>
-                  <button
-                    type="button"
-                    className="icon-button"
-                    aria-label={`Поднять: ${i.title}`}
-                    disabled={busy || index === 0}
-                    onClick={() => void reorder(i, -1)}
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    className="icon-button"
-                    aria-label={`Опустить: ${i.title}`}
-                    disabled={busy || index === data.items.length - 1}
-                    onClick={() => void reorder(i, 1)}
-                  >
-                    ↓
-                  </button>
-                </>
-              )}
-              {!["prepared", "running", "unknown"].includes(i.state) && (
-                <button
-                  type="button"
-                  className="secondary"
+                  onChange={(e) => changeManual({ title: e.target.value })}
+                />
+              </label>
+              <label>
+                Описание
+                <AutoTextarea
+                  value={manual.text}
+                  maxLength={16000}
                   disabled={busy}
-                  onClick={() =>
-                    void act(async () => {
-                      await api(`/issue-drawer/items/${i.id}`, {
-                        method: "DELETE",
-                        body: { revision: i.revision, confirm: true },
-                      });
-                      storage.removeItem("codex-issue-edit:" + i.id);
-                      if (editing?.id === i.id) setEditing(null);
-                      await refresh();
-                    })
-                  }
+                  onChange={(e) => changeManual({ text: e.target.value })}
+                />
+              </label>
+              <label>
+                Проект
+                <select
+                  value={manual.targetId}
+                  disabled={busy}
+                  onChange={(e) => changeManual({ targetId: e.target.value })}
                 >
-                  Убрать
-                </button>
-              )}
-            </div>
-            {editing?.id === i.id && (
-              <section className="issue-editor">
-                <label>
-                  Проект
-                  <select
-                    aria-label="Проект для Issue"
-                    value={form.targetId}
-                    disabled={!["draft", "failed", "cancelled"].includes(i.state)}
-                    onChange={(e) => setForm({ ...form, targetId: e.target.value })}
-                  >
-                    <option value="">Выбери проект</option>
-                    {targets.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Название
-                  <input
-                    aria-label="Название Issue"
-                    value={form.title}
-                    maxLength={200}
-                    readOnly={!["draft", "failed", "cancelled"].includes(i.state)}
-                    onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  />
-                </label>
-                <label>
-                  Текст
-                  <AutoTextarea
-                    aria-label="Текст Issue"
-                    rows={10}
-                    value={form.body}
-                    maxLength={16000}
-                    readOnly={!["draft", "failed", "cancelled"].includes(i.state)}
-                    onChange={(e) => setForm({ ...form, body: e.target.value })}
-                  />
-                </label>
-                <details>
-                  <summary>Предпросмотр</summary>
-                  <SharedMarkdown text={form.body} />
-                </details>
+                  <option value="">Выбрать проект</option>
+                  {targets.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                disabled={busy || !manual.title.trim() || !manual.text.trim() || !manual.targetId}
+                onClick={() => void prepareManual()}
+              >
+                Проверить публикацию
+              </button>
+            </section>
+          )}
+          {!creating &&
+            data.items.map((i, index) => (
+              <article className="issue-draft-card" key={i.id}>
+                <header>
+                  <div className="issue-draft-title">
+                    {i.state === "draft" && (
+                      <label className="issue-draft-pick" htmlFor={`issue-pick-${i.id}`}>
+                        <input
+                          id={`issue-pick-${i.id}`}
+                          type="checkbox"
+                          aria-label={`Выбрать: ${i.title}`}
+                          checked={checked.includes(i.id)}
+                          onChange={(e) =>
+                            setChecked((old) =>
+                              e.target.checked ? [...old, i.id] : old.filter((id) => id !== i.id),
+                            )
+                          }
+                        />
+                      </label>
+                    )}
+                    <strong>{i.title}</strong>
+                  </div>
+                  <small>{labels[i.state]}</small>
+                </header>
+                <p className="muted">
+                  {targets.find((p) => p.id === i.targetId)?.name ?? "Выбери проект"}
+                </p>
+                {i.error && <p role="status">{i.error}</p>}
                 <div className="issue-actions">
-                  {["draft", "failed", "cancelled"].includes(i.state) && (
+                  <button className="secondary" type="button" onClick={() => edit(i)}>
+                    {["draft", "failed", "cancelled"].includes(i.state)
+                      ? "Изменить"
+                      : "Просмотреть"}
+                  </button>
+                  <button
+                    className="secondary"
+                    type="button"
+                    onClick={() =>
+                      void act(async () => {
+                        const v = await api<{ text: string }>(`/issue-drawer/items/${i.id}/source`);
+                        setSource({ text: v.text, original: i.original });
+                      })
+                    }
+                  >
+                    {i.source ? "Исходное сообщение" : "Исходный текст"}
+                  </button>
+                  <CopyButton text={i.body} />
+                  {i.result && (
+                    <button
+                      className="secondary"
+                      type="button"
+                      onClick={() => {
+                        if (i.result)
+                          setResult({
+                            projectId: i.targetId,
+                            repositoryId: i.result.repositoryId,
+                            source: {
+                              kind: "issue",
+                              key: "issue:" + i.result!.number,
+                              number: i.result!.number,
+                              url: i.result!.url,
+                              title: i.title,
+                              author: null,
+                              authorName: "",
+                              at: "",
+                            },
+                          });
+                      }}
+                    >
+                      Открыть Issue #{i.result.number}
+                    </button>
+                  )}
+                  {i.state === "unknown" && (
                     <button
                       type="button"
-                      disabled={busy || !form.targetId || !form.title.trim() || !form.body.trim()}
+                      className="secondary"
+                      disabled={busy}
                       onClick={() =>
                         void act(async () => {
-                          await api(`/issue-drawer/items/${i.id}`, {
-                            method: "PATCH",
-                            body: { ...form, revision: editing.revision },
+                          await api(`/issue-drawer/items/${i.id}/reconcile`, {
+                            method: "POST",
+                            body: {},
                           });
-                          storage.removeItem("issue-edit:" + i.id);
-                          setEditing(null);
                           await refresh();
                         })
                       }
                     >
-                      Сохранить
+                      Проверить исход
                     </button>
                   )}
-                  <button className="secondary" type="button" onClick={() => setEditing(null)}>
-                    Закрыть текст
-                  </button>
+                  {i.state === "draft" && (
+                    <>
+                      <button
+                        type="button"
+                        className="icon-button"
+                        aria-label={`Поднять: ${i.title}`}
+                        disabled={busy || index === 0}
+                        onClick={() => void reorder(i, -1)}
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-button"
+                        aria-label={`Опустить: ${i.title}`}
+                        disabled={busy || index === data.items.length - 1}
+                        onClick={() => void reorder(i, 1)}
+                      >
+                        ↓
+                      </button>
+                    </>
+                  )}
+                  {!["prepared", "running", "unknown"].includes(i.state) && (
+                    <button
+                      type="button"
+                      className="secondary"
+                      disabled={busy}
+                      onClick={() =>
+                        void act(async () => {
+                          await api(`/issue-drawer/items/${i.id}`, {
+                            method: "DELETE",
+                            body: { revision: i.revision, confirm: true },
+                          });
+                          storage.removeItem("codex-issue-edit:" + i.id);
+                          if (editing?.id === i.id) setEditing(null);
+                          await refresh();
+                        })
+                      }
+                    >
+                      Убрать
+                    </button>
+                  )}
                 </div>
-              </section>
-            )}
-          </article>
-        ))}
-        {packet && (
-          <section className="issue-package" aria-label="Пакет Issues">
-            <h3>{packet.state === "prepared" ? "Проверь публикацию" : "Результат отправки"}</h3>
-            {[...new Set(packet.items.map((i) => i.projectId))].map((id) => {
-              const group = packet.items.filter((i) => i.projectId === id);
-              return (
-                <section key={id}>
-                  <strong>
-                    {group[0]!.projectName} · {group[0]!.repository}
-                  </strong>
-                  <p>
-                    От GitHub: @{group[0]!.identity.login} · Issues: {group.length}
-                  </p>
-                  {group.map((i) => (
-                    <details key={i.id}>
-                      <summary>{i.title}</summary>
-                      <SharedMarkdown text={i.body} />
+                {editing?.id === i.id && (
+                  <section className="issue-editor">
+                    <label>
+                      Проект
+                      <select
+                        aria-label="Проект для Issue"
+                        value={form.targetId}
+                        disabled={!["draft", "failed", "cancelled"].includes(i.state)}
+                        onChange={(e) => setForm({ ...form, targetId: e.target.value })}
+                      >
+                        <option value="">Выбери проект</option>
+                        {targets.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Название
+                      <input
+                        aria-label="Название Issue"
+                        value={form.title}
+                        maxLength={200}
+                        readOnly={!["draft", "failed", "cancelled"].includes(i.state)}
+                        onChange={(e) => setForm({ ...form, title: e.target.value })}
+                      />
+                    </label>
+                    <label>
+                      Текст
+                      <AutoTextarea
+                        aria-label="Текст Issue"
+                        rows={10}
+                        value={form.body}
+                        maxLength={16000}
+                        readOnly={!["draft", "failed", "cancelled"].includes(i.state)}
+                        onChange={(e) => setForm({ ...form, body: e.target.value })}
+                      />
+                    </label>
+                    <details>
+                      <summary>Предпросмотр</summary>
+                      <SharedMarkdown text={form.body} />
                     </details>
-                  ))}
-                </section>
-              );
-            })}
-            <div className="issue-actions">
-              {packet.state === "prepared" && (
-                <>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() =>
-                      void act(async () => {
-                        await api(`/issue-drawer/packages/${packet.id}/confirm`, {
-                          method: "POST",
-                          body: { fingerprint: packet.fingerprint, confirm: true },
-                        });
-                        setChecked([]);
-                        await refresh();
-                      })
-                    }
-                  >
-                    Отправить {packet.items.length} Issues
+                    <div className="issue-actions">
+                      {["draft", "failed", "cancelled"].includes(i.state) && (
+                        <button
+                          type="button"
+                          disabled={
+                            busy || !form.targetId || !form.title.trim() || !form.body.trim()
+                          }
+                          onClick={() =>
+                            void act(async () => {
+                              await api(`/issue-drawer/items/${i.id}`, {
+                                method: "PATCH",
+                                body: { ...form, revision: editing.revision },
+                              });
+                              storage.removeItem("issue-edit:" + i.id);
+                              setEditing(null);
+                              await refresh();
+                            })
+                          }
+                        >
+                          Сохранить
+                        </button>
+                      )}
+                      <button className="secondary" type="button" onClick={() => setEditing(null)}>
+                        Закрыть текст
+                      </button>
+                    </div>
+                  </section>
+                )}
+              </article>
+            ))}
+          {packet && (
+            <section className="issue-package" aria-label="Пакет Issues">
+              <h3>{packet.state === "prepared" ? "Проверь публикацию" : "Результат отправки"}</h3>
+              {[...new Set(packet.items.map((i) => i.projectId))].map((id) => {
+                const group = packet.items.filter((i) => i.projectId === id);
+                return (
+                  <section key={id}>
+                    <strong>
+                      {group[0]!.projectName} · {group[0]!.repository}
+                    </strong>
+                    <p>
+                      От GitHub: @{group[0]!.identity.login} · Issues: {group.length}
+                    </p>
+                    {group.map((i) => (
+                      <details key={i.id}>
+                        <summary>{i.title}</summary>
+                        <SharedMarkdown text={i.body} />
+                      </details>
+                    ))}
+                  </section>
+                );
+              })}
+              <div className="issue-actions">
+                {packet.state === "prepared" && (
+                  <>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() =>
+                        void act(async () => {
+                          await api(`/issue-drawer/packages/${packet.id}/confirm`, {
+                            method: "POST",
+                            body: { fingerprint: packet.fingerprint, confirm: true },
+                          });
+                          setChecked([]);
+                          await refresh();
+                        })
+                      }
+                    >
+                      Отправить {packet.items.length} Issues
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary"
+                      disabled={busy}
+                      onClick={() =>
+                        void act(async () => {
+                          await api(`/issue-drawer/packages/${packet.id}/cancel`, {
+                            method: "POST",
+                            body: {},
+                          });
+                          setPacket(null);
+                          await refresh();
+                        })
+                      }
+                    >
+                      Отменить пакет
+                    </button>
+                  </>
+                )}
+                {packet.state === "running" && (
+                  <p role="status">Публикация продолжается. Окно можно закрыть.</p>
+                )}
+                {!["prepared", "running"].includes(packet.state) && (
+                  <button type="button" className="secondary" onClick={() => setPacket(null)}>
+                    Свернуть пакет
                   </button>
-                  <button
-                    type="button"
-                    className="secondary"
-                    disabled={busy}
-                    onClick={() =>
-                      void act(async () => {
-                        await api(`/issue-drawer/packages/${packet.id}/cancel`, {
-                          method: "POST",
-                          body: {},
-                        });
-                        setPacket(null);
-                        await refresh();
-                      })
-                    }
-                  >
-                    Отменить пакет
-                  </button>
-                </>
-              )}
-              {packet.state === "running" && (
-                <p role="status">Публикация продолжается. Окно можно закрыть.</p>
-              )}
-              {!["prepared", "running"].includes(packet.state) && (
-                <button type="button" className="secondary" onClick={() => setPacket(null)}>
-                  Свернуть пакет
-                </button>
-              )}
-            </div>
-          </section>
+                )}
+              </div>
+            </section>
+          )}
+        </div>
+        <footer className="issue-drawer-footer">
+          <span>
+            {
+              checked.filter((id) => data.items.some((i) => i.id === id && i.state === "draft"))
+                .length
+            }{" "}
+            выбрано
+          </span>
+          <button
+            type="button"
+            disabled={
+              busy ||
+              !checked.length ||
+              packet?.state === "running" ||
+              packet?.state === "prepared" ||
+              !!editing
+            }
+            onClick={() => void prepare()}
+          >
+            Проверить пакет
+          </button>
+        </footer>
+        {source && <IssueSourceWindow value={source} onClose={() => setSource(null)} />}
+        {result && (
+          <ActivitySourceWindow
+            personalProjectId={result.projectId}
+            target={result}
+            onClose={() => setResult(null)}
+          />
         )}
-      </div>
-      <footer className="issue-drawer-footer">
-        <span>
-          {
-            checked.filter((id) => data.items.some((i) => i.id === id && i.state === "draft"))
-              .length
-          }{" "}
-          выбрано
-        </span>
-        <button
-          type="button"
-          disabled={
-            busy ||
-            !checked.length ||
-            packet?.state === "running" ||
-            packet?.state === "prepared" ||
-            !!editing
-          }
-          onClick={() => void prepare()}
-        >
-          Проверить пакет
-        </button>
-      </footer>
-      {source && <IssueSourceWindow value={source} onClose={() => setSource(null)} />}
-      {result && (
-        <ActivitySourceWindow
-          personalProjectId={result.projectId}
-          target={result}
-          onClose={() => setResult(null)}
-        />
-      )}
-    </dialog>
+      </dialog>
+    </WindowScope>
   );
 }
 function IssueSourceWindow({

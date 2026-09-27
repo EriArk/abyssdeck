@@ -108,3 +108,18 @@ time with explicit catalog/back navigation. Categories expand into subcategories
 and readable touch entries; section links and related articles remain inside the
 same guide. Preserve the parent window and reading position. Opening the catalog
 must not raise the software keyboard; search receives focus only when requested.
+
+
+## Project entry and nested context (27 September)
+
+Project Home presents existing state as Now, Next and Project. Work/Discuss are
+paired primary actions; task analysis/Create Issue are paired secondary actions.
+Show real pending/recent material; do not manufacture empty dashboard sections.
+Advanced context/settings use a disclosure. Create-project starts from new work,
+an existing folder, GitHub or an idea; infrastructure details remain available.
+
+Use WindowScope/WindowHeading for related tools: short title, exact source context,
+compact icon actions, an anchored Close and a Back when nested. Equal actions use
+an explicit grid. Keep the source window mounted under material inspection; close
+it only when the user actually navigates to a different workspace/chat/result.
+Native dialog top-layer order must survive lazy editor loading and theme changes.

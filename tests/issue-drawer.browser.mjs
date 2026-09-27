@@ -57,7 +57,7 @@ try {
   await expect(composer).toBeVisible();
   await composer.fill("Не потерять черновик");
   await page.getByRole("button", { name: "Обзор текущего проекта" }).click();
-  await page.getByRole("button", { name: "Разобрать входящие задачи" }).click();
+  await page.getByRole("button", { name: "Разобрать задачу" }).click();
   const intakeDialog = page.getByRole("dialog", { name: "Разбор · Project" });
   await expect(intakeDialog.getByText("Готовый блок для выбранной задачи.")).toBeVisible();
   await intakeDialog
@@ -76,7 +76,7 @@ try {
     .fill("Картинки без мигания");
   await body.fill("Точный отредактированный текст\n\n- Проверить повторное открытие.");
   await drawer.getByRole("button", { name: "Закрыть подборку" }).click();
-  await intakeDialog.getByRole("button", { name: "Подборка Issues", exact: true }).click();
+  await intakeDialog.getByRole("button", { name: "Подготовить Issues", exact: true }).click();
   await drawer.getByRole("button", { name: "Изменить", exact: true }).click();
   await expect(body).toHaveValue(
     "Точный отредактированный текст\n\n- Проверить повторное открытие.",

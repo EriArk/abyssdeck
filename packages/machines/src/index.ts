@@ -5,8 +5,8 @@ import { authorizeMachine } from "./authority.js";
 export { type NativeActivity, readNativeActivity } from "./activity.js";
 export { authorizeMachine, bindMachineAuthority } from "./authority.js";
 export { controlDesktop, type DesktopState, desktopError } from "./desktop.js";
-export { readMachineImage } from "./image.js";
 export { runFileTools } from "./fileTools.js";
+export { readMachineImage } from "./image.js";
 export { PREVIEW_LIMIT, previewPath, readMachinePreview } from "./preview.js";
 export {
   assertProjectRoot,
@@ -29,12 +29,13 @@ export function windowsScript(
   machine: MachineConfig,
   cwd: string,
   args: readonly string[],
+  persistent = false,
 ): string {
   if (machine.codex.launcher && args[0] === "app-server") {
     return (
       "$utf8 = [System.Text.UTF8Encoding]::new($false); [Console]::InputEncoding = $utf8; [Console]::OutputEncoding = $utf8; $OutputEncoding = $utf8; & " +
       quotePowerShell(machine.codex.launcher) +
-      " --client " +
+      (persistent ? " --runtime " : " --client ") +
       quotePowerShell(Buffer.from(cwd, "utf8").toString("base64")) +
       "; exit $LASTEXITCODE"
     );
@@ -60,6 +61,7 @@ export function spawnCodex(
   machine: MachineConfig,
   cwd: string,
   args: readonly string[] = ["app-server", "--listen", "stdio://"],
+  runtime?: { capability: string; binding: string; cwd: string; create: boolean },
 ): ChildProcessWithoutNullStreams {
   authorizeMachine(machine);
   const options = {
@@ -89,9 +91,11 @@ export function spawnCodex(
     "-NoProfile",
     "-NonInteractive",
     "-EncodedCommand",
-    Buffer.from(windowsScript(machine, cwd, args), "utf16le").toString("base64"),
+    Buffer.from(windowsScript(machine, cwd, args, !!runtime), "utf16le").toString("base64"),
   ];
-  return spawn("ssh", sshArgs, options);
+  const child = spawn("ssh", sshArgs, options);
+  if (runtime) child.stdin.write(JSON.stringify(runtime) + "\n");
+  return child;
 }
 export function stopProcess(child: ChildProcessWithoutNullStreams): void {
   if (child.exitCode !== null || child.signalCode !== null) return;
@@ -177,8 +181,13 @@ export async function stageAttachment(
 export { guiPreviewMessage, runGuiPreview } from "./guiPreview.js";
 export { inspectProject } from "./inspector.js";
 export { deliveryMessage, runProjectDelivery, runProjectGitHub } from "./projectDelivery.js";
-export { PROJECT_FILE_LIMIT, projectFilePath, codexArtifactPath, readProjectFile } from "./projectFile.js";
-export { ARTIFACT_FILE_LIMIT, copyProjectFile, copyCodexArtifact } from "./projectFileTransfer.js";
+export {
+  codexArtifactPath,
+  PROJECT_FILE_LIMIT,
+  projectFilePath,
+  readProjectFile,
+} from "./projectFile.js";
+export { ARTIFACT_FILE_LIMIT, copyCodexArtifact, copyProjectFile } from "./projectFileTransfer.js";
 export { runProjectSetup, setupMessage } from "./projectSetup.js";
 export { readMachineResources } from "./resources.js";
 export { inspectMachineStaging } from "./staging.js";

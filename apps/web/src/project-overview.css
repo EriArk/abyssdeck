@@ -266,3 +266,54 @@
     padding: 0 12px 14px;
   }
 }
+
+.overview-primary-actions button {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 12px;
+  text-align: left;
+}
+.overview-primary-actions small {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: normal;
+  margin-top: 4px;
+}
+.overview-secondary-actions {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.overview-project summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+.overview-project details {
+  margin-top: 10px;
+}
+.overview-project details > button {
+  width: 100%;
+  margin-block: 4px;
+}
+
+.project-overview-modal:focus {
+  outline: none;
+}
+.overview-primary-actions button > span {
+  min-width: 0;
+  white-space: normal;
+}
+.overview-primary-actions button > svg {
+  flex: none;
+}
+.overview-primary-actions small {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.overview-secondary-actions button {
+  white-space: normal;
+}

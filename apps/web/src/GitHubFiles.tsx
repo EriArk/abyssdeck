@@ -11,6 +11,7 @@ import { ActivitySourceWindow } from "./ActivitySourceWindow";
 import { AutoTextarea } from "./AutoTextarea";
 import { ApiError, api, messageOf } from "./api";
 import { githubDraftStorage as storage } from "./githubDraftStorage";
+import { WindowHeading, WindowScope } from "./WindowHeading";
 import "./space-activity.css";
 import { Icon } from "./icons";
 import { useWorkspaceDialog } from "./useWorkspaceDialog";
@@ -279,178 +280,139 @@ function GitHubFiles({
     }
   };
   return createPortal(
-    <dialog
-      ref={dialog}
-      className="workspace-window github-files"
-      aria-label="Файлы GitHub"
-      onCancel={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        onClose();
-      }}
-    >
-      <header className="panel-heading">
-        <div>
-          <strong>Файлы GitHub</strong>
-          <small>
-            {projectName} · {data?.repository}
-          </small>
-        </div>
-        <button
-          className="icon-button"
-          type="button"
-          aria-label="Закрыть файлы GitHub"
-          onClick={onClose}
-        >
-          <Icon name="close" />
-        </button>
-      </header>
-      <form
-        className="github-file-branch"
-        onSubmit={(e) => {
+    <WindowScope label={"Файлы GitHub"}>
+      <dialog
+        ref={dialog}
+        className="workspace-window github-files"
+        aria-label="Файлы GitHub"
+        onCancel={(e) => {
           e.preventDefault();
-          void read("", branch);
+          e.stopPropagation();
+          onClose();
         }}
       >
-        <label>
-          Ветка
-          <input
-            aria-label="Ветка GitHub"
-            value={branch}
-            onChange={(e) => setBranch(e.target.value)}
-          />
-        </label>
-        <button className="secondary" disabled={busy} type="submit">
-          Открыть ветку
-        </button>
-      </form>
-      <div className="github-file-body">
-        {error && <p role="alert">{error}</p>}
-        {busy && <p role="status">Читаю GitHub…</p>}
-        {snapshot && (
-          <>
-            <div className="github-file-review-tools">
-              <button
-                type="button"
-                className="secondary"
-                disabled={busy}
-                onClick={() => beginAction("create")}
-              >
-                Новый файл
-              </button>
-              <button
-                type="button"
-                className="secondary"
-                disabled={busy}
-                onClick={() => beginAction("folder")}
-              >
-                Новая папка
-              </button>
-            </div>
-            {fileAction && (
-              <form
-                className="github-file-action-form"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  fileAction !== "rename" ? createFile() : reviewAction("rename");
-                }}
-              >
-                <label>
-                  {fileAction === "folder"
-                    ? "Путь новой папки"
-                    : fileAction === "create"
-                      ? "Путь нового файла"
-                      : "Новый путь"}
-                  <input
-                    aria-label="Путь файла"
-                    value={destination}
-                    maxLength={240}
-                    onChange={(e) => setDestination(e.target.value)}
-                    autoFocus
-                  />
-                </label>
-                {fileAction === "folder" && (
-                  <p>Папку сохранит файл .gitkeep. Его содержимое откроется в редакторе.</p>
-                )}
-                <div className="github-file-review-tools">
-                  <button type="button" className="secondary" onClick={() => setFileAction(null)}>
-                    Отмена
-                  </button>
-                  <button
-                    type="submit"
-                    className="primary"
-                    aria-label={
-                      fileAction !== "rename" ? "Открыть редактор" : "Проверить переименование"
-                    }
-                    disabled={busy || !destination}
-                  >
-                    {fileAction !== "rename" ? "В редактор" : "Проверить"}
-                  </button>
-                </div>
-              </form>
-            )}
-            <div className="github-file-path">
-              <button
-                type="button"
-                className="secondary"
-                disabled={busy || !snapshot.path}
-                onClick={() =>
-                  void read(snapshot.path.split("/").slice(0, -1).join("/"), snapshot.branch)
-                }
-              >
-                Папка выше
-              </button>
-              <span>{snapshot.path || "Корень"}</span>
-            </div>
-            {snapshot.entries?.map((e) => (
-              <button
-                type="button"
-                className="github-file-entry"
-                key={e.path}
-                disabled={busy}
-                onClick={() => void read(e.path, snapshot.branch)}
-              >
-                <Icon name={e.kind === "directory" ? "folder" : "file"} />
-                <span>{e.name}</span>
-              </button>
-            ))}
-            {snapshot.directory && (
+        <WindowHeading
+          title={"Файлы GitHub"}
+          context={projectName + (data?.repository ? " · " + data.repository : "")}
+          onClose={onClose}
+          closeLabel="Закрыть файлы GitHub"
+        />
+        <form
+          className="github-file-branch"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void read("", branch);
+          }}
+        >
+          <label>
+            Ветка
+            <input
+              aria-label="Ветка GitHub"
+              value={branch}
+              onChange={(e) => setBranch(e.target.value)}
+            />
+          </label>
+          <button className="secondary" disabled={busy} type="submit">
+            Открыть ветку
+          </button>
+        </form>
+        <div className="github-file-body">
+          {error && <p role="alert">{error}</p>}
+          {busy && <p role="status">Читаю GitHub…</p>}
+          {snapshot && (
+            <>
               <div className="github-file-review-tools">
                 <button
                   type="button"
                   className="secondary"
                   disabled={busy}
-                  aria-label="Переименовать папку"
-                  onClick={() => beginAction("rename")}
+                  onClick={() => beginAction("create")}
                 >
-                  Переименовать
+                  Новый файл
                 </button>
                 <button
                   type="button"
                   className="secondary"
                   disabled={busy}
-                  aria-label="Удалить папку"
-                  onClick={() => reviewAction("delete")}
+                  onClick={() => beginAction("folder")}
                 >
-                  Удалить
+                  Новая папка
                 </button>
               </div>
-            )}
-            {snapshot.file && (
-              <>
-                <div className="github-file-management">
-                  <button
-                    className="primary"
-                    type="button"
-                    disabled={snapshot.file.content === null}
-                    onClick={editFile}
-                  >
-                    Редактировать файл
-                  </button>
+              {fileAction && (
+                <form
+                  className="github-file-action-form"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    fileAction !== "rename" ? createFile() : reviewAction("rename");
+                  }}
+                >
+                  <label>
+                    {fileAction === "folder"
+                      ? "Путь новой папки"
+                      : fileAction === "create"
+                        ? "Путь нового файла"
+                        : "Новый путь"}
+                    <input
+                      aria-label="Путь файла"
+                      value={destination}
+                      maxLength={240}
+                      onChange={(e) => setDestination(e.target.value)}
+                      autoFocus
+                    />
+                  </label>
+                  {fileAction === "folder" && (
+                    <p>Папку сохранит файл .gitkeep. Его содержимое откроется в редакторе.</p>
+                  )}
+                  <div className="github-file-review-tools">
+                    <button type="button" className="secondary" onClick={() => setFileAction(null)}>
+                      Отмена
+                    </button>
+                    <button
+                      type="submit"
+                      className="primary"
+                      aria-label={
+                        fileAction !== "rename" ? "Открыть редактор" : "Проверить переименование"
+                      }
+                      disabled={busy || !destination}
+                    >
+                      {fileAction !== "rename" ? "В редактор" : "Проверить"}
+                    </button>
+                  </div>
+                </form>
+              )}
+              <div className="github-file-path">
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={busy || !snapshot.path}
+                  onClick={() =>
+                    void read(snapshot.path.split("/").slice(0, -1).join("/"), snapshot.branch)
+                  }
+                >
+                  Папка выше
+                </button>
+                <span>{snapshot.path || "Корень"}</span>
+              </div>
+              {snapshot.entries?.map((e) => (
+                <button
+                  type="button"
+                  className="github-file-entry"
+                  key={e.path}
+                  disabled={busy}
+                  onClick={() => void read(e.path, snapshot.branch)}
+                >
+                  <Icon name={e.kind === "directory" ? "folder" : "file"} />
+                  <span>{e.name}</span>
+                </button>
+              ))}
+              {snapshot.directory && (
+                <div className="github-file-review-tools">
                   <button
                     type="button"
                     className="secondary"
                     disabled={busy}
+                    aria-label="Переименовать папку"
                     onClick={() => beginAction("rename")}
                   >
                     Переименовать
@@ -459,144 +421,176 @@ function GitHubFiles({
                     type="button"
                     className="secondary"
                     disabled={busy}
+                    aria-label="Удалить папку"
                     onClick={() => reviewAction("delete")}
                   >
                     Удалить
                   </button>
                 </div>
-                <pre>
-                  {snapshot.file.content !== null
-                    ? (() => {
-                        try {
-                          return decode(snapshot.file!.content!);
-                        } catch {
-                          return "Не текст UTF-8";
-                        }
-                      })()
-                    : "Для редактирования доступны текстовые файлы до 100 МиБ."}
-                </pre>
-              </>
-            )}
-          </>
-        )}
-      </div>
-      {edit && (
-        <Suspense fallback={<p role="status">Открываю редактор…</p>}>
-          <FileEditor
-            projectId=""
-            capability=""
-            projectName={data?.repository ?? projectName}
-            path={edit.file.name}
-            copy={edit}
-            onClose={() => setEdit(null)}
-            onSaved={() => {}}
-            reviewSave={async (file) => {
-              const bytes = await file.arrayBuffer();
-              if (bytes.byteLength > 100 * 1024 * 1024) {
-                throw Error("Прямое сохранение GitHub поддерживает текст до 100 МиБ.");
-              }
-              const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes),
-                oldText = decode(edit.snapshot.file!.content!);
-              if (text === oldText && !edit.newFile) {
-                throw Error("Файл не изменён.");
-              }
-              if (review) {
-                setEdit(null);
-                return;
-              }
-              const next: Review = {
-                action: edit.newFile ? "create" : undefined,
-                source: edit.source,
-                baseBranch: edit.baseBranch ?? edit.snapshot.branch,
-                origin: edit.observation,
-                id: crypto.randomUUID(),
-                binding: edit.observation.binding,
-                repositoryId: edit.observation.repositoryId!,
-                identityId: edit.observation.identity.id,
-                oldText,
-                newText: text,
-                input: {
-                  kind: "repository-file",
-                  branch: edit.snapshot.branch,
-                  head: edit.snapshot.head,
-                  title: `${edit.newFile ? "Create" : "Update"} ${edit.snapshot.file!.path}`.slice(
-                    0,
-                    200,
-                  ),
-                  files: [
-                    {
-                      path: edit.snapshot.file!.path,
-                      previous: edit.newFile ? null : edit.snapshot.file!.sha,
-                      content: btoa(
-                        Array.from(new Uint8Array(bytes), (v) => String.fromCharCode(v)).join(""),
+              )}
+              {snapshot.file && (
+                <>
+                  <div className="github-file-management">
+                    <button
+                      className="primary"
+                      type="button"
+                      disabled={snapshot.file.content === null}
+                      onClick={editFile}
+                    >
+                      Редактировать файл
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary"
+                      disabled={busy}
+                      onClick={() => beginAction("rename")}
+                    >
+                      Переименовать
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary"
+                      disabled={busy}
+                      onClick={() => reviewAction("delete")}
+                    >
+                      Удалить
+                    </button>
+                  </div>
+                  <pre>
+                    {snapshot.file.content !== null
+                      ? (() => {
+                          try {
+                            return decode(snapshot.file!.content!);
+                          } catch {
+                            return "Не текст UTF-8";
+                          }
+                        })()
+                      : "Для редактирования доступны текстовые файлы до 100 МиБ."}
+                  </pre>
+                </>
+              )}
+            </>
+          )}
+        </div>
+        {edit && (
+          <Suspense fallback={<p role="status">Открываю редактор…</p>}>
+            <FileEditor
+              projectId=""
+              capability=""
+              projectName={data?.repository ?? projectName}
+              path={edit.file.name}
+              copy={edit}
+              onClose={() => setEdit(null)}
+              onSaved={() => {}}
+              reviewSave={async (file) => {
+                const bytes = await file.arrayBuffer();
+                if (bytes.byteLength > 100 * 1024 * 1024) {
+                  throw Error("Прямое сохранение GitHub поддерживает текст до 100 МиБ.");
+                }
+                const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes),
+                  oldText = decode(edit.snapshot.file!.content!);
+                if (text === oldText && !edit.newFile) {
+                  throw Error("Файл не изменён.");
+                }
+                if (review) {
+                  setEdit(null);
+                  return;
+                }
+                const next: Review = {
+                  action: edit.newFile ? "create" : undefined,
+                  source: edit.source,
+                  baseBranch: edit.baseBranch ?? edit.snapshot.branch,
+                  origin: edit.observation,
+                  id: crypto.randomUUID(),
+                  binding: edit.observation.binding,
+                  repositoryId: edit.observation.repositoryId!,
+                  identityId: edit.observation.identity.id,
+                  oldText,
+                  newText: text,
+                  input: {
+                    kind: "repository-file",
+                    branch: edit.snapshot.branch,
+                    head: edit.snapshot.head,
+                    title:
+                      `${edit.newFile ? "Create" : "Update"} ${edit.snapshot.file!.path}`.slice(
+                        0,
+                        200,
                       ),
-                    },
-                  ],
-                },
-              };
-              await storage.setItem(key, JSON.stringify(next));
-              setReview(next);
+                    files: [
+                      {
+                        path: edit.snapshot.file!.path,
+                        previous: edit.newFile ? null : edit.snapshot.file!.sha,
+                        content: btoa(
+                          Array.from(new Uint8Array(bytes), (v) => String.fromCharCode(v)).join(""),
+                        ),
+                      },
+                    ],
+                  },
+                };
+                await storage.setItem(key, JSON.stringify(next));
+                setReview(next);
+                setEdit(null);
+              }}
+            />
+          </Suspense>
+        )}
+        {review && (
+          <GitHubFileReview
+            value={review}
+            projectId={projectId}
+            base={base}
+            storageKey={key}
+            onChange={setReview}
+            onBack={
+              review.action !== "delete" &&
+              review.action !== "rename" &&
+              (edit || review.origin?.repositoryFiles?.file?.content != null)
+                ? async () => {
+                    if (!(await forgetReview())) return;
+                    const origin = review.origin ?? edit!.observation;
+                    const original = origin.repositoryFiles!.file!;
+                    const bytes = Uint8Array.from(atob(original.content!), (c) => c.charCodeAt(0));
+                    setEdit({
+                      newFile: review.action === "create",
+                      file: new File([bytes], original.path.split("/").at(-1)!, {
+                        type: "text/plain",
+                      }),
+                      source: review.source!,
+                      observation: origin,
+                      baseBranch: review.baseBranch,
+                      snapshot: {
+                        ...origin.repositoryFiles!,
+                        branch: review.input.branch,
+                        head: review.input.head,
+                      },
+                    });
+                    setReview(null);
+                  }
+                : undefined
+            }
+            onClose={onClose}
+            onCancelChange={async () => {
+              if (!(await forgetReview())) return;
+              setReview(null);
               setEdit(null);
             }}
+            onDone={async () => {
+              if (!(await forgetReview(review.source))) return;
+              setReview(null);
+              setEdit(null);
+              void read(
+                review.action === "delete"
+                  ? ""
+                  : review.input.kind === "repository-tree"
+                    ? (review.input.files[0]!.moveTo ?? "")
+                    : (review.input.files.find((f) => f.content !== null)?.path ?? ""),
+                review.input.branch,
+              );
+            }}
           />
-        </Suspense>
-      )}
-      {review && (
-        <GitHubFileReview
-          value={review}
-          projectId={projectId}
-          base={base}
-          storageKey={key}
-          onChange={setReview}
-          onBack={
-            review.action !== "delete" &&
-            review.action !== "rename" &&
-            (edit || review.origin?.repositoryFiles?.file?.content != null)
-              ? async () => {
-                  if (!(await forgetReview())) return;
-                  const origin = review.origin ?? edit!.observation;
-                  const original = origin.repositoryFiles!.file!;
-                  const bytes = Uint8Array.from(atob(original.content!), (c) => c.charCodeAt(0));
-                  setEdit({
-                    newFile: review.action === "create",
-                    file: new File([bytes], original.path.split("/").at(-1)!, {
-                      type: "text/plain",
-                    }),
-                    source: review.source!,
-                    observation: origin,
-                    baseBranch: review.baseBranch,
-                    snapshot: {
-                      ...origin.repositoryFiles!,
-                      branch: review.input.branch,
-                      head: review.input.head,
-                    },
-                  });
-                  setReview(null);
-                }
-              : undefined
-          }
-          onClose={onClose}
-          onCancelChange={async () => {
-            if (!(await forgetReview())) return;
-            setReview(null);
-            setEdit(null);
-          }}
-          onDone={async () => {
-            if (!(await forgetReview(review.source))) return;
-            setReview(null);
-            setEdit(null);
-            void read(
-              review.action === "delete"
-                ? ""
-                : review.input.kind === "repository-tree"
-                  ? (review.input.files[0]!.moveTo ?? "")
-                  : (review.input.files.find((f) => f.content !== null)?.path ?? ""),
-              review.input.branch,
-            );
-          }}
-        />
-      )}
-    </dialog>,
+        )}
+      </dialog>
+    </WindowScope>,
     document.body,
   );
 }

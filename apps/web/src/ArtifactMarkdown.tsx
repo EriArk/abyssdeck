@@ -1,10 +1,16 @@
-import { CHAT_BLOCK_LINES, type ResultItem, textBlockLines } from "@codex-web/shared";
+import {
+  CHAT_BLOCK_LINES,
+  parseGitHubReference,
+  type ResultItem,
+  textBlockLines,
+} from "@codex-web/shared";
 import type { ReactNode } from "react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Components } from "react-markdown";
 import { pageWorkspace, workspaceMediaUrl } from "./accountStorage";
 import { CollapsibleCode, textOf } from "./CollapsibleCode";
 import { CopyButton } from "./CopyButton";
+import { HumanReferenceLink } from "./HumanReferences";
 import "./message-artifacts.css";
 
 function MessageImage({
@@ -208,6 +214,8 @@ export function artifactComponents(
             {props.children}
           </DownloadLink>
         );
+      if (parseGitHubReference(href))
+        return <HumanReferenceLink href={href}>{props.children}</HumanReferenceLink>;
       return props.href ? (
         <a
           {...props}

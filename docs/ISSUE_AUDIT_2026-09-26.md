@@ -4,6 +4,8 @@
 > is implemented and verified in controlled tests. Runtime installation is tracked
 > separately; P1 mutation admission remains open.
 
+> Follow-up: [runtime continuity and project entry](PROJECT_ENTRY_RUNTIME_2026-09-27.md) records the combined #229/navigation/Home stage, tests and installed-versus-pending boundaries.
+
 ## Снимок и границы проверки
 
 Репозиторий: `EriArk/codex-web-interface`. Получены **129 issues: 74 открытых и 55 закрытых**, включая описания и комментарии. Pull requests в это число не входят. Сопоставлены требования/acceptance, последующие решения владельца в `AGENTS.md`, текущий код, тестовые сценарии и записи предыдущей проверки. База исходников: **`main` / `44b700a`**; этот документ — результат анализа, не выпуск исправлений.

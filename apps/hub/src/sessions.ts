@@ -23,6 +23,7 @@ import {
 import { accessCapabilities, requireAccess, threadAccess, turnAccess } from "./access.js";
 import { Attachments } from "./attachments.js";
 import { Catalog, type CatalogProject } from "./catalog.js";
+import { codexRuntimeBinding, confirmCodexRuntime, type RuntimeBinding } from "./codex-runtime.js";
 import { observeScheduleReceipt } from "./codex-schedules.js";
 import { elicitationResponse, parseElicitation } from "./elicitation.js";
 import { ExternalActivity } from "./externalActivity.js";
@@ -43,6 +44,8 @@ function text(value: unknown, max = 200000): string {
 }
 interface Runtime {
   machineId?: string;
+  binding?: RuntimeBinding;
+  instanceId?: string;
   rpc: CodexClient;
   loaded: Set<string>;
   active: Set<string>;
@@ -73,6 +76,8 @@ export class Sessions extends EventEmitter {
       throw new HubError(409, "UTILITY_THREAD", "Открой технический чат через его окно проекта.");
   }
   authorizeExecution: () => void = () => {};
+  authorizeInspection: () => void = () => this.authorizeExecution();
+  executionBinding = "";
   projectInstructions: (projectId: string) => string | null = () => null;
   private readonly collaborationThreads = new Set<string>();
   private turnInstructions(thread: ThreadRecord) {
@@ -116,11 +121,19 @@ export class Sessions extends EventEmitter {
   readonly nativeWork: NativeWorkStore;
   readonly usageRevision = new Map<string, number>();
   private idleTimer: NodeJS.Timeout;
+  private closing = false;
+  private recovering = false;
+  private threadRecoveryAttempts = new Map<string, number>();
+  private recoveryAttempts = new Map<string, number>();
   constructor(
     readonly config: HubConfig,
     readonly store: Store,
-    private clientFactory: (machine: MachineConfig, cwd: string) => CodexClient = (m, cwd) =>
-      new CodexClient(spawnCodex(m, cwd)),
+    private clientFactory: (
+      machine: MachineConfig,
+      cwd: string,
+      binding?: RuntimeBinding,
+    ) => CodexClient = (m, cwd, binding) =>
+      new CodexClient(spawnCodex(m, cwd, undefined, binding), undefined, undefined, !!binding),
   ) {
     super();
     this.nativeWork = new NativeWorkStore(store);
@@ -160,7 +173,10 @@ export class Sessions extends EventEmitter {
       (id) => this.owns(id),
       (event) => this.emit("event", event),
     );
-    this.idleTimer = setInterval(() => void this.reap(), 60000);
+    this.idleTimer = setInterval(() => {
+      void this.reap();
+      void this.recoverPersistent();
+    }, 15000);
     this.idleTimer.unref();
   }
   project(id: string): CatalogProject {
@@ -221,10 +237,12 @@ export class Sessions extends EventEmitter {
         workingDirectory;
       await verifyProjectRoot(machine, anchor);
       this.authorizeExecution();
-      const rpc = this.clientFactory(machine, anchor);
+      const binding = codexRuntimeBinding(this.store, machine, anchor, this.executionBinding);
+      const rpc = this.clientFactory(machine, anchor, binding);
       rpc.authorize = () => this.authorizeExecution();
       const runtime: Runtime = {
         machineId: machine.id,
+        binding,
         rpc,
         loaded: new Set(),
         active: new Set(),
@@ -237,7 +255,11 @@ export class Sessions extends EventEmitter {
         "request",
         (request: ServerRequest) =>
           void this.request(runtime, request).catch(() => {
-            if (!rpc.closed) rpc.rejectRequest(request.id);
+            if (!rpc.closed) {
+              if (binding)
+                rpc.close(); // Keep an unanswered request in Companion after a failed authorization/read.
+              else rpc.rejectRequest(request.id);
+            }
           }),
       );
       rpc.on("fault", (error: HubError) => {
@@ -248,6 +270,7 @@ export class Sessions extends EventEmitter {
           this.emitEvent(approval.threadId, "approval.resolved", { id, decision: "expired" });
           runtime.active.add(approval.threadId);
         }
+        if (this.closing && runtime.binding) return;
         for (const threadId of runtime.active) {
           const activeTurnId = this.store.thread(threadId).activeTurnId;
           if (activeTurnId) this.nativeWork.finish(threadId, activeTurnId);
@@ -265,13 +288,37 @@ export class Sessions extends EventEmitter {
         runtime.codexHome = text(identity.codexHome, 2048);
         runtime.version = text(identity.userAgent, 300).match(/\/(\d+\.\d+\.\d+)/)?.[1];
         account = await rpc.request("account/read", { refreshToken: false });
+        if (account.requiresOpenaiAuth && !account.account)
+          throw new HubError(
+            503,
+            "CODEX_LOGIN_REQUIRED",
+            "Выполни вход в Codex на выбранной машине",
+          );
+        if (binding) {
+          confirmCodexRuntime(this.store, machine.id, binding, identity.companion, account.account);
+          runtime.instanceId = text(record(identity.companion).instanceId);
+        }
       } catch (error) {
         rpc.close();
+        if (binding && error instanceof HubError && error.code === "CODEX_RUNTIME_MISSING") {
+          // A fixed authenticated pipe response proved this exact runtime no longer exists.
+          // Permit a later fresh connection, retaining the account and all uncertain turns.
+          this.store.db
+            .prepare(
+              "UPDATE codex_runtime_bindings SET instanceId=NULL WHERE machineId=? AND capability=? AND binding=?",
+            )
+            .run(machine.id, binding.capability, binding.binding);
+        }
         throw error;
       }
       if (account.requiresOpenaiAuth && !account.account) {
         rpc.close();
         throw new HubError(503, "CODEX_LOGIN_REQUIRED", "Выполни вход в Codex на выбранной машине");
+      }
+      if (binding) {
+        const ready = await rpc.request("companion/ready", {});
+        for (const request of Array.isArray(ready.pending) ? ready.pending : [])
+          rpc.emit("request", request);
       }
       return runtime;
     })();
@@ -459,19 +506,60 @@ export class Sessions extends EventEmitter {
       )
         throw new HubError(409, "DESKTOP_BUSY", "Сначала останови задачи, запущенные через сайт.");
     }
+    const previousClient = this.machineClient(machineId);
     this.store.setPreferences({
       machineClients: { ...record(this.store.preferences().machineClients), [machineId]: client },
     });
     if (client !== "desktop") return;
-    const existing = this.runtimes.get(machineId);
+    let existing = this.runtimes.get(machineId);
+    if (
+      !existing &&
+      this.store.db.prepare("SELECT 1 FROM codex_runtime_bindings WHERE machineId=?").get(machineId)
+    ) {
+      // A disconnected controller does not imply a released native writer.
+      const machine = this.config.machines.find((m) => m.id === machineId)!;
+      const cwd = machine.allowedProjectRoots?.[0] ?? projects[0]?.workingDirectory;
+      if (cwd) existing = this.machineRuntime(machine, cwd);
+      else {
+        this.store.setPreferences({
+          machineClients: {
+            ...record(this.store.preferences().machineClients),
+            [machineId]: previousClient,
+          },
+        });
+        throw new HubError(
+          409,
+          "RUNTIME_BINDING_CHANGED",
+          "Не удалось проверить прежнее подключение Codex.",
+        );
+      }
+    }
     if (!existing) return;
     // Pause mutations before awaiting a launch already in flight. Read-only discovery may reconnect later.
     try {
       const runtime = await existing;
-      runtime.rpc.close(); // Companion's job object terminates this App Server tree on pipe disconnect.
+      if (runtime.binding) {
+        await runtime.rpc.request(
+          force ? "companion/terminate" : "companion/close",
+          force ? { confirm: true } : {},
+        );
+        this.store.db
+          .prepare("DELETE FROM codex_runtime_bindings WHERE machineId=?")
+          .run(machineId);
+      }
+      runtime.rpc.close();
       if (this.runtimes.get(machineId) === existing) this.runtimes.delete(machineId);
-    } catch {
-      /* A failed launch owns no live writer. */
+    } catch (error) {
+      if (this.config.machines.find((m) => m.id === machineId)?.codex.persistent) {
+        this.store.setPreferences({
+          machineClients: {
+            ...record(this.store.preferences().machineClients),
+            [machineId]: previousClient,
+          },
+        });
+        throw error;
+      }
+      /* A failed legacy launch owns no live writer. */
     }
   }
 
@@ -1900,6 +1988,141 @@ export class Sessions extends EventEmitter {
       );
     }
   }
+  /** Reattach exact runtimes and import canonical output; never resubmit work. */
+  async recoverPersistent(): Promise<void> {
+    if (this.closing || this.recovering) return;
+    this.recovering = true;
+    try {
+      for (const machine of this.config.machines.filter((m) => m.codex.persistent)) {
+        if ((this.recoveryAttempts.get(machine.id) ?? 0) >= 3) continue;
+        const projects = this.catalog.projects().filter((p) => p.machineId === machine.id);
+        const threads = projects
+          .flatMap((p) => this.store.threads(p.id))
+          .filter(
+            (t) =>
+              t.activitySource !== "external" &&
+              t.activeTurnId &&
+              ["unknown", "running", "waiting_approval"].includes(t.status),
+          );
+        if (
+          !threads.length ||
+          !this.store.db
+            .prepare(
+              "SELECT 1 FROM codex_runtime_bindings WHERE machineId=? AND instanceId IS NOT NULL",
+            )
+            .get(machine.id)
+        )
+          continue;
+        try {
+          const r = await this.runtime(threads[0]!.projectId);
+          for (const thread of threads) {
+            if (r.loaded.has(thread.id) && thread.status !== "unknown") continue;
+            const recoveryKey = thread.id + ":" + thread.activeTurnId;
+            if ((this.threadRecoveryAttempts.get(recoveryKey) ?? 0) >= 3) continue;
+            this.threadRecoveryAttempts.set(
+              recoveryKey,
+              (this.threadRecoveryAttempts.get(recoveryKey) ?? 0) + 1,
+            );
+            try {
+              await this.verifyThreadRoot(thread);
+              const response = await r.rpc.request("thread/turns/list", {
+                threadId: thread.codexThreadId,
+                limit: 20,
+                itemsView: "full",
+                sortDirection: "desc",
+              });
+              const turns = Array.isArray(response.data) ? response.data.map(record) : [];
+              const exact = turns.find((turn) => turn.id === thread.activeTurnId);
+              if (
+                !exact ||
+                !["inProgress", "completed", "interrupted", "failed"].includes(text(exact.status))
+              )
+                continue;
+              // Existing projection captures exact source-message artifacts and is idempotent.
+              await this.catalog.history(thread);
+              for (const item of Array.isArray(exact.items) ? exact.items : [])
+                if (exact.status !== "inProgress" || record(item).status === "completed")
+                  this.notification(r, "item/completed", {
+                    threadId: thread.codexThreadId,
+                    turnId: exact.id,
+                    item,
+                  });
+              this.threadRecoveryAttempts.delete(recoveryKey);
+              r.loaded.add(thread.id);
+              if (this.store.thread(thread.id).activeTurnId !== thread.activeTurnId) continue;
+              if (exact.status === "inProgress") {
+                const proof = await r.rpc.inspectCompanion(() => this.authorizeInspection());
+                if (
+                  proof.protocol !== 2 ||
+                  proof.runtimeId !== r.binding?.binding ||
+                  proof.instanceId !== r.instanceId ||
+                  record(proof.turns)[thread.codexThreadId] !== exact.id
+                ) {
+                  r.loaded.delete(thread.id);
+                  this.threadRecoveryAttempts.set(recoveryKey, 3);
+                  continue;
+                }
+                r.active.add(thread.id);
+                this.store.setStatus(
+                  thread.id,
+                  this.pending(thread.id).length ? "waiting_approval" : "running",
+                  text(exact.id),
+                );
+                this.emitEvent(
+                  thread.id,
+                  "session.state",
+                  { status: this.store.thread(thread.id).status },
+                  text(exact.id),
+                );
+              } else if (this.store.thread(thread.id).activeTurnId === exact.id) {
+                this.notification(r, "turn/completed", {
+                  threadId: thread.codexThreadId,
+                  turn: exact,
+                });
+              }
+            } catch {
+              /* One lost/mismatched thread cannot block another runtime. */
+            }
+          }
+          this.recoveryAttempts.delete(machine.id);
+        } catch {
+          this.recoveryAttempts.set(machine.id, (this.recoveryAttempts.get(machine.id) ?? 0) + 1);
+        }
+      }
+    } finally {
+      this.recovering = false;
+    }
+  }
+  async persistentThreadIds(): Promise<Set<string>> {
+    const safe = new Set<string>();
+    for (const [machineId, promise] of this.runtimes) {
+      try {
+        this.authorizeInspection();
+        const r = await promise;
+        if (!r.binding) continue;
+        const info = await r.rpc.inspectCompanion(() => this.authorizeInspection());
+        this.authorizeInspection();
+        if (
+          info.protocol !== 2 ||
+          info.runtimeId !== r.binding.binding ||
+          info.instanceId !== r.instanceId
+        )
+          continue;
+        const turns = record(info.turns);
+        for (const p of this.catalog.projects().filter((p) => p.machineId === machineId))
+          for (const t of this.store.threads(p.id))
+            if (
+              t.activeTurnId &&
+              turns[t.codexThreadId] === t.activeTurnId &&
+              ["running", "waiting_approval"].includes(t.status)
+            )
+              safe.add(t.id);
+      } catch {
+        /* No evidence means the ordinary deployment blocker remains. */
+      }
+    }
+    return safe;
+  }
   private async reap(): Promise<void> {
     for (const [id, promise] of this.runtimes) {
       try {
@@ -1908,6 +2131,10 @@ export class Sessions extends EventEmitter {
           !r.active.size &&
           Date.now() - r.touched > this.config.hub.codexIdleTimeoutMinutes * 60000
         ) {
+          if (r.binding) {
+            await r.rpc.request("companion/close", {});
+            this.store.db.prepare("DELETE FROM codex_runtime_bindings WHERE machineId=?").run(id);
+          }
           this.runtimes.delete(id);
           r.rpc.close();
         }
@@ -1917,6 +2144,7 @@ export class Sessions extends EventEmitter {
     }
   }
   async close(): Promise<void> {
+    this.closing = true;
     clearInterval(this.idleTimer);
     await this.externalActivity.close();
     for (const p of [...this.runtimes.values()]) {

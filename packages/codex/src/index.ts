@@ -25,6 +25,7 @@ export class CodexClient extends EventEmitter {
     private child: ChildProcessWithoutNullStreams,
     private timeoutMs = 30000,
     private maxMessageBytes = 16 * 1024 * 1024,
+    persistentCompanion = false,
   ) {
     super();
     child.stdout.on("data", (chunk: Buffer) => this.receive(chunk));
@@ -34,8 +35,16 @@ export class CodexClient extends EventEmitter {
         new HubError(503, "CODEX_START_FAILED", "Cannot launch Codex on the target machine"),
       ),
     );
-    child.once("close", () =>
-      this.fail(new HubError(503, "CODEX_DISCONNECTED", "Connection to Codex closed")),
+    child.once("close", (code) =>
+      this.fail(
+        persistentCompanion && code === 42
+          ? new HubError(
+              503,
+              "CODEX_RUNTIME_MISSING",
+              "Процесс Codex завершился. Прежние отправки не повторялись.",
+            )
+          : new HubError(503, "CODEX_DISCONNECTED", "Connection to Codex closed"),
+      ),
     );
     child.stdin.on("error", () =>
       this.fail(new HubError(503, "CODEX_WRITE_FAILED", "Cannot send a request to Codex")),
@@ -56,9 +65,19 @@ export class CodexClient extends EventEmitter {
     this.notify("initialized", {});
     return result;
   }
+  inspectCompanion(authorize: () => void): Promise<RecordValue> {
+    return this.authorizedRequest("companion/inspect", {}, authorize);
+  }
   request(method: string, params: RecordValue): Promise<RecordValue> {
+    return this.authorizedRequest(method, params, this.authorize);
+  }
+  private authorizedRequest(
+    method: string,
+    params: RecordValue,
+    authorize: () => void,
+  ): Promise<RecordValue> {
     try {
-      this.authorize();
+      authorize();
     } catch (error) {
       return Promise.reject(error);
     }

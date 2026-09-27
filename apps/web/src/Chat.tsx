@@ -4,6 +4,7 @@ import {
   type FormEvent,
   Fragment,
   memo,
+  useContext,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -23,6 +24,7 @@ import { ContextUsage } from "./ContextUsage";
 import { CopyButton } from "./CopyButton";
 import { composerShortcut } from "./composerShortcut";
 import { useDictation } from "./Dictation";
+import { GitHubLinkContext } from "./GitHubLinkContext";
 import { useIssueCode } from "./IssueDrawer";
 import { Icon } from "./icons";
 import { MarkdownTable } from "./MarkdownTable";
@@ -54,20 +56,25 @@ export const MessageText = memo(function MessageText({
   complete?: boolean;
   issueSource?: IssueSource;
 }) {
+  const parentProject = useContext(GitHubLinkContext);
   const artifacts = useArtifactComponents(onArtifact, resolveImage);
   const code = useIssueCode(text, onArtifact, complete, issueSource);
   return (
-    <Markdown
-      urlTransform={(url) => (onArtifact && artifactSource(url) ? url : defaultUrlTransform(url))}
-      remarkPlugins={[remarkGfm]}
-      components={{
-        pre: code,
-        table: MarkdownTable,
-        ...artifacts,
-      }}
+    <GitHubLinkContext.Provider
+      value={issueSource?.client === "codex" ? issueSource.projectId : parentProject}
     >
-      {text}
-    </Markdown>
+      <Markdown
+        urlTransform={(url) => (onArtifact && artifactSource(url) ? url : defaultUrlTransform(url))}
+        remarkPlugins={[remarkGfm]}
+        components={{
+          pre: code,
+          table: MarkdownTable,
+          ...artifacts,
+        }}
+      >
+        {text}
+      </Markdown>
+    </GitHubLinkContext.Provider>
   );
 });
 const time = (date: string) =>
@@ -517,520 +524,525 @@ export function Chat({
     await onOlder();
   };
   return (
-    <section className="chat-pane pane" aria-label="Чат" data-visible={visible}>
-      <div
-        className="chat-scroll"
-        ref={scroller}
-        onScroll={(e) => {
-          const el = e.currentTarget;
-          positions.set(threadId, el.scrollTop);
-          if (!completionLocked.current)
-            atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
-          if (atBottom.current) setNewMessages(false);
-        }}
-      >
-        {newMessages && (
-          <button
-            type="button"
-            className="new-message-button secondary"
-            onClick={() => {
-              atBottom.current = true;
-              setNewMessages(false);
-              if (scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight;
-            }}
-          >
-            К новым сообщениям ↓
-          </button>
-        )}
-        <div className="chat-content" ref={content}>
-          {(state.contextTurn || state.hasNewer) && (
-            <div className="history-loader">
-              <span className="small muted">
-                {state.contextTurn ? "Фрагмент диалога" : "В Codex появились новые сообщения"}
-              </span>
-              <button type="button" className="secondary" onClick={onLatest}>
-                К последним сообщениям
-              </button>
-            </div>
+    <GitHubLinkContext.Provider value={projectId}>
+      <section className="chat-pane pane" aria-label="Чат" data-visible={visible}>
+        <div
+          className="chat-scroll"
+          ref={scroller}
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            positions.set(threadId, el.scrollTop);
+            if (!completionLocked.current)
+              atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+            if (atBottom.current) setNewMessages(false);
+          }}
+        >
+          {newMessages && (
+            <button
+              type="button"
+              className="new-message-button secondary"
+              onClick={() => {
+                atBottom.current = true;
+                setNewMessages(false);
+                if (scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight;
+              }}
+            >
+              К новым сообщениям ↓
+            </button>
           )}
-          {!threadId ? (
-            <div className="empty-state chat-empty">
-              <div className="empty-symbol">
-                <Icon name="chat" size={30} />
+          <div className="chat-content" ref={content}>
+            {(state.contextTurn || state.hasNewer) && (
+              <div className="history-loader">
+                <span className="small muted">
+                  {state.contextTurn ? "Фрагмент диалога" : "В Codex появились новые сообщения"}
+                </span>
+                <button type="button" className="secondary" onClick={onLatest}>
+                  К последним сообщениям
+                </button>
               </div>
-              <div className="eyebrow">Рабочее пространство</div>
-              <h2>С чего начнём?</h2>
-              <p>
-                Открой диалог или создай новый.
-                <br />
-                Код и инструменты уже на твоём компьютере.
-              </p>
-              <button type="button" className="primary" onClick={onCreate} disabled={busy}>
-                <Icon name="plus" />
-                Новый диалог
-              </button>
-            </div>
-          ) : state.loading ? (
-            <div className="empty-state">
-              <span className="spinner" />
-              Открываем диалог…
-            </div>
-          ) : (
-            <>
-              {state.hasMore && (
-                <div className="history-loader">
-                  <button
-                    type="button"
-                    className="secondary"
-                    disabled={state.loadingOlder}
-                    onClick={() => void older()}
-                  >
-                    {state.loadingOlder ? "Загружаем…" : "Загрузить предыдущие"}
-                  </button>
+            )}
+            {!threadId ? (
+              <div className="empty-state chat-empty">
+                <div className="empty-symbol">
+                  <Icon name="chat" size={30} />
                 </div>
-              )}
-              {!state.messages.length &&
-                !state.approvals.length &&
-                !state.hasMore &&
-                !state.error && (
-                  <div className="empty-state chat-empty">
-                    <div className="empty-symbol">
-                      <Icon name="folder" size={30} />
-                    </div>
-                    <h2>Новый диалог, чистый лист.</h2>
+                <div className="eyebrow">Рабочее пространство</div>
+                <h2>С чего начнём?</h2>
+                <p>
+                  Открой диалог или создай новый.
+                  <br />
+                  Код и инструменты уже на твоём компьютере.
+                </p>
+                <button type="button" className="primary" onClick={onCreate} disabled={busy}>
+                  <Icon name="plus" />
+                  Новый диалог
+                </button>
+              </div>
+            ) : state.loading ? (
+              <div className="empty-state">
+                <span className="spinner" />
+                Открываем диалог…
+              </div>
+            ) : (
+              <>
+                {state.hasMore && (
+                  <div className="history-loader">
+                    <button
+                      type="button"
+                      className="secondary"
+                      disabled={state.loadingOlder}
+                      onClick={() => void older()}
+                    >
+                      {state.loadingOlder ? "Загружаем…" : "Загрузить предыдущие"}
+                    </button>
                   </div>
                 )}
-              {state.messages.map((message, index) => (
-                <Fragment key={message.id}>
-                  <article
-                    className={
-                      "message " +
-                      message.role +
-                      " " +
-                      (message.phase === "commentary" ? "commentary-message" : "")
-                    }
-                    key={message.id}
-                    data-turn={message.turnId ?? ""}
-                    data-message={message.id}
-                  >
-                    <div className="message-meta">
-                      <span className="avatar">{message.role === "user" ? "Я" : "C"}</span>
-                      <strong>{message.role === "user" ? "Вы" : "Codex"}</strong>
-                      <time>{time(message.createdAt)}</time>
-                      {message.phase === "plan" && <span className="badge">План</span>}
-                      {message.phase === "commentary" && (
-                        <span className="small muted">В работе</span>
-                      )}
-                      <span className="message-actions">
-                        {message.role === "assistant" && (
-                          <SpeechButton id={`${speechScope}:${message.id}`} text={message.text} />
-                        )}
-                        {onCapture && message.text.trim() && (
-                          <button
-                            type="button"
-                            className="icon-button"
-                            aria-label="Сохранить в заметки"
-                            onClick={() => onCapture(message)}
-                          >
-                            <Icon name="file" size={17} />
-                          </button>
-                        )}
-                        <CopyButton text={message.text} />
-                      </span>
-                    </div>
-                    <div className="message-body">
-                      <MessageText
-                        text={message.text}
-                        complete={
-                          message.phase !== "commentary" &&
-                          message.turnId !== state.thread.activeTurnId
-                        }
-                        resolveImage={
-                          message.role === "assistant"
-                            ? async (source) =>
-                                (
-                                  await api<Result>(
-                                    `/threads/${encodeURIComponent(threadId)}/results/reveal`,
-                                    {
-                                      method: "POST",
-                                      body: {
-                                        source,
-                                        messageId: message.id,
-                                        turnId: message.turnId,
-                                      },
-                                    },
-                                  )
-                                ).payload.url
-                            : undefined
-                        }
-                        onArtifact={
-                          message.role === "assistant" && onArtifact
-                            ? (source) =>
-                                onArtifact({
-                                  scope: threadId,
-                                  endpoint: `/threads/${encodeURIComponent(threadId)}/results/reveal`,
-                                  reference: {
-                                    source,
-                                    messageId: message.id,
-                                    turnId: message.turnId,
-                                  },
-                                })
-                            : undefined
-                        }
-                      />
-                      {!message.text && !message.attachments?.length && (
-                        <span className="typing">•••</span>
-                      )}
-                      <AttachmentList
-                        files={[
-                          ...(message.attachments ?? []),
-                          ...(message.images ?? []).map((image) => ({
-                            ...image,
-                            threadId,
-                            messageId: message.id,
-                            mime: "image/png",
-                            bytes: 0,
-                            image: true,
-                            previewUrl: image.url,
-                            createdAt: "",
-                          })),
-                        ]}
-                      />
-                      {message.role === "assistant" &&
-                        message.phase !== "commentary" &&
-                        !/!\[[^\]]*\]\(/.test(message.text) &&
-                        !state.messages
-                          .slice(index + 1)
-                          .some(
-                            (next) => next.role === "assistant" && next.turnId === message.turnId,
-                          ) && (
-                          <div className="message-file-links">
-                            {results
-                              .filter(
-                                (result) =>
-                                  result.type === "image" &&
-                                  result.turnId === message.turnId &&
-                                  (!result.threadId || result.threadId === threadId) &&
-                                  result.payload.url,
-                              )
-                              .map((result) => (
-                                <span
-                                  key={result.id}
-                                  className={
-                                    /^https?:\/\//i.test(result.payload.url!)
-                                      ? "message-web-image"
-                                      : "message-generated-image"
-                                  }
-                                >
-                                  <button
-                                    type="button"
-                                    aria-label={result.title}
-                                    onClick={() =>
-                                      onArtifact
-                                        ? onArtifact({ scope: threadId, result })
-                                        : onResult(result.id)
-                                    }
-                                  >
-                                    <img
-                                      src={workspaceMediaUrl(result.payload.url)}
-                                      alt={result.title}
-                                      loading="lazy"
-                                      referrerPolicy="no-referrer"
-                                    />
-                                  </button>
-                                </span>
-                              ))}
-                          </div>
-                        )}
-                    </div>
-                    {message.role === "assistant" &&
-                      message.phase === "plan" &&
-                      state.messages.findLast((m) => m.phase === "plan")?.id === message.id && (
-                        <NativePlan
-                          key={threadId + ":" + message.id}
-                          threadId={threadId}
-                          messageId={message.id}
-                          revision={`${state.thread.status}:${state.thread.activeTurnId ?? ""}:${state.messages.at(-1)?.id ?? ""}`}
-                          visible={visible}
-                          disabled={busy || writeBlocked || queue.busy}
-                        />
-                      )}
-                    {message.role === "assistant" &&
-                      message.phase !== "commentary" &&
-                      results.some((r) => r.turnId === message.turnId) && (
-                        <button
-                          type="button"
-                          className="result-chip"
-                          onClick={() =>
-                            onResult(results.find((r) => r.turnId === message.turnId)?.id ?? "")
-                          }
-                        >
-                          <Icon name="results" size={15} />
-                          Результаты этого хода
-                          <Icon name="chevron" size={14} />
-                        </button>
-                      )}
-                  </article>
-                  {endsTask(
-                    message,
-                    state.messages[index + 1],
-                    state.thread.activeTurnId,
-                    state.thread.status,
-                  ) && (
-                    <div className="task-boundary">
-                      <hr aria-label="Конец задачи" />
-                      <span aria-hidden="true">Конец задачи</span>
-                      <div className="task-boundary-line" aria-hidden="true" />
-                      {reviews
-                        .filter((r) => r.turnId === message.turnId)
-                        .map((r) => (
-                          <WorkReviewLink key={r.id} scope={r.scope} id={r.id} state={r.state} />
-                        ))}
+                {!state.messages.length &&
+                  !state.approvals.length &&
+                  !state.hasMore &&
+                  !state.error && (
+                    <div className="empty-state chat-empty">
+                      <div className="empty-symbol">
+                        <Icon name="folder" size={30} />
+                      </div>
+                      <h2>Новый диалог, чистый лист.</h2>
                     </div>
                   )}
-                </Fragment>
-              ))}
-              {state.approvals.map((a) => (
-                <ApprovalCard
-                  key={a.id}
-                  approval={a}
-                  busy={busy}
-                  onDecision={onDecision}
-                  onAnswer={onAnswer}
-                />
-              ))}
-            </>
-          )}
-        </div>
-      </div>
-      <UpdateNotice visible={visible} busy={busy || attachments.busy} />
-      {threadId && (
-        <ConnectionRecovery
-          key={threadId}
-          needed={state.thread.status === "unknown"}
-          error={state.error}
-          disabled={busy || !visible}
-          onRecover={onReconnect}
-        />
-      )}
-      {(sending || queue.busy || active) && (
-        <div
-          className={`turn-status ${state.approvals.length ? "needs-answer" : ""}`}
-          role="status"
-          aria-live="polite"
-        >
-          <button
-            type="button"
-            className="turn-status-toggle"
-            aria-label="Ход работы"
-            aria-expanded={detailsOpen}
-            aria-controls="turn-details"
-            onClick={() => setDetailsOpen((v) => !v)}
-          >
-            <span
-              className={state.approvals.length ? "status-dot attention" : "spinner"}
-              role="img"
-              aria-label={state.approvals.length ? "Нужен ответ" : "Codex работает"}
-            />
-            <span>
-              {queue.busy
-                ? "Передаём сообщение…"
-                : sending
-                  ? attachments.files.length
-                    ? "Передаём вложения…"
-                    : "Отправляем сообщение…"
-                  : state.approvals.length
-                    ? "Codex ждёт твоего ответа"
-                    : state.thread.activitySource === "external"
-                      ? "Codex работает в другом клиенте"
-                      : state.progress || statusLabel(state.thread.status)}
-            </span>
-            <span className="details-chevron">
-              <Icon name="chevron" size={14} />
-            </span>
-          </button>
-          {active && (draft.trim() || attachments.files.length > 0) && (
-            <button
-              type="button"
-              className="text-button"
-              aria-label="Остановить Codex"
-              disabled={busy || state.thread.activitySource === "external"}
-              onClick={onStop}
-            >
-              Остановить
-            </button>
-          )}
-          {state.approvals.length > 0 && (
-            <button
-              type="button"
-              className="text-button"
-              onClick={() =>
-                scroller.current?.querySelector(".approval")?.scrollIntoView({ block: "center" })
-              }
-            >
-              К вопросу ↑
-            </button>
-          )}
-        </div>
-      )}
-      {detailsOpen && (sending || queue.busy || active) && (
-        <TurnDetails threadId={threadId} turnId={state.thread.activeTurnId} />
-      )}
-      {handoff.panel}
-      <ContextUsage key={`context:${threadId}`} threadId={threadId} active={active} />
-      {sendError && (
-        <div className="send-error" role="alert">
-          <span>{sendError}</span>
-          {writeBlocked && (
-            <button
-              type="button"
-              className="secondary"
-              disabled={busy || attachments.busy}
-              onClick={onReconnect}
-            >
-              Проверить доступ
-            </button>
-          )}
-        </div>
-      )}
-      {active && !queue.state.available && queue.state.message && (
-        <div className="composer-error" role="status">
-          {queue.state.message}
-        </div>
-      )}
-      <MessageQueue key={threadId} queue={queue} turnId={state.thread.activeTurnId} />
-      {dictation.panel}
-      <form
-        className="composer"
-        onDragOver={(e) => {
-          if (e.dataTransfer.types.includes("Files")) e.preventDefault();
-        }}
-        onDrop={(e) => {
-          e.preventDefault();
-          if (!busy && !handoff.pending && !queue.busy) void attachments.add(e.dataTransfer.files);
-        }}
-        onSubmit={(e) => {
-          e.preventDefault();
-          void send();
-        }}
-      >
-        <ComposerOptions
-          options={options}
-          disabled={!threadId || state.loading || busy || active}
-          effortDisabled={!threadId || (state.loading && !active) || busy}
-        />
-        <AttachmentList
-          files={attachments.files}
-          disabled={busy || handoff.pending || queue.busy || attachments.busy}
-          onRemove={(id) => void attachments.remove(id)}
-        />
-        {(attachments.error || attachments.busy) && (
-          <div className="composer-error" role="status">
-            {attachments.busy ? attachments.progress || "Загружаем вложение…" : attachments.error}
-          </div>
-        )}
-        {(state.loading || options.loading || sending || queue.busy) && (
-          <div className="composer-loading" role="status" aria-label="Загрузка чата Codex">
-            <span className="spinner" aria-hidden="true" />
-          </div>
-        )}
-        <div className="composer-input">
-          <input
-            ref={fileInput}
-            className="file-input"
-            type="file"
-            multiple
-            aria-label="Выбрать файлы или изображения"
-            disabled={!threadId || busy || handoff.pending || queue.busy || attachments.busy}
-            onChange={(e) => {
-              if (e.target.files) void attachments.add(e.target.files);
-              e.target.value = "";
-            }}
-          />
-          <div className="composer-tools">
-            <button
-              type="button"
-              className="icon-button attach-button"
-              aria-label="Добавить файлы или изображения"
-              disabled={
-                !threadId ||
-                busy ||
-                handoff.pending ||
-                queue.busy ||
-                attachments.busy ||
-                attachments.files.length >= 8
-              }
-              onClick={() => fileInput.current?.click()}
-            >
-              <Icon name="plus" />
-            </button>
-            <AccessPicker
-              options={options}
-              disabled={
-                !threadId ||
-                state.loading ||
-                busy ||
-                (active && state.thread.activitySource === "external")
-              }
-            />
-          </div>
-          <AutoTextarea
-            ref={composer}
-            onPaste={(e) => {
-              if (e.clipboardData.files.length) {
-                e.preventDefault();
-                if (!busy && !handoff.pending && !queue.busy)
-                  void attachments.add(e.clipboardData.files);
-              }
-            }}
-            rows={2}
-            value={draft}
-            onChange={(e) => saveDraft(e.target.value)}
-            placeholder={threadId ? "Что нужно сделать?" : "Создай диалог, чтобы начать"}
-            aria-label="Сообщение Codex"
-            disabled={!threadId || handoff.pending}
-            maxLength={32000}
-            onKeyDown={composerShortcut}
-          />
-          <div className="composer-submit">
-            {dictation.button}
-            {active && !draft.trim() && !attachments.files.length ? (
-              <button
-                type="button"
-                className="stop-button"
-                onClick={onStop}
-                disabled={busy || state.thread.activitySource === "external"}
-                aria-label="Остановить Codex"
-              >
-                <Icon name="stop" />
-              </button>
-            ) : (
-              <button
-                type="submit"
-                className="send-button"
-                disabled={
-                  dictation.locked ||
-                  !threadId ||
-                  (!draft.trim() && !attachments.files.length) ||
-                  busy ||
-                  queue.busy ||
-                  handoff.pending ||
-                  (active && !external && !pendingRetry && !queue.state.available) ||
-                  attachments.busy ||
-                  (state.loading && !(active && queue.state.available)) ||
-                  options.loading ||
-                  options.saving ||
-                  !options.selection ||
-                  state.thread.status === "unknown"
-                }
-                aria-label={active && !pendingRetry ? "Добавить в очередь" : "Отправить сообщение"}
-              >
-                <Icon name={active && !pendingRetry ? "plus" : "send"} />
-              </button>
+                {state.messages.map((message, index) => (
+                  <Fragment key={message.id}>
+                    <article
+                      className={
+                        "message " +
+                        message.role +
+                        " " +
+                        (message.phase === "commentary" ? "commentary-message" : "")
+                      }
+                      key={message.id}
+                      data-turn={message.turnId ?? ""}
+                      data-message={message.id}
+                    >
+                      <div className="message-meta">
+                        <span className="avatar">{message.role === "user" ? "Я" : "C"}</span>
+                        <strong>{message.role === "user" ? "Вы" : "Codex"}</strong>
+                        <time>{time(message.createdAt)}</time>
+                        {message.phase === "plan" && <span className="badge">План</span>}
+                        {message.phase === "commentary" && (
+                          <span className="small muted">В работе</span>
+                        )}
+                        <span className="message-actions">
+                          {message.role === "assistant" && (
+                            <SpeechButton id={`${speechScope}:${message.id}`} text={message.text} />
+                          )}
+                          {onCapture && message.text.trim() && (
+                            <button
+                              type="button"
+                              className="icon-button"
+                              aria-label="Сохранить в заметки"
+                              onClick={() => onCapture(message)}
+                            >
+                              <Icon name="file" size={17} />
+                            </button>
+                          )}
+                          <CopyButton text={message.text} />
+                        </span>
+                      </div>
+                      <div className="message-body">
+                        <MessageText
+                          text={message.text}
+                          complete={
+                            message.phase !== "commentary" &&
+                            message.turnId !== state.thread.activeTurnId
+                          }
+                          resolveImage={
+                            message.role === "assistant"
+                              ? async (source) =>
+                                  (
+                                    await api<Result>(
+                                      `/threads/${encodeURIComponent(threadId)}/results/reveal`,
+                                      {
+                                        method: "POST",
+                                        body: {
+                                          source,
+                                          messageId: message.id,
+                                          turnId: message.turnId,
+                                        },
+                                      },
+                                    )
+                                  ).payload.url
+                              : undefined
+                          }
+                          onArtifact={
+                            message.role === "assistant" && onArtifact
+                              ? (source) =>
+                                  onArtifact({
+                                    scope: threadId,
+                                    endpoint: `/threads/${encodeURIComponent(threadId)}/results/reveal`,
+                                    reference: {
+                                      source,
+                                      messageId: message.id,
+                                      turnId: message.turnId,
+                                    },
+                                  })
+                              : undefined
+                          }
+                        />
+                        {!message.text && !message.attachments?.length && (
+                          <span className="typing">•••</span>
+                        )}
+                        <AttachmentList
+                          files={[
+                            ...(message.attachments ?? []),
+                            ...(message.images ?? []).map((image) => ({
+                              ...image,
+                              threadId,
+                              messageId: message.id,
+                              mime: "image/png",
+                              bytes: 0,
+                              image: true,
+                              previewUrl: image.url,
+                              createdAt: "",
+                            })),
+                          ]}
+                        />
+                        {message.role === "assistant" &&
+                          message.phase !== "commentary" &&
+                          !/!\[[^\]]*\]\(/.test(message.text) &&
+                          !state.messages
+                            .slice(index + 1)
+                            .some(
+                              (next) => next.role === "assistant" && next.turnId === message.turnId,
+                            ) && (
+                            <div className="message-file-links">
+                              {results
+                                .filter(
+                                  (result) =>
+                                    result.type === "image" &&
+                                    result.turnId === message.turnId &&
+                                    (!result.threadId || result.threadId === threadId) &&
+                                    result.payload.url,
+                                )
+                                .map((result) => (
+                                  <span
+                                    key={result.id}
+                                    className={
+                                      /^https?:\/\//i.test(result.payload.url!)
+                                        ? "message-web-image"
+                                        : "message-generated-image"
+                                    }
+                                  >
+                                    <button
+                                      type="button"
+                                      aria-label={result.title}
+                                      onClick={() =>
+                                        onArtifact
+                                          ? onArtifact({ scope: threadId, result })
+                                          : onResult(result.id)
+                                      }
+                                    >
+                                      <img
+                                        src={workspaceMediaUrl(result.payload.url)}
+                                        alt={result.title}
+                                        loading="lazy"
+                                        referrerPolicy="no-referrer"
+                                      />
+                                    </button>
+                                  </span>
+                                ))}
+                            </div>
+                          )}
+                      </div>
+                      {message.role === "assistant" &&
+                        message.phase === "plan" &&
+                        state.messages.findLast((m) => m.phase === "plan")?.id === message.id && (
+                          <NativePlan
+                            key={threadId + ":" + message.id}
+                            threadId={threadId}
+                            messageId={message.id}
+                            revision={`${state.thread.status}:${state.thread.activeTurnId ?? ""}:${state.messages.at(-1)?.id ?? ""}`}
+                            visible={visible}
+                            disabled={busy || writeBlocked || queue.busy}
+                          />
+                        )}
+                      {message.role === "assistant" &&
+                        message.phase !== "commentary" &&
+                        results.some((r) => r.turnId === message.turnId) && (
+                          <button
+                            type="button"
+                            className="result-chip"
+                            onClick={() =>
+                              onResult(results.find((r) => r.turnId === message.turnId)?.id ?? "")
+                            }
+                          >
+                            <Icon name="results" size={15} />
+                            Результаты этого хода
+                            <Icon name="chevron" size={14} />
+                          </button>
+                        )}
+                    </article>
+                    {endsTask(
+                      message,
+                      state.messages[index + 1],
+                      state.thread.activeTurnId,
+                      state.thread.status,
+                    ) && (
+                      <div className="task-boundary">
+                        <hr aria-label="Конец задачи" />
+                        <span aria-hidden="true">Конец задачи</span>
+                        <div className="task-boundary-line" aria-hidden="true" />
+                        {reviews
+                          .filter((r) => r.turnId === message.turnId)
+                          .map((r) => (
+                            <WorkReviewLink key={r.id} scope={r.scope} id={r.id} state={r.state} />
+                          ))}
+                      </div>
+                    )}
+                  </Fragment>
+                ))}
+                {state.approvals.map((a) => (
+                  <ApprovalCard
+                    key={a.id}
+                    approval={a}
+                    busy={busy}
+                    onDecision={onDecision}
+                    onAnswer={onAnswer}
+                  />
+                ))}
+              </>
             )}
           </div>
         </div>
-      </form>
-    </section>
+        <UpdateNotice visible={visible} busy={busy || attachments.busy} />
+        {threadId && (
+          <ConnectionRecovery
+            key={threadId}
+            needed={state.thread.status === "unknown"}
+            error={state.error}
+            disabled={busy || !visible}
+            onRecover={onReconnect}
+          />
+        )}
+        {(sending || queue.busy || active) && (
+          <div
+            className={`turn-status ${state.approvals.length ? "needs-answer" : ""}`}
+            role="status"
+            aria-live="polite"
+          >
+            <button
+              type="button"
+              className="turn-status-toggle"
+              aria-label="Ход работы"
+              aria-expanded={detailsOpen}
+              aria-controls="turn-details"
+              onClick={() => setDetailsOpen((v) => !v)}
+            >
+              <span
+                className={state.approvals.length ? "status-dot attention" : "spinner"}
+                role="img"
+                aria-label={state.approvals.length ? "Нужен ответ" : "Codex работает"}
+              />
+              <span>
+                {queue.busy
+                  ? "Передаём сообщение…"
+                  : sending
+                    ? attachments.files.length
+                      ? "Передаём вложения…"
+                      : "Отправляем сообщение…"
+                    : state.approvals.length
+                      ? "Codex ждёт твоего ответа"
+                      : state.thread.activitySource === "external"
+                        ? "Codex работает в другом клиенте"
+                        : state.progress || statusLabel(state.thread.status)}
+              </span>
+              <span className="details-chevron">
+                <Icon name="chevron" size={14} />
+              </span>
+            </button>
+            {active && (draft.trim() || attachments.files.length > 0) && (
+              <button
+                type="button"
+                className="text-button"
+                aria-label="Остановить Codex"
+                disabled={busy || state.thread.activitySource === "external"}
+                onClick={onStop}
+              >
+                Остановить
+              </button>
+            )}
+            {state.approvals.length > 0 && (
+              <button
+                type="button"
+                className="text-button"
+                onClick={() =>
+                  scroller.current?.querySelector(".approval")?.scrollIntoView({ block: "center" })
+                }
+              >
+                К вопросу ↑
+              </button>
+            )}
+          </div>
+        )}
+        {detailsOpen && (sending || queue.busy || active) && (
+          <TurnDetails threadId={threadId} turnId={state.thread.activeTurnId} />
+        )}
+        {handoff.panel}
+        <ContextUsage key={`context:${threadId}`} threadId={threadId} active={active} />
+        {sendError && (
+          <div className="send-error" role="alert">
+            <span>{sendError}</span>
+            {writeBlocked && (
+              <button
+                type="button"
+                className="secondary"
+                disabled={busy || attachments.busy}
+                onClick={onReconnect}
+              >
+                Проверить доступ
+              </button>
+            )}
+          </div>
+        )}
+        {active && !queue.state.available && queue.state.message && (
+          <div className="composer-error" role="status">
+            {queue.state.message}
+          </div>
+        )}
+        <MessageQueue key={threadId} queue={queue} turnId={state.thread.activeTurnId} />
+        {dictation.panel}
+        <form
+          className="composer"
+          onDragOver={(e) => {
+            if (e.dataTransfer.types.includes("Files")) e.preventDefault();
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            if (!busy && !handoff.pending && !queue.busy)
+              void attachments.add(e.dataTransfer.files);
+          }}
+          onSubmit={(e) => {
+            e.preventDefault();
+            void send();
+          }}
+        >
+          <ComposerOptions
+            options={options}
+            disabled={!threadId || state.loading || busy || active}
+            effortDisabled={!threadId || (state.loading && !active) || busy}
+          />
+          <AttachmentList
+            files={attachments.files}
+            disabled={busy || handoff.pending || queue.busy || attachments.busy}
+            onRemove={(id) => void attachments.remove(id)}
+          />
+          {(attachments.error || attachments.busy) && (
+            <div className="composer-error" role="status">
+              {attachments.busy ? attachments.progress || "Загружаем вложение…" : attachments.error}
+            </div>
+          )}
+          {(state.loading || options.loading || sending || queue.busy) && (
+            <div className="composer-loading" role="status" aria-label="Загрузка чата Codex">
+              <span className="spinner" aria-hidden="true" />
+            </div>
+          )}
+          <div className="composer-input">
+            <input
+              ref={fileInput}
+              className="file-input"
+              type="file"
+              multiple
+              aria-label="Выбрать файлы или изображения"
+              disabled={!threadId || busy || handoff.pending || queue.busy || attachments.busy}
+              onChange={(e) => {
+                if (e.target.files) void attachments.add(e.target.files);
+                e.target.value = "";
+              }}
+            />
+            <div className="composer-tools">
+              <button
+                type="button"
+                className="icon-button attach-button"
+                aria-label="Добавить файлы или изображения"
+                disabled={
+                  !threadId ||
+                  busy ||
+                  handoff.pending ||
+                  queue.busy ||
+                  attachments.busy ||
+                  attachments.files.length >= 8
+                }
+                onClick={() => fileInput.current?.click()}
+              >
+                <Icon name="plus" />
+              </button>
+              <AccessPicker
+                options={options}
+                disabled={
+                  !threadId ||
+                  state.loading ||
+                  busy ||
+                  (active && state.thread.activitySource === "external")
+                }
+              />
+            </div>
+            <AutoTextarea
+              ref={composer}
+              onPaste={(e) => {
+                if (e.clipboardData.files.length) {
+                  e.preventDefault();
+                  if (!busy && !handoff.pending && !queue.busy)
+                    void attachments.add(e.clipboardData.files);
+                }
+              }}
+              rows={2}
+              value={draft}
+              onChange={(e) => saveDraft(e.target.value)}
+              placeholder={threadId ? "Что нужно сделать?" : "Создай диалог, чтобы начать"}
+              aria-label="Сообщение Codex"
+              disabled={!threadId || handoff.pending}
+              maxLength={32000}
+              onKeyDown={composerShortcut}
+            />
+            <div className="composer-submit">
+              {dictation.button}
+              {active && !draft.trim() && !attachments.files.length ? (
+                <button
+                  type="button"
+                  className="stop-button"
+                  onClick={onStop}
+                  disabled={busy || state.thread.activitySource === "external"}
+                  aria-label="Остановить Codex"
+                >
+                  <Icon name="stop" />
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  className="send-button"
+                  disabled={
+                    dictation.locked ||
+                    !threadId ||
+                    (!draft.trim() && !attachments.files.length) ||
+                    busy ||
+                    queue.busy ||
+                    handoff.pending ||
+                    (active && !external && !pendingRetry && !queue.state.available) ||
+                    attachments.busy ||
+                    (state.loading && !(active && queue.state.available)) ||
+                    options.loading ||
+                    options.saving ||
+                    !options.selection ||
+                    state.thread.status === "unknown"
+                  }
+                  aria-label={
+                    active && !pendingRetry ? "Добавить в очередь" : "Отправить сообщение"
+                  }
+                >
+                  <Icon name={active && !pendingRetry ? "plus" : "send"} />
+                </button>
+              )}
+            </div>
+          </div>
+        </form>
+      </section>
+    </GitHubLinkContext.Provider>
   );
 }

@@ -53,10 +53,11 @@ page.setDefaultTimeout(15000);
 page.on("pageerror", (e) => errors.push(e.message));
 const popup = page.locator(".project-gpt-window");
 async function open() {
-  await page.getByRole("button", { name: "Обзор текущего проекта", exact: true }).click();
+  if (!(await page.locator(".project-overview-modal").isVisible()))
+    await page.getByRole("button", { name: "Обзор текущего проекта", exact: true }).click();
   await page
     .locator(".project-overview-modal")
-    .getByRole("button", { name: /GPT проекта Личный чат/ })
+    .getByRole("button", { name: /Обсудить Личный GPT проекта/ })
     .click();
   await expect(popup.getByRole("textbox", { name: "Сообщение GPT", exact: true })).toBeVisible();
 }
@@ -75,6 +76,7 @@ try {
   await expect(drawer.getByRole("textbox", { name: "Текст Issue", exact: true })).toHaveValue(
     "Первый ответ",
   );
+  await expect(page.locator(".project-overview-modal")).toHaveCount(1);
   await drawer.getByRole("button", { name: "Закрыть подборку" }).click();
   const composer = popup.getByRole("textbox", { name: "Сообщение GPT", exact: true });
   await composer.fill("Черновик в окне проекта");

@@ -35,6 +35,7 @@ const machine = z
         command: z.string().min(1).max(1024).default("codex"),
         shell: z.enum(["powershell", "pwsh"]).default("powershell"),
         launcher: z.string().min(1).max(1024).optional(),
+        persistent: z.boolean().optional(),
         activityNode: z.string().min(1).max(1024).optional(),
         desktopControl: z
           .string()
@@ -424,6 +425,7 @@ export * from "./conversation-binding.js";
 export * from "./file-limits.js";
 export * from "./file-tools.js";
 export { isFileSource } from "./fileSource.js";
+export { parseGitHubReference } from "./github-reference.js";
 export * from "./github-work.js";
 export * from "./intake.js";
 export * from "./issue-drawer.js";

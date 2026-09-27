@@ -10,17 +10,25 @@ import { TeamAuth } from "./team-auth.js";
 export function deploymentBlockers(
   store: Pick<Store, "db" | "preferences">,
   terminals?: { busy: number; unknown: number },
+  persistentThreads: ReadonlySet<string> = new Set(),
 ) {
   const blockers: { kind: string; count: number; label: string }[] = [];
   const add = (kind: string, sql: string, label: string) => {
     const count = Number(store.db.prepare(sql).get()?.n ?? 0);
     if (count) blockers.push({ kind, count, label });
   };
-  add(
-    "codex",
-    "SELECT count(*) n FROM threads WHERE activitySource!='external' AND (activeTurnId IS NOT NULL OR status IN ('starting','running','waiting_approval','unknown'))",
-    "Codex: работа, вопрос или непроверенное состояние",
-  );
+  const codex = store.db
+    .prepare(
+      "SELECT id FROM threads WHERE activitySource!='external' AND (activeTurnId IS NOT NULL OR status IN ('starting','running','waiting_approval','unknown'))",
+    )
+    .all()
+    .filter((row) => !persistentThreads.has(String(row.id))).length;
+  if (codex)
+    blockers.push({
+      kind: "codex",
+      count: codex,
+      label: "Codex: работа, вопрос или непроверенное состояние",
+    });
   add(
     "gpt",
     "SELECT count(*) n FROM gpt_jobs WHERE status IN ('queued','preparing','running','unknown')",

@@ -106,6 +106,7 @@ export async function createApp(
     nativeGpt?: NativeGptWorkspace;
     auth?: Auth;
     authorizeExecution?: () => void;
+    authorizeInspection?: () => void;
     ownerUserId?: string;
     projectActionPolicy?: ProjectActionPolicy;
     collaborationPolicy?: {
@@ -121,6 +122,7 @@ export async function createApp(
       delivery: NonNullable<Parameters<typeof registerProjectDelivery>[3]>;
     };
     keepStoreOpen?: boolean;
+    executionBinding?: string;
   } = {},
 ) {
   const app = Fastify({
@@ -143,6 +145,8 @@ export async function createApp(
   const store = options.store ?? new Store(config.hub.databasePath);
   const sessions = options.sessions ?? new Sessions(config, store);
   if (options.authorizeExecution) sessions.authorizeExecution = options.authorizeExecution;
+  if (options.authorizeInspection) sessions.authorizeInspection = options.authorizeInspection;
+  sessions.executionBinding = options.executionBinding ?? "";
   if (options.collaborationPolicy)
     sessions.projectInstructions = options.collaborationPolicy.instructions;
   const releaseAuthorities = options.authorizeExecution
@@ -187,6 +191,9 @@ export async function createApp(
     databasePath: config.hub.databasePath,
   });
   if (options.executionService) {
+    app.get("/internal/codex/persistent", async () => ({
+      threads: [...(await sessions.persistentThreadIds())],
+    }));
     app.get("/internal/terminals/maintenance", () => devices.maintenance());
     app.post("/internal/terminals/maintenance", () => devices.maintenance(true));
   }
@@ -1042,6 +1049,9 @@ export async function createApp(
       return reply.header("Cache-Control", "no-store").sendFile("index.html");
     });
   }
+  app.addHook("onReady", async () => {
+    void sessions.recoverPersistent();
+  });
   app.addHook("onClose", async () => {
     unsubscribeRevocation();
     await codexSchedules.close();

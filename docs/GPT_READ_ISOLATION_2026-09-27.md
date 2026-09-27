@@ -43,3 +43,9 @@ The P0 transport/read coupling is addressed here. The audit's P1 account-wide
 admission for edit/regenerate and project/library/workspace mutations remains a
 separate narrowing task; do not mark all of #220 complete or remove those guards
 without exact-scope receipt checks. Windows runtime lifetime (#229) is unchanged.
+
+
+Later checkpoint, 27 September: Hub and engine `44a5d7c` are running and healthy.
+Owner/member native service images remain staged; the unfinished GPT receipt still
+prevents their ordinary restart. The separate Windows runtime follow-up is recorded
+in [Project entry/runtime verification](PROJECT_ENTRY_RUNTIME_2026-09-27.md).

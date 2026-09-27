@@ -79,3 +79,39 @@ export function engineTerminalWork(
     req.end();
   });
 }
+
+/** Only the private engine socket can attest exact, live Companion-owned turns. */
+export function enginePersistentThreads(socketPath: string): Promise<Set<string>> {
+  return new Promise((resolve, reject) => {
+    const req = request(
+      { socketPath, path: "/internal/codex/persistent", method: "GET" },
+      (res) => {
+        let body = "";
+        res.setEncoding("utf8");
+        res.on("data", (chunk) => {
+          body += chunk;
+          if (body.length > 32768) req.destroy(new Error("ENGINE_RESPONSE_LIMIT"));
+        });
+        res.on("error", reject);
+        res.on("end", () => {
+          try {
+            const value = JSON.parse(body);
+            if (
+              res.statusCode !== 200 ||
+              !Array.isArray(value.threads) ||
+              value.threads.length > 256 ||
+              value.threads.some((id: unknown) => typeof id !== "string" || id.length > 200)
+            )
+              throw new Error("RUNTIME_PROOF_UNAVAILABLE");
+            resolve(new Set(value.threads));
+          } catch (error) {
+            reject(error);
+          }
+        });
+      },
+    );
+    req.setTimeout(10000, () => req.destroy(new Error("ENGINE_TIMEOUT")));
+    req.on("error", reject);
+    req.end();
+  });
+}

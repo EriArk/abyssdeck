@@ -427,11 +427,11 @@ export function ActivityPane({
   onOlder: () => void;
 }) {
   return (
-    <section className="activity-pane pane" data-visible={visible} aria-label="Активность">
+    <section className="activity-pane pane" data-visible={visible} aria-label="Ход работы">
       <div className="pane-heading">
         <span>
           <Icon name="activity" />
-          Активность
+          Ход работы
         </span>
       </div>
       <div className="pane-scroll">

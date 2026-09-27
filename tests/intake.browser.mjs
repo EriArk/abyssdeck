@@ -75,7 +75,7 @@ try {
   await expect(main).toBeVisible();
   await main.fill("Рабочий черновик не менять");
   await page.getByRole("button", { name: "Обзор текущего проекта" }).click();
-  await page.getByRole("button", { name: "Разобрать входящие задачи" }).click();
+  await page.getByRole("button", { name: "Разобрать задачу" }).click();
   const dialog = page.getByRole("dialog", { name: "Разбор · " + projectName });
   await expect(dialog).toBeVisible();
   await page.screenshot({ path: `.local/qa-intake/${engine}-empty-phone.png` });
@@ -87,7 +87,7 @@ try {
     .getByRole("textbox", { name: "Сообщение для разбора" })
     .fill("Изучи задачу, найди риски");
   await dialog.getByRole("button", { name: "Закрыть разбор" }).click();
-  await page.getByRole("button", { name: "Разобрать входящие задачи" }).click();
+  await page.getByRole("button", { name: "Разобрать задачу" }).click();
   await expect(dialog.getByRole("textbox", { name: "Сообщение для разбора" })).toHaveValue(
     "Изучи задачу, найди риски",
   );
@@ -140,7 +140,7 @@ try {
     .getByRole("textbox", { name: "Пакет для работы" })
     .fill("Исправить кэш; проверить потерю связи и повторное открытие.");
   await dialog.getByRole("button", { name: "Закрыть разбор" }).click();
-  await page.getByRole("button", { name: "Разобрать входящие задачи" }).click();
+  await page.getByRole("button", { name: "Разобрать задачу" }).click();
   await expect(dialog.getByRole("textbox", { name: "Пакет для работы" })).toHaveValue(
     "Исправить кэш; проверить потерю связи и повторное открытие.",
   );
@@ -192,14 +192,19 @@ try {
           const r = el.getBoundingClientRect(),
             h = el.querySelector("header").getBoundingClientRect();
           const title = el.querySelector("h2").getBoundingClientRect();
-          const buttons = [...el.querySelectorAll(":scope > header > button")].map((b) =>
+          const buttons = [...el.querySelectorAll(":scope > header button")].map((b) =>
             b.getBoundingClientRect(),
           );
           return (
             Math.abs(r.left - (innerWidth - r.right)) < 2 &&
             h.height < 110 &&
             buttons.every(
-              (b) => b.width >= 44 && b.height >= 44 && b.left >= title.right && b.right <= r.right,
+              (b) =>
+                b.width >= 44 &&
+                b.height >= 44 &&
+                (b.left >= title.right || b.right <= title.left) &&
+                b.left >= r.left &&
+                b.right <= r.right,
             )
           );
         }),

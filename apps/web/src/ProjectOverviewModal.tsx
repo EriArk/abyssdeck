@@ -1,20 +1,12 @@
-import { type ComponentProps, useEffect, useRef } from "react";
+import { type ComponentProps, useRef } from "react";
 import { ProjectOverview } from "./ProjectOverview";
+import { useWorkspaceDialog } from "./useWorkspaceDialog";
 export function ProjectOverviewModal({
   onClose,
   ...props
 }: ComponentProps<typeof ProjectOverview> & { onClose: () => void }) {
-  const dialog = useRef<HTMLDialogElement>(null),
-    previous = useRef<HTMLElement | null>(null);
-  useEffect(() => {
-    previous.current = document.activeElement as HTMLElement | null;
-    dialog.current?.showModal();
-    dialog.current?.focus();
-    return () => {
-      dialog.current?.close();
-      if (previous.current?.isConnected) previous.current.focus({ preventScroll: true });
-    };
-  }, []);
+  const dialog = useRef<HTMLDialogElement>(null);
+  useWorkspaceDialog(dialog);
   const action = (callback: (() => void) | undefined) =>
     callback
       ? () => {
@@ -40,17 +32,14 @@ export function ProjectOverviewModal({
           onClose();
           props.onTarget(target);
         }}
-        onNotebook={(request) => {
-          onClose();
-          props.onNotebook(request);
-        }}
+        onNotebook={props.onNotebook}
         onNew={action(props.onNew)}
-        onFiles={action(props.onFiles)}
-        onGit={action(props.onGit)}
-        onMachines={action(props.onMachines)}
+        onFiles={props.onFiles}
+        onGit={props.onGit}
+        onMachines={props.onMachines}
         onResults={action(props.onResults)}
         onRemote={action(props.onRemote)}
-        onProjectGpt={action(props.onProjectGpt)}
+        onProjectGpt={props.onProjectGpt}
       />
     </dialog>
   );

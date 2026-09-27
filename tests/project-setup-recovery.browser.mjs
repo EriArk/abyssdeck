@@ -69,6 +69,31 @@ for (const [engine, type] of [
     };
     await open();
     const wizard = page.getByRole("dialog", { name: "Создание проекта" });
+    available = true;
+    await wizard.getByRole("button", { name: /Репозиторий GitHub Выбрать репозиторий/ }).click();
+    await wizard.getByLabel("Найти репозиторий", { exact: true }).fill("neflores/eligen");
+    await wizard.getByRole("button", { name: "Поиск репозиториев", exact: true }).click();
+    await wizard.getByRole("button", { name: "Далее", exact: true }).click();
+    await expect(wizard.getByLabel("Название проекта", { exact: true })).toHaveValue("eligen");
+    await wizard.getByRole("button", { name: "Далее", exact: true }).click();
+    await wizard.getByRole("button", { name: "Проверить", exact: true }).click();
+    assert.equal(inspections.at(-1).repository.mode, "connect");
+    assert.equal(applies, 0);
+    for (let i = 0; i < 4; i++)
+      await wizard.getByRole("button", { name: "Назад", exact: true }).click();
+    await wizard.getByRole("button", { name: /Папка на компьютере Подключить/ }).click();
+    await wizard.getByLabel("Название проекта", { exact: true }).fill("Existing code");
+    await wizard.getByRole("button", { name: "Далее", exact: true }).click();
+    await wizard.getByRole("button", { name: "Проверить", exact: true }).click();
+    assert.equal(inspections.at(-1).createDirectory, false);
+    assert.equal(inspections.at(-1).repository.mode, "none");
+    assert.equal(applies, 0);
+    for (let i = 0; i < 3; i++)
+      await wizard.getByRole("button", { name: "Назад", exact: true }).click();
+    searches.length = 0;
+    inspections.length = 0;
+    available = false;
+    await wizard.getByRole("button", { name: /Новый проект Новая папка/ }).click();
     await wizard
       .getByLabel("Название проекта", { exact: true })
       .fill("A shared project with a long name");
@@ -92,7 +117,12 @@ for (const [engine, type] of [
     await wizard.getByRole("button", { name: "Проверить", exact: true }).click();
     await expect(wizard.getByRole("alert")).toContainText("Создание ещё не запускалось");
     assert.equal(applies, 0);
-    assert.equal(f.store.db.prepare("SELECT count(*) n FROM project_setup_operations").get().n, 0);
+    assert.equal(
+      f.store.db
+        .prepare("SELECT count(*) n FROM project_setup_operations WHERE state <> 'prepared'")
+        .get().n,
+      0,
+    );
     // Selection and parent draft survive closing; no mutation is retried in the background.
     await wizard.getByRole("button", { name: "Закрыть создание проекта" }).click();
     await expect(editor).toHaveValue("Parent draft retained");

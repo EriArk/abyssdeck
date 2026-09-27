@@ -12,7 +12,7 @@ export type IssueDraft = {
   revision: number;
   position: number;
   addedAt: number;
-  source: IssueSource;
+  source: IssueSource | null;
   original: string;
   title: string;
   body: string;

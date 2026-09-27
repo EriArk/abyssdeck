@@ -17,7 +17,11 @@ namespace CodexWeb {
   }
   public static class Program {
     static readonly Encoding Utf8 = new UTF8Encoding(false, true);
+#if PERSISTENT_CHANNEL
+    static readonly string PipeName = "codex-web-persistent-" + WindowsIdentity.GetCurrent().User.Value;
+#else
     static readonly string PipeName = "codex-web-" + WindowsIdentity.GetCurrent().User.Value;
+#endif
     static string LogPath;
     static readonly object LogLock = new object();
     public static int Main(string[] args) {
@@ -34,7 +38,7 @@ namespace CodexWeb {
         using (var mutex = new Mutex(true, "Local\\" + PipeName, out created)) {
           if (!created) return 0;
           Log("ready");
-          var slots = new SemaphoreSlim(4);
+          var slots = new SemaphoreSlim(16);
           for (;;) {
             await slots.WaitAsync();
             NamedPipeServerStream pipe = null;
@@ -48,17 +52,19 @@ namespace CodexWeb {
           }
         }
       }
-      if ((args.Length == 2 && args[0] == "--client") || (args.Length == 1 && args[0] == "--probe")) {
+      if ((args.Length == 2 && (args[0] == "--client" || args[0] == "--runtime")) || (args.Length == 1 && args[0] == "--probe")) {
         using (var pipe = new NamedPipeClientStream(".", PipeName, PipeDirection.InOut, PipeOptions.Asynchronous)) {
           await Task.Run(delegate { pipe.Connect(8000); });
-          var line = args[0] == "--probe" ? "PING" : "CODEX1 " + args[1];
+          var inheritedInput = args[0] == "--probe" ? null : new FileStream(new SafeFileHandle(GetStdHandle(-10), false), FileAccess.Read, 4096, false);
+          var line = args[0] == "--probe" ? "PING" : args[0] == "--runtime" ? "CODEX2 " + await ReadLine(inheritedInput) : "CODEX1 " + args[1];
           await WriteLine(pipe, line);
           var reply = await ReadLine(pipe);
+          if (reply == "RUNTIME_MISSING") return 42;
           if (reply != "OK") { Console.Error.WriteLine("CODEX_WEB_COMPANION_REJECTED"); return 2; }
           if (args[0] == "--probe") { Console.WriteLine("COMPANION_READY"); return 0; }
           // Read inherited byte handles directly. Framework Console streams use
           // console mode detection which is unreliable inside Windows OpenSSH.
-          var input = new FileStream(new SafeFileHandle(GetStdHandle(-10), false), FileAccess.Read, 4096, false);
+          var input = inheritedInput;
           var output = new FileStream(new SafeFileHandle(GetStdHandle(-11), false), FileAccess.Write, 4096, false);
           var upstream = Pump(input, pipe);
           var downstream = Pump(pipe, output);
@@ -78,6 +84,7 @@ namespace CodexWeb {
           if (await Task.WhenAny(request, Task.Delay(8000)) != request) return;
           var line = await request;
           if (line == "PING") { await WriteLine(pipe, "OK"); return; }
+          if (line.StartsWith("CODEX2 ", StringComparison.Ordinal)) { await RuntimeBroker.Serve(pipe, config, line.Substring(7)); return; }
           if (!line.StartsWith("CODEX1 ", StringComparison.Ordinal)) { await WriteLine(pipe, "ERR"); return; }
           var cwd = Path.GetFullPath(Utf8.GetString(Convert.FromBase64String(line.Substring(7))));
           bool allowed = false;
@@ -88,7 +95,7 @@ namespace CodexWeb {
           job = CreateJobObject(IntPtr.Zero, null);
           if (job == IntPtr.Zero) throw new Exception();
           var limit = new JobLimits();
-          limit.BasicLimitInformation.LimitFlags = 0x00002000; // Kill the entire process tree on disconnect.
+          limit.BasicLimitInformation.LimitFlags = 0x00002000; // Legacy CODEX1 retains connection-owned lifetime. CODEX2 is owned by RuntimeBroker.
           int length = Marshal.SizeOf(typeof(JobLimits));
           var memory = Marshal.AllocHGlobal(length);
           try {
@@ -111,7 +118,10 @@ namespace CodexWeb {
           var exited = Task.Run(delegate { child.WaitForExit(); });
           await Task.WhenAny(upstream, downstream, exited);
           GC.KeepAlive(stderr);
-        } catch { Log("connection-failed"); }
+        } catch(Exception error) {
+          if(error is InvalidOperationException && error.Message=="RUNTIME_MISSING") { try { WriteLine(pipe,"RUNTIME_MISSING").GetAwaiter().GetResult(); } catch {} }
+          Log("connection-failed");
+        }
         finally {
           if (job != IntPtr.Zero) CloseHandle(job);
           if (child != null) {
@@ -166,7 +176,7 @@ namespace CodexWeb {
       try {
         var attributes = new SecurityAttributes { nLength = Marshal.SizeOf(typeof(SecurityAttributes)), lpSecurityDescriptor = descriptor, bInheritHandle = false };
         // PIPE_REJECT_REMOTE_CLIENTS prevents SMB/network access even with valid OS credentials.
-        var handle = CreateNamedPipe(@"\\.\pipe\" + PipeName, 0x40000003, 0x00000008, 4, 65536, 65536, 0, ref attributes);
+        var handle = CreateNamedPipe(@"\\.\pipe\" + PipeName, 0x40000003, 0x00000008, 16, 65536, 65536, 0, ref attributes);
         if (handle.IsInvalid) { handle.Dispose(); throw new Exception(); }
         return new NamedPipeServerStream(PipeDirection.InOut, true, false, handle);
       } finally { LocalFree(descriptor); }

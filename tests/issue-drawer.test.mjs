@@ -309,3 +309,33 @@ test("API validates principal-private IDs, exact approval and UUID receipt contr
   });
   assert.equal(absent.statusCode, 404);
 });
+
+test("manual Issue draft binds a real project and uses the same reviewed at-most-once publication", async (t) => {
+  const f = await fixture(t),
+    id = randomUUID(),
+    body = {
+      title: "Manual issue",
+      text: "Exact manual description",
+      targetId: "project",
+      source: null,
+    };
+  await assert.rejects(() => f.d.add(id, body));
+  const draft = await f.d.add(id, body, true);
+  assert.equal(draft.source, null);
+  assert.equal(draft.title, body.title);
+  assert.equal(draft.original, body.text);
+  assert.deepEqual(await f.d.add(id, body, true), draft);
+  await assert.rejects(() => f.d.add(id, { ...body, title: "Changed" }, true));
+  await assert.rejects(() =>
+    f.d.add(randomUUID(), { ...body, targetId: "other-user-project" }, true),
+  );
+  const packet = await f.packageItems([draft]);
+  assert.equal(packet.items[0].repository, "me/first");
+  assert.equal(packet.items[0].identity.id, 7);
+  assert.equal(f.operations.filter((q) => q.op === "apply").length, 0);
+  f.d.confirm(packet.id, packet.fingerprint);
+  await f.settle();
+  f.d.confirm(packet.id, packet.fingerprint);
+  await f.settle();
+  assert.equal(f.operations.filter((q) => q.op === "apply").length, 1);
+});

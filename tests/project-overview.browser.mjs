@@ -78,7 +78,10 @@ for (const [engine, type] of [
     const chat = page.getByRole("textbox", { name: "Сообщение Codex" });
     await expect(chat).toBeVisible();
     await chat.fill("Черновик остаётся в чате");
-    const open = () => page.getByRole("button", { name: "Обзор текущего проекта" }).click();
+    const open = async () => {
+      if (!(await page.locator(".project-overview-modal").isVisible()))
+        await page.getByRole("button", { name: "Обзор текущего проекта" }).click();
+    };
     const before = statusReads;
     await open();
     const panel = page.getByRole("region", { name: "Обзор проекта Project", exact: true });
@@ -108,6 +111,7 @@ for (const [engine, type] of [
     await plan.getByRole("button", { name: "Закрыть задачи" }).click();
     await open();
     await panel.getByRole("button", { name: /^Handoff chat/ }).click();
+    await expect(page.locator(".project-overview-modal")).toHaveCount(0);
     await expect(chat).toHaveValue("Черновик остаётся в чате");
     await open();
     await panel.getByRole("button", { name: "Проверка завершена", exact: true }).click();

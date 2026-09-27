@@ -191,6 +191,7 @@ export async function createTeamHub(config: HubConfig, options: Options) {
     if (!pending) {
       if (maintenanceActive()) throw maintenanceError();
       pending = (async () => {
+        const user = registry.active(userId);
         const selected = privateConfig(config, registry, userId);
         const initialized = registry.db
           .prepare("SELECT initialized FROM team_namespaces WHERE userId=?")
@@ -216,6 +217,7 @@ export async function createTeamHub(config: HubConfig, options: Options) {
           runtime = await (options.personalFactory ?? createApp)(selected, {
             ...options,
             ownerUserId: userId,
+            executionBinding: userId + ":" + user.executionEpoch,
             collaborationPolicy: collaborationPolicy(collaboration, userId),
             nativeGpt: userId === registry.ownerId ? options.nativeGpt : undefined,
             webRoot: undefined,
@@ -243,8 +245,13 @@ export async function createTeamHub(config: HubConfig, options: Options) {
                 sharedRotationPolicy(teamProjects, userId, () => runtime).beforeCommit(action);
               },
             },
+            authorizeInspection: () => {
+              if (registry.active(userId).executionEpoch !== user.executionEpoch)
+                throw new HubError(403, "EXECUTION_REVOKED", "Доступ к выполнению изменился.");
+            },
             authorizeExecution: () => {
-              registry.active(userId);
+              if (registry.active(userId).executionEpoch !== user.executionEpoch)
+                throw new HubError(403, "EXECUTION_REVOKED", "Доступ к выполнению изменился.");
               if (closing) throw new HubError(503, "WORKSPACE_CLOSING", "Сервис переподключается.");
               if (maintenanceActive()) throw maintenanceError();
               if (reconfiguring.has(userId))
@@ -845,7 +852,13 @@ export async function createTeamHub(config: HubConfig, options: Options) {
       ownerReady: !failed.has(registry.ownerId),
       registrationEnabled: config.team?.registrationEnabled !== false,
     }));
-    const storedWork = () => {
+    app.get("/internal/codex/persistent", async () => {
+      const current = instances.get(registry.ownerId);
+      return {
+        threads: current ? [...(await (await current).runtime.sessions.persistentThreadIds())] : [],
+      };
+    });
+    const storedWork = async () => {
       let work =
         brainstormVoice.active +
         activeMutations +
@@ -891,6 +904,10 @@ export async function createTeamHub(config: HubConfig, options: Options) {
         try {
           if (!existsSync(path) || lstatSync(path).isSymbolicLink())
             throw new Error("STORAGE_UNAVAILABLE");
+          const current = instances.get(String(user.id));
+          const persistent = current
+            ? await (await current).runtime.sessions.persistentThreadIds()
+            : new Set<string>();
           const db = new DatabaseSync(path, { readOnly: true });
           try {
             work += deploymentBlockers(
@@ -904,6 +921,7 @@ export async function createTeamHub(config: HubConfig, options: Options) {
                   ),
               },
               { busy: 0, unknown: 0 },
+              persistent,
             ).reduce((sum, item) => sum + item.count, 0);
           } finally {
             db.close();
@@ -921,7 +939,7 @@ export async function createTeamHub(config: HubConfig, options: Options) {
     };
     const inspectTerminals = async (reserve: boolean) => {
       if (reserve) maintenanceUntil = Date.now() + 60000;
-      let work = storedWork();
+      let work = await storedWork();
       if (reserve && work) {
         maintenanceUntil = 0;
         return { busy: 0, unknown: 0, reserved: false, work };
@@ -957,7 +975,7 @@ export async function createTeamHub(config: HubConfig, options: Options) {
         }),
       );
       work =
-        storedWork() +
+        (await storedWork()) +
         values.reduce((sum, value) => sum + ("work" in value ? Number(value.work) || 0 : 0), 0);
       if (reserve && !work && values.every((value) => !value.busy && !value.unknown)) {
         const reserved = await Promise.all(
@@ -969,7 +987,7 @@ export async function createTeamHub(config: HubConfig, options: Options) {
             }
           }),
         );
-        work = storedWork();
+        work = await storedWork();
         if (
           !work &&
           maintenanceUntil > Date.now() + 5000 &&

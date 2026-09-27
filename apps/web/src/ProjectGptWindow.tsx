@@ -8,9 +8,11 @@ import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { AgentProfileButton } from "./AgentProfileEditor";
 import { accountSessionStorage as storage } from "./accountStorage";
 import { api, messageOf } from "./api";
+import { GitHubLinkContext } from "./GitHubLinkContext";
 import { IssueDrawerButton } from "./IssueDrawer";
 import { Icon } from "./icons";
 import { useWorkspaceDialog } from "./useWorkspaceDialog";
+import { WindowHeading, WindowScope } from "./WindowHeading";
 import "./project-gpt.css";
 
 const Preparation = lazy(() =>
@@ -102,159 +104,156 @@ export function ProjectGptWindow({
     }
   };
   return (
-    <dialog
-      ref={dialog}
-      tabIndex={-1}
-      className="project-gpt-window"
-      aria-label={`GPT проекта ${name}`}
-      onCancel={onClose}
-    >
-      <header className="project-gpt-heading">
-        <div>
-          <strong>GPT проекта</strong>
-          <small>{name}</small>
-        </div>
-        <button
-          type="button"
-          className="icon-button"
-          aria-label="Подготовить для Codex"
-          onClick={() => setPreparing(true)}
+    <GitHubLinkContext.Provider value={projectId}>
+      <WindowScope label="Обсудить проект">
+        <dialog
+          ref={dialog}
+          tabIndex={-1}
+          className="project-gpt-window"
+          aria-label={`GPT проекта ${name}`}
+          onCancel={onClose}
         >
-          <Icon name="file" />
-        </button>
-        <IssueDrawerButton targetId={projectId} />
-        <button
-          type="button"
-          className="icon-button"
-          aria-label="Настройки GPT проекта"
-          aria-pressed={configure}
-          onClick={() => {
-            setConfigure((v) => !v);
-            if (!configure)
-              void act(async () => {
-                const value = await api<ProjectGpt>(path);
-                if (live.current) {
-                  setData(value);
-                  setChoice(value.nativeId ?? "");
-                }
-                if (!chats.length) await loadChats();
-              });
-          }}
-        >
-          <Icon name="settings" />
-        </button>
-        <button
-          type="button"
-          className="icon-button"
-          aria-label="Закрыть GPT проекта"
-          onClick={onClose}
-        >
-          <Icon name="close" />
-        </button>
-      </header>
-      {error && (
-        <p className="notice" role="alert">
-          {error}
-        </p>
-      )}
-      {!data && !error && <p role="status">Загружаю…</p>}
-      {data && (
-        <>
-          <div className="project-gpt-config" hidden={!configure}>
-            <p>Личный чат для этого проекта. Другие участники его не видят.</p>
-            <label>
-              Чат GPT
-              <select
-                aria-label="Чат GPT проекта"
-                value={choice}
-                onChange={(e) => setChoice(e.target.value)}
-              >
-                <option value="">Новый чат</option>
-                {data.nativeId && !chats.some((c) => c.id === data.nativeId) && (
-                  <option value={data.nativeId}>Текущий чат проекта</option>
-                )}
-                {chats
-                  .filter((c) => !c.deleted && !c.archived)
-                  .map((c) => (
-                    <option value={c.id} key={c.id}>
-                      {c.title}
-                    </option>
-                  ))}
-              </select>
-            </label>
-            <div className="project-gpt-actions">
-              {next !== null && (
-                <button type="button" disabled={busy} onClick={() => void act(loadChats)}>
-                  Ещё чаты
-                </button>
-              )}
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() =>
+          <WindowHeading
+            title="Обсудить проект"
+            context={name}
+            onClose={onClose}
+            closeLabel="Закрыть GPT проекта"
+          >
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="Подготовить для Codex"
+              onClick={() => setPreparing(true)}
+            >
+              <Icon name="file" />
+            </button>
+            <IssueDrawerButton targetId={projectId} className="icon-button" />
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="Настройки GPT проекта"
+              aria-pressed={configure}
+              onClick={() => {
+                setConfigure((v) => !v);
+                if (!configure)
                   void act(async () => {
-                    const d = await api<ProjectGpt>(path, {
-                      method: "PUT",
-                      body: { nativeId: choice || null, revision: data.revision },
-                    });
+                    const value = await api<ProjectGpt>(path);
                     if (live.current) {
-                      setData(d);
-                      setConfigure(false);
+                      setData(value);
+                      setChoice(value.nativeId ?? "");
                     }
-                  })
-                }
-              >
-                Выбрать чат
-              </button>
-            </div>
-            <details>
-              <summary>Контекст проекта</summary>
-              <pre>{data.context}</pre>
-            </details>
-            <AgentProfileButton projectId={projectId} name={name} />
-          </div>
-          <div className="project-gpt-body" hidden={configure}>
-            <Suspense fallback={<p role="status">Загружаю GPT…</p>}>
-              <Workspace
-                activityHandoff={handoff ?? undefined}
-                onActivityClear={() => {
-                  if (JSON.parse(storage.getItem(handoffKey) ?? "null")?.id === handoff?.id)
-                    storage.removeItem(handoffKey);
-                  setHandoff(null);
-                }}
-                key={data.revision}
-                projectChat={data}
-                onProjectChatChange={(value) => {
-                  setData(value);
-                  setChoice(value.nativeId ?? "");
-                }}
-                settings={false}
-                overlayOpen={configure || preparing}
-                onCodex={onClose}
-                onNotificationHandled={() => {}}
-                onSettings={() => {
-                  onClose();
-                  onSettings();
-                }}
-                onRemote={() => {
-                  onClose();
-                  onRemote();
-                }}
+                    if (!chats.length) await loadChats();
+                  });
+              }}
+            >
+              <Icon name="settings" />
+            </button>
+          </WindowHeading>
+          {error && (
+            <p className="notice" role="alert">
+              {error}
+            </p>
+          )}
+          {!data && !error && <p role="status">Загружаю…</p>}
+          {data && (
+            <>
+              <div className="project-gpt-config" hidden={!configure}>
+                <p>Личный чат для этого проекта. Другие участники его не видят.</p>
+                <label>
+                  Чат GPT
+                  <select
+                    aria-label="Чат GPT проекта"
+                    value={choice}
+                    onChange={(e) => setChoice(e.target.value)}
+                  >
+                    <option value="">Новый чат</option>
+                    {data.nativeId && !chats.some((c) => c.id === data.nativeId) && (
+                      <option value={data.nativeId}>Текущий чат проекта</option>
+                    )}
+                    {chats
+                      .filter((c) => !c.deleted && !c.archived)
+                      .map((c) => (
+                        <option value={c.id} key={c.id}>
+                          {c.title}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                <div className="project-gpt-actions">
+                  {next !== null && (
+                    <button type="button" disabled={busy} onClick={() => void act(loadChats)}>
+                      Ещё чаты
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() =>
+                      void act(async () => {
+                        const d = await api<ProjectGpt>(path, {
+                          method: "PUT",
+                          body: { nativeId: choice || null, revision: data.revision },
+                        });
+                        if (live.current) {
+                          setData(d);
+                          setConfigure(false);
+                        }
+                      })
+                    }
+                  >
+                    Выбрать чат
+                  </button>
+                </div>
+                <details>
+                  <summary>Контекст проекта</summary>
+                  <pre>{data.context}</pre>
+                </details>
+                <AgentProfileButton projectId={projectId} name={name} />
+              </div>
+              <div className="project-gpt-body" hidden={configure}>
+                <Suspense fallback={<p role="status">Загружаю GPT…</p>}>
+                  <Workspace
+                    activityHandoff={handoff ?? undefined}
+                    onActivityClear={() => {
+                      if (JSON.parse(storage.getItem(handoffKey) ?? "null")?.id === handoff?.id)
+                        storage.removeItem(handoffKey);
+                      setHandoff(null);
+                    }}
+                    key={data.revision}
+                    projectChat={data}
+                    onProjectChatChange={(value) => {
+                      setData(value);
+                      setChoice(value.nativeId ?? "");
+                    }}
+                    settings={false}
+                    overlayOpen={configure || preparing}
+                    onCodex={onClose}
+                    onNotificationHandled={() => {}}
+                    onSettings={() => {
+                      onClose();
+                      onSettings();
+                    }}
+                    onRemote={() => {
+                      onClose();
+                      onRemote();
+                    }}
+                  />
+                </Suspense>
+              </div>
+            </>
+          )}
+          {preparing && (
+            <Suspense fallback={null}>
+              <Preparation
+                projectId={projectId}
+                name={name}
+                onClose={() => setPreparing(false)}
+                onOpen={onPrepared}
               />
             </Suspense>
-          </div>
-        </>
-      )}
-      {preparing && (
-        <Suspense fallback={null}>
-          <Preparation
-            projectId={projectId}
-            name={name}
-            onClose={() => setPreparing(false)}
-            onOpen={onPrepared}
-          />
-        </Suspense>
-      )}
-    </dialog>
+          )}
+        </dialog>
+      </WindowScope>
+    </GitHubLinkContext.Provider>
   );
 }

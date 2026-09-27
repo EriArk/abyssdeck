@@ -244,11 +244,12 @@ export class IssueDrawer {
       throw missing();
     return { text: String(m.text), source };
   }
-  async add(id: string, raw: unknown) {
+  async add(id: string, raw: unknown, manual = false) {
     return this.serial(async () => {
       const body = z
         .object({
-          source: sourceSchema,
+          source: manual ? z.null() : sourceSchema,
+          ...(manual ? { title: z.string().trim().min(1).max(200) } : {}),
           text: z.string().min(1).max(16000),
           targetId: z.string().max(120).default(""),
         })
@@ -279,10 +280,12 @@ export class IssueDrawer {
           "ISSUE_DRAWER_FULL",
           "В подборке уже 200 записей. Удали ненужные завершённые записи.",
         );
-      const resolved = await this.resolveSource(body.source),
+      const resolved = body.source
+          ? await this.resolveSource(body.source)
+          : { text: body.text, source: null },
         text = resolved.text,
-        start = body.source.start ?? 0,
-        end = body.source.end ?? text.length;
+        start = body.source?.start ?? 0,
+        end = body.source?.end ?? text.length;
       if (start > end || end > text.length || text.slice(start, end) !== body.text) throw changed();
       if (body.targetId) this.scope(body.targetId);
       const i: Saved = {
@@ -295,12 +298,13 @@ export class IssueDrawer {
         source: resolved.source,
         sourceHash: digest(body),
         original: body.text,
-        title:
-          body.text
-            .split(/\r?\n/)
-            .find((s) => s.trim())
-            ?.replace(/^#+\s*/, "")
-            .slice(0, 200) ?? "Issue",
+        title: manual
+          ? String(body.title)
+          : (body.text
+              .split(/\r?\n/)
+              .find((s) => s.trim())
+              ?.replace(/^#+\s*/, "")
+              .slice(0, 200) ?? "Issue"),
         body: body.text,
         targetId: body.targetId,
         state: "draft",
@@ -668,6 +672,19 @@ export function registerIssueDrawer(app: FastifyInstance, service: IssueDrawer) 
   );
   app.get("/api/issue-drawer/targets", () => service.targets());
   app.put("/api/issue-drawer/items/:id", (r) => service.add(id(r.params), r.body));
+  app.put("/api/issue-drawer/manual/:id", (r) =>
+    service.add(
+      id(r.params),
+      {
+        ...z
+          .object({ title: z.string(), text: z.string(), targetId: z.string().min(1) })
+          .strict()
+          .parse(r.body),
+        source: null,
+      },
+      true,
+    ),
+  );
   app.patch("/api/issue-drawer/items/:id", (r) => service.edit(id(r.params), r.body));
   app.delete("/api/issue-drawer/items/:id", (r) =>
     service.remove(
@@ -675,14 +692,10 @@ export function registerIssueDrawer(app: FastifyInstance, service: IssueDrawer) 
       z.object({ revision: z.number().int(), confirm: z.literal(true) }).parse(r.body).revision,
     ),
   );
-  app.get("/api/issue-drawer/items/:id/source", async (r) => ({
-    text: await service.source(
-      service.list().items!.find((i) => i.id === id(r.params))?.source ??
-        (() => {
-          throw missing();
-        })(),
-    ),
-  }));
+  app.get("/api/issue-drawer/items/:id/source", async (r) => {
+    const item = service.item(id(r.params));
+    return { text: item.source ? await service.source(item.source) : item.original };
+  });
   app.post("/api/issue-drawer/order", (r) =>
     service.reorder(z.object({ ids: z.array(z.string().uuid()).max(200) }).parse(r.body).ids),
   );

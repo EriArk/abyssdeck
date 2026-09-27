@@ -930,6 +930,7 @@ function Workspace({
     }
     setNotebook(undefined);
     setProjectTool(null);
+    setOverviewId("");
     if (target.client === "gpt") {
       setWorkspaceDestination({ target, version: Date.now() });
       setClient("gpt");
@@ -1403,7 +1404,7 @@ function Workspace({
         )}
         {overviewProject && !overviewProject.unassigned && (
           <ProjectOverviewModal
-            key={overviewId}
+            key={`overview:${overviewId}`}
             onClose={() => setOverviewId("")}
             scope={{ client: "codex", projectId: overviewId, name: overviewProject.name }}
             onTarget={openNotebookTarget}
@@ -1662,7 +1663,7 @@ function Workspace({
         </nav>
         {projectGpt && (
           <ProjectGptWindow
-            key={projectGpt.id}
+            key={`project-gpt:${projectGpt.id}`}
             projectId={projectGpt.id}
             name={projectGpt.name}
             initialHandoff={projectGpt.handoff}

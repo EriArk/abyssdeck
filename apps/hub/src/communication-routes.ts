@@ -21,30 +21,15 @@ export function registerCommunication(
       input = z
         .object({
           projectId: z.string().regex(/^[a-zA-Z0-9_-]{1,100}$/),
-          url: z
-            .string()
-            .regex(/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/(?:issues|pull)\/[1-9]\d*$/),
+          url: z.string().max(1000),
         })
         .strict()
         .parse(req.body);
     const { runtime } = await personal(user);
     actor(req);
-    const match = input.url.match(/^https:\/\/github\.com\/(.+)\/(issues|pull)\/(\d+)$/)!;
-    const kind = match[2] === "pull" ? "pr" : "issue",
-      key = kind + ":" + match[3];
-    const value = await runtime.intake.source(input.projectId, key);
+    const target = await runtime.intake.reference(input.projectId, input.url);
     actor(req);
-    if (value.repository.toLowerCase() !== match[1]!.toLowerCase() || !value.record)
-      throw new HubError(
-        409,
-        "REFERENCE_REPOSITORY",
-        "Выбери рабочую копию указанного репозитория.",
-      );
-    return {
-      projectId: input.projectId,
-      repositoryId: value.repositoryId,
-      source: { key, kind, title: value.record.title, url: input.url, number: Number(match[3]) },
-    };
+    return target;
   });
   app.get("/api/team/conversations", (req) => ({ items: communication.list(actor(req)) }));
   app.post("/api/team/conversations", write, (req) =>

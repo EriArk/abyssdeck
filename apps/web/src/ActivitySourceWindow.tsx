@@ -10,6 +10,7 @@ import { Icon } from "./icons";
 import { SharedMarkdown } from "./SharedMaterialEditor";
 import { GitHubRecord } from "./TeamGitHubPanel";
 import { useWorkspaceDialog } from "./useWorkspaceDialog";
+import { WindowHeading, WindowScope } from "./WindowHeading";
 
 export type ActivitySourceTarget = {
   projectId: string;
@@ -82,100 +83,97 @@ export function ActivitySourceWindow({
     };
   }, [scope, page, personalProjectId]);
   return (
-    <dialog
-      ref={dialog}
-      className="space-dialog workspace-window activity-source-dialog"
-      aria-label="GitHub · событие"
-      onCancel={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        onClose();
-      }}
+    <WindowScope
+      label={
+        target.source.kind === "commit"
+          ? "Коммит · " + (target.source.sha ?? target.source.key.slice(7)).slice(0, 7)
+          : (target.source.kind === "pr" ? "PR" : "Issue") + " #" + target.source.number
+      }
     >
-      <header className="panel-heading notebook-heading">
-        <h2>
-          {target.source.kind === "commit"
-            ? "Коммит"
-            : target.source.kind === "pr"
-              ? "Pull Request"
-              : "Issue"}{" "}
-          ·{" "}
-          {target.source.kind === "commit"
-            ? target.source.sha?.slice(0, 7)
-            : `#${target.source.number}`}
-        </h2>
-        <button
-          type="button"
-          className="icon-button"
-          aria-label="Закрыть событие"
-          onClick={onClose}
-        >
-          <Icon name="close" />
-        </button>
-      </header>
-      <div className="space-dialog-body shared-scroll" aria-busy={busy}>
-        {!value && busy && <p>Загружаем событие…</p>}
-        {error && <p role="status">{error}</p>}
-        {value?.record && <GitHubRecord record={value.record} external={false} />}
-        {value?.commit && (
-          <section className="activity-commit">
-            <h3>{value.commit.message.split(/\r?\n/)[0]}</h3>
-            <div className="github-sha">
-              <code>{value.commit.sha}</code>
-              <CopyButton text={value.commit.sha} label="Скопировать SHA" />
-            </div>
-            {value.commit.message.includes("\n") && (
-              <p className="activity-commit-message">
-                {value.commit.message.slice(value.commit.message.indexOf("\n") + 1)}
-              </p>
-            )}
-            {value.commit.files.map((file) => (
-              <details key={file.path}>
-                <summary>
-                  {file.path}{" "}
-                  <small>
-                    +{file.additions} −{file.deletions}
-                  </small>
-                </summary>
-                {file.patch ? (
-                  <>
-                    <CopyButton text={file.patch} label="Скопировать изменения" />
-                    <pre>
-                      <code>{file.patch}</code>
-                    </pre>
-                  </>
-                ) : (
-                  <p>Текстовые изменения для этого файла недоступны.</p>
-                )}
-              </details>
-            ))}
-            {value.commit.truncated && (
-              <small>Показана ограниченная выборка файлов и изменений.</small>
-            )}
-          </section>
-        )}
-        {!!value?.commentsPage?.length && (
-          <section className="activity-source-comments" aria-label="Комментарии GitHub">
-            <h3>Комментарии</h3>
-            {value.commentsPage.map((comment) => (
-              <article key={comment.id}>
-                <strong>@{comment.author.login}</strong>
-                <SharedMarkdown text={comment.body} />
-              </article>
-            ))}
-          </section>
-        )}
-        {value?.nextPage && (
-          <button
-            className="secondary"
-            type="button"
-            disabled={busy}
-            onClick={() => setPage(value.nextPage!)}
-          >
-            Ещё комментарии
-          </button>
-        )}
-      </div>
-    </dialog>
+      <dialog
+        ref={dialog}
+        className="space-dialog workspace-window activity-source-dialog"
+        aria-label="GitHub · событие"
+        onCancel={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onClose();
+        }}
+      >
+        <WindowHeading
+          title={
+            target.source.kind === "commit"
+              ? "Коммит · " + (target.source.sha ?? target.source.key.slice(7)).slice(0, 7)
+              : (target.source.kind === "pr" ? "PR" : "Issue") + " #" + target.source.number
+          }
+          context={target.source.url.split("/").slice(3, 5).join("/")}
+          onClose={onClose}
+          closeLabel="Закрыть событие"
+        />
+        <div className="space-dialog-body shared-scroll" aria-busy={busy}>
+          {!value && busy && <p>Загружаем событие…</p>}
+          {error && <p role="status">{error}</p>}
+          {value?.record && <GitHubRecord record={value.record} external={false} />}
+          {value?.commit && (
+            <section className="activity-commit">
+              <h3>{value.commit.message.split(/\r?\n/)[0]}</h3>
+              <div className="github-sha">
+                <code>{value.commit.sha}</code>
+                <CopyButton text={value.commit.sha} label="Скопировать SHA" />
+              </div>
+              {value.commit.message.includes("\n") && (
+                <p className="activity-commit-message">
+                  {value.commit.message.slice(value.commit.message.indexOf("\n") + 1)}
+                </p>
+              )}
+              {value.commit.files.map((file) => (
+                <details key={file.path}>
+                  <summary>
+                    {file.path}{" "}
+                    <small>
+                      +{file.additions} −{file.deletions}
+                    </small>
+                  </summary>
+                  {file.patch ? (
+                    <>
+                      <CopyButton text={file.patch} label="Скопировать изменения" />
+                      <pre>
+                        <code>{file.patch}</code>
+                      </pre>
+                    </>
+                  ) : (
+                    <p>Текстовые изменения для этого файла недоступны.</p>
+                  )}
+                </details>
+              ))}
+              {value.commit.truncated && (
+                <small>Показана ограниченная выборка файлов и изменений.</small>
+              )}
+            </section>
+          )}
+          {!!value?.commentsPage?.length && (
+            <section className="activity-source-comments" aria-label="Комментарии GitHub">
+              <h3>Комментарии</h3>
+              {value.commentsPage.map((comment) => (
+                <article key={comment.id}>
+                  <strong>@{comment.author.login}</strong>
+                  <SharedMarkdown text={comment.body} />
+                </article>
+              ))}
+            </section>
+          )}
+          {value?.nextPage && (
+            <button
+              className="secondary"
+              type="button"
+              disabled={busy}
+              onClick={() => setPage(value.nextPage!)}
+            >
+              Ещё комментарии
+            </button>
+          )}
+        </div>
+      </dialog>
+    </WindowScope>
   );
 }

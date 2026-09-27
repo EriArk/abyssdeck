@@ -1,5 +1,5 @@
-import { DownloadLink } from "./DownloadLink";
 import { AutoTextarea } from "./AutoTextarea";
+import { DownloadLink } from "./DownloadLink";
 import "./project-gpt.css";
 import type {
   BrainstormCard,
@@ -102,7 +102,6 @@ export function BrainstormCards({ spaces, query }: { spaces: SpacesController; q
     [next, setNext] = useState<number | null>(null),
     [ready, setReady] = useState(false),
     [create, setCreate] = useState(false);
-  const [title, setTitle] = useState(() => saved("brainstorm-new-title", ""));
   const action = useSharedAction();
   useEffect(() => {
     const controller = new AbortController();
@@ -195,49 +194,69 @@ export function BrainstormCards({ spaces, query }: { spaces: SpacesController; q
         </button>
       )}
       {create && (
-        <RoomDialog title="Новая комната" onClose={() => setCreate(false)}>
-          <form
-            className="brainstorm-form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void action.run(async () => {
-                const r = await sharedMutation<BrainstormRoom>(root, "POST", {
-                  title: title.trim(),
-                  description: "",
-                });
-                forget("brainstorm-new-title");
-                forget("workspace-shared-request:" + root);
-                setCreate(false);
-                setTitle("");
-                spaces.open({ kind: "brainstorm", id: r.id });
-              });
-            }}
-          >
-            <p>
-              Доска, общий чат и ваш личный GPT. Комната доступна всем пользователям этой установки.
-            </p>
-            <label>
-              Название
-              <input
-                value={title}
-                maxLength={160}
-                required
-                onChange={(e) => {
-                  setTitle(e.target.value);
-                  persist("brainstorm-new-title", e.target.value);
-                }}
-              />
-            </label>
-            {action.error && <p role="alert">{action.error}</p>}
-            <button type="submit" className="primary" disabled={action.busy || !title.trim()}>
-              Создать комнату
-            </button>
-          </form>
-        </RoomDialog>
+        <NewBrainstormRoom
+          onClose={() => setCreate(false)}
+          onCreated={(room) => {
+            setCreate(false);
+            spaces.open({ kind: "brainstorm", id: room.id });
+          }}
+        />
       )}
     </section>
   );
 }
+export function NewBrainstormRoom({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated: (room: BrainstormRoom) => void;
+}) {
+  const [title, setTitle] = useState(() => saved("brainstorm-new-title", ""));
+  const action = useSharedAction();
+  return (
+    <RoomDialog title="Новая комната" onClose={onClose}>
+      <form
+        className="brainstorm-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void action.run(async () => {
+            const r = await sharedMutation<BrainstormRoom>(root, "POST", {
+              title: title.trim(),
+              description: "",
+            });
+            forget("brainstorm-new-title");
+            forget("workspace-shared-request:" + root);
+
+            setTitle("");
+            onCreated(r);
+          });
+        }}
+      >
+        <p>
+          Доска, общий чат и ваш личный GPT. Комната доступна всем пользователям этой установки.
+        </p>
+        <label>
+          Название
+          <input
+            value={title}
+            maxLength={160}
+            required
+            onChange={(e) => {
+              setTitle(e.target.value);
+              persist("brainstorm-new-title", e.target.value);
+            }}
+          />
+        </label>
+        {action.error && <p role="alert">{action.error}</p>}
+        <button type="submit" className="primary" disabled={action.busy || !title.trim()}>
+          Создать комнату
+        </button>
+      </form>
+    </RoomDialog>
+  );
+}
+
 type CardDraft = Omit<BrainstormCard, "author" | "updatedAt">;
 const newCard = (count: number, text = ""): CardDraft => ({
   id: crypto.randomUUID(),

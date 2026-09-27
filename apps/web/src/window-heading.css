@@ -1,0 +1,61 @@
+.window-heading.panel-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  min-width: 0;
+}
+.window-heading .window-heading-title {
+  flex: 1;
+  min-width: 0;
+}
+.window-heading .window-heading-title h2 {
+  font-size: 1.15rem;
+  line-height: 1.25;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.window-heading .window-heading-title small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.window-heading .window-heading-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+.window-heading .icon-button {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  padding: 0;
+}
+.window-heading .window-heading-controls .icon-button span {
+  display: none;
+}
+.window-trail {
+  opacity: 0.72;
+  font-size: 0.75rem;
+}
+.workspace-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.workspace-actions > * {
+  min-width: 0;
+  width: 100%;
+}
+@media (max-width: 480px) {
+  .window-heading.panel-heading {
+    gap: 4px;
+  }
+  .window-heading .window-heading-title h2 {
+    font-size: 1rem;
+  }
+}

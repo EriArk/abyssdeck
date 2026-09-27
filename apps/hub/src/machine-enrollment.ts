@@ -251,6 +251,7 @@ export const ENROLLMENT_FILES = [
   "Install-Companion.ps1",
   "Copy-CompanionRuntime.ps1",
   "companion/CodexWebBridge.cs",
+  "companion/RuntimeBroker.cs",
   "Install-ProjectSetup.ps1",
   "ProjectSetupWorker.cjs",
   "Run-ProjectSetup.ps1",

@@ -8,6 +8,7 @@ import {
   type IntakeState,
   NotSubmittedError,
   type ProjectRepository,
+  parseGitHubReference,
   turnSettingsSchema,
 } from "@codex-web/shared";
 import type { FastifyInstance } from "fastify";
@@ -196,11 +197,28 @@ export class ProjectIntake {
     if (!match) throw fail("В рабочей копии не найден GitHub-репозиторий.");
     return { p, m, repository: match[1]! };
   }
+  async reference(id: string, url: string) {
+    const reference = parseGitHubReference(url);
+    if (!reference)
+      throw new HubError(400, "GITHUB_REFERENCE_INVALID", "Ссылка GitHub не поддерживается.");
+    const value = await this.source(id, reference.key, 1, { url: reference.url });
+    return {
+      projectId: id,
+      repositoryId: value.repositoryId,
+      source: {
+        key: reference.key,
+        kind: reference.kind,
+        title: value.record?.title ?? reference.key,
+        url: reference.url,
+        ...(reference.number ? { number: reference.number } : {}),
+      },
+    };
+  }
   async source(
     id: string,
     key: string,
     page = 1,
-    expected?: { url: string; repositoryId: number | null },
+    expected?: { url: string; repositoryId?: number | null },
   ) {
     const stamp = this.stamp(id),
       c = await this.repository(id);
@@ -222,7 +240,7 @@ export class ProjectIntake {
     if (
       this.stamp(id) !== stamp ||
       value.access === "unavailable" ||
-      (expected && expected.repositoryId !== value.repositoryId) ||
+      (expected?.repositoryId !== undefined && expected.repositoryId !== value.repositoryId) ||
       value.repository.toLowerCase() !== c.repository.toLowerCase()
     )
       throw fail();
@@ -521,6 +539,13 @@ export function registerIntake(app: FastifyInstance, service: ProjectIntake) {
       req.body,
     ),
   );
+  app.post("/api/projects/:id/github/reference", (req) => {
+    const body = z
+      .object({ url: z.string().max(1000) })
+      .strict()
+      .parse(req.body);
+    return service.reference(id(req.params), body.url);
+  });
   app.post("/api/projects/:id/intake/source", (req) => {
     const b = z
       .object({
