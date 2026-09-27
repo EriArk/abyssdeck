@@ -96,6 +96,7 @@
 - A failed or uncertain chat must not block unrelated GPT chats. Scope mutation and dispatch guards to the exact conversation/project while retaining account and receipt validation.
 - Bound automatic recovery: after three consecutive failed dispatch confirmations, stop background checks for that job and preserve its receipt, text and partial answer. Stop unsent followers in that same chat; never treat all new chats with a null native ID as one conversation.
 - Never replay uncertain sends or keep pushing a broken conversation. The owner prefers to submit again manually after checking what actually arrived. Explicit recovery must remain reachable without clearing uncertain receipts or stopping native responses.
+- Apply the same exact-source admission to reply actions, library/project mutations and schedules, including UI disable state and known new/forked chat identities. A native admission refusal is unsent only before effects; a failed confirmation after acceptance stays uncertain. Keep the single native writer and account-wide manual-recovery/rate-limit boundaries.
 
 ## Owner-requested direct Result viewing (2026-09-24)
 

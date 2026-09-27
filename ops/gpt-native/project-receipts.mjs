@@ -13,7 +13,6 @@ export class NativeProjectReceipts {
   if(!this.creationKeys.has(r.key)||typeof r.name!=='string'||!r.name.trim()||r.name.length>120)fail('INVALID_CANARY');
   const old=this.db.prepare('SELECT * FROM project_creations WHERE key=?').get(r.key);
   if(old){if(old.name!==r.name)fail('KEY_CONFLICT');return {projectId:old.projectId,...(old.state==='rejected'?{rejected:true}:{})};}
-  if(this.dispatch.pending())fail('PENDING_DISPATCH');
   this.db.prepare('INSERT INTO project_creations(key,name,projectId) VALUES(?,?,NULL)').run(r.key,r.name);
   const result=await reader.createProject(r);
   if(result?.rejected===true){this.db.prepare("UPDATE project_creations SET state='rejected' WHERE key=?").run(r.key);return {projectId:null,rejected:true};}
@@ -36,7 +35,7 @@ export class NativeProjectReceipts {
   const hash=createHash('sha256').update(JSON.stringify(r)).digest('hex');
   const old=this.db.prepare('SELECT * FROM project_receipts WHERE key=?').get(r.key);
   if(old){if(old.hash!==hash)fail('KEY_CONFLICT');return this.check(r,reader);}
-  if(this.dispatch.pending())fail('PENDING_DISPATCH');
+  await this.dispatch.assertProject(r,reader);
   const before=await reader.inspectProject(r);
   if(!before.canWrite||before.revision!==r.revision||r.action==='remove'&&!before.files.some(f=>f.id===r.fileId)){
    this.db.prepare("INSERT INTO project_receipts VALUES(?,?,?,'rejected',NULL)").run(r.key,hash,JSON.stringify(r));return {state:'rejected'};

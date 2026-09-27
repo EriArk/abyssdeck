@@ -72,7 +72,7 @@ test("native reply receipts survive lost acknowledgements without replay and req
       throw Error("Lost acknowledgement");
     },
   };
-  const dispatch = { db, pending: () => false };
+  const dispatch = { db, assertDispatch: async () => {}, blocksWorkspace: () => false };
   let receipts = new NativeOperationReceipts(dispatch);
   assert.equal((await receipts.run(request, reader)).state, "unknown");
   receipts = new NativeOperationReceipts(dispatch);
@@ -170,7 +170,7 @@ test("native workspace binds requests to the account, rejects stale forms and di
 test("workspace lost acknowledgement reconciles exact schedule state and never repeats a mutation", async (t) => {
   const db = new DatabaseSync(":memory:");
   t.after(() => db.close());
-  const dispatch = { db, pending: () => false };
+  const dispatch = { db, assertDispatch: async () => {}, blocksWorkspace: () => false };
   let calls = 0,
     enabled = true;
   const request = {

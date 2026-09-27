@@ -174,10 +174,17 @@ export function useGptNativeOperations(
   onChanged: (id: string) => void,
   onOpen: (id: string) => void,
 ) {
-  const [ops, setOps] = useState<GptOperation[]>([]),
-    [blocked, setBlocked] = useState(false),
+  const [snapshot, setSnapshot] = useState<{
+      nativeId: string;
+      ops: GptOperation[];
+      blocked: boolean;
+    }>({ nativeId, ops: [], blocked: false }),
     [draft, setDraft] = useState<Draft | null>(null),
     [error, setError] = useState("");
+  const ops = snapshot.nativeId === nativeId ? snapshot.ops : [];
+  const blocked = snapshot.nativeId === nativeId && snapshot.blocked;
+  const scope = useRef(nativeId);
+  scope.current = nativeId;
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [versions, setVersions] = useState<Draft | null>(null);
   const alive = useRef(true),
@@ -193,10 +200,13 @@ export function useGptNativeOperations(
     setError("");
   }, [nativeId]);
   const refresh = useCallback(async () => {
-    const data = await api<{ items: GptOperation[]; blocked: boolean }>("/gpt/native-operations");
-    if (!alive.current) return;
-    setOps(data.items);
-    setBlocked(data.blocked);
+    const generation = version.current;
+    const query = nativeId ? "?nativeId=" + encodeURIComponent(nativeId) : "?newChat=1";
+    const data = await api<{ items: GptOperation[]; blocked: boolean }>(
+      "/gpt/native-operations" + query,
+    );
+    if (!alive.current || scope.current !== nativeId || version.current !== generation) return;
+    setSnapshot({ nativeId, ops: data.items, blocked: data.blocked });
     for (const op of data.items) {
       const before = previous.current.get(op.id);
       if ((before !== undefined && before !== op.state) || op.state === "running")
@@ -208,7 +218,7 @@ export function useGptNativeOperations(
         } catch {}
       }
     }
-  }, []);
+  }, [nativeId]);
   useEffect(() => {
     alive.current = true;
     let loading = false;
@@ -431,7 +441,8 @@ export function useGptNativeOperations(
             }}
             onClose={() => setDraft(null)}
             onSent={() => {
-              setBlocked(true);
+              if (scope.current !== nativeId) return;
+              setSnapshot({ nativeId, ops, blocked: true });
               void refresh().catch(() => {});
             }}
           />

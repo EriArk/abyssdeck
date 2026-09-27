@@ -54,7 +54,8 @@ export async function nativeWorkspace(r,read,load=()=>import('app://-/assets/app
  if(r.operation==='canvasList')return {items:await canvases(r.conversationId)};
  if(r.operation==='canvasVersion')return version(r.conversationId,r.id,r.version);
  const input=r.input;if(!input||typeof input!=='object'||!/^[a-f0-9]{64}$/.test(input.revision??''))fail('INVALID_REQUEST');
- const a=activity();if(!a.ready||a.generating)return {dispatched:false};
+ // Fixed schedule endpoints do not depend on the selected chat/composer.
+ if(input.kind==='canvas'){const a=activity();if(!a.ready||a.generating)return {dispatched:false};}
  let route,body;
  if(input.kind==='schedule'){
   const raw=await request('/automation/'+id(input.id)),before=raw&&await schedule(raw);

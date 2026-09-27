@@ -12,6 +12,14 @@ test("reads coalesce independently of ordered writes and invalidate sharing on w
     read = Promise.withResolvers();
   const calls = [];
   client.request = async (input) => {
+    if (input.operation === "status")
+      return {
+        instanceId: "10000000-0000-4000-8000-000000000002",
+        manual: false,
+        busy: false,
+        writesEnabled: true,
+        independentReads: true,
+      };
     calls.push(input.operation);
     if (input.operation === "dispatchText") await write.promise;
     if (input.operation === "readCatalog") await read.promise;
@@ -76,6 +84,7 @@ test("native status bypasses a pending renderer read; mutations remain serialize
         manual: false,
         busy: true,
         writesEnabled: true,
+        independentReads: true,
       };
     return {};
   };

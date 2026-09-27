@@ -167,10 +167,9 @@ test("fixed native library request keeps identity/retry guards and preserves dra
     baseline = await f.run(f.r);
   assert.equal(baseline.name, "Before");
   f.editor.textContent = "Owner draft";
-  assert.deepEqual(await f.run({ ...f.r, operation: "mutateLibrary", baseline }), {
-    dispatched: false,
-  });
-  assert.equal(f.calls.filter((x) => x.method === "PATCH").length, 0);
+  assert.equal((await f.run({ ...f.r, operation: "mutateLibrary", baseline })).accepted, true);
+  assert.equal(f.editor.textContent, "Owner draft");
+  assert.equal(f.calls.filter((x) => x.method === "PATCH").length, 1);
   f.editor.textContent = "";
   assert.equal((await f.run({ ...f.r, operation: "mutateLibrary", baseline })).accepted, true);
   const write = f.calls.find((x) => x.method === "PATCH");

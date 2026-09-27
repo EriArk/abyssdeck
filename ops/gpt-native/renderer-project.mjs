@@ -41,9 +41,7 @@ export async function nativeProject(r,read,load=()=>import('app://-/assets/app-i
  const revision=Array.from(new Uint8Array(digest),x=>x.toString(16).padStart(2,'0')).join('');
  if(r.operation==='inspectProject')return {...fields,revision};
  if(!fields.canWrite||revision!==r.revision)return {dispatched:false};
- const visible=s=>[...runtime.document.querySelectorAll(s)].filter(e=>e.getClientRects().length&&!e.disabled);
- const editors=visible('[role="textbox"][contenteditable="true"]');
- if(editors.length!==1||editors.some(e=>e.textContent?.trim())||visible('button[aria-label="Stop"]').length||editors.some(e=>[...(e.closest?.('[data-composer-body]')?.querySelectorAll('button[aria-label]')??[])].some(b=>/^Remove /.test(b.getAttribute('aria-label')??''))))return {dispatched:false};
+ // Fixed metadata requests do not read, clear or switch the selected composer.
  let method,route,options;
  if(r.action==='instructions'&&typeof r.text==='string'&&r.text.length<=100000){
   method='PATCH';route='/projects/{project_id}';options={parameters:{path:{project_id:r.projectId}},requestBody:{name:p.name,instructions:r.text,emoji:p.emoji,theme:p.theme}};

@@ -43,7 +43,7 @@ export class NativeGptLibrary {
         "ChatGPT не применил действие. Можно попробовать снова.",
       );
     if (!old) {
-      if (this.blocked())
+      if (this.pending(kind, id))
         throw new HubError(
           409,
           "GPT_LIBRARY_PENDING",
@@ -69,6 +69,7 @@ export class NativeGptLibrary {
           "NATIVE_INVALID_LIBRARY",
           "NATIVE_LIBRARY_NOT_WRITABLE",
           "NATIVE_PENDING_DISPATCH",
+          "NATIVE_SCOPE_UNAVAILABLE",
           "NATIVE_BUSY",
           "NATIVE_MANUAL_RECOVERY",
         ].includes(e.message)

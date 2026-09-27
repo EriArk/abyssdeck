@@ -8,7 +8,8 @@ export class NativeWorkspaceReceipts{
   const hash=createHash('sha256').update(JSON.stringify(r.input)).digest('hex');
   if(row&&row.hash!==hash)fail('KEY_CONFLICT');
   if(!row){
-   if(check)fail('RECEIPT_MISSING');if(this.dispatch.pending())fail('PENDING_DISPATCH');
+   if(check)fail('RECEIPT_MISSING');if(this.dispatch.blocksWorkspace(r.input))fail('PENDING_DISPATCH');
+   if(r.input.kind==='canvas')await this.dispatch.assertDispatch({...r,conversationId:r.input.conversationId},reader);
    const i=r.input;let expected=null;
    if(i.kind==='canvas'){
     const before=(await reader.workspace({...r,operation:'canvasList',conversationId:i.conversationId})).items.find(x=>x.id===i.id);
@@ -29,7 +30,9 @@ export class NativeWorkspaceReceipts{
    }catch{}
   }
   if(r.review===true&&row.state==='unknown'){
-   const a=await reader.workspace({...JSON.parse(row.payload),operation:'activity'});if(!a.ready||a.generating)fail('NOT_READY');
+   const saved=JSON.parse(row.payload);
+   if(saved.input.kind==='schedule')await reader.workspace({...saved,operation:'scheduledRead',id:saved.input.id});
+   else {const a=await reader.workspace({...saved,operation:'activity'});if(!a.ready||a.generating)fail('NOT_READY');}
    this.db.prepare("UPDATE workspace_receipts SET state='checked' WHERE key=?").run(r.key);row.state='checked';
   }
   return {state:row.state,dispatched:row.state!=='rejected'};

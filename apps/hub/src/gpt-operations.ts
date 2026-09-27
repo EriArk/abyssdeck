@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { type GptOperation, HubError } from "@codex-web/shared";
 import { z } from "zod";
 import { gptHistory } from "./gpt-history.js";
+import { nativeMutationNotStarted } from "./gpt-mutation-admission.js";
 import { gptVersion, gptVersions, versionHash } from "./gpt-versions.js";
 import type { Store } from "./store.js";
 
@@ -146,12 +147,12 @@ export function operationConfirmation(
 }
 
 export class GptOperations {
-  private work = Promise.resolve();
-  private runningId: string | null = null;
+  private work = new Set<Promise<void>>();
+  private runningId = new Set<string>();
   constructor(
     private store: Store,
     private json: (path: string, body?: unknown) => Promise<Json>,
-    private canStart: () => boolean,
+    private canStart: (input: Input) => boolean,
     private changed: (id: string) => void,
     private signal: AbortSignal,
     private native = false,
@@ -171,14 +172,14 @@ export class GptOperations {
       )
       .run();
   }
-  blocked() {
+  blocked(nativeId?: string) {
     return (
-      !!this.runningId ||
+      (!nativeId && this.runningId.size > 0) ||
       !!this.store.db
         .prepare(
-          "SELECT 1 FROM gpt_native_operations WHERE state IN ('preparing','running','unknown') LIMIT 1",
+          "SELECT 1 FROM gpt_native_operations WHERE state IN ('preparing','running','unknown') AND (? IS NULL OR nativeId=? OR resultNativeId=?) LIMIT 1",
         )
-        .get()
+        .get(nativeId ?? null, nativeId ?? null, nativeId ?? null)
     );
   }
   counts() {
@@ -189,19 +190,19 @@ export class GptOperations {
       .get()!;
     return { active: Number(row.active), unknown: Number(row.unknown) };
   }
-  list(nativeId?: string) {
+  list(nativeId?: string, newChat = false) {
     const items = this.store.db
       .prepare(
-        "SELECT id,nativeId,resultNativeId,messageId,json_extract(input,'$.targetMessageId') AS targetMessageId,action,text,state,error,createdAt,updatedAt FROM gpt_native_operations WHERE (? IS NULL OR nativeId=?) ORDER BY createdAt DESC LIMIT 20",
+        "SELECT id,nativeId,resultNativeId,messageId,json_extract(input,'$.targetMessageId') AS targetMessageId,action,text,state,error,createdAt,updatedAt FROM gpt_native_operations WHERE (? IS NULL OR nativeId=? OR resultNativeId=?) ORDER BY createdAt DESC LIMIT 20",
       )
-      .all(nativeId ?? null, nativeId ?? null) as GptOperation[];
+      .all(nativeId ?? null, nativeId ?? null, nativeId ?? null) as GptOperation[];
     return {
-      items: items.map((item) =>
-        item.id === this.runningId && item.state === "unknown"
+      items: (newChat ? [] : items).map((item) =>
+        this.runningId.has(item.id) && item.state === "unknown"
           ? { ...item, state: "running" as const }
           : item,
       ),
-      blocked: this.blocked(),
+      blocked: this.native && newChat ? false : this.blocked(this.native ? nativeId : undefined),
     };
   }
   get(operationId: string) {
@@ -241,7 +242,11 @@ export class GptOperations {
         throw fail("GPT_PROVIDER_CHANGED", "Действие принадлежит прежнему подключению GPT.");
       return { id: operationId };
     }
-    if (!this.canStart() || this.blocked())
+    if (
+      !this.canStart(input) ||
+      this.blocked(this.native ? input.nativeId : undefined) ||
+      this.runningId.size >= 16
+    )
       throw fail("GPT_BUSY", "Сначала заверши или проверь текущее действие GPT.");
     const now = Date.now();
     this.store.db
@@ -262,18 +267,23 @@ export class GptOperations {
     this.store.db
       .prepare("UPDATE gpt_native_operations SET provider=? WHERE id=?")
       .run(this.native ? "native" : "browser", operationId);
-    this.runningId = operationId;
-    this.work = this.run(operationId, input);
+    this.runningId.add(operationId);
+    const work = this.run(operationId, input);
+    this.work.add(work);
+    void work.finally(() => this.work.delete(work));
     return { id: operationId };
   }
   private async run(operationId: string, input: Input) {
-    let dispatched = false;
+    let dispatched = false,
+      awaitingDispatch = false;
     try {
-      const active = await this.json("/active");
-      if (active.generating || active.requestId) throw fail("GPT_BUSY", "ChatGPT сейчас занят.");
-      const features = await this.json("/native-features");
-      if (!features.ready || features.generating)
-        throw fail("GPT_BUSY", "ChatGPT сейчас занят или недоступен.");
+      if (!this.native) {
+        const active = await this.json("/active");
+        if (active.generating || active.requestId) throw fail("GPT_BUSY", "ChatGPT сейчас занят.");
+        const features = await this.json("/native-features");
+        if (!features.ready || features.generating)
+          throw fail("GPT_BUSY", "ChatGPT сейчас занят или недоступен.");
+      }
       const source = await this.json("/conversation?id=" + encodeURIComponent(input.nativeId)),
         baseline = operationBaseline(source, input);
       this.store.db
@@ -291,11 +301,13 @@ export class GptOperations {
       // Persist uncertainty before entering the connector. A lost reply must never replay a click.
       this.set(operationId, "unknown");
       dispatched = true;
+      awaitingDispatch = true;
       const result = await this.json("/native-operation", {
         ...input,
         ...(this.native ? { key: operationId } : {}),
         conversationId: input.nativeId,
       });
+      awaitingDispatch = false;
       if (result.dispatched === false) {
         dispatched = false;
         throw fail(
@@ -331,6 +343,7 @@ export class GptOperations {
         "ChatGPT не подтвердил завершение. Проверь ветку перед новым действием.",
       );
     } catch (error) {
+      if (this.native && awaitingDispatch && nativeMutationNotStarted(error)) dispatched = false;
       this.set(
         operationId,
         dispatched ? "unknown" : "failed",
@@ -341,12 +354,12 @@ export class GptOperations {
             : "Действие не отправлено. Текст сохранён.",
       );
     } finally {
-      this.runningId = null;
+      this.runningId.delete(operationId);
       this.changed(input.nativeId);
     }
   }
   async confirm(operationId: string, worker = false) {
-    if (this.runningId === operationId && !worker) return false;
+    if (this.runningId.has(operationId) && !worker) return false;
     const row = this.get(operationId);
     if (row.state === "completed") return true;
     if (!row.baseline || !["unknown", "running"].includes(row.state)) return false;
@@ -388,14 +401,16 @@ export class GptOperations {
     return true;
   }
   async checked(operationId: string) {
-    if (this.runningId === operationId) throw fail("GPT_BUSY", "Действие ещё выполняется.");
+    if (this.runningId.has(operationId)) throw fail("GPT_BUSY", "Действие ещё выполняется.");
     const row = this.get(operationId);
     if (row.state !== "unknown") return;
     if (await this.confirm(operationId)) return;
-    const active = await this.json("/active"),
-      features = await this.json("/native-features");
-    if (active.generating || active.requestId || features.generating || !features.ready)
-      throw fail("GPT_BUSY", "ChatGPT ещё работает или его состояние недоступно.");
+    if (!this.native) {
+      const active = await this.json("/active"),
+        features = await this.json("/native-features");
+      if (active.generating || active.requestId || features.generating || !features.ready)
+        throw fail("GPT_BUSY", "ChatGPT ещё работает или его состояние недоступно.");
+    }
     if (this.native)
       await this.json("/native-operation/check", {
         ...JSON.parse(row.input),
@@ -406,6 +421,6 @@ export class GptOperations {
     this.set(operationId, "checked", "Проверено вручную. Повторной отправки не было.");
   }
   async close() {
-    await this.work;
+    await Promise.all(this.work);
   }
 }

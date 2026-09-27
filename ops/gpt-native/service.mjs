@@ -136,7 +136,7 @@ export class NativeReadService {
         if(operation==='transcribe')return await this.reader.transcribe(bound);
         if(operation==='abandonProjectCreation')return await this.projects.abandon(bound,this.reader);
         if(operation==='createProject'){const v=await this.projects.create(bound,this.reader);if(v.projectId)this.library.projects.add(v.projectId);return v;}
-        if(operation==='stageProjectUpload'){this.projects.admit(bound);if(this.canary.pending())fail('PENDING_DISPATCH');return await this.uploads.append(bound);}
+        if(operation==='stageProjectUpload'){this.projects.admit(bound);if(this.canary.blocksDispatch(null,bound.projectId))fail('PENDING_DISPATCH');return await this.uploads.append(bound);}
         if(operation==='projectMutation'){const v=await this.projects.execute(bound,this.reader,this.uploads,transferStoredUpload);if(v.state!=='unknown'&&bound.action==='upload')await this.uploads.clear(bound);return v;}
         if(operation==='reconcileProject')return await this.projects.check(bound,this.reader);
         if(['libraryMutation','reconcileLibrary'].includes(operation)){if(!this.library)fail('INVALID_CANARY');return await this.library.run(bound,this.reader,operation==='reconcileLibrary');}

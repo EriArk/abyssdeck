@@ -79,7 +79,11 @@ export class GptDeletions {
     }
     return { ok: true, pending: true };
   }
-  async tick(authorize: () => void, idle: () => boolean) {
+  async tick(
+    authorize: () => void,
+    idle: () => boolean,
+    canRun: (id: string) => boolean = () => true,
+  ) {
     if (this.busy || !idle()) return;
     const db = this.store.db;
     const schedule = db
@@ -87,15 +91,16 @@ export class GptDeletions {
       .get()!;
     if (Number(schedule.nextAt) > this.now()) return;
     const row = db
-      .prepare("SELECT * FROM gpt_deletions WHERE done=0 AND nextAt<=? ORDER BY nextAt LIMIT 1")
-      .get(this.now());
+      .prepare("SELECT * FROM gpt_deletions WHERE done=0 AND nextAt<=? ORDER BY nextAt LIMIT 100")
+      .all(this.now())
+      .find((row) => canRun(String(row.id)));
     if (!row) return;
     this.busy = true;
     let attempted = false,
       succeeded = false;
     try {
       authorize();
-      if (!idle()) return;
+      if (!idle() || !canRun(String(row.id))) return;
       // Reserve one account-wide slot durably. New tombstones do not bypass the
       // spacing/backoff of earlier deletions, including after a Hub restart.
       db.prepare("UPDATE gpt_deletion_schedule SET nextAt=? WHERE id=1").run(this.now() + 30000);

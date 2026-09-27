@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { GptNativeProject, GptProjectOperation } from "@codex-web/shared";
 import { HubError } from "@codex-web/shared";
 import { z } from "zod";
+import { nativeMutationNotStarted } from "./gpt-mutation-admission.js";
 import type { Store } from "./store.js";
 
 const projectId = z.string().regex(/^g-p-[a-zA-Z0-9-]{1,80}$/);
@@ -39,12 +40,12 @@ export interface NativeProjectTransport {
 type Row = GptProjectOperation & { fingerprint: string; input: string; baseline: string | null };
 const fail = (code: string, text: string) => new HubError(409, code, text);
 export class GptProjectContent {
-  private work = Promise.resolve();
-  private runningId: string | null = null;
+  private work = new Set<Promise<void>>();
+  private runningId = new Set<string>();
   constructor(
     private store: Store,
     private json: (path: string, body?: unknown) => Promise<any>,
-    private canStart: () => boolean,
+    private canStart: (input: Input) => boolean,
     private file: (id: string) => { id: string; name: string; bytes: number; base64?: string },
     private signal: AbortSignal,
     private native?: NativeProjectTransport,
@@ -64,14 +65,14 @@ export class GptProjectContent {
   capabilities() {
     return { manualReview: !this.native, download: true };
   }
-  blocked() {
+  blocked(projectId?: string) {
     return (
-      !!this.runningId ||
+      (!projectId && this.runningId.size > 0) ||
       !!this.store.db
         .prepare(
-          "SELECT 1 FROM gpt_project_operations WHERE state IN ('pending','unknown') LIMIT 1",
+          "SELECT 1 FROM gpt_project_operations WHERE state IN ('pending','unknown') AND (? IS NULL OR projectId=?) LIMIT 1",
         )
-        .get()
+        .get(projectId ?? null, projectId ?? null)
     );
   }
   counts() {
@@ -89,7 +90,7 @@ export class GptProjectContent {
       )
       .all(id) as GptProjectOperation[];
     return items.map((item) =>
-      item.id === this.runningId && item.state === "unknown"
+      this.runningId.has(item.id) && item.state === "unknown"
         ? { ...item, state: "pending" as const }
         : item,
     );
@@ -134,7 +135,11 @@ export class GptProjectContent {
         throw fail("IDEMPOTENCY_CONFLICT", "Это действие уже сохранено с другими данными.");
       return { id };
     }
-    if (!this.canStart() || this.blocked())
+    if (
+      !this.canStart(input) ||
+      this.blocked(this.native ? input.projectId : undefined) ||
+      this.runningId.size >= 16
+    )
       throw fail("GPT_BUSY", "Сначала заверши или проверь текущее действие GPT.");
     if (input.action === "upload") this.file(input.uploadId);
     this.store.db.exec("BEGIN IMMEDIATE");
@@ -150,12 +155,15 @@ export class GptProjectContent {
       this.store.db.exec("ROLLBACK");
       throw e;
     }
-    this.runningId = id;
-    this.work = this.run(id, input);
+    this.runningId.add(id);
+    const work = this.run(id, input);
+    this.work.add(work);
+    void work.finally(() => this.work.delete(work));
     return { id };
   }
   private async run(id: string, input: Input) {
-    let dispatched = false;
+    let dispatched = false,
+      awaitingDispatch = false;
     try {
       if (!this.native) {
         const active = await this.json("/active");
@@ -176,7 +184,9 @@ export class GptProjectContent {
       this.set(id, "unknown", "Проверяем подтверждение ChatGPT.");
       dispatched = true;
       if (this.native) {
+        awaitingDispatch = true;
         const result = await this.native.execute(id, input);
+        awaitingDispatch = false;
         this.set(
           id,
           result.state === "rejected" ? "failed" : result.state,
@@ -216,6 +226,7 @@ export class GptProjectContent {
         "ChatGPT пока не подтвердил результат. Проверь проект; действие не повторится.",
       );
     } catch (e) {
+      if (this.native && awaitingDispatch && nativeMutationNotStarted(e)) dispatched = false;
       this.set(
         id,
         dispatched ? "unknown" : "failed",
@@ -226,11 +237,11 @@ export class GptProjectContent {
             : "Действие не отправлено. Данные сохранены.",
       );
     } finally {
-      this.runningId = null;
+      this.runningId.delete(id);
     }
   }
   async check(id: string, worker = false) {
-    if (this.runningId === id && !worker) return false;
+    if (this.runningId.has(id) && !worker) return false;
     const row = this.row(id);
     this.assertProvider(id);
     if (this.native && ["pending", "unknown"].includes(row.state)) {
@@ -259,7 +270,7 @@ export class GptProjectContent {
     return confirmed;
   }
   async checked(id: string) {
-    if (this.runningId === id) throw fail("GPT_PROJECT_PENDING", "Действие ещё выполняется.");
+    if (this.runningId.has(id)) throw fail("GPT_PROJECT_PENDING", "Действие ещё выполняется.");
     if (await this.check(id)) return;
     const row = this.row(id);
     if (this.native)
@@ -273,6 +284,6 @@ export class GptProjectContent {
     this.set(id, "checked");
   }
   async close() {
-    await this.work;
+    await Promise.all(this.work);
   }
 }

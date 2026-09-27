@@ -35,6 +35,7 @@ import {
 } from "./gpt-history.js";
 import { GptHistoryDisk } from "./gpt-history-disk.js";
 import { gptLinkedText } from "./gpt-links.js";
+import { gptMutationBlocked } from "./gpt-mutation-admission.js";
 import { NativeGptJobs } from "./gpt-native-jobs.js";
 import { NativeGptLibrary } from "./gpt-native-library.js";
 import { nativeProjectTransport } from "./gpt-native-project.js";
@@ -88,12 +89,8 @@ export class GptService {
     this.deletionWork = this.deletions
       .tick(
         this.authorize,
-        () =>
-          !this.stopped &&
-          !this.working &&
-          !this.libraryBusy &&
-          !this.nativeBlocked() &&
-          !this.hasUnfinishedJobs(),
+        () => !this.stopped && !this.working && !this.libraryBusy,
+        (id) => !gptMutationBlocked(this.store, { conversationId: id }, { jobs: true }),
       )
       .catch(() => {})
       .finally(() => {
@@ -164,35 +161,7 @@ export class GptService {
   }
   private nativeChatBlocked(nativeId: string | null, projectId?: string) {
     if (!this.native) return this.nativeBlocked();
-    const db = this.store.db;
-    return (
-      !!(
-        nativeId &&
-        (db
-          .prepare(
-            "SELECT 1 FROM gpt_native_operations WHERE nativeId=? AND state IN ('preparing','running','unknown') LIMIT 1",
-          )
-          .get(nativeId) ||
-          db
-            .prepare(
-              "SELECT 1 FROM gpt_native_library WHERE kind='thread' AND id=? AND state='unknown' LIMIT 1",
-            )
-            .get(nativeId))
-      ) ||
-      !!(
-        projectId &&
-        (db
-          .prepare(
-            "SELECT 1 FROM gpt_project_operations WHERE projectId=? AND state IN ('pending','unknown') LIMIT 1",
-          )
-          .get(projectId) ||
-          db
-            .prepare(
-              "SELECT 1 FROM gpt_native_library WHERE kind='project' AND id=? AND state='unknown' LIMIT 1",
-            )
-            .get(projectId))
-      )
-    );
+    return gptMutationBlocked(this.store, { conversationId: nativeId, projectId });
   }
   nativeCounts() {
     const a = this.operations.counts(),
@@ -389,15 +358,18 @@ export class GptService {
     this.operations = new GptOperations(
       store,
       (path, body) => this.json(path, body),
-      () =>
-        !this.projectContent?.blocked() &&
-        !this.workspaceWork?.blocked() &&
-        !this.stopped &&
-        !this.working &&
-        !this.libraryBusy &&
-        !this.nativeLibrary?.blocked() &&
-        !this.modelsPending &&
-        !this.hasUnfinishedJobs(),
+      (input) =>
+        this.native
+          ? !this.stopped &&
+            !gptMutationBlocked(this.store, { conversationId: input.nativeId }, { jobs: true })
+          : !this.projectContent?.blocked() &&
+            !this.workspaceWork?.blocked() &&
+            !this.stopped &&
+            !this.working &&
+            !this.libraryBusy &&
+            !this.nativeLibrary?.blocked() &&
+            !this.modelsPending &&
+            !this.hasUnfinishedJobs(),
       (id) => {
         this.observedHistory = undefined;
         this.historyCache.invalidate(id);
@@ -408,15 +380,18 @@ export class GptService {
     this.projectContent = new GptProjectContent(
       store,
       (path, body) => this.json(path, body),
-      () =>
-        !this.stopped &&
-        !this.working &&
-        !this.libraryBusy &&
-        !this.nativeLibrary?.blocked() &&
-        !this.modelsPending &&
-        !this.operations.blocked() &&
-        !this.workspaceWork?.blocked() &&
-        !this.hasUnfinishedJobs(),
+      (input) =>
+        this.native
+          ? !this.stopped &&
+            !gptMutationBlocked(this.store, { projectId: input.projectId }, { jobs: true })
+          : !this.stopped &&
+            !this.working &&
+            !this.libraryBusy &&
+            !this.nativeLibrary?.blocked() &&
+            !this.modelsPending &&
+            !this.operations.blocked() &&
+            !this.workspaceWork?.blocked() &&
+            !this.hasUnfinishedJobs(),
       (id) => {
         const file = this.upload(id);
         if (this.native) return file;
@@ -438,15 +413,24 @@ export class GptService {
     this.workspaceWork = new GptWorkspaceWork(
       store,
       (path, body) => this.json(path, body),
-      () =>
-        !this.stopped &&
-        !this.working &&
-        !this.libraryBusy &&
-        !this.nativeLibrary?.blocked() &&
-        !this.modelsPending &&
-        !this.operations.blocked() &&
-        !this.projectContent.blocked() &&
-        !this.hasUnfinishedJobs(),
+      (input) =>
+        this.native
+          ? !this.stopped &&
+            !gptMutationBlocked(
+              this.store,
+              input.kind === "schedule"
+                ? { scheduleId: input.id }
+                : { conversationId: input.conversationId },
+              { jobs: true },
+            )
+          : !this.stopped &&
+            !this.working &&
+            !this.libraryBusy &&
+            !this.nativeLibrary?.blocked() &&
+            !this.modelsPending &&
+            !this.operations.blocked() &&
+            !this.projectContent.blocked() &&
+            !this.hasUnfinishedJobs(),
       !!this.native,
     );
     this.token = config.gpt ? (process.env[config.gpt.tokenSecret] ?? "") : "";
@@ -813,12 +797,13 @@ export class GptService {
       return result;
     }
     if (
-      this.working ||
+      this.stopped ||
       this.libraryBusy ||
-      this.operations.blocked() ||
-      this.projectContent.blocked() ||
-      this.workspaceWork.blocked() ||
-      this.hasUnfinishedJobs()
+      gptMutationBlocked(
+        this.store,
+        kind === "thread" ? { conversationId: nativeId } : { projectId: nativeId },
+        { jobs: true, libraryKey: key },
+      )
     )
       throw error("GPT_BUSY", "Дождись завершения текущей работы GPT.");
     this.libraryBusy = true;
@@ -1887,8 +1872,10 @@ export function registerGpt(
     };
   });
   app.get("/api/gpt/native-operations", async (req) => {
-    const q = z.object({ nativeId: id.optional() }).parse(req.query);
-    return service.operations.list(q.nativeId);
+    const q = z
+      .object({ nativeId: id.optional(), newChat: z.literal("1").optional() })
+      .parse(req.query);
+    return service.operations.list(q.nativeId, !q.nativeId && q.newChat === "1");
   });
   app.get("/api/gpt/conversations/:id/messages/:messageId/action", async (req) => {
     const p = z.object({ id, messageId: id }).parse(req.params);

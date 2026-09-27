@@ -6,6 +6,7 @@ import {
   type ScheduledTask,
 } from "@codex-web/shared";
 import { z } from "zod";
+import { nativeMutationNotStarted } from "./gpt-mutation-admission.js";
 import type { Store } from "./store.js";
 export const workspaceId = z.string().regex(/^[a-zA-Z0-9_-]{1,100}$/);
 const revision = z.string().regex(/^[a-f0-9]{64}$/);
@@ -86,12 +87,12 @@ export class GptWorkspaceWork {
   private get scope() {
     return this.native ? "gpt-native-workspace" : "gpt-workspace";
   }
-  private running: string | null = null;
-  private work = Promise.resolve();
+  private running = new Set<string>();
+  private work = new Set<Promise<void>>();
   constructor(
     private store: Store,
     private json: (path: string, body?: unknown) => Promise<unknown>,
-    private canStart: () => boolean,
+    private canStart: (input: Input) => boolean,
     private native = false,
   ) {
     store.db
@@ -99,22 +100,22 @@ export class GptWorkspaceWork {
       .run(this.scope);
   }
   counts() {
-    const r = this.store.db
-      .prepare(
-        "SELECT COALESCE(SUM(state='pending'),0) active, COALESCE(SUM(state='unknown'),0) unknown FROM commands WHERE scope=?",
-      )
-      .get(this.scope)!;
+    const rows = this.store.db
+      .prepare("SELECT key,state FROM commands WHERE scope=? AND state IN ('pending','unknown')")
+      .all(this.scope);
     return {
-      active: Number(r.active) + (this.running && Number(r.active) === 0 ? 1 : 0),
-      unknown: Number(r.unknown) - (this.running && Number(r.unknown) > 0 ? 1 : 0),
+      active: rows.filter((r) => r.state === "pending" || this.running.has(String(r.key))).length,
+      unknown: rows.filter((r) => r.state === "unknown" && !this.running.has(String(r.key))).length,
     };
   }
-  blocked() {
+  blocked(input?: Input) {
     return (
-      !!this.running ||
+      (!input && this.running.size > 0) ||
       !!this.store.db
-        .prepare("SELECT 1 FROM commands WHERE scope=? AND state IN ('pending','unknown') LIMIT 1")
-        .get(this.scope)
+        .prepare(
+          "SELECT 1 FROM commands WHERE scope=? AND state IN ('pending','unknown') AND (? IS NULL OR (json_extract(response,'$.input.kind')=? AND json_extract(response,'$.input.id')=?)) LIMIT 1",
+        )
+        .get(this.scope, input?.kind ?? null, input?.kind ?? null, input?.id ?? null)
     );
   }
   private row(id: string) {
@@ -130,13 +131,12 @@ export class GptWorkspaceWork {
       id: row.key,
       kind: data.input.kind,
       targetId: data.input.id,
-      state:
-        this.running === row.key
-          ? "pending"
-          : row.state === "complete"
-            ? "completed"
-            : (row.state as NativeWorkspaceReceipt["state"]),
-      error: this.running === row.key ? "Проверяем результат…" : data.error,
+      state: this.running.has(row.key)
+        ? "pending"
+        : row.state === "complete"
+          ? "completed"
+          : (row.state as NativeWorkspaceReceipt["state"]),
+      error: this.running.has(row.key) ? "Проверяем результат…" : data.error,
     };
   }
   get(id: string) {
@@ -210,7 +210,11 @@ export class GptWorkspaceWork {
         throw failure("IDEMPOTENCY_CONFLICT", "Этот запрос уже сохранён с другими данными.");
       return { id };
     }
-    if (!this.canStart() || this.blocked())
+    if (
+      !this.canStart(input) ||
+      this.blocked(this.native ? input : undefined) ||
+      this.running.size >= 16
+    )
       throw failure("GPT_BUSY", "Сначала заверши или проверь текущее действие GPT.");
     const data: Data = { input, error: "" };
     this.store.db
@@ -218,17 +222,23 @@ export class GptWorkspaceWork {
         "INSERT INTO commands(scope,key,digest,state,response,createdAt) VALUES(?,?,?,'pending',?,?)",
       )
       .run(this.scope, id, digest, JSON.stringify(data), new Date().toISOString());
-    this.running = id;
-    this.work = this.run(id, data);
+    this.running.add(id);
+    const work = this.run(id, data);
+    this.work.add(work);
+    void work.finally(() => this.work.delete(work));
     return { id };
   }
   private async run(id: string, data: Data) {
-    let dispatched = false;
+    let dispatched = false,
+      awaitingDispatch = false;
     try {
-      const active = z
-        .object({ generating: z.boolean().optional(), requestId: z.unknown().optional() })
-        .parse(await this.json("/active"));
-      if (active.generating || active.requestId) throw failure("GPT_BUSY", "ChatGPT сейчас занят.");
+      if (!this.native) {
+        const active = z
+          .object({ generating: z.boolean().optional(), requestId: z.unknown().optional() })
+          .parse(await this.json("/active"));
+        if (active.generating || active.requestId)
+          throw failure("GPT_BUSY", "ChatGPT сейчас занят.");
+      }
       const before = await this.read(data.input);
       if (!before || before.revision !== data.input.revision)
         throw failure(
@@ -261,6 +271,7 @@ export class GptWorkspaceWork {
         );
       this.set(id, "unknown", { ...data, error: "Подтверждение ещё не получено." });
       dispatched = true;
+      awaitingDispatch = true;
       const result = z
         .object({ dispatched: z.boolean(), code: z.string().nullable().optional() })
         .parse(
@@ -269,6 +280,7 @@ export class GptWorkspaceWork {
             ...(this.native ? { key: id } : {}),
           }),
         );
+      awaitingDispatch = false;
       if (!result.dispatched) {
         dispatched = false;
         throw failure(
@@ -282,6 +294,7 @@ export class GptWorkspaceWork {
           error: "ChatGPT пока не подтвердил изменение. Проверка не повторяет действие.",
         });
     } catch (error) {
+      if (this.native && awaitingDispatch && nativeMutationNotStarted(error)) dispatched = false;
       this.set(id, dispatched ? "unknown" : "failed", {
         ...data,
         error: dispatched
@@ -291,11 +304,11 @@ export class GptWorkspaceWork {
             : "Не удалось прочитать данные. Изменение не отправлено.",
       });
     } finally {
-      this.running = null;
+      this.running.delete(id);
     }
   }
   async check(id: string, worker = false) {
-    if (this.running === id && !worker) return false;
+    if (this.running.has(id) && !worker) return false;
     const row = this.row(id);
     if (!["pending", "unknown"].includes(row.state)) return row.state === "complete";
     const data = JSON.parse(row.response) as Data;
@@ -328,7 +341,7 @@ export class GptWorkspaceWork {
     return matches;
   }
   async checked(id: string) {
-    if (this.running === id) throw failure("GPT_BUSY", "Дождись завершения проверки.");
+    if (this.running.has(id)) throw failure("GPT_BUSY", "Дождись завершения проверки.");
     const row = this.row(id);
     if (row.state !== "unknown") return;
     if (await this.check(id)) return;
@@ -342,6 +355,6 @@ export class GptWorkspaceWork {
       });
   }
   async close() {
-    await this.work;
+    await Promise.all(this.work);
   }
 }

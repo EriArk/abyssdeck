@@ -9,7 +9,7 @@ export class NativeOperationReceipts{
   const hash=createHash('sha256').update(JSON.stringify({...r,review:undefined})).digest('hex');let row=this.db.prepare('SELECT * FROM operation_receipts WHERE key=?').get(r.key);
   if(row&&row.hash!==hash)fail('KEY_CONFLICT');
   if(!row){
-   if(check)fail('RECEIPT_MISSING');if(this.dispatch.pending())fail('PENDING_DISPATCH');
+   if(check)fail('RECEIPT_MISSING');await this.dispatch.assertDispatch(r,reader);
    const graph=await reader.readConversationGraph(r),nodes=chain(graph),index=nodes.findIndex(n=>n.message?.id===r.messageId),source=nodes[index];
    if(graph.current_node!==r.currentNode||!source||source.message.author.role!==(r.action==='edit'?'user':'assistant'))fail('BRANCH_CHANGED');
    const prompt=nodes.slice(0,index+1).reverse().find(n=>n.message?.author?.role==='user');if(!prompt)fail('INVALID_REQUEST');

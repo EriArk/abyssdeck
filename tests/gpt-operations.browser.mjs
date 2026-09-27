@@ -30,10 +30,25 @@ for (const [engine, type] of [
         { id: "u", role: "user", text: "Исходное сообщение", files: [], createdAt: 1 },
         { id: "a", role: "assistant", text: "Исходный ответ", files: [], createdAt: 2 },
       ],
-      ops = [],
+      ops = [
+        {
+          id: "unrelated",
+          nativeId: "other-chat",
+          messageId: "old",
+          state: "unknown",
+          action: "edit",
+          text: "Saved",
+          error: "Unrelated uncertainty",
+          createdAt: 0,
+          updatedAt: 0,
+        },
+      ],
       requests = [],
       revision = 1,
       failAck = true;
+    let holdNext = false;
+    const held = Promise.withResolvers(),
+      release = Promise.withResolvers();
     await page.route("**/api/gpt/**", async (route) => {
       const request = route.request(),
         url = new URL(request.url()),
@@ -97,11 +112,24 @@ for (const [engine, type] of [
               ],
             });
       if (path === "/api/gpt/native-operations") {
-        if (request.method() === "GET")
+        if (request.method() === "GET") {
+          const id = url.searchParams.get("nativeId");
+          assert(
+            id || url.searchParams.get("newChat") === "1",
+            "operation reads must name the selected scope",
+          );
+          const items = id ? ops.filter((o) => o.nativeId === id || o.resultNativeId === id) : [];
+          if (holdNext) {
+            holdNext = false;
+            held.resolve();
+            await release.promise;
+            return json({ items, blocked: true });
+          }
           return json({
-            items: ops,
-            blocked: ops.some((o) => ["unknown", "running"].includes(o.state)),
+            items,
+            blocked: items.some((o) => ["unknown", "running"].includes(o.state)),
           });
+        }
         const input = request.postDataJSON(),
           id = request.headers()["idempotency-key"];
         requests.push({ id, input });
@@ -186,6 +214,20 @@ for (const [engine, type] of [
     assert.equal(requests.length, 3);
     assert.equal(requests[2].input.action, "fork");
     assert.equal(requests[2].input.targetMessageId, "u");
+    holdNext = true;
+    await held.promise;
+    await page
+      .getByRole("banner")
+      .getByRole("button", { name: "Новый чат GPT", exact: true })
+      .click();
+    await page.getByRole("textbox", { name: "Сообщение GPT" }).fill("Черновик нового чата");
+    release.resolve();
+    await expect(page.getByRole("button", { name: "Отправить GPT", exact: true })).toBeEnabled();
+    await expect(page.getByRole("textbox", { name: "Сообщение GPT" })).toHaveValue(
+      "Черновик нового чата",
+    );
+    await expect(page.getByText("Unrelated uncertainty", { exact: true })).toHaveCount(0);
+    assert.equal(requests.length, 3);
     assert.deepEqual(errors, []);
     console.log(
       engine +

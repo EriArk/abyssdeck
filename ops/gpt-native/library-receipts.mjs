@@ -1,7 +1,7 @@
 import {createHash} from 'node:crypto';
 const fail=c=>{throw Error(`NATIVE_${c}`);};
 const uuid=x=>typeof x==='string'&&/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(x);
-/** Uses the dispatch database/binding, making mutations and sends mutually exclusive. */
+/** Uses the dispatch database/binding, isolating uncertain mutations to their exact chat/project. */
 export class NativeLibraryReceipts {
  constructor(dispatch,projectIds=[]){
   if(!Array.isArray(projectIds)||projectIds.length>4||!projectIds.every(x=>/^g-p-[a-zA-Z0-9-]{1,80}$/.test(x)))fail('INVALID_CANARY');
@@ -22,7 +22,8 @@ export class NativeLibraryReceipts {
   if(row&&row.hash!==hash)fail('KEY_CONFLICT');
   if(!row){
    if(checkOnly)fail('RECEIPT_MISSING');
-   if(this.dispatch.pending())fail('PENDING_DISPATCH');
+   if(r.kind==='project')await this.dispatch.assertProject({...r,projectId:r.id},reader);
+   else await this.dispatch.assertDispatch({...r,conversationId:r.id},reader);
    const baseline=await reader.readLibrary(r);
    if(!baseline.exists&&r.kind==='thread'&&r.action==='delete'){
     this.db.prepare("INSERT INTO library_receipts VALUES(?,?,?,?,'completed')").run(r.key,hash,JSON.stringify(r),JSON.stringify(baseline));

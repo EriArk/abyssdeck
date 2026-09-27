@@ -54,11 +54,7 @@ export async function nativeLibrary(r, read, load=()=>import('app://-/assets/app
  if(r.action==='pin')state.pinned=(await read({operation:'readPins',accountFingerprint:r.accountFingerprint},load,runtime)).items.some(p=>p.id===r.id&&p.kind===r.kind);
  if(r.operation==='readLibrary')return state;
  if(JSON.stringify(state)!==JSON.stringify(r.baseline)||!state.exists||!state.canWrite)return {dispatched:false};
- // Shared desktop remains untouched if it contains a draft or running response.
- const visible=s=>[...runtime.document.querySelectorAll(s)].filter(e=>e.getClientRects().length&&!e.disabled);
- const editors=visible('[role="textbox"][contenteditable="true"]');
- if(editors.length!==1||editors.some(e=>e.textContent?.trim())||visible('button[aria-label="Stop"]').length||
-  editors.some(e=>[...(e.closest?.('[data-composer-body]')?.querySelectorAll('button[aria-label]')??[])].some(b=>/^Remove /.test(b.getAttribute('aria-label')??''))))return {dispatched:false};
+ // Fixed metadata requests do not read, clear or switch the selected composer.
  let method='PATCH',route,options;
  if(r.action==='pin'){
   method=r.value?'POST':'DELETE';route='/pins/{item_type}/{item_id}';options={parameters:{path:{item_type:r.kind==='thread'?'conversation':'project',item_id:r.id}}};

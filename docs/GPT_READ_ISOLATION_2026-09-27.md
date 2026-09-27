@@ -110,3 +110,50 @@ block the verified chat reads or account send readiness. Native adapter image
 activation remains a separate guarded operation; neither its profile nor its
 pending receipts were changed for this acceptance check. Physical iPhone use is
 still the owner's final device check.
+
+## P1: mutation admission by source, 27 September
+
+Hub and native adapter now scope unfinished effects by conversation, project or
+scheduled task. Editing/regenerating/forking a response, changing a library item,
+editing project instructions/files and changing a schedule no longer inherit an
+unrelated chat's unknown receipt. Independent project creation keys remain distinct.
+The selected chat's native-operation query also has an explicit scope, including
+the empty new-chat view; delayed responses from a previous selection cannot disable
+the new composer. Known fork results and new-chat candidates retain protection.
+
+Project actions resolve outstanding conversation membership canonically before
+effects (at most 64 distinct reads); unavailable membership refuses that action
+before dispatch. Cached Hub membership only assists admission, never authorizes a
+native effect. Upload staging does not repeat these canonical reads per chunk;
+the final native project mutation performs the check. Unknown project-wide changes
+still exclude their member chats. Same-resource conflicts survive process restart.
+
+Worker tracking is per operation and bounded to 16 active workers per family;
+the native transport still has one FIFO mutation lane. It does not execute renderer
+writes concurrently. Manual account recovery, identity validation, immutable
+attachment hashes, exact revisions, provider binding and the three-failure send
+cap remain. The old browser provider retains its single-composer guards.
+
+Fixed library/project metadata and schedule requests do not consume the visible
+composer. Their previous global draft/Stop-button checks were removed; bound
+source admission and canonical revisions remain. Reply actions still select and
+validate their exact source composer, model and branch. Confirmed background
+deletions skip unrelated busy chats while retaining durable account-wide spacing,
+backoff and read-only reconciliation of uncertain deletes.
+
+Only explicit pre-dispatch admission refusals are classified as unsent. Timeouts,
+disconnects and a busy read after an accepted command remain uncertain. No recovery
+path gains permission to resend, clear a receipt or stop an existing response.
+
+Focused verification covers restart/lost acknowledgement, same-source exclusion,
+independent new-chat keys, canonical project membership, known fork destinations,
+concurrent Hub workers with serialized native effects, account/manual boundaries,
+deletion spacing and pre/post-dispatch failures. Chromium and WebKit cover scoped
+operation state, late selection responses, preserved drafts, unknown-outcome edit
+recovery, actual Hub project uploads/removal and library recovery across reload.
+Phone/tablet edit screenshots were inspected across the existing themed fixtures.
+Physical iPhone/iPad acceptance remains pending.
+
+This is a coordinated Hub/web/native-adapter release; the Windows helper contracts
+are unchanged. Activation follows ordinary maintenance and is recorded below.
+The owner's explicitly deferred paused send was not inspected or reconciled.

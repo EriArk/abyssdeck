@@ -31,22 +31,46 @@ export class NativeDispatchReceipts {
  hash(x){return createHash('sha256').update(JSON.stringify(x)).digest('hex');}
  close(){this.db.close();}
  pending(){return !!this.db.prepare("SELECT 1 FROM operation_receipts WHERE state='unknown' LIMIT 1").get() || !!this.db.prepare("SELECT 1 FROM workspace_receipts WHERE state='unknown' LIMIT 1").get() || !!this.db.prepare("SELECT 1 FROM project_creations WHERE projectId IS NULL AND state='unknown' LIMIT 1").get() || !!this.db.prepare("SELECT 1 FROM project_receipts WHERE state='unknown' LIMIT 1").get() || !!this.db.prepare("SELECT 1 FROM library_receipts WHERE state='unknown' LIMIT 1").get() || !!this.db.prepare("SELECT 1 FROM receipts WHERE state NOT IN ('completed','cancelled','checked') LIMIT 1").get();}
+ // These are conflict identities only. Reading them never reconciles or releases a receipt.
+ pendingScopes(){
+  const rows=(table,where="state='unknown'")=>this.db.prepare('SELECT * FROM '+table+' WHERE '+where).all();
+  const scopes=[];
+  for(const row of rows('receipts',"state NOT IN ('completed','cancelled','checked')")){
+   const p=JSON.parse(row.payload),creation=p.conversationId===null?this.db.prepare('SELECT candidate,confirmed FROM creations WHERE key=?').get(row.key):null;
+   scopes.push({conversationIds:[p.conversationId,creation?.candidate,creation?.confirmed].filter(Boolean),projectId:p.projectId});
+  }
+  for(const row of rows('operation_receipts')){const p=JSON.parse(row.payload);scopes.push({conversationIds:[p.conversationId,row.resultId].filter(Boolean),projectId:p.projectId});}
+  for(const row of rows('project_receipts')){const p=JSON.parse(row.payload);scopes.push({conversationIds:[],projectId:p.projectId,projectWide:true});}
+  for(const row of rows('library_receipts')){const p=JSON.parse(row.payload),b=JSON.parse(row.baseline);scopes.push({conversationIds:p.kind==='thread'?[p.id]:[],projectId:p.kind==='project'?p.id:b.projectId,projectWide:p.kind==='project'});}
+  for(const row of rows('workspace_receipts')){const p=JSON.parse(row.payload).input;scopes.push({conversationIds:p.kind==='canvas'?[p.conversationId]:[],workspaceKind:p.kind,workspaceId:p.id});}
+  return scopes;
+ }
  blocksDispatch(conversationId,projectId){
-  const pending=table=>this.db.prepare("SELECT payload FROM "+table+" WHERE state='unknown'").all().map(row=>JSON.parse(row.payload));
-  if(conversationId&&pending('operation_receipts').some(r=>r.conversationId===conversationId))return true;
-  if(conversationId&&pending('workspace_receipts').some(r=>r.input?.conversationId===conversationId))return true;
-  if(projectId&&pending('project_receipts').some(r=>r.projectId===projectId))return true;
-  if(pending('library_receipts').some(r=>r.kind==='thread'?conversationId&&r.id===conversationId:projectId&&r.id===projectId))return true;
-  return !!conversationId&&this.db.prepare("SELECT payload,state FROM receipts WHERE state NOT IN ('completed','cancelled','checked')").all().some(x=>JSON.parse(x.payload).conversationId===conversationId);
+  return this.pendingScopes().some(s=>conversationId&&s.conversationIds.includes(conversationId)||projectId&&s.projectWide&&s.projectId===projectId);
  }
  async assertDispatch(r,reader){
   if(this.blocksDispatch(r.conversationId,r.projectId))fail('PENDING_DISPATCH');
-  const projectChanges=this.db.prepare("SELECT 1 FROM project_receipts WHERE state='unknown' UNION ALL SELECT 1 FROM library_receipts WHERE state='unknown' AND json_extract(payload,'$.kind')='project' LIMIT 1").get();
-  if(projectChanges&&r.conversationId){
+  if(r.conversationId&&this.pendingScopes().some(s=>s.projectWide)){
    const history=await reader.readConversation(r);
    if(history.conversationId!==r.conversationId)fail('CONVERSATION_MISMATCH');
    if(this.blocksDispatch(r.conversationId,history.projectId))fail('PENDING_DISPATCH');
   }
+ }
+ async assertProject(r,reader){
+  const scopes=this.pendingScopes();
+  if(scopes.some(s=>s.projectId===r.projectId))fail('PENDING_DISPATCH');
+  // Existing-chat sends may predate project metadata, and chats can move externally.
+  // Resolve only outstanding identities, canonically, with a bounded read budget.
+  const ids=[...new Set(scopes.flatMap(s=>s.conversationIds))];
+  if(ids.length>64)fail('SCOPE_UNAVAILABLE');
+  for(const conversationId of ids){
+   let history;try{history=await reader.readConversation({...r,conversationId});}catch{fail('SCOPE_UNAVAILABLE');}
+   if(history.conversationId!==conversationId)fail('CONVERSATION_MISMATCH');
+   if(history.projectId===r.projectId)fail('PENDING_DISPATCH');
+  }
+ }
+ blocksWorkspace(input){
+  return this.pendingScopes().some(s=>s.workspaceKind===input.kind&&s.workspaceId===input.id);
  }
  validate(r){
   if(r.projectId!=null&&!/^g-p-[a-zA-Z0-9-]{1,80}$/.test(r.projectId))fail('INVALID_PROJECT');
