@@ -69,14 +69,14 @@ export class NativeReadService {
       ...canaryFields,
       openMedia:['transferId','conversationId','messageId','fileId','projectId'], readMedia:['transferId','offset'], closeMedia:['transferId'],
       workspace:['action','id','conversationId','version','cursor'],
-      status: ['capabilities'], beginManual: ['leaseId'], endManual: ['leaseId'], resumeManual: [],
-      inspectProject: ['projectId'], readModels: [], readPins: [], readConversationGraph:['conversationId'], readProjects:['cursor'], readProject:['projectId'], readProjectConversations:['projectId','cursor'], readCatalog:['offset','archived'], readConversation: ['conversationId', 'before'],
+      status: ['capabilities','historyUpdates'], beginManual: ['leaseId'], endManual: ['leaseId'], resumeManual: [],
+      inspectProject: ['projectId'], readModels: [], readPins: [], readHistoryUpdate:['conversationId','revision'], readConversationGraph:['conversationId'], readProjects:['cursor'], readProject:['projectId'], readProjectConversations:['projectId','cursor'], readCatalog:['offset','archived'], readConversation: ['conversationId', 'before'],
       listArtifacts: ['conversationId', 'before'], readArtifact: ['conversationId', 'messageId', 'artifactId'],
     }[input.operation];
     if (!Array.isArray(fields) || Object.keys(input).some(k => !['userId', 'operation', ...fields].includes(k))) fail('INVALID_REQUEST');
     if (input.operation === 'status') {
-      if(input.capabilities!==undefined&&input.capabilities!==true)fail('INVALID_REQUEST');
-      return { instanceId: this.instanceId, manual: this.leases.size > 0, busy: this.busy, writesEnabled: this.canary?.ownerMode===true, ...(input.capabilities?{independentReads:true}:{}) };
+      if(input.capabilities!==undefined&&input.capabilities!==true||input.historyUpdates!==undefined&&input.historyUpdates!==true)fail('INVALID_REQUEST');
+      return { instanceId: this.instanceId, manual: this.leases.size > 0, busy: this.busy, writesEnabled: this.canary?.ownerMode===true, ...(input.capabilities?{independentReads:true,...(input.historyUpdates===true&&typeof this.reader.readHistoryUpdate==='function'?{historyUpdates:true}:{})}:{}) };
     }
     // A read of already received text must not queue behind a writer/history read.
     if(input.operation==='readLive'){
@@ -101,7 +101,7 @@ export class NativeReadService {
       return { manual: this.leases.size > 0, writesEnabled: false };
     }
     if (this.leases.size) fail('MANUAL_RECOVERY');
-    const readOnly = ['readConversationGraph','readConversation','readModels','readCatalog',
+    const readOnly = ['readHistoryUpdate','readConversationGraph','readConversation','readModels','readCatalog',
       'readPins','readProjects','readProject','readProjectConversations','inspectProject','listArtifacts'].includes(input.operation) || (input.operation==='workspace' && ['scheduledList','scheduledRead','activity'].includes(input.action));
     const media = ['openMedia','readMedia','closeMedia','readArtifact'].includes(input.operation);
     if (readOnly || media) {

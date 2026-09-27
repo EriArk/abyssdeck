@@ -141,3 +141,51 @@ test("branch truncation and a different delta base never mix histories", () => {
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("durable history survives months offline with read LRU and exact delete", async () => {
+  const root = mkdtempSync(join(tmpdir(), "gpt-durable-"));
+  let now = Date.now();
+  try {
+    const disk = new GptHistoryDisk(root, () => now);
+    const items = new GptHistoryNormalizer().normalize(graph(300), "chat");
+    disk.write("chat", items, now);
+    now += 90 * 86400000;
+    const restored = new GptHistoryDisk(root, () => now);
+    let release;
+    const gate = new Promise((resolve) => {
+      release = resolve;
+    });
+    let reads = 0;
+    const cache = new GptHistoryCache(
+      async () => {
+        reads++;
+        await gate;
+        return items;
+      },
+      () => now,
+      restored,
+    );
+    const page = await cache.page("chat", {}, 60000, true);
+    assert.equal(page.items.length, 20);
+    assert.equal(page.items.at(-1).id, "m299");
+    assert.equal(reads, 1, "quiet native refresh starts without blocking the stored page");
+    release();
+    await cache.messages("chat", 0);
+    for (let i = 0; i < 63; i++) {
+      now++;
+      restored.write("other" + i, items.slice(0, 1), now);
+    }
+    now++;
+    restored.read("chat");
+    now++;
+    restored.write("new", items.slice(0, 1), now);
+    assert.ok(restored.read("chat"));
+    assert.equal(restored.read("other0"), undefined);
+    const privateOther = new GptHistoryDisk(join(root, "other-account"), () => now);
+    assert.equal(privateOther.read("chat"), undefined);
+    restored.remove("chat");
+    assert.equal(new GptHistoryDisk(root, () => now).read("chat"), undefined);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

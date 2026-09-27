@@ -461,7 +461,13 @@ export class GptService {
       Math.min(128 * 1024 * 1024, config.hub.storage.artifactBytes),
     );
     this.historyCache = new GptHistoryCache(
-      async (id) => this.historyNormalizer.normalize(await this.readConversation(id), id),
+      async (id) =>
+        this.historyNormalizer.normalize(
+          this.native
+            ? await this.json("/conversation?display=1&id=" + encodeURIComponent(id))
+            : await this.readConversation(id),
+          id,
+        ),
       Date.now,
       new GptHistoryDisk(join(this.root, this.native ? "native-history" : "history")),
     );
@@ -731,6 +737,7 @@ export class GptService {
         .map((row) => ({
           ...row,
           pinned: pins.some((p) => p.kind === "thread" && p.id === row.id),
+          pinnedOrder: pins.findIndex((p) => p.kind === "thread" && p.id === row.id),
           archived,
         })),
     };
@@ -762,6 +769,7 @@ export class GptService {
         ? this.library.get("project", row.id)!.name
         : row.name,
       pinned: pins.some((p) => p.kind === "project" && p.id === row.id),
+      pinnedOrder: pins.findIndex((p) => p.kind === "project" && p.id === row.id),
     }));
     // Remember only confirmed project metadata during normal native discovery.
     // Tasks uses this Hub cache, never an extra browser request or writer.
@@ -774,7 +782,7 @@ export class GptService {
       .all()
       .filter((e) => e.kind === "project" && (e.archived || e.deleted)))
       if (!items.some((p) => p.id === entry.id))
-        items.push({ ...entry, name: entry.name, pinned: false });
+        items.push({ ...entry, name: entry.name, pinned: false, pinnedOrder: -1 });
     const conversations = gptProjectConversations(raw);
     for (const row of conversations) {
       const saved = this.library.get("thread", row.id);
@@ -792,6 +800,7 @@ export class GptService {
         .map((row) => ({
           ...row,
           pinned: pins.some((p) => p.kind === "thread" && p.id === row.id),
+          pinnedOrder: pins.findIndex((p) => p.kind === "thread" && p.id === row.id),
         })),
     };
   }

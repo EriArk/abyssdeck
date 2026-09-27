@@ -328,3 +328,98 @@ test("saturated read admission does not consume writer admission; read responses
   await client.call({ operation: "readCatalog", offset: 0 });
   assert.equal(reads, 65);
 });
+
+test("history delta negotiation reconstructs exact display graph; canonical reads stay separate", async (t) => {
+  const f = await fixture(t),
+    id = "20000000-0000-4000-8000-000000000001";
+  const graph = {
+    conversation_id: id,
+    current_node: "a",
+    title: "Title",
+    gizmo_id: null,
+    mapping: {
+      a: {
+        id: "a",
+        parent: null,
+        children: [],
+        message: { id: "a", author: { role: "assistant" }, content: { parts: ["same"] } },
+      },
+    },
+  };
+  let revision = "a".repeat(64),
+    phase = 0;
+  f.reader.readHistoryUpdate = async (input) => {
+    assert.equal(input.accountFingerprint, accountFingerprint);
+    if (phase === 0) {
+      assert.equal(input.revision, undefined);
+      phase++;
+      return { kind: "full", conversationId: id, revision, graph };
+    }
+    if (phase === 1) {
+      assert.equal(input.revision, revision);
+      phase++;
+      return { kind: "unchanged", conversationId: id, revision };
+    }
+    assert.equal(input.revision, revision);
+    const base = revision;
+    revision = "b".repeat(64);
+    return {
+      kind: "delta",
+      conversationId: id,
+      base,
+      revision,
+      removed: [],
+      graph: {
+        ...graph,
+        current_node: "b",
+        mapping: {
+          b: {
+            id: "b",
+            parent: "a",
+            children: [],
+            message: { id: "b", author: { role: "assistant" }, content: { parts: ["same"] } },
+          },
+        },
+      },
+    };
+  };
+  const legacyStatus = await f.service.request({ operation: "status", userId, capabilities: true });
+  assert.equal(
+    legacyStatus.historyUpdates,
+    undefined,
+    "old Hub strict schema remains compatible after adapter update",
+  );
+  const first = await f.client.historyGraph(id),
+    again = await f.client.historyGraph(id);
+  assert.equal(first, again);
+  assert.ok(Object.isFrozen(first.mapping.a.message.content.parts));
+  const added = await f.client.historyGraph(id);
+  assert.equal(added.mapping.a, first.mapping.a);
+  assert.equal(added.current_node, "b");
+  assert.deepEqual(Object.keys(added.mapping), ["a", "b"]);
+  let repairs = 0;
+  f.reader.readHistoryUpdate = async (input) => {
+    repairs++;
+    if (input.revision)
+      return {
+        kind: "delta",
+        conversationId: id,
+        base: "f".repeat(64),
+        revision: "c".repeat(64),
+        graph,
+        removed: [],
+      };
+    return { kind: "full", conversationId: id, revision: "c".repeat(64), graph };
+  };
+  assert.equal((await f.client.historyGraph(id)).current_node, "a");
+  assert.equal(repairs, 2, "invalid delta triggers only one full read");
+  let canonical = 0;
+  f.reader.readConversationGraph = async () => {
+    canonical++;
+    return graph;
+  };
+  assert.deepEqual(await f.client.conversationGraph(id), graph);
+  assert.equal(canonical, 1);
+  f.revoke();
+  await assert.rejects(f.client.historyGraph(id), /REVOKED/);
+});

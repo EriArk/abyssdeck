@@ -103,6 +103,7 @@ export class NativeRendererReader {
  async readSubmission(request,options){return this.#read({...request,operation:'readSubmission'},options);}
  async resolveCreation(request,options){return this.#read({...request,operation:'resolveCreation'},options,'dispatch');}
  async findCreation(request,options){return this.#read({...request,operation:'findCreation'},options);}
+ async readHistoryUpdate(request,options){return this.#read({...request,operation:'readHistoryUpdate'},options);}
  async readConversationGraph(request,options){return this.#read({...request,operation:'readConversationGraph'},options);}
  async readProjects(request,options){return this.#read({...request,operation:'readProjects'},options);}
  async readProject(request,options){return this.#read({...request,operation:'readProject'},options);}

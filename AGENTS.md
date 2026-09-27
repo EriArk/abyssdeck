@@ -1,5 +1,15 @@
 # AGENTS.md
 
+## Owner-requested native pins and message stepping (2026-09-27)
+
+- GPT pins preserve native order independently of recent activity. Project-bound
+  pins also remain reachable in the main pinned list. Pending confirmed deletion
+  stays hidden locally until native deletion completes; discovery never undoes it.
+- Arrow navigation selects exactly one adjacent message with a thin frame. With
+  no selection, Up starts at the bottom visible message and Down at the top.
+  Any visible part stays still; only fully offscreen selection moves the pane.
+
+
 ## Owner-requested chat reading controls (2026-09-27)
 
 - Previous/next selects one adjacent public chat message with a thin themed outline. Keep the viewport still while the selected message is visible; only reveal an offscreen edge when necessary. Preserve canonical pagination and never send from navigation. End clears selection and resumes following.

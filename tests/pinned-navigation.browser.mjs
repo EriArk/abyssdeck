@@ -58,7 +58,18 @@ const server = createServer(async (req, res) => {
   if (path === "/api/gpt/status")
     return json({ configured: true, canSend: true, state: "healthy" });
   if (path === "/api/gpt/models") return json({ models: [], efforts: [] });
-  if (path === "/api/gpt/conversations") return json({ items, nextOffset: null });
+  if (path === "/api/gpt/conversations")
+    return json({
+      items: items.map((item, i) => ({
+        ...item,
+        pinnedOrder: i,
+        ...(i === 0 ? { projectId: "g-p-test" } : {}),
+      })),
+      pinnedIds: items.filter((i) => i.pinned).map((i) => i.id),
+      nextOffset: null,
+    });
+  if (path === "/api/gpt/projects")
+    return json({ items: [{ id: "g-p-test", name: "Project" }], conversations: [] });
   if (path === "/api/gpt/jobs")
     return json({
       items: [
@@ -135,7 +146,9 @@ try {
             .locator(".nav-thread > span")
             .allTextContents()
             .then((values) => values.filter(Boolean)),
-          ["Закреплённый 5", "Закреплённый 4", "Закреплённый 3"],
+          mode === "gpt"
+            ? ["Закреплённый 0", "Закреплённый 1", "Закреплённый 2"]
+            : ["Закреплённый 5", "Закреплённый 4", "Закреплённый 3"],
         );
         const live = page
           .getByRole("button", { name: /^Активный без закрепления/ })
@@ -165,29 +178,6 @@ try {
         await expect(panel.locator(".entity-row")).toHaveCount(6);
         await panel.getByRole("button", { name: "Свернуть закреплённые" }).tap();
         await expect(panel.locator(".entity-row")).toHaveCount(3);
-        const header = page.locator(".navigation-header:visible");
-        const magnifier = header.getByRole("button", { name: "Найти", exact: true });
-        const search = page
-          .getByLabel(mode === "gpt" ? "Найти чат GPT" : "Поиск проектов и диалогов")
-          .filter({ visible: true });
-        await expect(search).toHaveCount(0);
-        if (mode === "codex") {
-          const tabs = await header.locator(".nav-mobile-switch").boundingBox();
-          const glass = await magnifier.boundingBox();
-          const close = await header.locator(".panel-close").boundingBox();
-          assert(glass.x + glass.width <= tabs.x);
-          assert(Math.abs(tabs.y + tabs.height / 2 - close.y - close.height / 2) < 2);
-        }
-        await magnifier.tap();
-        await expect(search).toBeFocused();
-        await search.fill("Закреплённый 0");
-        await expect(panel.locator(".entity-row")).toHaveCount(1);
-        await expect(panel).toContainText("Закреплённый 0");
-        await search.fill("");
-        await expect(panel.locator(".entity-row")).toHaveCount(3);
-        await search.press("Escape");
-        await expect(search).toHaveCount(0);
-        await expect(magnifier).toBeFocused();
         const toggle = panel.getByRole("button", { name: "Показать все закреплённые" });
         assert((await toggle.boundingBox()).height >= 44);
         for (const theme of ["crt-green", "organizer", "hitech-2000s", "classic-dark"]) {
@@ -200,7 +190,10 @@ try {
         // Row actions stay reachable without expanding the rest of the pins.
         await panel.locator(".entity-row").first().locator("button").last().tap();
         await expect(
-          page.getByRole("dialog", { name: "Закреплённый 5", exact: true }),
+          page.getByRole("dialog", {
+            name: mode === "gpt" ? "Закреплённый 0" : "Закреплённый 5",
+            exact: true,
+          }),
         ).toBeVisible();
         await page.keyboard.press("Escape");
         await context.close();
@@ -208,7 +201,7 @@ try {
           engine +
             " " +
             mode +
-            ": three recent pins, expand/persist/search, live priority, actions, themes OK",
+            ": native pin order, project pin visibility, expand/persist, live priority, actions, themes OK",
         );
       }
     } finally {

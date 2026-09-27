@@ -229,6 +229,10 @@ try {
   };
   await expect(page.locator('[data-chat-message="m3"]')).toBeVisible();
   await align(".chat-scroll", "m3");
+  const initialTop = await page.locator(".chat-scroll").evaluate((el) => el.scrollTop);
+  await nav.getByRole("button", { name: "Предыдущее сообщение" }).tap();
+  await selected(".chat-scroll", "m3");
+  assert.equal(await page.locator(".chat-scroll").evaluate((el) => el.scrollTop), initialTop);
   await nav.getByRole("button", { name: "Предыдущее сообщение" }).click();
   await selected(".chat-scroll", "m2");
   await nav.getByRole("button", { name: "Предыдущее сообщение" }).click();
@@ -414,6 +418,10 @@ try {
   await align(".gpt-message-scroll", "m2");
   await at(".gpt-message-scroll", "m2");
   const gnav = page.locator(".gpt-chat .message-navigation");
+  const gptTop = await page.locator(".gpt-message-scroll").evaluate((el) => el.scrollTop);
+  await gnav.getByRole("button", { name: "Предыдущее сообщение" }).tap();
+  await selected(".gpt-message-scroll", "m2");
+  assert.equal(await page.locator(".gpt-message-scroll").evaluate((el) => el.scrollTop), gptTop);
   await gnav.getByRole("button", { name: "Предыдущее сообщение" }).click();
   await selected(".gpt-message-scroll", "m1");
   assert.equal(olderGpt, 1);

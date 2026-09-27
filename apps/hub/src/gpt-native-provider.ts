@@ -36,7 +36,8 @@ export interface NativeGptWorkspace {
     | "operation"
     | "uploadFile"
     | "uploadFilePath"
-  >;
+  > &
+    Partial<Pick<NativeGptReadClient, "historyGraph">>;
   transcribe?: (bytes: Buffer, signal: AbortSignal, mime: string) => Promise<string>;
   projects?: { has(id: string): boolean };
   conversations: { has(id: string): boolean };
@@ -148,8 +149,11 @@ export class NativeGptProvider {
         id: q.get("id"),
         version: Number(q.get("version")),
       });
-    if (url.pathname === "/conversation")
+    if (url.pathname === "/conversation") {
+      if (q.get("display") === "1" && client.historyGraph)
+        return client.historyGraph(q.get("id") ?? "");
       return { ...(await client.conversationGraph(q.get("id") ?? "")), codex_native_assets: true };
+    }
     if (url.pathname === "/models") return this.models();
     if (url.pathname === "/pins") {
       const { items } = await client.pins();

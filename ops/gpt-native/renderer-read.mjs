@@ -5,7 +5,7 @@ export async function nativeRead(request, load = () => import('app://-/assets/ap
  const fail = code => { throw Error(`NATIVE_${code}`); };
  const projectId = value => typeof value==='string'&&/^g-p-[a-zA-Z0-9-]{1,80}$/.test(value);
  const uuid = value => typeof value === 'string' && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(value);
- if (!request || !['inspectAccount', 'readConversation', 'readModels', 'readPins', 'readSubmission','readCatalog','findCreation','readProjects','readProject','readProjectConversations','readConversationGraph'].includes(request.operation)) fail('READ_ONLY');
+ if (!request || !['inspectAccount', 'readConversation', 'readModels', 'readPins', 'readSubmission','readCatalog','findCreation','readProjects','readProject','readProjectConversations','readConversationGraph','readHistoryUpdate'].includes(request.operation)) fail('READ_ONLY');
  if(request.archived!=null&&typeof request.archived!=='boolean')fail('INVALID_REQUEST');
  if(request.operation==='readCatalog'&&(!/^[a-f0-9]{64}$/.test(request.accountFingerprint??'')||!Number.isSafeInteger(request.offset??0)||(request.offset??0)<0||(request.offset??0)>10000))fail('INVALID_REQUEST');
  if(request.operation==='findCreation'&&(!uuid(request.userMessageId)||!uuid(request.parentId)||typeof request.text!=='string'||
@@ -13,7 +13,7 @@ export async function nativeRead(request, load = () => import('app://-/assets/ap
  if(request.operation==='readSubmission'&&(!uuid(request.conversationId)||!uuid(request.userMessageId)||!uuid(request.parentId)||
     typeof request.text!=='string'||new TextEncoder().encode(request.text).length>32768||!/^[a-f0-9]{64}$/.test(request.accountFingerprint??'')))fail('INVALID_REQUEST');
  if (request.operation === 'readModels' && !/^[a-f0-9]{64}$/.test(request.accountFingerprint ?? '')) fail('INVALID_REQUEST');
- if (['readConversation','readConversationGraph'].includes(request.operation) && (!uuid(request.conversationId) ||
+ if (['readConversation','readConversationGraph','readHistoryUpdate'].includes(request.operation) && (!uuid(request.conversationId) ||
      !/^[a-f0-9]{64}$/.test(request.accountFingerprint ?? '') ||
      (request.before != null && !uuid(request.before)) ||
      (request.messageId != null && (typeof request.messageId !== 'string' || !/^[a-zA-Z0-9_-]{1,128}$/.test(request.messageId) || request.before != null)))) fail('INVALID_REQUEST');
@@ -21,6 +21,7 @@ export async function nativeRead(request, load = () => import('app://-/assets/ap
  if(['readProject','readProjectConversations'].includes(request.operation)&&!projectId(request.projectId))fail('INVALID_PROJECT');
  if(request.cursor!=null&&(typeof request.cursor!=='string'||request.cursor.length>4000))fail('INVALID_CURSOR');
  if(request.projectId!=null&&!projectId(request.projectId))fail('INVALID_PROJECT');
+ if(request.revision!=null&&(request.operation!=='readHistoryUpdate'||!/^[a-f0-9]{64}$/.test(request.revision)))fail('INVALID_REQUEST');
  const signal = AbortSignal.timeout(15000);
  const bounded = promise => new Promise((resolve, reject) => {
   const abort = () => reject(Error('NATIVE_TIMEOUT'));
@@ -198,8 +199,8 @@ export async function nativeRead(request, load = () => import('app://-/assets/ap
   if((await account()).fingerprint!==before.fingerprint)fail('ACCOUNT_CHANGED');
   if(cache.get(key)===reading)cache.set(key,{value:conversation,bytes,at:now,retryAt:0});
   gate.success();
-  let total=0;for(const v of cache.values())total+=v.bytes??0;
-  for(const [k,v] of cache){if(total<=64*1024**2)break;if(k!==key){cache.delete(k);total-=v.bytes??0;}}
+  let total=0;for(const v of cache.values())total+=(v.bytes??0)+(v.publicBytes??0);
+  for(const [k,v] of cache){if(total<=64*1024**2)break;if(k!==key){cache.delete(k);total-=(v.bytes??0)+(v.publicBytes??0);}}
  } catch(e) {
   if(e?.responseStatus===429&&e.status===429)gate.limited(e.headers?.get?.('retry-after'));
   if(/^NATIVE_[A-Z_]+$/.test(e?.message??''))throw e;
@@ -211,7 +212,13 @@ export async function nativeRead(request, load = () => import('app://-/assets/ap
  if (!mapping || typeof mapping !== 'object' || Array.isArray(mapping) || Object.keys(mapping).length > 10000) fail('INVALID_HISTORY');
  // Preserve public branch topology for the existing Hub paging/versions/results code.
  // Hidden nodes retain only edges: their content, metadata and tool payload never cross IPC.
- if(request.operation==='readConversationGraph'){
+ if(['readConversationGraph','readHistoryUpdate'].includes(request.operation)){
+  // A presentation sync is revision-bound. Canonical action/media reads keep
+  // their original operation and never accept this baseline as authority.
+  const incremental=request.operation==='readHistoryUpdate';
+  const previous=incremental?saved?.history:undefined;
+  if(incremental&&saved?.value===conversation&&previous&&request.revision===previous.revision)
+   return {kind:'unchanged',conversationId:request.conversationId,revision:previous.revision};
   const identity=x=>typeof x==='string'&&/^[a-zA-Z0-9_-]{1,128}$/.test(x);
   const scalar=(x,max)=>typeof x==='string'&&x.length<=max?x:undefined;
   const publicUrl=x=>{try{const u=new URL(x);return ['http:','https:'].includes(u.protocol)&&!u.username&&!u.password&&u.href.length<=8192?u.href:undefined;}catch{return undefined;}};
@@ -248,7 +255,24 @@ export async function nativeRead(request, load = () => import('app://-/assets/ap
    clean[id]=n;
   }
   if(!identity(conversation.current_node)||!clean[conversation.current_node])fail('INVALID_HISTORY');
-  return {conversation_id:request.conversationId,current_node:conversation.current_node,mapping:clean,title:scalar(conversation.title,4096)??'',gizmo_id:projectId(conversation.gizmo_id)?conversation.gizmo_id:null};
+  const graph={conversation_id:request.conversationId,current_node:conversation.current_node,mapping:clean,title:scalar(conversation.title,4096)??'',gizmo_id:projectId(conversation.gizmo_id)?conversation.gizmo_id:null};
+  if(!incremental)return graph;
+  const digest=await runtime.crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(graph)));
+  const revision=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+  if((await account()).fingerprint!==before.fingerprint)fail('ACCOUNT_CHANGED');
+  const entry=cache.get(key);
+  if(entry?.value===conversation){
+   entry.history={revision,graph};entry.publicBytes=size;
+   let total=0;for(const v of cache.values())total+=(v.bytes??0)+(v.publicBytes??0);
+   for(const [k,v] of cache){if(total<=64*1024**2)break;if(k!==key){cache.delete(k);total-=(v.bytes??0)+(v.publicBytes??0);}}
+  }
+  if(request.revision===revision)return {kind:'unchanged',conversationId:request.conversationId,revision};
+  if(previous&&request.revision===previous.revision){
+   const mapping=Object.fromEntries(Object.entries(clean).filter(([id,node])=>JSON.stringify(node)!==JSON.stringify(previous.graph.mapping[id])));
+   const removed=Object.keys(previous.graph.mapping).filter(id=>!Object.hasOwn(clean,id));
+   return {kind:'delta',conversationId:request.conversationId,base:previous.revision,revision,graph:{...graph,mapping},removed};
+  }
+  return {kind:'full',conversationId:request.conversationId,revision,graph};
  }
  const chain = [], seen = new Set();
  let id = conversation.current_node;

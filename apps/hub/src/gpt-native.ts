@@ -5,6 +5,7 @@ import { request } from "node:http";
 import { basename, dirname, isAbsolute } from "node:path";
 import type { GptFile, GptHistoryPage, GptMessage } from "@codex-web/shared";
 import { z } from "zod";
+import { NativeHistoryProjection } from "./gpt-native-history.js";
 import { gptSandboxFiles } from "./gpt-sandbox-files.js";
 
 const uuid = z.string().uuid();
@@ -79,6 +80,9 @@ const historySchema = z
  * canary allowlist; this client never selects the main GptService provider. */
 export class NativeGptReadClient {
   private independentReads = false;
+  private historyUpdates = false;
+  private nativeInstance = "";
+  private historyProjection = new NativeHistoryProjection();
   private negotiated?: Promise<void>;
   private lanes = {
     legacy: { active: 0, limit: 1, queue: [] as Array<() => Promise<void>> },
@@ -115,6 +119,7 @@ export class NativeGptReadClient {
     )
       ? "media"
       : [
+            "readHistoryUpdate",
             "readConversationGraph",
             "readConversation",
             "readModels",
@@ -430,10 +435,19 @@ export class NativeGptReadClient {
   async status() {
     let response: unknown;
     try {
-      response = await this.request({ operation: "status", capabilities: true });
+      response = await this.request({
+        operation: "status",
+        capabilities: true,
+        historyUpdates: true,
+      });
     } catch (error) {
       if (!(error instanceof Error) || error.message !== "NATIVE_INVALID_REQUEST") throw error;
-      response = await this.request({ operation: "status" });
+      try {
+        response = await this.request({ operation: "status", capabilities: true });
+      } catch (legacy) {
+        if (!(legacy instanceof Error) || legacy.message !== "NATIVE_INVALID_REQUEST") throw legacy;
+        response = await this.request({ operation: "status" });
+      }
     }
     const value = z
       .object({
@@ -442,12 +456,16 @@ export class NativeGptReadClient {
         busy: z.boolean(),
         writesEnabled: z.boolean(),
         independentReads: z.literal(true).optional(),
+        historyUpdates: z.literal(true).optional(),
       })
       .strict()
       // The supervisor serves status without taking its renderer lock. Do not
       // queue this heartbeat behind a slow history read or a large upload.
       .parse(response);
     this.independentReads = value.independentReads === true;
+    this.historyUpdates = value.historyUpdates === true;
+    if (this.nativeInstance !== value.instanceId) this.historyProjection.clear();
+    this.nativeInstance = value.instanceId;
     return value;
   }
   async catalog(offset = 0, archived = false) {
@@ -546,6 +564,33 @@ export class NativeGptReadClient {
       .parse(await this.call({ operation: "readProjectConversations", projectId: id, cursor }));
     if (result.items.some((c) => c.projectId !== id)) fail("PROJECT_MISMATCH");
     return result;
+  }
+  async historyGraph(conversationId: string) {
+    uuid.parse(conversationId);
+    if (!this.negotiated) await this.status();
+    if (!this.historyUpdates)
+      return { ...(await this.conversationGraph(conversationId)), codex_native_assets: true };
+    // Each response binds the exact baseline captured before dispatch. Concurrent
+    // reads cannot silently merge into a different projection.
+    const previous = this.historyProjection.get(conversationId);
+    const result = await this.call({
+      operation: "readHistoryUpdate",
+      conversationId,
+      ...(previous ? { revision: previous.revision } : {}),
+    });
+    try {
+      return this.historyProjection.accept(conversationId, previous, result);
+    } catch (error) {
+      if (
+        !(error instanceof z.ZodError) &&
+        !(error instanceof Error && error.message === "NATIVE_INVALID_HISTORY")
+      )
+        throw error;
+      // Missing/incompatible baseline gets one full read, never an action retry.
+      this.historyProjection.remove(conversationId);
+      const full = await this.call({ operation: "readHistoryUpdate", conversationId });
+      return this.historyProjection.accept(conversationId, undefined, full);
+    }
   }
   async conversationGraph(conversationId: string) {
     uuid.parse(conversationId);

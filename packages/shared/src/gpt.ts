@@ -20,6 +20,8 @@ export interface GptMessage {
 }
 export interface GptConversation {
   pinned?: boolean;
+  /** Exact position in the native pin list; independent of chat activity. */
+  pinnedOrder?: number;
   archived?: boolean;
   deleted?: boolean;
   id: string;
@@ -29,6 +31,8 @@ export interface GptConversation {
 }
 export interface GptProject {
   pinned?: boolean;
+  /** Exact position in the native pin list; independent of chat activity. */
+  pinnedOrder?: number;
   archived?: boolean;
   deleted?: boolean;
   id: string;

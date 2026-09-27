@@ -46,8 +46,7 @@ const snapshot = z.object({
   checkedAt: z.number(),
   items: z.array(message).max(20000),
 });
-const maxFile = 8 * 1024 ** 2,
-  maxAge = 7 * 86400000;
+const maxFile = 8 * 1024 ** 2;
 
 /** Private, bounded public-history snapshots. Never raw native mappings or send receipts. */
 export class GptHistoryDisk {
@@ -114,7 +113,13 @@ export class GptHistoryDisk {
         }
         this.states.set(id, { epoch: value.epoch, revision: value.revision, records, bytes });
       }
-      if (this.now() - value.checkedAt > maxAge) return;
+      // Retention is bounded by count/bytes, not by the native connection's age.
+      // Read recency never makes a saved response fresh for mutations.
+      try {
+        utimesSync(path, new Date(this.now()), new Date(this.now()));
+      } catch {
+        /* Read-only snapshots remain readable. */
+      }
       return value;
     } catch {
       return;
@@ -207,7 +212,7 @@ export class GptHistoryDisk {
         deltaBytes = lstatSync(file.path + ".delta").size;
       } catch {}
       bytes += file.stat.size + deltaBytes;
-      if (index >= 64 || bytes > 64 * 1024 ** 2 || this.now() - file.stat.mtimeMs > maxAge) {
+      if (index >= 64 || bytes > 64 * 1024 ** 2) {
         unlinkSync(file.path);
         try {
           unlinkSync(file.path + ".delta");

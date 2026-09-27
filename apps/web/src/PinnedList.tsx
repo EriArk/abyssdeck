@@ -4,7 +4,7 @@ import { Icon } from "./icons";
 import "./pinned-list.css";
 
 // Callers supply activity order and choose whether live work precedes the pinned panel.
-export function PinnedList<T extends { id: string; pinned?: boolean }>({
+export function PinnedList<T extends { id: string; pinned?: boolean; pinnedOrder?: number }>({
   items,
   renderItem,
   recent,
@@ -49,7 +49,16 @@ export function PinnedList<T extends { id: string; pinned?: boolean }>({
   }, [key, read]);
   const pinned = items
     .filter((item) => item.pinned)
-    .sort((a, b) => Number(active(b)) - Number(active(a)) || recent(b) - recent(a));
+    .sort((a, b) => {
+      if (
+        a.pinnedOrder != null &&
+        a.pinnedOrder >= 0 &&
+        b.pinnedOrder != null &&
+        b.pinnedOrder >= 0
+      )
+        return a.pinnedOrder - b.pinnedOrder;
+      return Number(active(b)) - Number(active(a)) || recent(b) - recent(a);
+    });
   const open = expanded || searching;
   return (
     <>

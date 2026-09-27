@@ -825,3 +825,55 @@ test("a pre-mutation history read cannot overwrite a newer canonical cache entry
   assert.equal(cached.currentNode, fresh.currentNode);
   assert.equal(calls, 2, "late old read must not replace the newer snapshot");
 });
+
+// Protocol replay fixture: native GET remains canonical; IPC only carries changes.
+test("history sync transfers exact changed public nodes and no hidden payload", async () => {
+  const f = fixture(),
+    accountFingerprint = await f.binding();
+  for (let n = 2; n <= 300; n++) f.node(n, "Repeated text " + "x".repeat(1500));
+  f.node(301, "SECRET", { channel: "analysis" });
+  const request = { operation: "readHistoryUpdate", conversationId, accountFingerprint };
+  const first = await f.read(request, true);
+  assert.equal(first.kind, "full");
+  assert.doesNotMatch(JSON.stringify(first), /SECRET/);
+  const unchanged = await f.read({ ...request, revision: first.revision }, true);
+  assert.equal(unchanged.kind, "unchanged");
+  assert.equal(f.calls.length, 1);
+  // Expire just the transport snapshot, retaining its exact IPC baseline.
+  const stale = () => {
+    for (const entry of f.runtime[Symbol.for("codex-web.native-history")].values())
+      entry.at = Date.now() - 16000;
+  };
+  f.node(302, "Repeated text " + "x".repeat(1500));
+  stale();
+  const added = await f.read({ ...request, revision: first.revision }, true);
+  assert.equal(added.kind, "delta");
+  assert.deepEqual(Object.keys(added.graph.mapping), [id(302)]);
+  f.conversation.mapping[id(12)].message.content.parts = ["old edit"];
+  f.conversation.mapping[id(302)].message.metadata = {
+    attachments: [{ id: "file-late", name: "late.png", mime_type: "image/png", size: 9 }],
+  };
+  stale();
+  const edited = await f.read({ ...request, revision: added.revision }, true);
+  assert.deepEqual(Object.keys(edited.graph.mapping), [id(12), id(302)]);
+  f.conversation.current_node = id(11);
+  stale();
+  const branch = await f.read({ ...request, revision: edited.revision }, true);
+  assert.equal(branch.kind, "delta");
+  assert.equal(branch.graph.current_node, id(11));
+  assert.deepEqual(Object.keys(branch.graph.mapping), []);
+  const missing = await f.read({ ...request, revision: "f".repeat(64) }, true);
+  assert.equal(missing.kind, "full");
+  // Canonical action readers never receive delta envelopes.
+  const canonical = await f.read({ ...request, operation: "readConversationGraph" }, true);
+  assert.equal(canonical.current_node, id(11));
+  assert.equal(canonical.kind, undefined);
+  const stats = {
+    messages: 300,
+    fullBytes: Buffer.byteLength(JSON.stringify(first)),
+    unchangedBytes: Buffer.byteLength(JSON.stringify(unchanged)),
+    appendBytes: Buffer.byteLength(JSON.stringify(added)),
+  };
+  assert.ok(stats.unchangedBytes < 250 && stats.appendBytes < 3000);
+  console.log("history IPC benchmark", JSON.stringify(stats));
+});

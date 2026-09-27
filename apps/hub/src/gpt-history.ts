@@ -238,13 +238,18 @@ export function gptProjectConversations(value: unknown): GptConversation[] {
 }
 
 /** Account-local normalization: only changed public nodes rebuild links, files and text.
- * Every read still walks the canonical branch, including edits/regenerations in its middle. */
+ * Immutable native revisions skip unchanged graphs; changed graphs still walk the exact branch. */
 export class GptHistoryNormalizer {
   private chats = new Map<
     string,
     { nodes: Map<string, { signature: string; items: WeakRef<GptMessage>[] }>; bytes: number }
   >();
+  private graphs = new WeakMap<object, { id: string; items: GptMessage[] }>();
+  private signatures = new WeakMap<object, string>();
   normalize(value: unknown, conversationId: string) {
+    const immutable = !!value && typeof value === "object" && Object.isFrozen(value);
+    const known = immutable ? this.graphs.get(value as object) : undefined;
+    if (known?.id === conversationId) return known.items;
     const previous = this.chats.get(conversationId),
       nodes = new Map<string, { signature: string; items: WeakRef<GptMessage>[] }>();
     let bytes = 0;
@@ -252,9 +257,12 @@ export class GptHistoryNormalizer {
     const items = gptHistory(value, conversationId, (node, build) => {
       const id = text(node.id) || text(node.message?.id);
       // Cache only a digest of incoming content; private native metadata is never retained.
-      const signature = createHash("sha256")
-        .update(JSON.stringify([native, id, node.message]))
-        .digest("hex");
+      const signature =
+        (immutable ? this.signatures.get(node) : undefined) ??
+        createHash("sha256")
+          .update(JSON.stringify([native, id, node.message]))
+          .digest("hex");
+      if (immutable) this.signatures.set(node, signature);
       const old = previous?.nodes.get(id);
       const saved =
         old?.signature === signature ? old.items.map((item) => item.deref()) : undefined;
@@ -271,6 +279,7 @@ export class GptHistoryNormalizer {
     });
     this.chats.delete(conversationId);
     this.chats.set(conversationId, { nodes, bytes });
+    if (immutable) this.graphs.set(value as object, { id: conversationId, items });
     let total = [...this.chats.values()].reduce((n, c) => n + c.bytes, 0);
     for (const [id, chat] of this.chats) {
       if (this.chats.size <= 32 && total <= 4 * 1024 ** 2) break;

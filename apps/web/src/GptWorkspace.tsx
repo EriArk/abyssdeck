@@ -431,6 +431,7 @@ export function GptWorkspace({
         ...row,
         title: metadata.get(row.id)?.name || row.title,
         pinned: data.pinnedIds ? data.pinnedIds.includes(row.id) : row.pinned,
+        pinnedOrder: data.pinnedIds ? data.pinnedIds.indexOf(row.id) : row.pinnedOrder,
         archived: metadata.get(row.id)?.archived ?? row.archived,
         deleted: metadata.get(row.id)?.deleted ?? row.deleted,
       })),
@@ -1589,7 +1590,7 @@ export function GptWorkspace({
         </div>
         <PinnedList
           activeBeforePinned={false}
-          items={filtered.filter((c) => !projects.some((p) => p.id === c.projectId))}
+          items={filtered.filter((c) => c.pinned || !projects.some((p) => p.id === c.projectId))}
           renderItem={navThread}
           active={threadActive}
           recent={(t) => t.updatedAt}

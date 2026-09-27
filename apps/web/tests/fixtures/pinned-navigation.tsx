@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import { GptWorkspace } from "../../src/GptWorkspace";
 import { ProjectNavigation } from "../../src/ProjectNavigation";
+import type { SpacesController } from "../../src/useCollaborationSpaces";
 import "../../src/fonts.css";
 import "../../src/styles.css";
 import "../../src/workspace.css";
@@ -46,6 +47,13 @@ createRoot(root).render(
       style={{ width: "min(100%, 360px)", height: "100dvh", padding: 12, background: "var(--nav)" }}
     >
       <ProjectNavigation
+        spaces={
+          {
+            enabled: false,
+            mode: "personal",
+            catalog: { spaces: [], invitations: [] },
+          } as unknown as SpacesController
+        }
         projects={[
           {
             id: "project",

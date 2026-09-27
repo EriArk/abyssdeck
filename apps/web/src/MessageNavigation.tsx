@@ -45,8 +45,8 @@ export function MessageNavigation(props: Props) {
       index = position(items);
     mark(items);
     const next = {
-      previous: index > 0 || p.hasOlder,
-      next: index >= 0 && index < items.length - 1,
+      previous: (!target.current && items.length > 0) || index > 0 || p.hasOlder,
+      next: (!target.current && items.length > 0) || (index >= 0 && index < items.length - 1),
       end:
         !!root &&
         (root.scrollHeight - root.scrollTop - root.clientHeight > 12 ||
@@ -130,6 +130,16 @@ export function MessageNavigation(props: Props) {
       root.dataset.messageNavigation = "true";
       let items = elements(),
         index = position(items);
+      // With no selection yet, start at the visible end in the requested
+      // direction. Using the first visible row as an implicit selection skipped
+      // every other visible row on the first Up tap (an apparent page jump).
+      if (!target.current) {
+        const bounds = root.getBoundingClientRect();
+        const visible = items
+          .map((el, i) => ({ i, box: el.getBoundingClientRect() }))
+          .filter(({ box }) => box.bottom > bounds.top + 8 && box.top < bounds.bottom - 8);
+        if (visible.length) index = direction < 0 ? visible.at(-1)!.i + 1 : visible[0]!.i - 1;
+      }
       const anchor = items[index]?.dataset.chatMessage;
       if (direction < 0 && index <= 0 && p.hasOlder) {
         await p.older();
@@ -149,13 +159,10 @@ export function MessageNavigation(props: Props) {
         bounds = el.getBoundingClientRect(),
         top = viewport.top + 8,
         bottom = viewport.bottom - 8;
-      // Keep visible messages still. Oversized answers stay put while any part
-      // remains visible; entering one from outside reveals its nearest edge.
-      if (bounds.height > bottom - top) {
-        if (bounds.top >= bottom) root.scrollTop += bounds.top - top;
-        else if (bounds.bottom <= top) root.scrollTop += bounds.bottom - bottom;
-      } else if (bounds.top < top) root.scrollTop += bounds.top - top;
-      else if (bounds.bottom > bottom) root.scrollTop += bounds.bottom - bottom;
+      // Selection moves one ID at a time; any visible part of its frame is
+      // enough. Partial clipping must not turn a tap into another viewport jump.
+      if (bounds.top >= bottom) root.scrollTop += bounds.top - top;
+      else if (bounds.bottom <= top) root.scrollTop += bounds.bottom - bottom;
     } catch {
       /* Existing canonical history feedback owns failures; a tap can try again. */
     } finally {
@@ -182,7 +189,9 @@ export function MessageNavigation(props: Props) {
           title={label}
           aria-label={label}
           disabled={!enabled || state.busy}
-          onPointerDown={(e) => e.preventDefault()}
+          onPointerDown={(e) => {
+            if (e.pointerType === "mouse") e.preventDefault();
+          }}
           onClick={() => void move(direction)}
         >
           <Icon name={icon} size={16} />
