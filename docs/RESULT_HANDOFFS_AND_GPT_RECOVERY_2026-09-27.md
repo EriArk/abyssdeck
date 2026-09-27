@@ -83,3 +83,25 @@ imports, URL variants, cycles and dynamic imports without asset requests. Existi
 preview isolation is checked separately. Phone Intake and wide sharing screenshots
 were inspected; physical-device acceptance remains pending. No Windows helper or
 native GPT protocol changes are part of these two corrections.
+
+### Follow-up release handoff
+
+`d6933eb` is committed and pushed to `main`. The exact clean release passes
+repository checks, both TypeScript checks, production web/image builds and the
+isolated production-image smoke. Both engines also passed all 25 existing preview
+isolation vectors with zero external/unexpected Hub requests.
+
+The web fix is published, manifest
+`3f5206b895b3b6194704cc04b1ad4ba9d821cd1171a02744b5ae10f2c9e569d1`.
+At handoff, engine `338ef6a` remains installed; `d6933eb` reports `waiting` through
+`codex-web-result-edge-d6933eb.service` after ordinary admission returned
+`idle: false`. Thus the destination UI fix is live, while the new module packaging
+requires engine activation. Existing frozen HTML snapshots intentionally retain
+their original bytes. The previous native GPT adapter remains unchanged and its
+already-built replacement remains a separate guarded installation task.
+
+Private Linux lab evidence uses the `result-edge-` prefix: `tests.log`,
+`handoff-chromium.log`, `handoff-webkit.log`, `preview.log`, `isolation.log`,
+`release-build.log`, `image-smoke.log` and `verification.json`. The two
+`*-before.log` files retain the reproduced failures. No active native task was
+restarted and the owner's deferred paused send was not inspected or reconciled.
