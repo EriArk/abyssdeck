@@ -32,7 +32,7 @@
   color: inherit;
   opacity: 0.8;
 }
-.intake-window > header > div {
+.intake-window > header > .window-heading-title {
   flex: 1;
   min-width: 0;
 }

@@ -10,6 +10,7 @@ import type {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivitySourceWindow } from "./ActivitySourceWindow";
 import type { ArtifactRequest } from "./ArtifactMarkdown";
+import { AttachmentList, useAttachments } from "./AttachmentPicker";
 import { AutoTextarea } from "./AutoTextarea";
 import { accountLocalStorage as storage } from "./accountStorage";
 import { api, messageOf } from "./api";
@@ -24,6 +25,7 @@ import { ResultFeed } from "./ResultFeed";
 import type { Approval } from "./types";
 import { useWorkspaceDialog } from "./useWorkspaceDialog";
 import { WindowHeading, WindowScope } from "./WindowHeading";
+import { WorkResultHandoffs } from "./WorkResultHandoffs";
 import "./intake.css";
 
 type Props = {
@@ -76,6 +78,7 @@ export function IntakeWindow({
   const [data, setData] = useState<IntakeState | null>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
+  const attachments = useAttachments(data?.threadId ?? "");
   const [draft, setDraft] = useState(() => storage.getItem(draftKey) ?? ""),
     [refs, setRefs] = useState(() => storage.getItem(refsKey) ?? sources.join(" "));
   const [caps, setCaps] = useState<Capabilities>(),
@@ -180,6 +183,7 @@ export function IntakeWindow({
       if (!data || !settings) return;
       const body = {
         text: draft,
+        attachments: attachments.files.map((f) => f.id),
         sources: refs.trim() ? refs.trim().split(/[\s,]+/) : [],
         revision: data.revision,
         settings,
@@ -197,6 +201,7 @@ export function IntakeWindow({
       if (live.current) {
         merge(next);
         setDraft("");
+        attachments.clear();
         storage.removeItem(sendKey);
         requestAnimationFrame(() => scroll.current?.scrollTo({ top: scroll.current.scrollHeight }));
       }
@@ -328,6 +333,7 @@ export function IntakeWindow({
                 )}
                 <CopyButton text={m.text} />
               </header>
+              <AttachmentList files={m.attachments ?? []} />
               <MessageText
                 text={m.text}
                 issueSource={
@@ -593,6 +599,24 @@ export function IntakeWindow({
               />
             </label>
           </details>
+          <WorkResultHandoffs
+            projectId={projectId}
+            files={attachments.files}
+            disabled={busy || running || attachments.busy}
+            onAttach={(file) => {
+              if (file.threadId === data?.threadId) attachments.accept(file);
+              else
+                void api<IntakeState>(path)
+                  .then(merge)
+                  .catch((e) => setError(messageOf(e)));
+            }}
+          />
+          <AttachmentList
+            files={attachments.files}
+            disabled={busy || running || attachments.busy}
+            onRemove={(id) => void attachments.remove(id)}
+          />
+          {attachments.error && <p role="alert">{attachments.error}</p>}
           <ComposerOptions
             analysisOnly
             disabled={busy || running}
@@ -621,7 +645,7 @@ export function IntakeWindow({
               type="submit"
               className="icon-button"
               aria-label="Отправить на разбор"
-              disabled={busy || running || !data || !settings || !draft.trim()}
+              disabled={busy || running || attachments.busy || !data || !settings || !draft.trim()}
             >
               <Icon name="send" />
             </button>

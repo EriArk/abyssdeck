@@ -11,10 +11,12 @@ import { pageWorkspace, accountLocalStorage as storage, workspaceMediaUrl } from
 import { api, messageOf } from "./api";
 import { DownloadLink } from "./DownloadLink";
 import { FileViewerDialog } from "./FileViewerDialog";
+import { IntakeWindow } from "./IntakeWindow";
 import { Icon } from "./icons";
 import { ResultFilePreview } from "./ResultFilePreview";
 import { TeamContactPicker } from "./TeamContactPicker";
 import { useWorkspaceDialog } from "./useWorkspaceDialog";
+import type { WorkResultTarget } from "./WorkResultHandoffs";
 import "./communication.css";
 
 export function ResultShareButton({ result }: { result: ResultItem }) {
@@ -72,6 +74,9 @@ function ResultShareWindow({ result, onClose }: { result: ResultItem; onClose: (
     [person, setPerson] = useState<TeamContact | null>(null),
     [publicRoom, setPublicRoom] = useState(false),
     [sent, setSent] = useState(false);
+  const [work, setWork] = useState<WorkResultTarget | null>(null),
+    [workTargets, setWorkTargets] = useState<WorkResultTarget[] | null>(null),
+    [intakeOpen, setIntakeOpen] = useState(false);
   const [ai, setAi] = useState<{ id: string; title: string } | null>(null),
     [aiChats, setAiChats] = useState<{ id: string; title: string }[] | null>(null),
     [aiOffset, setAiOffset] = useState<number | null>(0);
@@ -156,10 +161,29 @@ function ResultShareWindow({ result, onClose }: { result: ResultItem; onClose: (
     };
   }, [result.id, result.threadId, result.payload.url, retry]);
   const send = async () => {
-    if (!snapshot || busy || (!destination && !person && !ai)) return;
+    if (!snapshot || busy || (!destination && !person && !ai && !work)) return;
     setBusy(true);
     setError("");
     try {
+      if (work) {
+        const body = {
+          snapshotId: snapshot.id,
+          destination: { kind: work.kind, projectId: work.projectId },
+          binding: work.binding,
+        };
+        const op = durableKey("work", body);
+        const receipt = await api<{ threadId: string | null }>("/team/result-work-handoffs", {
+          method: "POST",
+          key: op.key,
+          body,
+        });
+        op.clear();
+        if (live.current) {
+          setWork({ ...work, threadId: receipt.threadId });
+          setSent(true);
+        }
+        return;
+      }
       if (ai) {
         const body = { snapshotId: snapshot.id, threadId: ai.id },
           op = durableKey("ai", body);
@@ -235,8 +259,39 @@ function ResultShareWindow({ result, onClose }: { result: ResultItem; onClose: (
         {sent ? (
           <div>
             <p role="status">
-              {ai ? "Результат подготовлен в выбранном чате GPT." : "Результат отправлен."}
+              {work
+                ? "Материал подготовлен. Прикрепи его к запросу в выбранном чате."
+                : ai
+                  ? "Результат подготовлен в выбранном чате GPT."
+                  : "Результат отправлен."}
             </p>
+            {work && (
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => {
+                  if (work.kind === "intake") setIntakeOpen(true);
+                  else {
+                    onClose();
+                    window.dispatchEvent(
+                      new CustomEvent("open-delivery-target", {
+                        detail: {
+                          client: "codex",
+                          kind: "thread",
+                          id: work.threadId,
+                          threadId: work.threadId,
+                          projectId: work.projectId,
+                          title: work.title,
+                          availability: "available",
+                        },
+                      }),
+                    );
+                  }
+                }}
+              >
+                {work.kind === "intake" ? "Открыть разбор" : "Открыть рабочий чат"}
+              </button>
+            )}
             {ai && (
               <button
                 type="button"
@@ -267,6 +322,7 @@ function ResultShareWindow({ result, onClose }: { result: ResultItem; onClose: (
               disabled={busy}
               exclude={[pageWorkspace]}
               onChange={(p) => {
+                setWork(null);
                 setPerson(p);
                 setAi(null);
                 setDestination(null);
@@ -296,6 +352,7 @@ function ResultShareWindow({ result, onClose }: { result: ResultItem; onClose: (
                     }
                     disabled={busy}
                     onClick={() => {
+                      setWork(null);
                       setDestination(d.destination);
                       setAi(null);
                       setPerson(null);
@@ -318,6 +375,57 @@ function ResultShareWindow({ result, onClose }: { result: ResultItem; onClose: (
               </label>
             )}
             <details>
+              <summary>Работа и разбор задач</summary>
+              <p className="muted">
+                Точная копия файла появится рядом с черновиком. Запрос отправишь отдельно.
+              </p>
+              {workTargets === null ? (
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={busy}
+                  onClick={() => {
+                    void api<{ items: WorkResultTarget[] }>("/team/result-work-targets")
+                      .then((r) => {
+                        if (live.current) setWorkTargets(r.items);
+                      })
+                      .catch((e) => setError(messageOf(e)));
+                  }}
+                >
+                  Выбрать проект
+                </button>
+              ) : (
+                <div className="result-work-choices">
+                  {[...new Set(workTargets.map((t) => t.projectId))].map((id) => (
+                    <div className="result-work-choice" key={id}>
+                      <strong>{workTargets.find((t) => t.projectId === id)?.title}</strong>
+                      {workTargets
+                        .filter((t) => t.projectId === id)
+                        .map((t) => (
+                          <button
+                            type="button"
+                            className="secondary"
+                            key={t.kind}
+                            disabled={busy}
+                            aria-pressed={work?.projectId === id && work.kind === t.kind}
+                            onClick={() => {
+                              setWork(t);
+                              setAi(null);
+                              setPerson(null);
+                              setDestination(null);
+                              setPublicRoom(false);
+                            }}
+                          >
+                            {t.kind === "work" ? "Рабочий чат" : "Разбор задач"}
+                          </button>
+                        ))}
+                    </div>
+                  ))}
+                  {!workTargets.length && <p className="muted">Сначала подключи свой проект.</p>}
+                </div>
+              )}
+            </details>
+            <details>
               <summary>Мои чаты GPT</summary>
               <p className="muted">
                 Материал появится рядом с черновиком выбранного чата. Отправка GPT — отдельно.
@@ -330,6 +438,7 @@ function ResultShareWindow({ result, onClose }: { result: ResultItem; onClose: (
                   disabled={busy}
                   aria-pressed={ai?.id === c.id}
                   onClick={() => {
+                    setWork(null);
                     setAi(c);
                     setDestination(null);
                     setPerson(null);
@@ -398,7 +507,7 @@ function ResultShareWindow({ result, onClose }: { result: ResultItem; onClose: (
             disabled={
               busy ||
               !snapshot ||
-              (!destination && !person && !ai) ||
+              (!destination && !person && !ai && !work) ||
               (destination?.kind === "brainstorm" && !publicRoom)
             }
             onClick={() => void send()}
@@ -407,6 +516,13 @@ function ResultShareWindow({ result, onClose }: { result: ResultItem; onClose: (
           </button>
         )}
       </footer>
+      {intakeOpen && work && (
+        <IntakeWindow
+          projectId={work.projectId}
+          name={work.title}
+          onClose={() => setIntakeOpen(false)}
+        />
+      )}
     </dialog>,
     document.body,
   );

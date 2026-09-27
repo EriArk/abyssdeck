@@ -17,23 +17,23 @@
 :root[data-theme] dialog.result-share-window.workspace-window[open] {
   width: min(620px, calc(100vw - 24px));
 }
-.communication-window .notebook-heading,
-.result-share-window .notebook-heading {
+.communication-window > .notebook-heading,
+.result-share-window > .notebook-heading {
   flex: 0 0 auto;
   display: flex;
   gap: 12px;
   align-items: center;
 }
-.communication-window .notebook-heading > div,
-.result-share-window .notebook-heading > div {
+.communication-window > .notebook-heading > div,
+.result-share-window > .notebook-heading > div:not(.window-heading-controls) {
   min-width: 0;
   flex: 1;
   display: grid;
   gap: 4px;
 }
-.communication-window .notebook-heading small,
-.communication-window .notebook-heading strong,
-.result-share-window .notebook-heading small {
+.communication-window > .notebook-heading small,
+.communication-window > .notebook-heading strong,
+.result-share-window > .notebook-heading small {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -534,4 +534,37 @@
 }
 .communication-window .space-chat-input-row textarea {
   border-radius: 12px;
+}
+
+.work-result-handoffs {
+  max-height: 12rem;
+  overflow: auto;
+}
+.work-result-handoff {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.work-result-handoff > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.work-result-handoff > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+.result-work-choices {
+  display: grid;
+  gap: 0.5rem;
+}
+.result-work-choice {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+.result-work-choice > strong {
+  grid-column: 1 / -1;
+  overflow-wrap: anywhere;
 }

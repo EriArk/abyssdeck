@@ -134,6 +134,10 @@ export function useAttachments(threadId: string) {
     progress,
     error,
     add,
+    accept: (file: Attachment) => {
+      if (file.threadId === current.current && !file.messageId)
+        setFiles((old) => [...new Map([...old, file].map((f) => [f.id, f])).values()]);
+    },
     remove,
     clear: () => {
       if (inventory.current) inventory.current.cleared = true;

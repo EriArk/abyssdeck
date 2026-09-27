@@ -34,6 +34,7 @@ const input = z
   .object({
     text: z.string().trim().min(1).max(12000),
     sources: z.array(sourceInput).max(5),
+    attachments: z.array(z.string().uuid()).max(8).default([]),
     revision: z.number().int().nonnegative(),
     settings: turnSettingsSchema.optional(),
   })
@@ -65,6 +66,7 @@ export class ProjectIntake {
       .map((m) => ({
         id: m.id,
         turnId: m.turnId,
+        attachments: m.attachments,
         role: m.role,
         text:
           m.role === "user"
@@ -155,6 +157,21 @@ export class ProjectIntake {
     const t = this.sessions.thread(state.threadId);
     const page = await this.sessions.catalog.history(t, before);
     return { ...this.get(id), messages: this.messages(page.messages), before: page.nextBefore };
+  }
+  /** Stable destination capability: initial native creation does not rotate the binding. */
+  resultBinding(id: string) {
+    const stamp = this.stamp(id),
+      b = this.binding(id),
+      state = this.get(id);
+    if (state.status === "missing" || state.creationUnknown) throw fail();
+    return JSON.stringify({ stamp, bindingId: b.id, revision: b.revision });
+  }
+  async resultThread(id: string, expected: string) {
+    if (this.resultBinding(id) !== expected) throw fail();
+    const b = this.binding(id),
+      t = await this.thread(id, this.stamp(id), b.revision);
+    if (this.resultBinding(id) !== expected) throw fail();
+    return t;
   }
   private async thread(id: string, stamp: string, revision: number) {
     let b = this.bindings.ensure(this.scope(id));
@@ -254,6 +271,7 @@ export class ProjectIntake {
   }
   async send(id: string, key: string, raw: unknown, beforeCommit?: () => void) {
     const body = input.parse(raw),
+      fingerprint = hash(body.attachments.length ? body : { ...body, attachments: undefined }),
       stamp = this.stamp(id),
       b = this.bindings.ensure(this.scope(id));
     if (body.revision !== b.revision) throw fail();
@@ -262,9 +280,14 @@ export class ProjectIntake {
       .get(key);
     if (saved && saved.projectId !== id) throw fail();
     let request = saved ? JSON.parse(String(saved.value)) : null;
-    if (request && request.fingerprint !== hash(body))
+    if (request && request.fingerprint !== fingerprint)
       throw fail("Этот запрос уже содержит другой текст.");
     if (!request) {
+      if (body.attachments.length) {
+        const t = b.nativeId && this.sessions.store.threadByCodex(b.nativeId);
+        if (!t) throw fail();
+        this.sessions.attachments.validateCopy(t.id, body.attachments);
+      }
       const sources: IntakeSource[] = [],
         evidence: string[] = [];
       if (body.sources.length) {
@@ -318,11 +341,12 @@ export class ProjectIntake {
       request = {
         id: key,
         bindingId: b.id,
-        fingerprint: hash(body),
+        fingerprint,
         stamp,
         revision: b.revision,
         text: body.text,
         sources,
+        attachments: body.attachments,
         settings: body.settings ?? (await this.sessions.capabilities(id)).defaults,
         prompt: [
           instructions,
@@ -339,7 +363,7 @@ export class ProjectIntake {
       const existing = this.db.prepare("SELECT value FROM intake_requests WHERE id=?").get(key);
       if (existing) {
         request = JSON.parse(String(existing.value));
-        if (request.fingerprint !== hash(body)) throw fail();
+        if (request.fingerprint !== fingerprint) throw fail();
       } else
         this.db
           .prepare("INSERT INTO intake_requests VALUES(?,?,?)")
@@ -358,7 +382,7 @@ export class ProjectIntake {
             t.id,
             request.prompt,
             { ...settings, access: "workspace", mode: "default" },
-            [],
+            request.attachments ?? [],
             key,
             true,
             {

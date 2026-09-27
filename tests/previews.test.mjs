@@ -141,5 +141,6 @@ test("preview documents require an authenticated same-origin iframe boundary", (
   assert.deepEqual(previewFrameSources("https://example.test/"), [
     "https://example.test/api/previews/",
     "https://example.test/api/gpt/previews/",
+    "https://example.test/api/team/result-shares/",
   ]);
 });

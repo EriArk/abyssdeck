@@ -7,7 +7,13 @@ export { authorizeMachine, bindMachineAuthority } from "./authority.js";
 export { controlDesktop, type DesktopState, desktopError } from "./desktop.js";
 export { runFileTools } from "./fileTools.js";
 export { readMachineImage } from "./image.js";
-export { PREVIEW_LIMIT, previewPath, readMachinePreview } from "./preview.js";
+export {
+  PREVIEW_LIMIT,
+  previewAssetPath,
+  previewPath,
+  readMachinePreview,
+  readMachinePreviewAsset,
+} from "./preview.js";
 export {
   assertProjectRoot,
   normalizedProjectPath,

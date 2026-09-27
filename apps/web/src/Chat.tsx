@@ -41,6 +41,7 @@ import type { Approval, Message, Result, TurnSettings } from "./types";
 import { UpdateNotice } from "./UpdateNotice";
 import type { ChatState } from "./useWorkspace";
 import { useWebHandoff } from "./WebHandoff";
+import { WorkResultHandoffs } from "./WorkResultHandoffs";
 import { useThreadReviews, WorkReviewLink } from "./WorkReviewLink";
 
 const positions = new Map<string, number>();
@@ -947,6 +948,12 @@ export function Chat({
             options={options}
             disabled={!threadId || state.loading || busy || active}
             effortDisabled={!threadId || (state.loading && !active) || busy}
+          />
+          <WorkResultHandoffs
+            threadId={threadId}
+            files={attachments.files}
+            disabled={busy || handoff.pending || queue.busy || attachments.busy}
+            onAttach={attachments.accept}
           />
           <AttachmentList
             files={attachments.files}

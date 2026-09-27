@@ -5,6 +5,7 @@ import type { createApp } from "./app.js";
 import type { Communication } from "./communication.js";
 import { assertPreviewFrame, previewCsp } from "./previews.js";
 import { resultCaptureMarker } from "./result-capture-limit.js";
+import { registerResultWorkHandoffs } from "./result-work-handoffs.js";
 
 export function registerCommunication(
   app: FastifyInstance,
@@ -12,6 +13,7 @@ export function registerCommunication(
   actor: (req: FastifyRequest) => string,
   personal: (id: string) => Promise<{ runtime: Awaited<ReturnType<typeof createApp>> }>,
 ) {
+  registerResultWorkHandoffs(app, communication, actor, personal);
   const uuid = z.string().uuid(),
     id = (req: FastifyRequest) => z.object({ id: uuid }).parse(req.params).id,
     key = (req: FastifyRequest) => uuid.parse(req.headers["idempotency-key"]);

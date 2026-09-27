@@ -291,3 +291,33 @@ test("recovery cannot adopt another utility role", async (t) => {
   await assert.rejects(() => f.intake.recover("project", doctor.codexThreadId, 0));
   assert.equal(f.intake.get("project").threadId, null);
 });
+
+test("Intake submits selected exact attachments once, preserves read-only policy and rejects cross-thread files", async (t) => {
+  const f = await fixture(t);
+  const binding = f.intake.resultBinding("project"),
+    thread = await f.intake.resultThread("project", binding);
+  const file = await f.sessions.attachments.put(thread.id, "input.md", Buffer.from("# Input\r\n"));
+  const foreign = await f.sessions.attachments.put(f.thread.id, "other.md", Buffer.from("private"));
+  await assert.rejects(
+    f.intake.send("project", randomUUID(), { ...body(), attachments: [foreign.id] }),
+  );
+  assert.equal(f.calls.filter((c) => c.method === "turn/start").length, 0);
+  let selected;
+  f.sessions.attachments.prepare = async (_config, threadId, ids) => {
+    selected = { threadId, ids };
+    return {
+      files: ids.map((id) => f.sessions.attachments.get(id)),
+      input: [{ type: "text", text: "exact attachment fixture" }],
+      release() {},
+    };
+  };
+  const key = randomUUID(),
+    input = { ...body(), attachments: [file.id] };
+  await f.intake.send("project", key, input);
+  await f.intake.send("project", key, input);
+  assert.deepEqual(selected, { threadId: thread.id, ids: [file.id] });
+  const calls = f.calls.filter((c) => c.method === "turn/start");
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].params.sandboxPolicy, { type: "readOnly" });
+  assert.equal(f.intake.get("project").messages[0].attachments[0].id, file.id);
+});

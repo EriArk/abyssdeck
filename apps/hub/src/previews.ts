@@ -1,8 +1,14 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
-import { PREVIEW_LIMIT, previewPath, readMachinePreview } from "@codex-web/machines";
+import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { join, posix, win32 } from "node:path";
+import {
+  PREVIEW_LIMIT,
+  previewPath,
+  readMachinePreview,
+  readMachinePreviewAsset,
+} from "@codex-web/machines";
 import { HubError, type MachineConfig } from "@codex-web/shared";
+import { bundlePreview } from "./preview-bundle.js";
 import { previewControls } from "./previewControls.js";
 import type { Store, ThreadRecord } from "./store.js";
 
@@ -16,7 +22,7 @@ export function assertPreviewFrame(headers: Record<string, unknown>) {
     throw new HubError(403, "PREVIEW_FRAME_REQUIRED", "Открой демо из результатов.");
 }
 export const previewCsp =
-  "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; sandbox allow-scripts";
+  "default-src 'none'; script-src 'unsafe-inline' data:; style-src 'unsafe-inline' data:; img-src data: blob:; font-src data:; media-src data: blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; sandbox allow-scripts";
 export function previewMarkup(html: string): string {
   return (
     '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;min-height:100%;}body{padding:12px;box-sizing:border-box;background:#fff;color:#202624}</style>' +
@@ -143,7 +149,8 @@ export class Previews {
       let html: string;
       try {
         html = await readFile(file, "utf8");
-      } catch {
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
         const source = JSON.parse(String(row.source)) as Source;
         const bytes = source.html
           ? Buffer.from(source.html)
@@ -154,8 +161,22 @@ export class Previews {
         if (bytes.length > PREVIEW_LIMIT)
           throw new HubError(413, "PREVIEW_TOO_LARGE", "Демо больше 2 МБ.");
         html = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+        if (source.path) {
+          const target = this.target(String(row.threadId));
+          const paths = target.machine.type === "local-linux" ? posix : win32;
+          const entry = paths.relative(target.root, source.path);
+          html = await bundlePreview(html, entry, (path) =>
+            readMachinePreviewAsset(target.machine, target.root, path),
+          );
+        }
         await mkdir(this.root, { recursive: true, mode: 0o700 });
-        await writeFile(file, html, { mode: 0o600 });
+        const temp = file + ".pending";
+        try {
+          await writeFile(temp, html, { mode: 0o600 });
+          await rename(temp, file);
+        } finally {
+          await unlink(temp).catch(() => {});
+        }
       }
       // Prefix works for full documents as well as visualize-style HTML fragments.
       return previewMarkup(html);

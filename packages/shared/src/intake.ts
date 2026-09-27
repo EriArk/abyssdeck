@@ -1,4 +1,4 @@
-import type { TurnSettings } from "./index.js";
+import type { Attachment, TurnSettings } from "./index.js";
 export type IntakeSource = { key: string; title: string; url: string; repositoryId: number };
 export type IntakeState = {
   projectId: string;
@@ -7,7 +7,13 @@ export type IntakeState = {
   threadId: string | null;
   status: string;
   creationUnknown: boolean;
-  messages: { id: string; turnId: string | null; role: string; text: string }[];
+  messages: {
+    id: string;
+    turnId: string | null;
+    role: string;
+    text: string;
+    attachments?: Attachment[];
+  }[];
   before: string | number | null;
   requests: { id: string; text: string; sources: IntakeSource[]; state: string }[];
   settings?: TurnSettings;

@@ -8,6 +8,12 @@ import { assertProjectRoot, verifyProjectRoot } from "./projectRoots.js";
 
 export const PREVIEW_LIMIT = 2 * 1024 * 1024;
 export function previewPath(machine: MachineConfig, root: string, input: string): string {
+  return checkedPath(machine, root, input, false);
+}
+export function previewAssetPath(machine: MachineConfig, root: string, input: string): string {
+  return checkedPath(machine, root, input, true);
+}
+function checkedPath(machine: MachineConfig, root: string, input: string, asset: boolean): string {
   assertProjectRoot(machine, root);
   const paths = machine.type === "local-linux" ? posix : win32;
   let value: string;
@@ -19,7 +25,13 @@ export function previewPath(machine: MachineConfig, root: string, input: string)
   if (value.startsWith("/") && /^\/[a-z]:[\\/]/i.test(value)) value = value.slice(1);
   if (
     /[\0\r\n]/.test(value) ||
-    !/\.html?$/i.test(value) ||
+    !(
+      asset
+        ? /\.(css|m?js|json|png|jpe?g|gif|webp|avif|svg|ico|woff2?|ttf|otf|mp3|wav|ogg|mp4|webm)$/i
+        : /\.html?$/i
+    ).test(value) ||
+    (asset &&
+      value.split(/[\\/]/).some((part) => part.startsWith(".") && part !== ".." && part !== ".")) ||
     !paths.isAbsolute(root) ||
     (machine.type !== "local-linux" && (/^\\\\/.test(value) || /:/.test(value.slice(2))))
   )
@@ -43,8 +55,21 @@ export async function readMachinePreview(
   root: string,
   input: string,
 ): Promise<Buffer> {
+  return readPreviewFile(machine, root, previewPath(machine, root, input));
+}
+export async function readMachinePreviewAsset(
+  machine: MachineConfig,
+  root: string,
+  input: string,
+): Promise<Buffer> {
+  return readPreviewFile(machine, root, previewAssetPath(machine, root, input));
+}
+async function readPreviewFile(
+  machine: MachineConfig,
+  root: string,
+  path: string,
+): Promise<Buffer> {
   await verifyProjectRoot(machine, root);
-  const path = previewPath(machine, root, input);
   if (machine.type === "local-linux") {
     const actualRoot = await realpath(root),
       actual = await realpath(path);
