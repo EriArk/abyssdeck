@@ -86,3 +86,25 @@ The focused Linux suite passes 90 checks; TypeScript and the production web buil
 Delivery is recorded in the stage handoff. A built native adapter image is not an
 installed runtime; ordinary idle/recovery guards continue to apply, and the old
 paused send is intentionally not inspected, reconciled or replayed.
+
+### Release handoff, 2026-09-27
+
+Source release `788d09e` is committed/pushed on main. Its production image passed
+isolated auth/socket/PWA/Spaces/notification smoke. Compatible web assets are
+published: manifest `1af97e86b5887c35b51b5ebd308bd9203831ab5d7c0a36b26812268379cc46bc`.
+This makes touch stepping and pin ordering available without an engine restart;
+the browser derives pin order from the already-installed `pinnedIds` contract.
+
+The ordinary engine updater for `788d09e` reports `waiting` (`idle: false`).
+The engine remains `codex-web-hub:ebf2c51`; disk retention changes are therefore
+not yet active. The owner native runtime remains
+`codex-web-gpt-native:26.915.31945-audit-e744924`. Owner/member native images
+`26.915.31945-reads-{owner,member}-788d09e` were built and imports/source hashes
+verified, but not activated. There is no claim of installed native delta support.
+No forced update, native restart, pending-send inspection/reconciliation or
+native deletion was performed. Existing checkpoints and receipts are retained.
+
+Next proposed implementation stage: remaining #220 P1 mutation admission across
+unrelated GPT conversations, **??????? (`high`)**, only after owner continuation.
+Runtime activation remains subject to ordinary maintenance readiness and does
+not authorize touching the owner's explicitly paused old send.
