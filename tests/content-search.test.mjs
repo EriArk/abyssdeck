@@ -69,3 +69,94 @@ test("authenticated content search paginates saved public messages, never tools 
     await f.close();
   }
 });
+
+test("project content and file search keep exact identities and never expose payloads", async () => {
+  const f = await handoffFixture();
+  try {
+    const other = f.store.createThread("other-project", "other-native", "Other project");
+    f.store.result(other.id, null, "foreign", "file", "needle-foreign.zip", {});
+    const ids = [];
+    for (let i = 0; i < 45; i++)
+      ids.push(
+        f.store.result(f.thread.id, "turn", "file-" + i, "file", `needle-${i}.zip`, {
+          text: "SECRET_PAYLOAD",
+          sourcePath: "C:/private/SECRET_PATH",
+        }),
+      );
+    f.store.result(f.thread.id, null, "hidden-result", "reasoning", "needle hidden reasoning", {
+      text: "SECRET_REASONING",
+    });
+    const url =
+      "/api/workspace/search?" +
+      new URLSearchParams({
+        q: "needle",
+        projectId: "project",
+        client: "codex",
+        kind: "files",
+        limit: "20",
+      });
+    const hits = [];
+    let offset = 0;
+    do {
+      const response = await f.app.inject({ url: url + "&offset=" + offset, headers: f.headers });
+      assert.equal(response.statusCode, 200, response.body);
+      const page = response.json();
+      assert(page.items.length <= 20);
+      assert.doesNotMatch(response.body, /SECRET|foreign/);
+      hits.push(...page.items);
+      offset = page.nextOffset;
+    } while (offset !== null);
+    assert.deepEqual(new Set(hits.map((x) => x.target.id)), new Set(ids));
+    for (const hit of hits) {
+      assert.equal(hit.target.kind, "result");
+      assert.equal(hit.target.threadId, f.thread.id);
+      assert.equal(hit.target.projectId, "project");
+      assert.equal(hit.target.messageId, undefined);
+    }
+    const gpt = await f.app.inject({
+      url: url.replace("client=codex", "client=gpt"),
+      headers: f.headers,
+    });
+    assert.deepEqual(gpt.json().items, []);
+    assert.equal(f.calls.length, 0);
+  } finally {
+    await f.close();
+  }
+});
+
+test("bounded match pages resume after the last scanned record, including sparse pages", async () => {
+  const f = await handoffFixture();
+  try {
+    const insert = f.store.db.prepare("INSERT INTO messages VALUES(?,?,?,?,?,?,?,?,?)");
+    for (let i = 0; i < 550; i++)
+      insert.run(
+        f.thread.id,
+        "m-" + i,
+        "turn",
+        "assistant",
+        "final",
+        i % 7 === 0 ? "needle" : "no match",
+        i,
+        i,
+        new Date(i * 1000).toISOString(),
+      );
+    let offset = 0;
+    const found = [];
+    do {
+      const response = await f.app.inject({
+        url: `/api/workspace/search?q=needle&threadId=${f.thread.id}&kind=messages&limit=20&offset=${offset}`,
+        headers: f.headers,
+      });
+      assert.equal(response.statusCode, 200, response.body);
+      const page = response.json();
+      assert(page.scanned <= 500);
+      found.push(...page.items.map((x) => x.target.messageId));
+      offset = page.nextOffset;
+    } while (offset !== null);
+    assert.equal(found.length, 79);
+    assert.equal(new Set(found).size, 79);
+    assert.equal(found.at(-1), "m-0");
+  } finally {
+    await f.close();
+  }
+});

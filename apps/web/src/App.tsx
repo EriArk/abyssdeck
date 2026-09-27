@@ -1178,6 +1178,18 @@ function Workspace({
         setDrawer(false);
         setPcRemote(true);
       },
+      ...(spaces.enabled
+        ? {
+            communication: () => {
+              setDrawer(false);
+              window.dispatchEvent(new CustomEvent("open-human-conversation", { detail: "" }));
+            },
+            notifications: () => {
+              setDrawer(false);
+              spaces.open({ kind: "invitations" });
+            },
+          }
+        : {}),
     },
     open: (item) => {
       const ref = item.ref;
@@ -1257,9 +1269,14 @@ function Workspace({
               : {}),
             notes: () => openNotebook(),
             tasks: () => openNotebook("tasks"),
+            plans: () => openNotebook("plans"),
             "content-search": () => {
               setDrawer(false);
-              setContentSearch({ client: "codex", threadId });
+              setContentSearch({
+                client: "codex",
+                threadId,
+                projectId: spaceHome ? undefined : projectId,
+              });
             },
           },
         }

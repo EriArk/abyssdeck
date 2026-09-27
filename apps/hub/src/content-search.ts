@@ -23,6 +23,12 @@ export function registerContentSearch(app: FastifyInstance, sessions: Sessions, 
           .string()
           .regex(/^[a-zA-Z0-9_-]{1,100}$/)
           .optional(),
+        projectId: z
+          .string()
+          .regex(/^[a-zA-Z0-9_-]{1,100}$/)
+          .optional(),
+        kind: z.enum(["all", "messages", "records", "files"]).default("all"),
+        limit: z.coerce.number().int().min(1).max(100).default(40),
         offset: z.coerce.number().int().min(0).max(1000000).default(0),
       })
       .parse(req.query);
@@ -34,7 +40,10 @@ export function registerContentSearch(app: FastifyInstance, sessions: Sessions, 
           .slice()
           .reverse()
           .slice(q.offset, q.offset + 500);
+      let scanned = 0;
       for (const message of batch) {
+        scanned++;
+        if (q.kind !== "all" && q.kind !== "messages") continue;
         const snippet = searchSnippet(message.text, q.q);
         if (snippet !== null)
           items.push({
@@ -49,52 +58,66 @@ export function registerContentSearch(app: FastifyInstance, sessions: Sessions, 
             },
             snippet,
           });
+        if (items.length >= q.limit) break;
       }
       return {
         items,
-        nextOffset: q.offset + batch.length < messages.length ? q.offset + batch.length : null,
+        nextOffset: q.offset + scanned < messages.length ? q.offset + scanned : null,
         coverage: "Текущая ветка выбранного чата ChatGPT",
-        scanned: batch.length,
+        scanned,
       };
     }
     const db = sessions.store.db;
     // Each explicit page scans a bounded number of existing public records. No native writer,
     // filesystem traversal, background chat crawling or hidden tool/reasoning payloads.
-    const sql = q.threadId
-      ? `SELECT m.id,'thread' kind,'codex' client,t.projectId,t.title,m.text body,m.threadId,m.id messageId FROM messages m JOIN threads t ON t.id=m.threadId WHERE m.threadId=? AND m.role IN ('user','assistant') AND m.phase NOT IN ('analysis','reasoning') ORDER BY m.firstSeq DESC LIMIT 501 OFFSET ?`
-      : `SELECT * FROM (
+    const filters: string[] = [],
+      bindings: (string | number)[] = [];
+    if (q.threadId) {
+      filters.push("threadId=? AND client='codex'");
+      bindings.push(q.threadId);
+    } else if (q.projectId) {
+      filters.push("projectId=? AND client=?");
+      bindings.push(q.projectId, q.client);
+    }
+    if (q.kind === "messages") filters.push("kind='thread'");
+    if (q.kind === "records") filters.push("kind IN ('note','task','plan','report')");
+    if (q.kind === "files") filters.push("kind='result'");
+    const sql = `SELECT * FROM (
     SELECT id,'note' kind,COALESCE(json_extract(scope,'$.client'),'codex') client,json_extract(scope,'$.projectId') projectId,title,body,NULL threadId,NULL messageId,updatedAt stamp FROM workspace_notes
     UNION ALL SELECT id,'task',COALESCE(json_extract(scope,'$.client'),'codex'),json_extract(scope,'$.projectId'),title,body,NULL,NULL,updatedAt FROM workspace_tasks
     UNION ALL SELECT id,'plan',json_extract(scope,'$.client'),json_extract(scope,'$.projectId'),json_extract(value,'$.title'),search,NULL,NULL,updatedAt FROM project_plans
     UNION ALL SELECT id,'report',json_extract(scope,'$.client'),json_extract(scope,'$.projectId'),title,body,NULL,NULL,createdAt FROM project_reports
     UNION ALL SELECT m.id,'thread','codex',t.projectId,t.title,m.text,m.threadId,m.id,CAST(unixepoch(m.createdAt)*1000 AS INTEGER) FROM messages m JOIN threads t ON t.id=m.threadId WHERE m.role IN ('user','assistant') AND m.phase NOT IN ('analysis','reasoning')
-   ) ORDER BY stamp DESC,kind,id LIMIT 501 OFFSET ?`;
-    const rows = db
-      .prepare(sql)
-      .all(...(q.threadId ? [q.threadId, q.offset] : [q.offset])) as Record<string, any>[];
+    UNION ALL SELECT r.id,'result','codex',t.projectId,r.title,'',r.threadId,NULL,CAST(unixepoch(r.createdAt)*1000 AS INTEGER) FROM results r JOIN threads t ON t.id=r.threadId WHERE r.type IN ('file','artifact','image')
+   ) ${filters.length ? "WHERE " + filters.join(" AND ") : ""} ORDER BY stamp DESC,kind,id LIMIT 501 OFFSET ?`;
+    const rows = db.prepare(sql).all(...bindings, q.offset) as Record<string, any>[];
+    let scanned = 0;
     for (const row of rows.slice(0, 500)) {
+      scanned++;
       const snippet = searchSnippet(String(row.title ?? "") + "\n" + String(row.body ?? ""), q.q);
       if (snippet === null) continue;
       items.push({
         target: {
           client: row.client,
           kind: row.kind,
-          id: row.threadId ?? row.id,
+          id: row.kind === "thread" ? row.threadId : row.id,
           title: row.title ?? "Без названия",
           ...(row.projectId ? { projectId: row.projectId } : {}),
-          ...(row.threadId ? { threadId: row.threadId, messageId: row.messageId } : {}),
+          ...(row.threadId ? { threadId: row.threadId } : {}),
+          ...(row.messageId ? { messageId: row.messageId } : {}),
           availability: "unknown",
         },
         snippet,
       });
+      if (items.length >= q.limit) break;
     }
     return {
       items,
-      nextOffset: rows.length > 500 ? q.offset + 500 : null,
-      scanned: Math.min(rows.length, 500),
+      nextOffset: rows.length > scanned ? q.offset + scanned : null,
+      scanned,
       coverage: q.threadId
-        ? "Сохранённые на сервере сообщения Codex"
-        : "Заметки, задачи, планы, отчёты и сохранённые сообщения Codex. История GPT ищется в выбранном чате.",
+        ? "Сохранённые сообщения и названия файлов/изображений Results этого чата Codex"
+        : `${q.projectId ? "Только выбранный проект. " : ""}Заметки, задачи, планы, отчёты, сохранённые сообщения и названия файлов/изображений Results Codex. История GPT ищется в выбранном чате.`,
     };
   });
 }

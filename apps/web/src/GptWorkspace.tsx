@@ -836,9 +836,14 @@ export function GptWorkspace({
               : {}),
             notes: () => openNotebook(),
             tasks: () => openNotebook("tasks"),
+            plans: () => openNotebook("plans"),
             "content-search": () => {
               setDrawer(false);
-              openContentSearch({ client: "gpt", threadId: selected });
+              openContentSearch({
+                client: "gpt",
+                threadId: selected,
+                projectId: items.find((c) => c.id === selected)?.projectId,
+              });
             },
           },
         }

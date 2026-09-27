@@ -2,6 +2,13 @@
 
 ## Night pass: communication reading (2026-09-28)
 
+Дополнено по просьбе владельца UX-поиском (#221/#228): содержимое текущего
+проекта, названия файлов Results, точные переходы, продолжение выдачи, фильтры,
+отмена устаревших запросов и быстрые команды Планы/Общение/Уведомления.
+[Описание и проверки](PROJECT_SEARCH_2026-09-28.md). Установщики отложены явно;
+это не следующая очередь данного прохода. Дополнительные 8 серверных тестов
+и Chromium/WebKit пройдены, физическая приёмка остаётся на позже.
+
 Source completed: bounded conversation search, exact unread/mention targets,
 notification read acknowledgement, coarse foreground availability and revision-bound
 owner group renaming. Help and keyboard layouts updated. See

@@ -15,6 +15,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalSto
 import { createPortal } from "react-dom";
 import { accountLocalStorage, pageWorkspace } from "./accountStorage";
 import { api, messageOf } from "./api";
+import { openContentSearch } from "./ContentSearch";
 import { Icon } from "./icons";
 import "./workspace-commands.css";
 
@@ -379,7 +380,9 @@ function CommandPalette({
     [selected, setSelected] = useState(0),
     [error, setError] = useState("");
   const [matches, setMatches] = useState<WorkspaceDestinationItem[]>([]),
-    [materials, setMaterials] = useState<{ target: NotebookLink; snippet: string }[]>([]);
+    [materials, setMaterials] = useState<{ target: NotebookLink; snippet: string }[]>([]),
+    [moreMaterials, setMoreMaterials] = useState(false),
+    [searching, setSearching] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null),
     input = useRef<HTMLInputElement>(null);
   const source = currentSource(),
@@ -400,6 +403,8 @@ function CommandPalette({
     setSelected(0);
     setMatches([]);
     setMaterials([]);
+    setMoreMaterials(false);
+    setSearching(false);
     setError("");
     if (!query.trim()) return;
     const abort = new AbortController();
@@ -418,16 +423,31 @@ function CommandPalette({
         .catch((e) => {
           if (!abort.signal.aborted) setError(messageOf(e));
         });
-      if (all && query.trim().length >= 2)
-        void api<{ items: { target: NotebookLink; snippet: string }[] }>(
-          "/workspace/search?" +
-            new URLSearchParams({ q: query.trim(), client: sourceClient ?? "codex" }),
+      if ((all || sourceProject) && query.trim().length >= 2) {
+        setSearching(true);
+        const contentParams = new URLSearchParams({
+          q: query.trim(),
+          client: sourceClient ?? "codex",
+          limit: "20",
+        });
+        if (!all && sourceProject) contentParams.set("projectId", sourceProject);
+        void api<{ items: { target: NotebookLink; snippet: string }[]; nextOffset: number | null }>(
+          "/workspace/search?" + contentParams,
           { signal: abort.signal },
         )
           .then((r) => {
-            if (!abort.signal.aborted) setMaterials(r.items.slice(0, 20));
+            if (!abort.signal.aborted) {
+              setMaterials(r.items);
+              setMoreMaterials(r.nextOffset !== null);
+            }
           })
-          .catch(() => {});
+          .catch((e) => {
+            if (!abort.signal.aborted) setError(messageOf(e));
+          })
+          .finally(() => {
+            if (!abort.signal.aborted) setSearching(false);
+          });
+      }
     }, 180);
     return () => {
       clearTimeout(timer);
@@ -485,6 +505,24 @@ function CommandPalette({
       detail: m.snippet,
       run: () => onTarget(m.target),
     })),
+    ...(term.length >= 2
+      ? [
+          {
+            key: "search-details",
+            title: moreMaterials
+              ? "Продолжить поиск по содержимому"
+              : "Подробный поиск по содержимому",
+            detail: "Выбрать тип материала и просмотреть следующие совпадения",
+            run: () => {
+              openContentSearch({
+                client: sourceClient ?? "codex",
+                projectId: all ? undefined : sourceProject,
+                query,
+              });
+            },
+          },
+        ]
+      : []),
   ];
   if (!term) rows.sort((a, b) => Number(!!b.ref) - Number(!!a.ref));
   const run = async (index: number) => {
@@ -529,7 +567,7 @@ function CommandPalette({
           type="search"
           value={query}
           maxLength={120}
-          placeholder="Проект, диалог или действие…"
+          placeholder="Проект, диалог, файл или действие…"
           aria-label="Найти место или действие"
           role="combobox"
           aria-expanded="true"
@@ -598,13 +636,16 @@ function CommandPalette({
             )}
           </div>
         ))}
-        {!rows.length && <p>Совпадений нет.</p>}
+        {searching && <p role="status">Ищем в содержимом…</p>}
+        {!rows.length && !searching && <p>Совпадений нет.</p>}
       </div>
       <footer>
         <small>
           {all
-            ? "Сохранённые доступные материалы · поиск ограничен одной страницей"
-            : "Действия текущего пространства · недавние места"}
+            ? "Все доступные места · первые совпадения из сохранённых материалов"
+            : sourceProject
+              ? "Текущий проект · действия и сохранённые материалы"
+              : "Действия текущего пространства · недавние места"}
         </small>
         {error && <p role="alert">{error}</p>}
       </footer>
