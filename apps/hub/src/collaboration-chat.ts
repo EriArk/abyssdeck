@@ -142,7 +142,7 @@ export class CollaborationChat {
   }
   markRead(actor: string, spaceId: string, seq: number) {
     this.spaces.access(actor, spaceId);
-    // Only an actually displayed message can advance this account's cursor.
+    // Bind to an existing message, including explicit read from its notification.
     if (
       !this.db
         .prepare("SELECT 1 FROM space_chat_messages WHERE spaceId=? AND seq=?")
@@ -154,6 +154,55 @@ export class CollaborationChat {
       DO UPDATE SET seq=MAX(seq,excluded.seq)`)
       .run(spaceId, actor, seq);
     return { ok: true };
+  }
+  locate(actor: string, spaceId: string, seq: number) {
+    this.spaces.access(actor, spaceId);
+    const target = this.db
+      .prepare("SELECT * FROM space_chat_messages WHERE spaceId=? AND seq=?")
+      .get(spaceId, seq);
+    if (!target) throw new HubError(404, "MESSAGE_UNAVAILABLE", "Сообщение недоступно.");
+    const before = this.page(actor, spaceId, { before: seq });
+    const after = this.page(actor, spaceId, { after: seq });
+    return {
+      messages: [...before.messages, this.message(target), ...after.messages.slice(0, 20)],
+      moreBefore: before.more,
+      moreAfter: after.more || after.messages.length > 20,
+    };
+  }
+  search(actor: string, spaceId: string, query: string, before = Number.MAX_SAFE_INTEGER) {
+    this.spaces.access(actor, spaceId);
+    const needle = query.normalize("NFKC").toLocaleLowerCase("ru");
+    // Unicode matching is performed in bounded pages, including attachment names.
+    // The continuation is the last scanned row, not just the last matching row.
+    const rows = this.db
+      .prepare(`SELECT m.*, (SELECT json_group_array(name) FROM space_chat_files f WHERE f.messageSeq=m.seq) fileNames
+      FROM space_chat_messages m WHERE m.spaceId=? AND m.seq<? ORDER BY m.seq DESC LIMIT 501`)
+      .all(spaceId, before);
+    const hits = [];
+    let cursor: number | null = null;
+    for (const row of rows.slice(0, 500)) {
+      cursor = Number(row.seq);
+      const names = JSON.parse(String(row.fileNames)) as string[];
+      if (
+        [String(row.text), ...names].some((text) =>
+          text.normalize("NFKC").toLocaleLowerCase("ru").includes(needle),
+        )
+      ) {
+        const author = this.spaces.team.registry.user(String(row.authorId));
+        hits.push({
+          seq: Number(row.seq),
+          author: { id: author.id, name: author.name },
+          text: String(row.text).slice(0, 300),
+          files: names,
+          createdAt: Number(row.createdAt),
+        });
+        if (hits.length === 20) break;
+      }
+    }
+    return {
+      items: hits,
+      before: cursor !== null && rows.some((r) => Number(r.seq) < cursor!) ? cursor : null,
+    };
   }
   send(
     actor: string,

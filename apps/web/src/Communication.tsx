@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { pageWorkspace } from "./accountStorage";
 import { api, messageOf } from "./api";
 import { ConversationMembers, GroupInvitations } from "./ConversationMembers";
+import { useCommunicationPresence } from "./communicationPresence";
 import { Icon } from "./icons";
 import { durableKey } from "./ResultSharing";
 import { SpaceChat } from "./SpaceChat";
@@ -13,8 +14,11 @@ import { rememberDestination } from "./WorkspaceCommands";
 import "./communication.css";
 
 const openEvent = "open-human-conversation";
-export const openHumanConversation = (id = "") =>
-  window.dispatchEvent(new CustomEvent(openEvent, { detail: id }));
+type ConversationTarget = { id: string; seq?: number; token: string };
+export const openHumanConversation = (id = "", seq?: number) =>
+  window.dispatchEvent(
+    new CustomEvent(openEvent, { detail: { id, seq, token: crypto.randomUUID() } }),
+  );
 export function useHumanConversations() {
   const [items, setItems] = useState<HumanConversation[]>([]),
     [invitations, setInvitations] = useState<HumanGroupInvitation[]>([]),
@@ -59,14 +63,16 @@ export function useHumanConversations() {
 }
 export function CommunicationLauncher() {
   const catalog = useHumanConversations(),
+    online = useCommunicationPresence(),
     [opened, setOpened] = useState(false),
-    [initial, setInitial] = useState("");
+    [initial, setInitial] = useState<ConversationTarget>({ id: "", token: "" });
   useEffect(() => {
     const show = (e: Event) => {
       const claimed = e as Event & { communicationHandled?: boolean };
       if (claimed.communicationHandled) return;
       claimed.communicationHandled = true;
-      setInitial((e as CustomEvent<string>).detail || "");
+      const value = (e as CustomEvent<string | ConversationTarget>).detail;
+      setInitial(typeof value === "string" ? { id: value, token: crypto.randomUUID() } : value);
       setOpened(true);
       void catalog.refresh();
     };
@@ -90,13 +96,39 @@ export function CommunicationLauncher() {
         {count > 0 && <small>{count}</small>}
       </button>
       {opened && (
-        <CommunicationWindow catalog={catalog} initial={initial} onClose={() => setOpened(false)} />
+        <CommunicationWindow
+          catalog={catalog}
+          online={online}
+          initial={initial}
+          onClose={() => setOpened(false)}
+        />
       )}
     </>
   );
 }
 export function CommunicationNotices() {
-  const { items, invitations } = useHumanConversations();
+  const { items, invitations, refresh } = useHumanConversations();
+  const [busy, setBusy] = useState<string | null>(null),
+    [error, setError] = useState("");
+  const gate = useRef(false);
+  async function read(c: HumanConversation) {
+    if (!c.lastSeq || gate.current) return;
+    gate.current = true;
+    setBusy(c.id);
+    setError("");
+    try {
+      await api(`/team/conversations/${c.id}/chat/read`, {
+        method: "POST",
+        body: { seq: c.lastSeq },
+      });
+      await refresh();
+    } catch (e) {
+      setError(messageOf(e));
+    } finally {
+      gate.current = false;
+      setBusy(null);
+    }
+  }
   return (
     <>
       {invitations.map((i) => (
@@ -113,16 +145,34 @@ export function CommunicationNotices() {
       {items
         .filter((c) => c.unread && !c.muted)
         .map((c) => (
-          <button
-            type="button"
-            className="space-card"
-            key={c.id}
-            onClick={() => openHumanConversation(c.id)}
-          >
+          <article className="space-card communication-notice" key={c.id}>
             <strong>{c.title}</strong>
-            <span>Новые сообщения: {c.unread}</span>
-          </button>
+            <span>
+              Новые сообщения: {c.unread}
+              {c.unreadMentions ? ` · Упоминания: ${c.unreadMentions}` : ""}
+            </span>
+            <div className="group-action-pair">
+              <button
+                type="button"
+                className="secondary"
+                onClick={() =>
+                  openHumanConversation(c.id, c.mentionSeq ?? c.firstUnreadSeq ?? undefined)
+                }
+              >
+                Открыть
+              </button>
+              <button
+                type="button"
+                className="secondary"
+                disabled={busy !== null || !c.lastSeq}
+                onClick={() => void read(c)}
+              >
+                {busy === c.id ? "Сохраняем…" : "Прочитано"}
+              </button>
+            </div>
+          </article>
         ))}
+      {error && <p role="alert">{error}</p>}
     </>
   );
 }
@@ -137,16 +187,21 @@ const initials = (name: string) =>
 function CommunicationWindow({
   catalog,
   initial,
+  online,
   onClose,
 }: {
   catalog: ReturnType<typeof useHumanConversations>;
-  initial: string;
+  initial: ConversationTarget;
+  online: string[] | null;
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null),
     gate = useRef(false);
   useWorkspaceDialog(ref);
-  const [selected, setSelected] = useState(initial),
+  const [selected, setSelected] = useState(initial.id),
+    [targets, setTargets] = useState<Record<string, { seq: number; token: string }>>(() =>
+      initial.seq ? { [initial.id]: { seq: initial.seq, token: initial.token } } : {},
+    ),
     [creating, setCreating] = useState(false),
     [members, setMembers] = useState<TeamContact[]>([]),
     [title, setTitle] = useState(""),
@@ -155,17 +210,22 @@ function CommunicationWindow({
     [tab, setTab] = useState<"chats" | "people">("chats"),
     [query, setQuery] = useState(""),
     [settings, setSettings] = useState(false),
-    [visited, setVisited] = useState(initial ? [initial] : []);
-  const select = useCallback((id: string) => {
+    [visited, setVisited] = useState(initial.id ? [initial.id] : []);
+  const select = useCallback((id: string, seq?: number) => {
     if (id) rememberDestination({ client: "shared", kind: "conversation", id });
     setSelected(id);
     setCreating(false);
     setSettings(false);
     setError("");
     setVisited((old) => [...old.filter((v) => v !== id), id].slice(-5));
+    if (seq)
+      setTargets((old) => ({
+        ...Object.fromEntries(Object.entries(old).slice(-4)),
+        [id]: { seq, token: crypto.randomUUID() },
+      }));
   }, []);
   useEffect(() => {
-    if (initial) select(initial);
+    if (initial.id) select(initial.id, initial.seq);
   }, [initial, select]);
   const open = useCallback(() => {
     setSelected("");
@@ -304,9 +364,19 @@ function CommunicationWindow({
                     aria-label={c.title}
                     aria-pressed={c.id === selected && !creating}
                     key={c.id}
-                    onClick={() => select(c.id)}
+                    onClick={() => select(c.id, c.firstUnreadSeq ?? undefined)}
                   >
-                    <span className="communication-avatar" aria-hidden="true">
+                    <span
+                      className="communication-avatar"
+                      aria-hidden="true"
+                      data-online={
+                        (c.kind === "direct" &&
+                          c.members.some(
+                            (m) => m.id !== pageWorkspace && online?.includes(m.id),
+                          )) ||
+                        undefined
+                      }
+                    >
                       {c.kind === "group" ? <Icon name="people" /> : initials(c.title)}
                     </span>
                     <span className="communication-row-copy">
@@ -333,6 +403,7 @@ function CommunicationWindow({
                       </time>
                       {c.unread > 0 ? (
                         <span className="communication-badge" data-muted={c.muted}>
+                          {c.unreadMentions ? "@ " : ""}
                           {c.unread}
                         </span>
                       ) : c.muted ? (
@@ -356,6 +427,7 @@ function CommunicationWindow({
             <div className="communication-people">
               <TeamContactPicker
                 value={null}
+                online={online}
                 exclude={[pageWorkspace]}
                 disabled={busy}
                 onChange={(m) => void create([m], "direct")}
@@ -454,7 +526,11 @@ function CommunicationWindow({
                   <small>
                     {current.kind === "group"
                       ? `${current.members.length} участников`
-                      : "Личный разговор"}
+                      : online?.includes(
+                            current.members.find((m) => m.id !== pageWorkspace)?.id ?? "",
+                          )
+                        ? "В сети"
+                        : "Личный разговор"}
                   </small>
                 </div>
                 <button
@@ -494,6 +570,8 @@ function CommunicationWindow({
               <div className="communication-chat" key={id} hidden={id !== selected || creating}>
                 <SpaceChat
                   compactComposer
+                  focus={targets[id]}
+                  attention={catalog.items.find((c) => c.id === id)}
                   space={{ id }}
                   endpoint={`/team/conversations/${id}/chat`}
                   members={catalog.items.find((c) => c.id === id)?.members}

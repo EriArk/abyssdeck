@@ -9,6 +9,10 @@ export type HumanConversation = {
   updatedAt: number;
   preview?: string;
   membersVersion?: number;
+  firstUnreadSeq?: number | null;
+  mentionSeq?: number | null;
+  unreadMentions?: number;
+  lastSeq?: number;
   invitations?: { id: string; userId: string; name: string }[];
 };
 export type HumanGroupInvitation = {

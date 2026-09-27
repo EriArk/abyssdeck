@@ -1,5 +1,18 @@
 # Текущий остаток — 28 сентября 2026
 
+## Night pass: communication reading (2026-09-28)
+
+Source completed: bounded conversation search, exact unread/mention targets,
+notification read acknowledgement, coarse foreground availability and revision-bound
+owner group renaming. Help and keyboard layouts updated. See
+[scope and focused verification](COMMUNICATION_READING_2026-09-28.md).
+Release activation is pending; installed baseline remains Hub/web `6b75d45`,
+native owner/member `e845adb`. The old GPT paused receipt is outside this pass.
+Open issues were read/reconciled for this pass (#202/#205 and related trackers);
+no issue comments or state changes were sent. Historical presence deferral below
+is superseded by the owner's larger night-pass request and this implementation.
+
+
 Управление составом групп (#202) завершено в исходниках: приглашение/принятие,
 удаление/повторное приглашение, передача владения, отдельные настройки и справка.
 9 целевых тестов и Chromium/WebKit пройдены; [подробности](GROUP_MEMBERSHIP_2026-09-28.md).

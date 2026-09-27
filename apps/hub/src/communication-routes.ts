@@ -18,6 +18,44 @@ export function registerCommunication(
     id = (req: FastifyRequest) => z.object({ id: uuid }).parse(req.params).id,
     key = (req: FastifyRequest) => uuid.parse(req.headers["idempotency-key"]);
   const write = { config: { rateLimit: { max: 40, timeWindow: "1 minute" } } };
+  app.get("/api/team/communication/presence", (req) => communication.availability(actor(req)));
+  app.post("/api/team/communication/presence", write, (req) =>
+    communication.availability(
+      actor(req),
+      z.object({ id: uuid, active: z.boolean() }).strict().parse(req.body),
+    ),
+  );
+  app.post("/api/team/conversations/:id/title", write, (req) =>
+    communication.rename(
+      actor(req),
+      id(req),
+      key(req),
+      z
+        .object({
+          title: z.string().trim().min(1).max(120),
+          version: z.number().int().nonnegative(),
+        })
+        .strict()
+        .parse(req.body),
+    ),
+  );
+  app.get("/api/team/conversations/:id/chat/search", (req) => {
+    const q = z
+      .object({
+        q: z.string().trim().min(1).max(120),
+        before: z.coerce.number().int().positive().optional(),
+      })
+      .strict()
+      .parse(req.query);
+    return communication.chat.search(actor(req), id(req), q.q, q.before);
+  });
+  app.get("/api/team/conversations/:id/chat/locate", (req) =>
+    communication.chat.locate(
+      actor(req),
+      id(req),
+      z.object({ seq: z.coerce.number().int().positive() }).strict().parse(req.query).seq,
+    ),
+  );
   app.post("/api/team/communication/github", write, async (req) => {
     const user = actor(req),
       input = z

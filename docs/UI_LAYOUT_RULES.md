@@ -23,6 +23,13 @@ Communication: use one lower “Общение” shortcut with unread count in 
 
 Messenger follow-up: use quiet avatar/title/preview/time rows, separate Chats/People, one-tap personal conversations and explicit group creation. On phones the list gets the full content viewport until a conversation or group form is selected. Keep conversation settings out of the message area; preserve drafts during list/group/nested-view navigation. Message bubbles distinguish own/incoming sides with semantic theme surfaces, without invented presence indicators.
 
+Communication reading (28 September): search temporarily uses the message area,
+with its own scrolling results and a compact input/close row. Keep the composer
+mounted and reachable at keyboard height. Exact jumps select one message with a
+thin themed frame; they never mark the entire history read. Availability may show
+only the coarse current foreground-web heartbeat, not invented activity or a
+last-seen timeline. Group naming belongs in the existing settings window.
+
 Results direct viewing (24 September): a file title and image thumbnail are the
 primary open targets. Open the universal viewer immediately above the mounted
 feed, retaining its category and scroll. Do not add an action-only detail screen,

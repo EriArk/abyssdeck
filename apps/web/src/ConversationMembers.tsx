@@ -2,7 +2,7 @@ import type { HumanConversation, HumanGroupInvitation, TeamContact } from "@code
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { pageWorkspace } from "./accountStorage";
-import { api, messageOf } from "./api";
+import { ApiError, api, messageOf } from "./api";
 import { Icon } from "./icons";
 import { durableKey } from "./ResultSharing";
 import { TeamContactPicker } from "./TeamContactPicker";
@@ -93,9 +93,39 @@ export function ConversationMembers({
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [adding, setAdding] = useState(false),
+    [title, setTitle] = useState(c.title),
+    [titleVersion, setTitleVersion] = useState(c.membersVersion ?? 0),
     [contact, setContact] = useState<TeamContact | null>(null);
   const owner = c.kind === "group" && c.ownerId === pageWorkspace;
   const invitations = c.invitations ?? [];
+  async function rename() {
+    if (gate.current || !title.trim() || title.trim() === c.title) return;
+    gate.current = true;
+    setBusy(true);
+    setError("");
+    const body = { title: title.trim(), version: titleVersion },
+      request = durableKey("group-title", { id: c.id, ...body });
+    try {
+      await api(`/team/conversations/${c.id}/title`, { method: "POST", body, key: request.key });
+      request.clear();
+      setTitle(body.title);
+      setTitleVersion(body.version + 1);
+    } catch (e) {
+      setError(messageOf(e));
+      if (e instanceof ApiError && e.code === "GROUP_CHANGED") {
+        try {
+          const fresh = await api<HumanConversation>(`/team/conversations/${c.id}`);
+          setTitleVersion(fresh.membersVersion ?? 0);
+        } catch {
+          /* Keep the exact revision until a fresh state is available. */
+        }
+      }
+    } finally {
+      await refresh();
+      gate.current = false;
+      setBusy(false);
+    }
+  }
   async function act(action: "invite" | "remove" | "transfer" | "revoke", userId: string) {
     if (gate.current) return;
     gate.current = true;
@@ -165,6 +195,32 @@ export function ConversationMembers({
         </button>
       </header>
       <div className="conversation-members-body">
+        {owner && (
+          <form
+            className="group-title-form shared-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void rename();
+            }}
+          >
+            <label>
+              Название группы
+              <input
+                value={title}
+                maxLength={120}
+                disabled={busy}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+            </label>
+            <button
+              type="submit"
+              className="secondary"
+              disabled={busy || !title.trim() || title.trim() === c.title}
+            >
+              Сохранить название
+            </button>
+          </form>
+        )}
         <section aria-label="Участники группы">
           <div className="group-section-heading">
             <strong>Участники · {c.members.length}</strong>

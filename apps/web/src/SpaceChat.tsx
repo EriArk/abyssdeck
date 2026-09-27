@@ -10,6 +10,7 @@ import remarkGfm from "remark-gfm";
 import { AutoTextarea } from "./AutoTextarea";
 import { pageWorkspace, accountLocalStorage as storage, workspaceUrl } from "./accountStorage";
 import { ApiError, api, messageOf } from "./api";
+import { ConversationSearch } from "./ConversationSearch";
 import { DownloadLink } from "./DownloadLink";
 import { HumanReferenceLink, HumanReferencePicker } from "./HumanReferences";
 import { Icon } from "./icons";
@@ -48,6 +49,8 @@ export function SpaceChat({
   compactComposer = false,
   onFile,
   members,
+  focus,
+  attention,
 }: {
   space: Pick<CollaborationSpace, "id">;
   spaces: Pick<SpacesController, "open" | "refresh">;
@@ -57,6 +60,13 @@ export function SpaceChat({
   compactComposer?: boolean;
   onFile?: (file: SpaceChatFile) => void;
   members?: { id: string; name: string }[];
+  focus?: { seq: number; token: string };
+  attention?: {
+    firstUnreadSeq?: number | null;
+    mentionSeq?: number | null;
+    unread: number;
+    unreadMentions?: number;
+  };
 }) {
   const path = endpoint ?? `/team/spaces/${space.id}/chat`,
     draftName = `space-chat-draft:${endpoint ?? space.id}`;
@@ -72,6 +82,26 @@ export function SpaceChat({
     [loadingOlder, setLoadingOlder] = useState(false);
   const [error, setError] = useState("");
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [searching, setSearching] = useState(false),
+    [context, setContext] = useState(false),
+    [moreLater, setMoreLater] = useState(false),
+    [locating, setLocating] = useState(false),
+    [selectedSeq, setSelectedSeq] = useState<number | null>(null),
+    [reload, setReload] = useState(0),
+    [location, setLocation] = useState(focus);
+  const contextRef = useRef(!!focus),
+    historyEpoch = useRef(0),
+    pendingSelection = useRef<number | null>(null);
+  const conversation = path.startsWith("/team/conversations/");
+  const searchingRef = useRef(searching),
+    searchScroll = useRef<number | null>(null);
+  searchingRef.current = searching;
+  useLayoutEffect(() => {
+    if (focus) {
+      contextRef.current = true;
+      setLocation(focus);
+    }
+  }, [focus]);
   const list = useRef<HTMLElement>(null),
     picker = useRef<HTMLInputElement>(null);
   const live = useRef(true),
@@ -95,7 +125,7 @@ export function SpaceChat({
     [draftName],
   );
   const accept = useCallback(
-    (incoming: SpaceChatMessage[]) => {
+    (incoming: SpaceChatMessage[], replace = false) => {
       if (!live.current) return;
       for (const m of incoming) {
         if (m.id === draftRef.current.key && m.author.id === pageWorkspace) {
@@ -104,9 +134,14 @@ export function SpaceChat({
         }
       }
       setMessages((old) =>
-        Array.from(new Map([...old, ...incoming].map((m) => [m.seq, m])).values()).sort(
-          (a, b) => a.seq - b.seq,
-        ),
+        Array.from(
+          new Map(
+            [
+              ...(replace ? old.filter((m) => m.seq > (incoming.at(-1)?.seq ?? 0)) : old),
+              ...incoming,
+            ].map((m) => [m.seq, m]),
+          ).values(),
+        ).sort((a, b) => a.seq - b.seq),
       );
     },
     [save],
@@ -116,6 +151,8 @@ export function SpaceChat({
       !visibleRef.current ||
       !live.current ||
       document.hidden ||
+      searchingRef.current ||
+      contextRef.current ||
       !stick.current ||
       fetched.current <= read.current
     )
@@ -128,34 +165,37 @@ export function SpaceChat({
         if (read.current === seq) read.current = 0;
       });
   }, [path, spaces.refresh]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Returning to latest explicitly restarts the canonical read cursor.
   useEffect(() => {
     live.current = true;
     const controller = new AbortController();
     let running = false,
       loaded = false;
     const update = async () => {
-      if (running || document.hidden) return;
+      if (running || document.hidden || contextRef.current || !visibleRef.current) return;
       running = true;
+      const epoch = historyEpoch.current;
       try {
         let page: SpaceChatPage;
         do {
           page = await api<SpaceChatPage>(path + (loaded ? `?after=${fetched.current}` : ""), {
             signal: controller.signal,
           });
-          if (!live.current) return;
+          if (!live.current || historyEpoch.current !== epoch) return;
           if (!loaded) {
             setOlder(page.more);
             setError("");
           }
           // Only canonical reads advance the cursor, never a concurrent send acknowledgement.
           fetched.current = Math.max(fetched.current, page.messages.at(-1)?.seq ?? 0);
-          accept(page.messages);
+          accept(page.messages, !loaded);
           const wasLoaded = loaded;
           loaded = true;
           setReady(true);
           if (!wasLoaded) break;
         } while (page.more && !controller.signal.aborted);
       } catch (e) {
+        if (controller.signal.aborted || historyEpoch.current !== epoch || !live.current) return;
         if (e instanceof ApiError && [403, 404].includes(e.status)) {
           spaces.open(null);
           void spaces.refresh().catch(() => {});
@@ -178,17 +218,84 @@ export function SpaceChat({
       window.removeEventListener("focus", tick);
       document.removeEventListener("visibilitychange", tick);
     };
-  }, [path, accept, spaces.open, spaces.refresh]);
+  }, [path, accept, spaces.open, spaces.refresh, reload]);
+  useEffect(() => {
+    if (!location || !conversation) return;
+    const controller = new AbortController(),
+      epoch = ++historyEpoch.current;
+    contextRef.current = true;
+    stick.current = false;
+    prepend.current = null;
+    setContext(true);
+    setLocating(true);
+    setError("");
+    void api<{ messages: SpaceChatMessage[]; moreBefore: boolean; moreAfter: boolean }>(
+      `${path}/locate?seq=${location.seq}`,
+      { signal: controller.signal },
+    )
+      .then((page) => {
+        if (!live.current || historyEpoch.current !== epoch) return;
+        pendingSelection.current = location.seq;
+        setSelectedSeq(location.seq);
+        setMessages(page.messages);
+        setOlder(page.moreBefore);
+        setMoreLater(page.moreAfter);
+        setReady(true);
+      })
+      .catch((e) => {
+        if (!controller.signal.aborted && live.current && historyEpoch.current === epoch)
+          setError(messageOf(e));
+      })
+      .finally(() => {
+        if (live.current && historyEpoch.current === epoch) setLocating(false);
+      });
+    return () => controller.abort();
+  }, [location, conversation, path]);
+  const locateMessage = (seq: number) => {
+    contextRef.current = true;
+    stick.current = false;
+    searchScroll.current = null;
+    setLocation({ seq, token: crypto.randomUUID() });
+  };
+  const latest = () => {
+    historyEpoch.current++;
+    contextRef.current = false;
+    setContext(false);
+    setLocation(undefined);
+    pendingSelection.current = null;
+    searchScroll.current = null;
+    prepend.current = null;
+    setSelectedSeq(null);
+    setMoreLater(false);
+    setLocating(false);
+    stick.current = true;
+    fetched.current = 0;
+    setReady(false);
+    setError("");
+    setReload((n) => n + 1);
+  };
   // biome-ignore lint/correctness/useExhaustiveDependencies: Position and read cursor follow committed message DOM.
   useLayoutEffect(() => {
     const element = list.current;
-    if (!element) return;
-    if (prepend.current) {
+    if (!element || searching) return;
+    if (pendingSelection.current !== null) {
+      const target = element.querySelector<HTMLElement>(
+        `[data-message-seq="${pendingSelection.current}"]`,
+      );
+      if (target) {
+        element.scrollTop +=
+          target.getBoundingClientRect().top - element.getBoundingClientRect().top - 16;
+        pendingSelection.current = null;
+      }
+    } else if (searchScroll.current !== null) {
+      element.scrollTop = searchScroll.current;
+      searchScroll.current = null;
+    } else if (prepend.current) {
       element.scrollTop = prepend.current.top + element.scrollHeight - prepend.current.height;
       prepend.current = null;
     } else if (stick.current) element.scrollTop = element.scrollHeight;
     markRead();
-  }, [messages, markRead]);
+  }, [messages, markRead, searching]);
   const send = async () => {
     if (
       readOnly ||
@@ -211,6 +318,9 @@ export function SpaceChat({
         },
       });
       if (draftRef.current.key === outgoing.key) save(blank());
+      if (contextRef.current) latest();
+      setSearching(false);
+      searchScroll.current = null;
       stick.current = true;
       accept([message]);
     } catch (e) {
@@ -254,31 +364,100 @@ export function SpaceChat({
     }
   };
   const loadOlder = async () => {
-    if (loadingOlder || !messages.length) return;
+    if (loadingOlder || locating || !messages.length) return;
+    const epoch = historyEpoch.current;
     setLoadingOlder(true);
     try {
       const page = await api<SpaceChatPage>(path + `?before=${messages[0]!.seq}`);
-      if (!live.current) return;
+      if (!live.current || epoch !== historyEpoch.current) return;
       if (list.current)
         prepend.current = { height: list.current.scrollHeight, top: list.current.scrollTop };
       stick.current = false;
       accept(page.messages);
       setOlder(page.more);
     } catch (e) {
-      if (live.current) setError(messageOf(e));
+      if (live.current && epoch === historyEpoch.current) setError(messageOf(e));
+    } finally {
+      if (live.current) setLoadingOlder(false);
+    }
+  };
+  const loadLater = async () => {
+    if (loadingOlder || locating || !messages.length) return;
+    const epoch = historyEpoch.current;
+    setLoadingOlder(true);
+    try {
+      const page = await api<SpaceChatPage>(`${path}?after=${messages.at(-1)!.seq}`);
+      if (!live.current || epoch !== historyEpoch.current) return;
+      accept(page.messages);
+      setMoreLater(page.more);
+    } catch (e) {
+      if (live.current && epoch === historyEpoch.current) setError(messageOf(e));
     } finally {
       if (live.current) setLoadingOlder(false);
     }
   };
   return (
     <>
+      {conversation && !searching && (
+        <div className="conversation-reading-tools">
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Поиск по переписке"
+            aria-expanded={searching}
+            onClick={() => {
+              searchScroll.current = list.current?.scrollTop ?? 0;
+              setSearching(true);
+            }}
+          >
+            <Icon name="search" />
+          </button>
+          {!context && attention?.firstUnreadSeq && (
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => locateMessage(attention.firstUnreadSeq!)}
+            >
+              Новые · {attention.unread}
+            </button>
+          )}
+          {attention?.mentionSeq && (
+            <button
+              type="button"
+              className="secondary"
+              aria-label="Первое непрочитанное упоминание"
+              onClick={() => locateMessage(attention.mentionSeq!)}
+            >
+              @ {attention.unreadMentions}
+            </button>
+          )}
+          {context && (
+            <button type="button" className="secondary" onClick={latest}>
+              К последним
+            </button>
+          )}
+          {locating && <small role="status">Открываем сообщение…</small>}
+        </div>
+      )}
+      {searching && (
+        <ConversationSearch
+          path={path}
+          onClose={() => setSearching(false)}
+          onChoose={(seq) => {
+            setSearching(false);
+            locateMessage(seq);
+          }}
+        />
+      )}
       <section
         className="space-chat-messages shared-scroll"
+        hidden={searching}
         ref={list}
         aria-label="Сообщения пространства"
         onScroll={() => {
           const el = list.current!;
-          stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+          stick.current =
+            !contextRef.current && el.scrollHeight - el.scrollTop - el.clientHeight < 40;
           markRead();
         }}
       >
@@ -300,6 +479,8 @@ export function SpaceChat({
           <article
             className="space-chat-message"
             data-own={m.author.id === pageWorkspace}
+            data-message-seq={m.seq}
+            data-selected={selectedSeq === m.seq || undefined}
             key={m.id}
           >
             <header>
@@ -393,6 +574,16 @@ export function SpaceChat({
             )}
           </article>
         ))}
+        {context && moreLater && (
+          <button
+            type="button"
+            className="secondary"
+            disabled={loadingOlder}
+            onClick={() => void loadLater()}
+          >
+            Позже
+          </button>
+        )}
       </section>
       <form
         className="space-chat-composer"

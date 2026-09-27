@@ -7,11 +7,13 @@ export function TeamContactPicker({
   onChange,
   disabled,
   exclude = [],
+  online,
 }: {
   value: TeamContact | null;
   onChange: (value: TeamContact) => void;
   disabled?: boolean;
   exclude?: string[];
+  online?: string[] | null;
 }) {
   const [query, setQuery] = useState(""),
     [offset, setOffset] = useState(0);
@@ -57,6 +59,9 @@ export function TeamContactPicker({
               <span>
                 {person.name}
                 {person.own ? " · Я" : ""}
+                {online?.includes(person.id) && (
+                  <small className="communication-online">В сети</small>
+                )}
               </span>
             </button>
           ))}

@@ -696,3 +696,103 @@
   min-height: 44px;
   white-space: normal;
 }
+
+/* Reading tools stay compact; search scrolls within its own bounded surface. */
+.conversation-reading-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--line);
+}
+.conversation-reading-tools > button {
+  min-height: 44px;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+.conversation-reading-tools > small {
+  min-width: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.conversation-search {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 8px;
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+  flex: 1;
+}
+.communication-chat .space-chat-messages[hidden] {
+  display: none;
+}
+.conversation-search-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px 44px;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.conversation-search-bar input {
+  width: 100%;
+  min-width: 0;
+}
+.conversation-search-hits {
+  display: grid;
+  gap: 6px;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+:root .communication-window button.conversation-search-hit.secondary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  text-align: start;
+  justify-items: start;
+  justify-content: stretch;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  min-width: 0;
+  padding: 8px 12px;
+}
+.conversation-search-hit small {
+  color: var(--muted);
+  font-weight: normal;
+}
+.communication-window .space-chat-message[data-selected="true"] {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+.communication-avatar {
+  position: relative;
+}
+.communication-avatar[data-online="true"]::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--paper);
+}
+.communication-online {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+.communication-notice {
+  display: grid;
+  gap: 10px;
+}
+.group-title-form {
+  display: grid;
+  gap: 8px;
+}
+.group-title-form button {
+  min-height: 44px;
+  white-space: normal;
+}

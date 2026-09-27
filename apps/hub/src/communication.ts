@@ -18,6 +18,7 @@ import type { TeamProjects } from "./team-projects.js";
 const missing = () =>
   new HubError(404, "CONVERSATION_UNAVAILABLE", "Разговор или материал недоступен.");
 export class Communication {
+  private readonly online = new Map<string, Map<string, number>>();
   readonly chat: CollaborationChat;
   readonly root: string;
   readonly lifetime: ResultSnapshotLifetime;
@@ -95,10 +96,21 @@ export class Communication {
       .map((r) => ({ id: String(r.id), name: String(r.name) }));
     const last = this.db
       .prepare(
-        "SELECT text,authorId FROM conversation_chat_messages WHERE spaceId=? ORDER BY seq DESC LIMIT 1",
+        "SELECT text,authorId,seq FROM conversation_chat_messages WHERE spaceId=? ORDER BY seq DESC LIMIT 1",
       )
       .get(id);
+    const attention = this.db
+      .prepare(`SELECT min(m.seq) firstUnreadSeq,
+      min(CASE WHEN EXISTS(SELECT 1 FROM json_each(m.mentions) WHERE json_extract(value,'$.id')=?) THEN m.seq END) mentionSeq,
+      sum(CASE WHEN EXISTS(SELECT 1 FROM json_each(m.mentions) WHERE json_extract(value,'$.id')=?) THEN 1 ELSE 0 END) unreadMentions,
+      count(*) unread FROM conversation_chat_messages m WHERE m.spaceId=? AND m.authorId<>?
+      AND m.seq>COALESCE((SELECT seq FROM conversation_chat_reads WHERE spaceId=? AND userId=?),0)`)
+      .get(actor, actor, id, actor, id, actor)!;
     return {
+      firstUnreadSeq: attention.firstUnreadSeq === null ? null : Number(attention.firstUnreadSeq),
+      mentionSeq: attention.mentionSeq === null ? null : Number(attention.mentionSeq),
+      unreadMentions: Number(attention.unreadMentions ?? 0),
+      lastSeq: Number(last?.seq ?? 0),
       preview: last
         ? (String(last.authorId) === actor ? "Вы: " : "") +
           (String(last.text).replace(/\s+/g, " ").slice(0, 140) || "Материал")
@@ -123,7 +135,7 @@ export class Communication {
               .all(id)
               .map((r) => ({ id: String(r.id), userId: String(r.userId), name: String(r.name) }))
           : [],
-      unread: this.chat.unread(actor, id),
+      unread: Number(attention.unread),
       muted: !!this.db
         .prepare("SELECT muted FROM human_members WHERE conversationId=? AND userId=?")
         .get(id, actor)?.muted,
@@ -211,6 +223,44 @@ export class Communication {
       .prepare("UPDATE human_members SET muted=? WHERE conversationId=? AND userId=?")
       .run(+muted, id, actor);
     return this.detail(actor, id);
+  }
+  availability(actor: string, client?: { id: string; active: boolean }, now = Date.now()) {
+    this.team.registry.active(actor);
+    for (const [user, clients] of this.online) {
+      for (const [id, at] of clients) if (now - at > 70000) clients.delete(id);
+      if (!clients.size) this.online.delete(user);
+    }
+    if (client) {
+      const clients = this.online.get(actor) ?? new Map<string, number>();
+      clients.delete(client.id);
+      if (client.active) clients.set(client.id, now);
+      while (clients.size > 16) clients.delete(clients.keys().next().value!);
+      if (clients.size) this.online.set(actor, clients);
+      else this.online.delete(actor);
+    }
+    // Coarse current availability only: no last-seen log, project or conversation identity.
+    return {
+      online: this.db
+        .prepare("SELECT id FROM team_users WHERE state='active'")
+        .all()
+        .map((r) => String(r.id))
+        .filter((id) => this.online.has(id)),
+    };
+  }
+  rename(actor: string, id: string, key: string, input: { title: string; version: number }) {
+    this.access(actor, id);
+    return this.team.once(actor, "conversation.rename", key, { id, ...input }, () => {
+      this.groupOwner(actor, id);
+      if (this.membersVersion(id) !== input.version)
+        throw new HubError(
+          409,
+          "GROUP_CHANGED",
+          "Группа изменилась. Проверь обновлённые настройки.",
+        );
+      this.db.prepare("UPDATE human_conversations SET title=? WHERE id=?").run(input.title, id);
+      this.bumpMembers(id);
+      return { ok: true };
+    });
   }
   leave(actor: string, id: string) {
     return this.team.registry.transaction(() => {
