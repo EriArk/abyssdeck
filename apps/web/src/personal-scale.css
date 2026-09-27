@@ -1,0 +1,79 @@
+:root {
+  font-size: 16px;
+  --scale-target: max(44px, calc(44px * var(--user-ui-scale, 1)));
+  --scale-space: calc(10px * var(--user-ui-scale, 1));
+}
+.personal-scale {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+.personal-scale fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.personal-scale legend {
+  margin-bottom: 8px;
+}
+.scale-presets {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 5px;
+}
+.scale-presets button {
+  padding: 6px 2px !important;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.scale-presets button[aria-pressed="true"] {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  background: var(--soft);
+}
+/* Geometry changes only common chrome, never Remote pixels, a drawing or CAD. */
+:root[data-ui-scale="custom"]
+:is(.primary, .secondary, .icon-button, .history-more, .navigation-tab) {
+  min-height: var(--scale-target);
+  padding-block: var(--scale-space);
+}
+:root[data-ui-scale="custom"] .icon-button {
+  min-width: var(--scale-target);
+  width: var(--scale-target);
+  height: var(--scale-target);
+  padding: 0;
+}
+:root[data-ui-scale="custom"]
+  :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select) {
+  min-height: var(--scale-target);
+  padding-block: var(--scale-space);
+}
+:root[data-ui-scale="custom"]
+  :is(.window-heading, .workspace-window-header, .panel-heading, .composer-options) {
+  gap: var(--scale-space);
+}
+:root[data-ui-scale="custom"] :is(.button-row, .action-row) {
+  gap: var(--scale-space);
+}
+/* Reflow enlarged labels, retaining fixed safe-area and viewport coordinates. */
+.personal-scale button {
+  white-space: normal;
+}
+
+:root[data-theme]
+  :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select) {
+  font-size: max(16px, calc(16px * var(--user-text-scale, 1)));
+}
+:root[data-ui-scale="custom"]
+  :is(.nav-mobile-switch button, .thread-item, .project-item, .pane-tabs button) {
+  min-height: var(--scale-target);
+  padding-block: calc(8px * var(--user-ui-scale, 1));
+}
+:root[data-ui-scale="custom"] .navigation-header > .icon-button {
+  flex-basis: var(--scale-target);
+}
+:root[data-ui-scale="custom"] :is(.workspace-header, .gpt-header) {
+  gap: calc(8px * var(--user-ui-scale, 1));
+}

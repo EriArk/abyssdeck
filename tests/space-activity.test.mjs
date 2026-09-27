@@ -59,6 +59,54 @@ async function fixture(t) {
   return { root, store, registry, team, spaces, owner, friend, stranger, project, input };
 }
 
+test("bounded Activity retains old directed sources ahead of ambient cache traffic", async (t) => {
+  const f = await fixture(t);
+  const { id } = f.spaces.create(f.owner, randomUUID(), f.input("project"), f.project("altar"));
+  const source = (n, at = "2026-09-27T00:00:00Z") => ({
+    kind: "issue",
+    key: `issue:${n}`,
+    number: n,
+    title: `Issue ${n}`,
+    author: { id: 7, login: "viewer" },
+    authorName: "viewer",
+    at,
+    url: `https://github.com/example/altar/issues/${n}`,
+  });
+  let items = Array.from({ length: 200 }, (_, i) => source(i + 1));
+  const activity = new SpaceActivity(
+    f.spaces,
+    async () => null,
+    async () => ({
+      repository: "example/altar",
+      repositoryId: 42,
+      access: "read",
+      identity: { id: 7, login: "viewer" },
+      activity: items,
+    }),
+  );
+  // Isolate retention from checkout setup; the real Space membership gate still runs.
+  activity.context = async () => ({
+    binding: "fixed",
+    repository: "example/altar",
+    root: "/fixture",
+    machine: {},
+  });
+  await activity.page(f.owner, id, "project");
+  const expire = () =>
+    f.team.db.prepare("UPDATE space_activity_index SET data=json_set(data,'$.checkedAt',0)").run();
+  expire();
+  items = [
+    { ...source(201, "2020-01-01T00:00:00Z"), attention: [{ kind: "assigned", version: "exact" }] },
+  ];
+  const next = await activity.page(f.owner, id, "project");
+  assert.equal(next.items.length, 200);
+  assert.equal(next.items.at(-1).key, "issue:201");
+  assert.equal(next.items.at(-1).attention[0].read, false);
+  expire();
+  items = [source(202)];
+  assert((await activity.page(f.owner, id, "project")).items.every((v) => !v.attention?.length));
+});
+
 test("Space activity uses the viewer's checkout, coalesces reads, persists exact references and rechecks revocation", async (t) => {
   const f = await fixture(t),
     s = f.spaces;

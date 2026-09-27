@@ -501,8 +501,13 @@ export class SpaceActivity {
       repositoryId: value.repositoryId,
       checkedAt: Date.now(),
       items: [...items.values()]
-        .sort((a, b) => Date.parse(b.at) - Date.parse(a.at) || a.key.localeCompare(b.key))
-        .slice(0, 200),
+        .sort(
+          (a, b) =>
+            Number(!!b.attention?.length) - Number(!!a.attention?.length) ||
+            Date.parse(b.at) - Date.parse(a.at),
+        )
+        .slice(0, 200)
+        .sort((a, b) => Date.parse(b.at) - Date.parse(a.at) || a.key.localeCompare(b.key)),
     };
     db.prepare(`INSERT INTO space_activity_index VALUES(?,?,?,?,?,?) ON CONFLICT(userId,spaceId,projectId)
       DO UPDATE SET binding=excluded.binding,checkedAt=excluded.checkedAt,data=excluded.data`).run(

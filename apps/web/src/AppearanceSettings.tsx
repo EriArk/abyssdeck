@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { accountLocalStorage as localStorage } from "./accountStorage.ts";
 import { CaseColorSettings } from "./CaseColorSettings";
+import { PersonalScaleSettings } from "./PersonalScale";
 import { type Theme, themes } from "./theme";
 import { ShortcutSettings } from "./WorkspaceCommands";
 
@@ -79,6 +80,7 @@ export function AppearanceSettings({
         />
         Прежняя компоновка
       </label>
+      <PersonalScaleSettings />
       <ShortcutSettings visible={visible} />
     </fieldset>
   );

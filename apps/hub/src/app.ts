@@ -905,6 +905,8 @@ export async function createApp(
       z
         .object({
           theme: z.enum(["organizer", "crt-green", "hitech-2000s", "classic-dark"]).optional(),
+          textScale: z.number().min(0.9).max(1.4).optional(),
+          uiScale: z.number().min(0.9).max(1.2).optional(),
           crtCaseColor: z.enum(caseColorIds).optional(),
           hitechCaseColor: z.enum(caseColorIds).optional(),
           organizerAccentColor: z.enum(caseColorIds).optional(),

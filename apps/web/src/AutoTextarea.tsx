@@ -69,12 +69,14 @@ export const AutoTextarea = forwardRef<
       if (active) measure();
     });
     const fonts = () => measure();
+    window.addEventListener("workspace-scale-change", fonts);
     document.fonts.addEventListener("loadingdone", fonts);
     return () => {
       active = false;
       observer.disconnect();
       cancelAnimationFrame(frame);
       document.fonts.removeEventListener("loadingdone", fonts);
+      window.removeEventListener("workspace-scale-change", fonts);
     };
   }, [measure]);
   return (

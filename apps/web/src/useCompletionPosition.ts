@@ -98,7 +98,7 @@ export function useCompletionPosition({
       state.current.target = "";
       locked.current = false;
     };
-    for (const name of ["wheel", "touchstart", "pointerdown", "keydown"])
+    for (const name of ["wheel", "touchstart", "pointerdown", "keydown", "message-navigation"])
       el.addEventListener(name, manual, { passive: true });
     const visibility = () => {
       if (!document.hidden) return;
@@ -114,7 +114,7 @@ export function useCompletionPosition({
     return () => {
       resize.disconnect();
       document.removeEventListener("visibilitychange", visibility);
-      for (const name of ["wheel", "touchstart", "pointerdown", "keydown"])
+      for (const name of ["wheel", "touchstart", "pointerdown", "keydown", "message-navigation"])
         el.removeEventListener(name, manual);
     };
   }, [enabled, scroller, content]);

@@ -3,6 +3,7 @@ import App from "./App";
 import { applyLayoutPreference } from "./AppearanceSettings";
 import { DeviceWorkspaceHost } from "./DeviceWorkspaceHost";
 import { GuiPreviewHost } from "./GuiPreviewHost";
+import { applyCachedPersonalScale } from "./PersonalScale";
 import { ProjectDeliveryHost } from "./ProjectDeliveryHost";
 import { QuickCaptureHost } from "./QuickCaptureHost";
 import { TeamProjectsHost } from "./TeamProjectsHost";
@@ -24,6 +25,7 @@ import "./workspace-window.css";
 
 applyTheme(cachedTheme());
 applyLayoutPreference();
+applyCachedPersonalScale();
 const root = document.getElementById("root");
 if (!root) throw new Error("Missing root");
 createRoot(root).render(

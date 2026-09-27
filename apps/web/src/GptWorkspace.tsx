@@ -38,6 +38,7 @@ import { mergeGptJobs, showGptJob, waitingGptJob } from "./gptState";
 import { IssueCollect, useIssueCode } from "./IssueDrawer";
 import { Icon } from "./icons";
 import { MarkdownTable } from "./MarkdownTable";
+import { MessageNavigation } from "./MessageNavigation";
 import { SpeechButton, useSpeechScope } from "./MessageSpeech";
 import { NavigationDivider } from "./NavigationDivider";
 import { NavigationFooter } from "./NavigationFooter";
@@ -1199,7 +1200,7 @@ export function GptWorkspace({
       return (
         <section className="gpt-job" key={job.id}>
           {!nativeUser && (
-            <article className="message user">
+            <article className="message user" data-chat-message={"job-user:" + job.id}>
               <div className="message-header">
                 <span className="avatar">Я</span>
                 <b>Вы</b>
@@ -1221,7 +1222,11 @@ export function GptWorkspace({
           {!answerInHistory &&
             job.status === "completed" &&
             (job.answer || job.assets.length > 0) && (
-              <article className="message assistant" data-message={"job:" + job.id}>
+              <article
+                className="message assistant"
+                data-message={"job:" + job.id}
+                data-chat-message={"job:" + job.id}
+              >
                 <div className="message-header">
                   <span className="avatar">G</span>
                   <b>GPT</b>
@@ -1786,253 +1791,273 @@ export function GptWorkspace({
               {historyNotice}
             </div>
           )}
-          <div
-            className="gpt-message-scroll"
-            ref={scroll}
-            onWheel={() => {
-              userScrollUntil.current = performance.now() + 1500;
-            }}
-            onTouchMove={() => {
-              userScrollUntil.current = performance.now() + 1500;
-            }}
-            onPointerDown={() => {
-              userScrollUntil.current = performance.now() + 1500;
-            }}
-            onScroll={() => {
-              if (scroll.current && performance.now() < userScrollUntil.current) {
-                if (!completionLocked.current)
-                  sticky.current =
-                    scroll.current.scrollHeight -
-                      scroll.current.scrollTop -
-                      scroll.current.clientHeight <
-                    120;
-                rememberScroll();
-              }
-            }}
-          >
-            <div ref={messageList}>
-              {(contextMessage || hasNewer) && (
-                <div className="history-context">
-                  <span>Фрагмент диалога</span>
+          <div className="chat-reading-area">
+            <div
+              className="gpt-message-scroll"
+              ref={scroll}
+              onWheel={() => {
+                userScrollUntil.current = performance.now() + 1500;
+              }}
+              onTouchMove={() => {
+                userScrollUntil.current = performance.now() + 1500;
+              }}
+              onPointerDown={() => {
+                userScrollUntil.current = performance.now() + 1500;
+              }}
+              onScroll={() => {
+                if (scroll.current && performance.now() < userScrollUntil.current) {
+                  if (!completionLocked.current && !scroll.current.dataset.messageNavigation)
+                    sticky.current =
+                      scroll.current.scrollHeight -
+                        scroll.current.scrollTop -
+                        scroll.current.clientHeight <
+                      120;
+                  rememberScroll();
+                }
+              }}
+            >
+              <div ref={messageList}>
+                {(contextMessage || hasNewer) && (
+                  <div className="history-context">
+                    <span>Фрагмент диалога</span>
+                    <button
+                      type="button"
+                      onClick={() => void history(selected, undefined, true).catch(() => {})}
+                    >
+                      К последним сообщениям
+                    </button>
+                  </div>
+                )}
+                {before && (
                   <button
                     type="button"
-                    onClick={() => void history(selected, undefined, true).catch(() => {})}
+                    className="history-more"
+                    disabled={loading}
+                    onClick={() => {
+                      sticky.current = false;
+                      void history(selected, before).catch(() => {});
+                    }}
                   >
-                    К последним сообщениям
+                    Загрузить ещё 20
                   </button>
-                </div>
-              )}
-              {before && (
-                <button
-                  type="button"
-                  className="history-more"
-                  disabled={loading}
-                  onClick={() => {
-                    sticky.current = false;
-                    void history(selected, before).catch(() => {});
-                  }}
-                >
-                  Загрузить ещё 20
-                </button>
-              )}
-              {selected && !historyReady && (
-                <div
-                  className="gpt-history-state"
-                  role="status"
-                  aria-label="Состояние выбранного чата"
-                >
-                  <Icon name="chat" size={32} />
-                  <h2>{selectedTitle}</h2>
-                  {historyNotice ? (
-                    <>
-                      <p>{historyNotice}</p>
-                      <button
-                        type="button"
-                        className="secondary"
-                        onClick={() => void history(selected, undefined, true).catch(() => {})}
-                      >
-                        <Icon name="refresh" />
-                        Повторить загрузку
-                      </button>
-                    </>
-                  ) : (
-                    <p>
-                      <span className="spinner" />
-                      Загружаем разговор…
-                    </p>
-                  )}
-                </div>
-              )}
-              {selected && historyReady && revalidating && !historyNotice && (
-                <div className="gpt-revalidating" role="status">
-                  <span className="spinner" />
-                  Обновляем разговор…
-                </div>
-              )}
-              {!selected && !messages.length && !currentJobs.length && (
-                <div className="gpt-empty">Что обсудим?</div>
-              )}
-              {messages
-                .filter(
-                  (message) =>
-                    message.role === "user" ||
-                    (message.phase !== "commentary" && message.complete !== false),
-                )
-                .map((message) => (
-                  <article
-                    className={"message " + message.role}
-                    key={message.id}
-                    data-message={message.id}
+                )}
+                {selected && !historyReady && (
+                  <div
+                    className="gpt-history-state"
+                    role="status"
+                    aria-label="Состояние выбранного чата"
                   >
-                    <div className="message-header">
-                      <span className="avatar">{message.role === "user" ? "Я" : "G"}</span>
-                      <b>{message.role === "user" ? "Вы" : "GPT"}</b>
-                      <span className="message-actions">
-                        {!roomEndpoint && nativeOperations.button(message, !!active || busy)}
-                        {onPublishToRoom && message.role === "assistant" && message.text.trim() && (
-                          <button
-                            type="button"
-                            className="icon-button"
-                            aria-label="Предложить на общую доску"
-                            onClick={() => onPublishToRoom(message.text)}
-                          >
-                            <Icon name="plus" size={17} />
-                          </button>
-                        )}
-                        {message.role === "assistant" && (
-                          <SpeechButton id={`${speechScope}:${message.id}`} text={message.text} />
-                        )}
-                        {onNotebook && message.text.trim() && (
-                          <button
-                            type="button"
-                            className="icon-button"
-                            aria-label="Сохранить в заметки"
-                            onClick={() => {
-                              const context = notebookContext();
-                              onNotebook({
-                                ...context,
-                                mode: "notes",
-                                capture: {
-                                  scope: context.scope,
-                                  text: message.text,
-                                  role: message.role,
-                                  target: {
-                                    client: "gpt",
-                                    kind: "thread",
-                                    id: selected,
-                                    threadId: selected,
-                                    messageId: message.id,
-                                    title: items.find((c) => c.id === selected)?.title || "Чат GPT",
-                                  },
-                                },
-                              });
-                            }}
-                          >
-                            <Icon name="file" size={17} />
-                          </button>
-                        )}
-                        {!roomEndpoint &&
-                          message.role === "assistant" &&
-                          message.complete !== false &&
-                          message.phase !== "commentary" && (
-                            <IssueCollect
-                              text={message.text}
-                              source={{
-                                client: "gpt",
-                                threadId: selected,
-                                messageId: message.id,
-                                projectId: roomEndpoint ? undefined : projectChat?.projectId,
-                              }}
-                              targetId={roomEndpoint ? undefined : projectChat?.projectId}
-                            />
+                    <Icon name="chat" size={32} />
+                    <h2>{selectedTitle}</h2>
+                    {historyNotice ? (
+                      <>
+                        <p>{historyNotice}</p>
+                        <button
+                          type="button"
+                          className="secondary"
+                          onClick={() => void history(selected, undefined, true).catch(() => {})}
+                        >
+                          <Icon name="refresh" />
+                          Повторить загрузку
+                        </button>
+                      </>
+                    ) : (
+                      <p>
+                        <span className="spinner" />
+                        Загружаем разговор…
+                      </p>
+                    )}
+                  </div>
+                )}
+                {selected && historyReady && revalidating && !historyNotice && (
+                  <div className="gpt-revalidating" role="status">
+                    <span className="spinner" />
+                    Обновляем разговор…
+                  </div>
+                )}
+                {!selected && !messages.length && !currentJobs.length && (
+                  <div className="gpt-empty">Что обсудим?</div>
+                )}
+                {messages
+                  .filter(
+                    (message) =>
+                      message.role === "user" ||
+                      (message.phase !== "commentary" && message.complete !== false),
+                  )
+                  .map((message) => (
+                    <article
+                      className={"message " + message.role}
+                      key={message.id}
+                      data-message={message.id}
+                      data-chat-message={message.id}
+                    >
+                      <div className="message-header">
+                        <span className="avatar">{message.role === "user" ? "Я" : "G"}</span>
+                        <b>{message.role === "user" ? "Вы" : "GPT"}</b>
+                        <span className="message-actions">
+                          {!roomEndpoint && nativeOperations.button(message, !!active || busy)}
+                          {onPublishToRoom &&
+                            message.role === "assistant" &&
+                            message.text.trim() && (
+                              <button
+                                type="button"
+                                className="icon-button"
+                                aria-label="Предложить на общую доску"
+                                onClick={() => onPublishToRoom(message.text)}
+                              >
+                                <Icon name="plus" size={17} />
+                              </button>
+                            )}
+                          {message.role === "assistant" && (
+                            <SpeechButton id={`${speechScope}:${message.id}`} text={message.text} />
                           )}
-                        <CopyButton text={message.text} />
-                      </span>
-                    </div>
-                    <div className="message-body">
-                      <Text
-                        value={message.text}
-                        issueSource={
-                          !roomEndpoint &&
-                          message.role === "assistant" &&
-                          message.complete !== false &&
-                          message.phase !== "commentary"
-                            ? {
-                                client: "gpt",
-                                threadId: selected,
-                                messageId: message.id,
-                                projectId: roomEndpoint ? undefined : projectChat?.projectId,
-                              }
-                            : undefined
-                        }
-                        complete={message.complete !== false && message.phase !== "commentary"}
-                        resolveImage={async (source) =>
-                          (
-                            await api<ResultItem>(
-                              `/gpt/conversations/${encodeURIComponent(selected)}/results/reveal`,
-                              { method: "POST", body: { source, messageId: message.id } },
-                            )
-                          ).payload.url
-                        }
-                        onArtifact={
-                          message.role === "assistant"
-                            ? (source) => openArtifact(source, message.files, message.id)
-                            : undefined
-                        }
-                      />
-                      {!!message.unsupported?.length && (
-                        <aside className="native-content-notice">
-                          <p>
-                            {message.unsupported
-                              .map(
-                                (kind) =>
-                                  ({
-                                    audio: "Аудио",
-                                    video: "Видео",
-                                    interactive: "Интерактивное содержимое",
-                                    other: "Дополнительное содержимое",
-                                  })[kind],
+                          {onNotebook && message.text.trim() && (
+                            <button
+                              type="button"
+                              className="icon-button"
+                              aria-label="Сохранить в заметки"
+                              onClick={() => {
+                                const context = notebookContext();
+                                onNotebook({
+                                  ...context,
+                                  mode: "notes",
+                                  capture: {
+                                    scope: context.scope,
+                                    text: message.text,
+                                    role: message.role,
+                                    target: {
+                                      client: "gpt",
+                                      kind: "thread",
+                                      id: selected,
+                                      threadId: selected,
+                                      messageId: message.id,
+                                      title:
+                                        items.find((c) => c.id === selected)?.title || "Чат GPT",
+                                    },
+                                  },
+                                });
+                              }}
+                            >
+                              <Icon name="file" size={17} />
+                            </button>
+                          )}
+                          {!roomEndpoint &&
+                            message.role === "assistant" &&
+                            message.complete !== false &&
+                            message.phase !== "commentary" && (
+                              <IssueCollect
+                                text={message.text}
+                                source={{
+                                  client: "gpt",
+                                  threadId: selected,
+                                  messageId: message.id,
+                                  projectId: roomEndpoint ? undefined : projectChat?.projectId,
+                                }}
+                                targetId={roomEndpoint ? undefined : projectChat?.projectId}
+                              />
+                            )}
+                          <CopyButton text={message.text} />
+                        </span>
+                      </div>
+                      <div className="message-body">
+                        <Text
+                          value={message.text}
+                          issueSource={
+                            !roomEndpoint &&
+                            message.role === "assistant" &&
+                            message.complete !== false &&
+                            message.phase !== "commentary"
+                              ? {
+                                  client: "gpt",
+                                  threadId: selected,
+                                  messageId: message.id,
+                                  projectId: roomEndpoint ? undefined : projectChat?.projectId,
+                                }
+                              : undefined
+                          }
+                          complete={message.complete !== false && message.phase !== "commentary"}
+                          resolveImage={async (source) =>
+                            (
+                              await api<ResultItem>(
+                                `/gpt/conversations/${encodeURIComponent(selected)}/results/reveal`,
+                                { method: "POST", body: { source, messageId: message.id } },
                               )
-                              .join(" · ")}{" "}
-                            доступно в оригинале.
-                          </p>
-                          <a
-                            href={`https://chatgpt.com/c/${encodeURIComponent(selected)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            Открыть этот диалог в ChatGPT
-                          </a>
-                        </aside>
-                      )}
-                      {message.role === "user" ? (
-                        <Files files={message.files} />
-                      ) : (
-                        <ResponseResults
-                          text={message.text}
-                          files={message.files}
-                          onOpen={openResults}
-                          onArtifact={(source) => openArtifact(source, message.files, message.id)}
+                            ).payload.url
+                          }
+                          onArtifact={
+                            message.role === "assistant"
+                              ? (source) => openArtifact(source, message.files, message.id)
+                              : undefined
+                          }
                         />
-                      )}
-                    </div>
-                    {reviews
-                      .filter((r) => r.source?.messageId === message.id)
-                      .map((r) => (
-                        <WorkReviewLink key={r.id} scope={r.scope} id={r.id} state={r.state} />
-                      ))}
-                  </article>
-                ))}
-              {jobElements}
-              {reviews
-                .filter(
-                  (r) =>
-                    !r.source?.messageId || !messages.some((m) => m.id === r.source?.messageId),
-                )
-                .map((r) => (
-                  <WorkReviewLink key={r.id} scope={r.scope} id={r.id} state={r.state} />
-                ))}
+                        {!!message.unsupported?.length && (
+                          <aside className="native-content-notice">
+                            <p>
+                              {message.unsupported
+                                .map(
+                                  (kind) =>
+                                    ({
+                                      audio: "Аудио",
+                                      video: "Видео",
+                                      interactive: "Интерактивное содержимое",
+                                      other: "Дополнительное содержимое",
+                                    })[kind],
+                                )
+                                .join(" · ")}{" "}
+                              доступно в оригинале.
+                            </p>
+                            <a
+                              href={`https://chatgpt.com/c/${encodeURIComponent(selected)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              Открыть этот диалог в ChatGPT
+                            </a>
+                          </aside>
+                        )}
+                        {message.role === "user" ? (
+                          <Files files={message.files} />
+                        ) : (
+                          <ResponseResults
+                            text={message.text}
+                            files={message.files}
+                            onOpen={openResults}
+                            onArtifact={(source) => openArtifact(source, message.files, message.id)}
+                          />
+                        )}
+                      </div>
+                      {reviews
+                        .filter((r) => r.source?.messageId === message.id)
+                        .map((r) => (
+                          <WorkReviewLink key={r.id} scope={r.scope} id={r.id} state={r.state} />
+                        ))}
+                    </article>
+                  ))}
+                {jobElements}
+                {reviews
+                  .filter(
+                    (r) =>
+                      !r.source?.messageId || !messages.some((m) => m.id === r.source?.messageId),
+                  )
+                  .map((r) => (
+                    <WorkReviewLink key={r.id} scope={r.scope} id={r.id} state={r.state} />
+                  ))}
+              </div>
             </div>
+            <MessageNavigation
+              scope={"gpt:" + (selected || draftScope)}
+              scroller={scroll}
+              following={sticky}
+              hasOlder={!!before}
+              loading={loading}
+              older={async () => {
+                if (before) await history(selected, before);
+              }}
+              latest={async () => {
+                completionLocked.current = false;
+                if (contextMessage || hasNewer) await history(selected, undefined, true);
+              }}
+            />
           </div>
           <div className="gpt-composer-wrap">
             {nativeOperations.panel}

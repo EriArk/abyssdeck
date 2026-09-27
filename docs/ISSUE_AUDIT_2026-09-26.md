@@ -1,5 +1,7 @@
 # Аудит всех GitHub issues — 26 сентября 2026
 
+Follow-up 27 September: [personal scale, message navigation and directed GitHub attention](COMFORT_ATTENTION_2026-09-27.md) implements #175, remaining #186 and the old assignment/review-request gap in #205. The table below remains the original audit snapshot.
+
 > Follow-up, 2026-09-27: [#220 native read isolation](GPT_READ_ISOLATION_2026-09-27.md)
 > is implemented and verified in controlled tests. Runtime installation is tracked
 > separately; P1 mutation admission remains open.

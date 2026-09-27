@@ -127,3 +127,11 @@ Native dialog top-layer order must survive lazy editor loading and theme changes
 ## Command navigation
 
 Keep a single compact touch search entry above project navigation in both clients. Recent/Pinned uses quiet single-row destinations, equal 44px pin controls and a collapsible bounded area. The palette is a centered content-sized window with a capped scrolling results list, reachable Close, symmetric phone gutters and explicit keyboard-height geometry; it must not inherit the generic fullscreen-window offset while retaining a centering transform. Shortcut recording belongs to personal settings, never to each feature's separate keyboard listener. Hidden settings sections must release capture.
+
+
+Personal scale: use the shared text/UI multipliers and semantic touch/spacing
+primitives. Relative typography inherits once; never add page zoom or transforms.
+Keep form text at least 16px and important targets at least 44px. Canvas/model/
+Remote coordinates and terminal metrics remain owned by their respective viewer.
+Message navigation is one compact three-key overlay within the reading viewport,
+above the composer; preserve exact message identity and canonical paged history.

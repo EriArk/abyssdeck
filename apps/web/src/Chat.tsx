@@ -28,6 +28,7 @@ import { GitHubLinkContext } from "./GitHubLinkContext";
 import { useIssueCode } from "./IssueDrawer";
 import { Icon } from "./icons";
 import { MarkdownTable } from "./MarkdownTable";
+import { MessageNavigation } from "./MessageNavigation";
 import { MessageQueue, useMessageQueue } from "./MessageQueue";
 import { SpeechButton, useSpeechScope } from "./MessageSpeech";
 import { NativePlan } from "./NativePlan";
@@ -382,8 +383,7 @@ export function Chat({
   useEffect(() => {
     setDetailsOpen(false);
   }, [threadId]);
-  const [draft, setDraft] = useState(""),
-    [newMessages, setNewMessages] = useState(false);
+  const [draft, setDraft] = useState("");
   const active = ["running", "starting", "waiting_approval"].includes(state.thread.status);
   const external = state.thread.activitySource === "external";
   useLayoutEffect(() => {
@@ -410,8 +410,7 @@ export function Chat({
     }
     if (atBottom.current) {
       el.scrollTop = el.scrollHeight;
-      setNewMessages(false);
-    } else setNewMessages(true);
+    }
   }, [threadId, state.messages, state.loadingOlder, visible]);
   const liveTurn = useRef("");
   const liveScope = useRef("");
@@ -526,290 +525,304 @@ export function Chat({
   return (
     <GitHubLinkContext.Provider value={projectId}>
       <section className="chat-pane pane" aria-label="Чат" data-visible={visible}>
-        <div
-          className="chat-scroll"
-          ref={scroller}
-          onScroll={(e) => {
-            const el = e.currentTarget;
-            positions.set(threadId, el.scrollTop);
-            if (!completionLocked.current)
-              atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
-            if (atBottom.current) setNewMessages(false);
-          }}
-        >
-          {newMessages && (
-            <button
-              type="button"
-              className="new-message-button secondary"
-              onClick={() => {
-                atBottom.current = true;
-                setNewMessages(false);
-                if (scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight;
-              }}
-            >
-              К новым сообщениям ↓
-            </button>
-          )}
-          <div className="chat-content" ref={content}>
-            {(state.contextTurn || state.hasNewer) && (
-              <div className="history-loader">
-                <span className="small muted">
-                  {state.contextTurn ? "Фрагмент диалога" : "В Codex появились новые сообщения"}
-                </span>
-                <button type="button" className="secondary" onClick={onLatest}>
-                  К последним сообщениям
-                </button>
-              </div>
-            )}
-            {!threadId ? (
-              <div className="empty-state chat-empty">
-                <div className="empty-symbol">
-                  <Icon name="chat" size={30} />
+        <div className="chat-reading-area">
+          <div
+            className="chat-scroll"
+            ref={scroller}
+            onScroll={(e) => {
+              const el = e.currentTarget;
+              positions.set(threadId, el.scrollTop);
+              if (!completionLocked.current && !el.dataset.messageNavigation)
+                atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+            }}
+          >
+            <div className="chat-content" ref={content}>
+              {(state.contextTurn || state.hasNewer) && (
+                <div className="history-loader">
+                  <span className="small muted">
+                    {state.contextTurn ? "Фрагмент диалога" : "В Codex появились новые сообщения"}
+                  </span>
+                  <button type="button" className="secondary" onClick={onLatest}>
+                    К последним сообщениям
+                  </button>
                 </div>
-                <div className="eyebrow">Рабочее пространство</div>
-                <h2>С чего начнём?</h2>
-                <p>
-                  Открой диалог или создай новый.
-                  <br />
-                  Код и инструменты уже на твоём компьютере.
-                </p>
-                <button type="button" className="primary" onClick={onCreate} disabled={busy}>
-                  <Icon name="plus" />
-                  Новый диалог
-                </button>
-              </div>
-            ) : state.loading ? (
-              <div className="empty-state">
-                <span className="spinner" />
-                Открываем диалог…
-              </div>
-            ) : (
-              <>
-                {state.hasMore && (
-                  <div className="history-loader">
-                    <button
-                      type="button"
-                      className="secondary"
-                      disabled={state.loadingOlder}
-                      onClick={() => void older()}
-                    >
-                      {state.loadingOlder ? "Загружаем…" : "Загрузить предыдущие"}
-                    </button>
+              )}
+              {!threadId ? (
+                <div className="empty-state chat-empty">
+                  <div className="empty-symbol">
+                    <Icon name="chat" size={30} />
                   </div>
-                )}
-                {!state.messages.length &&
-                  !state.approvals.length &&
-                  !state.hasMore &&
-                  !state.error && (
-                    <div className="empty-state chat-empty">
-                      <div className="empty-symbol">
-                        <Icon name="folder" size={30} />
-                      </div>
-                      <h2>Новый диалог, чистый лист.</h2>
+                  <div className="eyebrow">Рабочее пространство</div>
+                  <h2>С чего начнём?</h2>
+                  <p>
+                    Открой диалог или создай новый.
+                    <br />
+                    Код и инструменты уже на твоём компьютере.
+                  </p>
+                  <button type="button" className="primary" onClick={onCreate} disabled={busy}>
+                    <Icon name="plus" />
+                    Новый диалог
+                  </button>
+                </div>
+              ) : state.loading ? (
+                <div className="empty-state">
+                  <span className="spinner" />
+                  Открываем диалог…
+                </div>
+              ) : (
+                <>
+                  {state.hasMore && (
+                    <div className="history-loader">
+                      <button
+                        type="button"
+                        className="secondary"
+                        disabled={state.loadingOlder}
+                        onClick={() => void older()}
+                      >
+                        {state.loadingOlder ? "Загружаем…" : "Загрузить предыдущие"}
+                      </button>
                     </div>
                   )}
-                {state.messages.map((message, index) => (
-                  <Fragment key={message.id}>
-                    <article
-                      className={
-                        "message " +
-                        message.role +
-                        " " +
-                        (message.phase === "commentary" ? "commentary-message" : "")
-                      }
-                      key={message.id}
-                      data-turn={message.turnId ?? ""}
-                      data-message={message.id}
-                    >
-                      <div className="message-meta">
-                        <span className="avatar">{message.role === "user" ? "Я" : "C"}</span>
-                        <strong>{message.role === "user" ? "Вы" : "Codex"}</strong>
-                        <time>{time(message.createdAt)}</time>
-                        {message.phase === "plan" && <span className="badge">План</span>}
-                        {message.phase === "commentary" && (
-                          <span className="small muted">В работе</span>
-                        )}
-                        <span className="message-actions">
-                          {message.role === "assistant" && (
-                            <SpeechButton id={`${speechScope}:${message.id}`} text={message.text} />
-                          )}
-                          {onCapture && message.text.trim() && (
-                            <button
-                              type="button"
-                              className="icon-button"
-                              aria-label="Сохранить в заметки"
-                              onClick={() => onCapture(message)}
-                            >
-                              <Icon name="file" size={17} />
-                            </button>
-                          )}
-                          <CopyButton text={message.text} />
-                        </span>
-                      </div>
-                      <div className="message-body">
-                        <MessageText
-                          text={message.text}
-                          complete={
-                            message.phase !== "commentary" &&
-                            message.turnId !== state.thread.activeTurnId
-                          }
-                          resolveImage={
-                            message.role === "assistant"
-                              ? async (source) =>
-                                  (
-                                    await api<Result>(
-                                      `/threads/${encodeURIComponent(threadId)}/results/reveal`,
-                                      {
-                                        method: "POST",
-                                        body: {
-                                          source,
-                                          messageId: message.id,
-                                          turnId: message.turnId,
-                                        },
-                                      },
-                                    )
-                                  ).payload.url
-                              : undefined
-                          }
-                          onArtifact={
-                            message.role === "assistant" && onArtifact
-                              ? (source) =>
-                                  onArtifact({
-                                    scope: threadId,
-                                    endpoint: `/threads/${encodeURIComponent(threadId)}/results/reveal`,
-                                    reference: {
-                                      source,
-                                      messageId: message.id,
-                                      turnId: message.turnId,
-                                    },
-                                  })
-                              : undefined
-                          }
-                        />
-                        {!message.text && !message.attachments?.length && (
-                          <span className="typing">•••</span>
-                        )}
-                        <AttachmentList
-                          files={[
-                            ...(message.attachments ?? []),
-                            ...(message.images ?? []).map((image) => ({
-                              ...image,
-                              threadId,
-                              messageId: message.id,
-                              mime: "image/png",
-                              bytes: 0,
-                              image: true,
-                              previewUrl: image.url,
-                              createdAt: "",
-                            })),
-                          ]}
-                        />
-                        {message.role === "assistant" &&
-                          message.phase !== "commentary" &&
-                          !/!\[[^\]]*\]\(/.test(message.text) &&
-                          !state.messages
-                            .slice(index + 1)
-                            .some(
-                              (next) => next.role === "assistant" && next.turnId === message.turnId,
-                            ) && (
-                            <div className="message-file-links">
-                              {results
-                                .filter(
-                                  (result) =>
-                                    result.type === "image" &&
-                                    result.turnId === message.turnId &&
-                                    (!result.threadId || result.threadId === threadId) &&
-                                    result.payload.url,
-                                )
-                                .map((result) => (
-                                  <span
-                                    key={result.id}
-                                    className={
-                                      /^https?:\/\//i.test(result.payload.url!)
-                                        ? "message-web-image"
-                                        : "message-generated-image"
-                                    }
-                                  >
-                                    <button
-                                      type="button"
-                                      aria-label={result.title}
-                                      onClick={() =>
-                                        onArtifact
-                                          ? onArtifact({ scope: threadId, result })
-                                          : onResult(result.id)
-                                      }
-                                    >
-                                      <img
-                                        src={workspaceMediaUrl(result.payload.url)}
-                                        alt={result.title}
-                                        loading="lazy"
-                                        referrerPolicy="no-referrer"
-                                      />
-                                    </button>
-                                  </span>
-                                ))}
-                            </div>
-                          )}
-                      </div>
-                      {message.role === "assistant" &&
-                        message.phase === "plan" &&
-                        state.messages.findLast((m) => m.phase === "plan")?.id === message.id && (
-                          <NativePlan
-                            key={threadId + ":" + message.id}
-                            threadId={threadId}
-                            messageId={message.id}
-                            revision={`${state.thread.status}:${state.thread.activeTurnId ?? ""}:${state.messages.at(-1)?.id ?? ""}`}
-                            visible={visible}
-                            disabled={busy || writeBlocked || queue.busy}
-                          />
-                        )}
-                      {message.role === "assistant" &&
-                        message.phase !== "commentary" &&
-                        results.some((r) => r.turnId === message.turnId) && (
-                          <button
-                            type="button"
-                            className="result-chip"
-                            onClick={() =>
-                              onResult(results.find((r) => r.turnId === message.turnId)?.id ?? "")
-                            }
-                          >
-                            <Icon name="results" size={15} />
-                            Результаты этого хода
-                            <Icon name="chevron" size={14} />
-                          </button>
-                        )}
-                    </article>
-                    {endsTask(
-                      message,
-                      state.messages[index + 1],
-                      state.thread.activeTurnId,
-                      state.thread.status,
-                    ) && (
-                      <div className="task-boundary">
-                        <hr aria-label="Конец задачи" />
-                        <span aria-hidden="true">Конец задачи</span>
-                        <div className="task-boundary-line" aria-hidden="true" />
-                        {reviews
-                          .filter((r) => r.turnId === message.turnId)
-                          .map((r) => (
-                            <WorkReviewLink key={r.id} scope={r.scope} id={r.id} state={r.state} />
-                          ))}
+                  {!state.messages.length &&
+                    !state.approvals.length &&
+                    !state.hasMore &&
+                    !state.error && (
+                      <div className="empty-state chat-empty">
+                        <div className="empty-symbol">
+                          <Icon name="folder" size={30} />
+                        </div>
+                        <h2>Новый диалог, чистый лист.</h2>
                       </div>
                     )}
-                  </Fragment>
-                ))}
-                {state.approvals.map((a) => (
-                  <ApprovalCard
-                    key={a.id}
-                    approval={a}
-                    busy={busy}
-                    onDecision={onDecision}
-                    onAnswer={onAnswer}
-                  />
-                ))}
-              </>
-            )}
+                  {state.messages.map((message, index) => (
+                    <Fragment key={message.id}>
+                      <article
+                        className={
+                          "message " +
+                          message.role +
+                          " " +
+                          (message.phase === "commentary" ? "commentary-message" : "")
+                        }
+                        key={message.id}
+                        data-turn={message.turnId ?? ""}
+                        data-message={message.id}
+                        data-chat-message={
+                          message.phase !== "commentary" && message.phase !== "analysis"
+                            ? message.id
+                            : undefined
+                        }
+                      >
+                        <div className="message-meta">
+                          <span className="avatar">{message.role === "user" ? "Я" : "C"}</span>
+                          <strong>{message.role === "user" ? "Вы" : "Codex"}</strong>
+                          <time>{time(message.createdAt)}</time>
+                          {message.phase === "plan" && <span className="badge">План</span>}
+                          {message.phase === "commentary" && (
+                            <span className="small muted">В работе</span>
+                          )}
+                          <span className="message-actions">
+                            {message.role === "assistant" && (
+                              <SpeechButton
+                                id={`${speechScope}:${message.id}`}
+                                text={message.text}
+                              />
+                            )}
+                            {onCapture && message.text.trim() && (
+                              <button
+                                type="button"
+                                className="icon-button"
+                                aria-label="Сохранить в заметки"
+                                onClick={() => onCapture(message)}
+                              >
+                                <Icon name="file" size={17} />
+                              </button>
+                            )}
+                            <CopyButton text={message.text} />
+                          </span>
+                        </div>
+                        <div className="message-body">
+                          <MessageText
+                            text={message.text}
+                            complete={
+                              message.phase !== "commentary" &&
+                              message.turnId !== state.thread.activeTurnId
+                            }
+                            resolveImage={
+                              message.role === "assistant"
+                                ? async (source) =>
+                                    (
+                                      await api<Result>(
+                                        `/threads/${encodeURIComponent(threadId)}/results/reveal`,
+                                        {
+                                          method: "POST",
+                                          body: {
+                                            source,
+                                            messageId: message.id,
+                                            turnId: message.turnId,
+                                          },
+                                        },
+                                      )
+                                    ).payload.url
+                                : undefined
+                            }
+                            onArtifact={
+                              message.role === "assistant" && onArtifact
+                                ? (source) =>
+                                    onArtifact({
+                                      scope: threadId,
+                                      endpoint: `/threads/${encodeURIComponent(threadId)}/results/reveal`,
+                                      reference: {
+                                        source,
+                                        messageId: message.id,
+                                        turnId: message.turnId,
+                                      },
+                                    })
+                                : undefined
+                            }
+                          />
+                          {!message.text && !message.attachments?.length && (
+                            <span className="typing">•••</span>
+                          )}
+                          <AttachmentList
+                            files={[
+                              ...(message.attachments ?? []),
+                              ...(message.images ?? []).map((image) => ({
+                                ...image,
+                                threadId,
+                                messageId: message.id,
+                                mime: "image/png",
+                                bytes: 0,
+                                image: true,
+                                previewUrl: image.url,
+                                createdAt: "",
+                              })),
+                            ]}
+                          />
+                          {message.role === "assistant" &&
+                            message.phase !== "commentary" &&
+                            !/!\[[^\]]*\]\(/.test(message.text) &&
+                            !state.messages
+                              .slice(index + 1)
+                              .some(
+                                (next) =>
+                                  next.role === "assistant" && next.turnId === message.turnId,
+                              ) && (
+                              <div className="message-file-links">
+                                {results
+                                  .filter(
+                                    (result) =>
+                                      result.type === "image" &&
+                                      result.turnId === message.turnId &&
+                                      (!result.threadId || result.threadId === threadId) &&
+                                      result.payload.url,
+                                  )
+                                  .map((result) => (
+                                    <span
+                                      key={result.id}
+                                      className={
+                                        /^https?:\/\//i.test(result.payload.url!)
+                                          ? "message-web-image"
+                                          : "message-generated-image"
+                                      }
+                                    >
+                                      <button
+                                        type="button"
+                                        aria-label={result.title}
+                                        onClick={() =>
+                                          onArtifact
+                                            ? onArtifact({ scope: threadId, result })
+                                            : onResult(result.id)
+                                        }
+                                      >
+                                        <img
+                                          src={workspaceMediaUrl(result.payload.url)}
+                                          alt={result.title}
+                                          loading="lazy"
+                                          referrerPolicy="no-referrer"
+                                        />
+                                      </button>
+                                    </span>
+                                  ))}
+                              </div>
+                            )}
+                        </div>
+                        {message.role === "assistant" &&
+                          message.phase === "plan" &&
+                          state.messages.findLast((m) => m.phase === "plan")?.id === message.id && (
+                            <NativePlan
+                              key={threadId + ":" + message.id}
+                              threadId={threadId}
+                              messageId={message.id}
+                              revision={`${state.thread.status}:${state.thread.activeTurnId ?? ""}:${state.messages.at(-1)?.id ?? ""}`}
+                              visible={visible}
+                              disabled={busy || writeBlocked || queue.busy}
+                            />
+                          )}
+                        {message.role === "assistant" &&
+                          message.phase !== "commentary" &&
+                          results.some((r) => r.turnId === message.turnId) && (
+                            <button
+                              type="button"
+                              className="result-chip"
+                              onClick={() =>
+                                onResult(results.find((r) => r.turnId === message.turnId)?.id ?? "")
+                              }
+                            >
+                              <Icon name="results" size={15} />
+                              Результаты этого хода
+                              <Icon name="chevron" size={14} />
+                            </button>
+                          )}
+                      </article>
+                      {endsTask(
+                        message,
+                        state.messages[index + 1],
+                        state.thread.activeTurnId,
+                        state.thread.status,
+                      ) && (
+                        <div className="task-boundary">
+                          <hr aria-label="Конец задачи" />
+                          <span aria-hidden="true">Конец задачи</span>
+                          <div className="task-boundary-line" aria-hidden="true" />
+                          {reviews
+                            .filter((r) => r.turnId === message.turnId)
+                            .map((r) => (
+                              <WorkReviewLink
+                                key={r.id}
+                                scope={r.scope}
+                                id={r.id}
+                                state={r.state}
+                              />
+                            ))}
+                        </div>
+                      )}
+                    </Fragment>
+                  ))}
+                  {state.approvals.map((a) => (
+                    <ApprovalCard
+                      key={a.id}
+                      approval={a}
+                      busy={busy}
+                      onDecision={onDecision}
+                      onAnswer={onAnswer}
+                    />
+                  ))}
+                </>
+              )}
+            </div>
           </div>
+          <MessageNavigation
+            scope={"codex:" + threadId}
+            scroller={scroller}
+            following={atBottom}
+            hasOlder={state.hasMore}
+            loading={state.loadingOlder || state.loading}
+            older={older}
+            latest={() => {
+              completionLocked.current = false;
+              if (state.contextTurn || state.hasNewer) onLatest();
+            }}
+          />
         </div>
         <UpdateNotice visible={visible} busy={busy || attachments.busy} />
         {threadId && (

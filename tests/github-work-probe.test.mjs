@@ -178,12 +178,12 @@ if(parts[3]==='contents'){const name=parts.slice(4).map(decodeURIComponent).join
 if(endpoint==='graphql'){const v=body.variables.input,branch=v.branch.branchName;if(s.refs[branch]!==v.expectedHeadOid){answer(200,{errors:[{type:'STALE_DATA'}]});return;}const oid=commit(branch,v.message.headline+'\\n\\n'+v.message.body,[...(v.fileChanges.additions||[]).map(f=>({path:f.path,content:f.contents})),...(v.fileChanges.deletions||[]).map(f=>({path:f.path,content:null}))],v.expectedHeadOid);changed({data:{createCommitOnBranch:{commit:{oid}}}});return;}
 if(parts[3]==='pulls'&&parts.length===4&&method==='POST'){const value={number:78,user:s.identity,title:body.title,body:body.body,head:{sha:s.refs[body.head],ref:body.head,repo:{full_name:'Owner/Project'}},base:{ref:body.base},state:'open'};s.prs.push(value);changed(value);return;}
 }
-if(endpoint?.startsWith('search/issues')){const q=new URLSearchParams(endpoint.split('?')[1]);answer(200,{items:q.get('q').includes('is:pr')?s.prs:s.issues});return;}
+if(endpoint?.startsWith('search/issues')){const q=new URLSearchParams(endpoint.split('?')[1]);answer(200,{items:q.get('q').includes('review-requested:')?(s.directedReviews||s.prs.filter(v=>v.requested_reviewers?.some(u=>u.id===s.identity.id))):q.get('q').includes('is:pr')?s.prs:s.issues});return;}
 if(parts[3]==='commits'&&parts.length===4){answer(200,[{sha:'b'.repeat(40),commit:{message:'Exact commit\\nPrivate body not indexed',author:{name:'Unlinked author'},committer:{date:'2026-09-23T10:00:00Z'}},author:null}]);return;}
 if(parts[3]==='commits'&&parts.length===5){answer(200,{sha:parts[4],commit:{message:'Exact change'},parents:[{sha:'c'.repeat(40)}],stats:{additions:1,deletions:0},files:[{filename:'src/nullable.ts',status:'modified',additions:1,deletions:0,patch:'+ nullable: true'}]});return;}
 if(parts[3]==='pulls'&&parts[5]==='files'){if(s.moveHead){s.prs[0].head.sha='d'.repeat(40);persist();}answer(200,[{filename:'src/pr.ts',status:'modified',patch:'+ tested',additions:1,deletions:0}]);return;}
-if(parts[3]==='pulls'&&parts.length===4){answer(200,s.prs);return;}
-if(parts[3]==='issues'&&parts.length===4){if(method==='POST'){const value={...s.issues[0],number:100+s.issues.length,title:body.title,body:body.body,user:s.identity};s.issues.unshift(value);changed(value);}else answer(200,s.issues);return;}
+if(parts[3]==='pulls'&&parts.length===4){answer(200,s.recentPrs||s.prs);return;}
+if(parts[3]==='issues'&&parts.length===4){if(method==='POST'){const value={...s.issues[0],number:100+s.issues.length,title:body.title,body:body.body,user:s.identity};s.issues.unshift(value);changed(value);}else answer(200,endpoint.includes('assignee=')?(s.assignedIssues||s.issues.filter(v=>v.assignees?.some(u=>u.id===s.identity.id))):(s.recentIssues||s.issues));return;}
 if(parts[3]==='issues'&&parts[5]==='comments'){if(method==='POST'){const value={id:3000000000+s.comments.length,body:body.body,user:s.identity,created_at:'2026-09-13T01:00:00Z'};s.comments.push(value);changed(value);}else answer(200,s.comments);return;}
 if(parts[3]==='issues'&&parts.length===5){const value=s.issues.find(x=>x.number===n)||s.prs.find(x=>x.number===n);if(!value){answer(404,{});return;}if(method==='PATCH'){value.state=body.state;changed(value);}else answer(200,value);return;}
 if(parts[3]==='pulls'&&parts.length===5){answer(200,s.prs.find(x=>x.number===n));return;}
@@ -1323,4 +1323,63 @@ test("activity overlaps independent reads with a bounded PR pool and rechecks ea
   const lastStart = Math.max(...indexes.map((x) => calls.findIndex((c) => c.endpoint === x)));
   const firstEnd = Math.min(...indexes.map((x) => calls.findIndex((c) => c.end === x)));
   assert(lastStart < firstEnd, "all three index reads start before the first completes");
+});
+
+test("directed attention finds old assignments/reviews outside recent pages and validates exact current identity", async (t) => {
+  const f = await fixture(t);
+  const base = (
+    await f.probe({
+      op: "observe",
+      query: { kind: "list", type: "issue", state: "all", query: "", page: 1 },
+    })
+  ).items[0];
+  const issue = {
+    number: 71,
+    title: "Old assignment",
+    state: "open",
+    user: { id: 12, login: "Friend" },
+    body: "Never index private body",
+    created_at: "2025-01-01T00:00:00Z",
+    updated_at: "2025-01-02T00:00:00Z",
+    assignees: [{ id: 11, login: "Owner" }],
+    repository_url: "https://api.github.com/repos/Owner/Project",
+  };
+  const pr = {
+    ...issue,
+    number: 72,
+    title: "Old requested review",
+    assignees: [],
+    pull_request: {},
+    head: { ref: "feature", sha: f.sha, repo: { full_name: "Owner/Project" } },
+    base: { ref: "main" },
+    requested_reviewers: [{ id: 11, login: "Owner" }],
+  };
+  assert(base);
+  await f.save({
+    issues: [issue],
+    prs: [pr],
+    recentIssues: [],
+    recentPrs: [],
+    assignedIssues: [issue],
+    directedReviews: [
+      pr,
+      { ...pr, number: 999, repository_url: "https://api.github.com/repos/Other/Secret" },
+    ],
+  });
+  const read = () => f.probe({ op: "observe", query: { kind: "activity" } });
+  let value = await read();
+  assert(
+    value.activity.find((v) => v.key === "issue:71").attention.some((v) => v.kind === "assigned"),
+  );
+  assert(value.activity.find((v) => v.key === "pr:72").attention.some((v) => v.kind === "review"));
+  assert(!JSON.stringify(value.activity).includes("Never index"));
+  assert(!(await f.calls()).some((v) => v.endpoint.includes("/999")));
+  // Search remains stale after reassignment/closure; exact objects erase stale claims.
+  await f.save({
+    issues: [{ ...issue, assignees: [{ id: 999, login: "Owner" }] }],
+    prs: [{ ...pr, state: "closed" }],
+  });
+  value = await read();
+  assert(value.activity.every((v) => !v.attention?.length));
+  assert((await f.calls()).every((v) => !v.method || v.method === "GET"));
 });

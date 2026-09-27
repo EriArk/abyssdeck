@@ -763,6 +763,55 @@ export async function githubWorkProbe(
       if (![200, 409].includes(commitResponse.status)) fail("GITHUB_WORK_UNAVAILABLE");
       const commits = commitResponse.status === 409 ? [] : commitResponse.value;
       if (![commits, issues, pulls].every(Array.isArray)) fail("GITHUB_WORK_DATA");
+      // Directed attention has its own bounded index, independent of unrelated
+      // recent traffic. Search only selects candidates; current REST objects and
+      // numeric identity decide whether a notification actually belongs to us.
+      const directed = await Promise.all([
+        access.issues
+          ? must(
+              `${prefix}/issues?state=open&assignee=${encodeURIComponent(access.identity.login)}&sort=updated&direction=desc&per_page=20`,
+            )
+          : Promise.resolve([]),
+        must(
+          `search/issues?q=${encodeURIComponent(`repo:${repository} is:pr is:open review-requested:${access.identity.login}`)}&sort=updated&order=desc&per_page=20`,
+        ),
+      ]);
+      if (!Array.isArray(directed[0]) || !Array.isArray(directed[1]?.items))
+        fail("GITHUB_WORK_DATA");
+      const issueMap = new Map<number, any>(
+          issues.filter((v: any) => !v.pull_request).map((v: any) => [v.number, v]),
+        ),
+        pullMap = new Map<number, any>(pulls.map((v: any) => [v.number, v]));
+      const candidates = new Map<number, "issue" | "pr">();
+      for (const v of directed[0].slice(0, 20))
+        if (number(v.number) && v.repository_url === `https://api.github.com/${prefix}`)
+          candidates.set(v.number, v.pull_request ? "pr" : "issue");
+      for (const v of directed[1].items.slice(0, 20))
+        if (
+          number(v.number) &&
+          v.pull_request &&
+          v.repository_url === `https://api.github.com/${prefix}`
+        )
+          candidates.set(v.number, "pr");
+      const pending = [...candidates];
+      let index = 0;
+      await Promise.all(
+        Array.from({ length: Math.min(2, pending.length) }, async () => {
+          while (index < pending.length) {
+            const [id, kind] = pending[index++]!;
+            const response = await http(`${prefix}/${kind === "pr" ? "pulls" : "issues"}/${id}`);
+            if ([404, 410].includes(response.status)) {
+              (kind === "pr" ? pullMap : issueMap).delete(id);
+              continue;
+            }
+            if (response.status !== 200) fail("GITHUB_WORK_UNAVAILABLE");
+            const v = response.value;
+            if (v.number !== id) fail("GITHUB_WORK_DATA");
+            // Overwrite recent records too: removals/closure must erase stale attention.
+            (kind === "pr" ? pullMap : issueMap).set(id, v);
+          }
+        }),
+      );
       const activity: GitHubActivitySource[] = commits.slice(0, 30).map((v: any) => {
         if (!/^[a-f0-9]{40,64}$/.test(v.sha) || typeof v.commit?.message !== "string")
           fail("GITHUB_WORK_DATA");
@@ -779,10 +828,10 @@ export async function githubWorkProbe(
         };
       });
       for (const [type, list] of [
-        ["issue", issues.filter((v: any) => !v.pull_request)],
-        ["pr", pulls],
+        ["issue", [...issueMap.values()]],
+        ["pr", [...pullMap.values()]],
       ] as const) {
-        for (const v of list.slice(0, 30)) {
+        for (const v of list.slice(0, 70)) {
           const item = record(v, type);
           const attention: NonNullable<GitHubActivitySource["attention"]> = [];
           if (item.state === "open") {
@@ -951,6 +1000,13 @@ export async function githubWorkProbe(
           while (nextSource < sources.length) await observeSource(sources[nextSource++]!);
         }),
       );
+      const finalAccess = await inspect();
+      if (
+        finalAccess.identity.id !== access.identity.id ||
+        finalAccess.repositoryId !== access.repositoryId ||
+        finalAccess.access === "unavailable"
+      )
+        fail("GITHUB_WORK_IDENTITY_CHANGED");
       result.activity = activity.filter((v) => Number.isFinite(Date.parse(v.at)));
     } else if (q.kind === "list") {
       // Quoted plain words cannot inject repo/org/author qualifiers or escape the bound repository.

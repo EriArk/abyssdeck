@@ -32,6 +32,8 @@ const paths: Record<string, string[]> = {
   trash: ["M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7"],
   file: ["M6 2h8l4 4v16H6zM14 2v5h5M9 11h6M9 15h6"],
   search: ["M10.5 3a7.5 7.5 0 1 0 0 15 7.5 7.5 0 0 0 0-15ZM16 16l5 5"],
+  "arrow-down": ["m6 14 6 6 6-6M12 4v16"],
+  "to-bottom": ["m6 10 6 6 6-6M12 3v13M5 21h14"],
   "arrow-up": ["m6 10 6-6 6 6M12 4v16"],
   trackpad: ["M3 5h18v14H3zM3 15h18M12 15v4"],
   touch: ["M10 12V4a2 2 0 0 1 4 0v7l3-1 4 3-3 8H9l-5-7a2 2 0 0 1 3-2l3 3"],

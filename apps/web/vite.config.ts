@@ -1,7 +1,9 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import { releaseVersion } from "./releaseVersion.ts";
+import { scaleStyles } from "./scaleStyles";
 export default defineConfig({
+  css: { postcss: { plugins: [scaleStyles()] } },
   plugins: [
     react(),
     {

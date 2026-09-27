@@ -31,6 +31,7 @@ import { NotebookPanel, type NotebookRequest, type WorkspaceDestination } from "
 import { type NotificationTarget, useNotificationPresence } from "./Notifications";
 import { PaneDivider } from "./PaneDivider";
 import { PcRemote } from "./PcRemote";
+import { hydratePersonalScale, type PersonalScale } from "./PersonalScale";
 import { ProjectDialog } from "./ProjectDialog";
 import { ProjectFiles } from "./ProjectFiles";
 import { ProjectGptWindow } from "./ProjectGptWindow";
@@ -604,12 +605,13 @@ function Workspace({
         const [{ projects: list }, prefs, machineList] = await Promise.all([
           api<{ projects: Project[] }>("/projects"),
           api<
-            CasePreferences & {
-              projectId?: string;
-              threadId?: string | null;
-              theme?: Theme;
-              view?: View;
-            }
+            CasePreferences &
+              Partial<PersonalScale> & {
+                projectId?: string;
+                threadId?: string | null;
+                theme?: Theme;
+                view?: View;
+              }
           >("/preferences"),
           api<{ machines: Machine[] }>("/machines"),
         ]);
@@ -617,6 +619,7 @@ function Workspace({
         setProjects(list);
         if (prefs.theme) setTheme(prefs.theme);
         hydrateCaseColors(prefs);
+        hydratePersonalScale(prefs);
         if (prefs.view)
           setView(["remote", "overview", "files"].includes(prefs.view) ? "chat" : prefs.view);
         const visible = list.filter((p) => !p.archived && !p.deleted);
