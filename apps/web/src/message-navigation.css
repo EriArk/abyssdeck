@@ -9,29 +9,88 @@
 .chat-reading-area > :is(.chat-scroll, .gpt-message-scroll) {
   flex: 1;
   min-height: 0;
-  padding-bottom: 64px;
+}
+.chat-status-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 4px 6px;
+  flex: none;
+  margin: 0 12px 5px;
+  min-width: 0;
+}
+.chat-status-row:empty {
+  display: none;
+}
+.chat-status-row > .turn-status {
+  min-width: 0;
+  margin: 0;
+  padding: 0 8px;
+  gap: 0 6px;
+}
+.chat-status-row .turn-status-toggle > span:nth-of-type(2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .message-navigation {
-  position: absolute;
-  bottom: 6px;
-  right: 12px;
+  --message-nav-size: 36px;
+  grid-column: 2;
+  grid-row: 1;
   display: grid;
-  grid-template-columns: repeat(3, var(--scale-target, 44px));
-  gap: 2px;
-  padding: 2px;
-  border-radius: var(--radius);
-  background: var(--window-shell, var(--paper));
+  grid-template-columns: repeat(3, var(--message-nav-size));
+  gap: 8px;
+  padding: 4px;
   color: var(--window-ink, var(--ink));
-  border: 1px solid var(--line);
-  z-index: 2;
 }
-.message-navigation .icon-button {
-  width: var(--scale-target, 44px);
-  height: var(--scale-target, 44px);
-  min-width: 44px;
-  min-height: 44px;
+/* Smaller visible keys; the transparent hit area remains 44px without overlap. */
+:root .chat-status-row .message-navigation .icon-button {
+  position: relative;
+  width: var(--message-nav-size);
+  height: var(--message-nav-size);
+  min-width: var(--message-nav-size);
+  min-height: var(--message-nav-size);
   padding: 0;
+}
+.message-navigation .icon-button::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
 }
 .message-navigation button:disabled {
   opacity: 0.35;
+}
+.gpt-status-row {
+  margin-inline: 0;
+}
+.gpt-status-row > .gpt-progress-panel {
+  display: contents;
+}
+.gpt-status-row .gpt-progress {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+}
+.gpt-status-row .gpt-progress-toggle {
+  gap: 6px;
+  padding: 4px;
+}
+.gpt-status-row .gpt-progress-details {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+
+:root .chat-status-row :is(.turn-status, .gpt-progress) > .icon-button {
+  flex: 0 0 36px;
+  width: 36px;
+  min-width: 36px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+}
+.gpt-status-row .gpt-progress-toggle > svg:not(:last-child) {
+  display: none;
 }

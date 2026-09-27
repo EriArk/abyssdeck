@@ -2044,20 +2044,6 @@ export function GptWorkspace({
                   ))}
               </div>
             </div>
-            <MessageNavigation
-              scope={"gpt:" + (selected || draftScope)}
-              scroller={scroll}
-              following={sticky}
-              hasOlder={!!before}
-              loading={loading}
-              older={async () => {
-                if (before) await history(selected, before);
-              }}
-              latest={async () => {
-                completionLocked.current = false;
-                if (contextMessage || hasNewer) await history(selected, undefined, true);
-              }}
-            />
           </div>
           <div className="gpt-composer-wrap">
             {nativeOperations.panel}
@@ -2082,39 +2068,57 @@ export function GptWorkspace({
                 )}
               </div>
             )}
-            {(active || awaitingReply || busy) && (
-              <GptProgress
-                key={active?.id ?? awaitingReply?.id ?? "sending"}
-                items={
-                  cachedProgress.length
-                    ? cachedProgress
-                    : active?.status === "running"
-                      ? (active.progress ?? [])
-                      : []
-                }
-                live={
-                  live && live.jobId === (active?.id ?? awaitingReply?.id) ? live.items : undefined
-                }
-                running
-                label={
-                  active?.status === "running"
-                    ? titles.running
-                    : active && waitingGptJob(active, jobs)
-                      ? titles.queued
-                      : awaitingReply
-                        ? "Ожидаем ответ GPT"
-                        : "Отправляется"
-                }
-                onStop={
-                  active
-                    ? () =>
-                        void action(async () => {
-                          await api("/gpt/jobs/" + active.id + "/cancel", { method: "POST" });
-                        })
-                    : undefined
-                }
+            <div className="chat-status-row gpt-status-row">
+              {(active || awaitingReply || busy) && (
+                <GptProgress
+                  key={active?.id ?? awaitingReply?.id ?? "sending"}
+                  items={
+                    cachedProgress.length
+                      ? cachedProgress
+                      : active?.status === "running"
+                        ? (active.progress ?? [])
+                        : []
+                  }
+                  live={
+                    live && live.jobId === (active?.id ?? awaitingReply?.id)
+                      ? live.items
+                      : undefined
+                  }
+                  running
+                  label={
+                    active?.status === "running"
+                      ? titles.running
+                      : active && waitingGptJob(active, jobs)
+                        ? titles.queued
+                        : awaitingReply
+                          ? "Ожидаем ответ GPT"
+                          : "Отправляется"
+                  }
+                  onStop={
+                    active
+                      ? () =>
+                          void action(async () => {
+                            await api("/gpt/jobs/" + active.id + "/cancel", { method: "POST" });
+                          })
+                      : undefined
+                  }
+                />
+              )}
+              <MessageNavigation
+                scope={"gpt:" + (selected || draftScope)}
+                scroller={scroll}
+                following={sticky}
+                hasOlder={!!before}
+                loading={loading}
+                older={async () => {
+                  if (before) await history(selected, before);
+                }}
+                latest={async () => {
+                  completionLocked.current = false;
+                  if (contextMessage || hasNewer) await history(selected, undefined, true);
+                }}
               />
-            )}
+            </div>
             {dictation.panel}
             <form
               className="composer gpt-composer"

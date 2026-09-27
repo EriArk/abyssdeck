@@ -811,6 +811,83 @@ export function Chat({
               )}
             </div>
           </div>
+        </div>
+        <UpdateNotice visible={visible} busy={busy || attachments.busy} />
+        {threadId && (
+          <ConnectionRecovery
+            key={threadId}
+            needed={state.thread.status === "unknown"}
+            error={state.error}
+            disabled={busy || !visible}
+            onRecover={onReconnect}
+          />
+        )}
+        <div className="chat-status-row">
+          {(sending || queue.busy || active) && (
+            <div
+              className={`turn-status ${state.approvals.length ? "needs-answer" : ""}`}
+              role="status"
+              aria-live="polite"
+            >
+              <button
+                type="button"
+                className="turn-status-toggle"
+                aria-label="Ход работы"
+                aria-expanded={detailsOpen}
+                aria-controls="turn-details"
+                onClick={() => setDetailsOpen((v) => !v)}
+              >
+                <span
+                  className={state.approvals.length ? "status-dot attention" : "spinner"}
+                  role="img"
+                  aria-label={state.approvals.length ? "Нужен ответ" : "Codex работает"}
+                />
+                <span>
+                  {queue.busy
+                    ? "Передаём сообщение…"
+                    : sending
+                      ? attachments.files.length
+                        ? "Передаём вложения…"
+                        : "Отправляем сообщение…"
+                      : state.approvals.length
+                        ? "Codex ждёт твоего ответа"
+                        : state.thread.activitySource === "external"
+                          ? "Codex работает в другом клиенте"
+                          : state.progress || statusLabel(state.thread.status)}
+                </span>
+                <span className="details-chevron">
+                  <Icon name="chevron" size={14} />
+                </span>
+              </button>
+              {active && (draft.trim() || attachments.files.length > 0) && (
+                <button
+                  type="button"
+                  className="icon-button"
+                  title="Остановить Codex"
+                  aria-label="Остановить Codex"
+                  disabled={busy || state.thread.activitySource === "external"}
+                  onClick={onStop}
+                >
+                  <Icon name="stop" size={16} />
+                </button>
+              )}
+              {state.approvals.length > 0 && (
+                <button
+                  type="button"
+                  className="icon-button"
+                  title="К вопросу"
+                  aria-label="К вопросу"
+                  onClick={() =>
+                    scroller.current
+                      ?.querySelector(".approval")
+                      ?.scrollIntoView({ block: "center" })
+                  }
+                >
+                  <Icon name="chat" size={16} />
+                </button>
+              )}
+            </div>
+          )}
           <MessageNavigation
             scope={"codex:" + threadId}
             scroller={scroller}
@@ -824,76 +901,6 @@ export function Chat({
             }}
           />
         </div>
-        <UpdateNotice visible={visible} busy={busy || attachments.busy} />
-        {threadId && (
-          <ConnectionRecovery
-            key={threadId}
-            needed={state.thread.status === "unknown"}
-            error={state.error}
-            disabled={busy || !visible}
-            onRecover={onReconnect}
-          />
-        )}
-        {(sending || queue.busy || active) && (
-          <div
-            className={`turn-status ${state.approvals.length ? "needs-answer" : ""}`}
-            role="status"
-            aria-live="polite"
-          >
-            <button
-              type="button"
-              className="turn-status-toggle"
-              aria-label="Ход работы"
-              aria-expanded={detailsOpen}
-              aria-controls="turn-details"
-              onClick={() => setDetailsOpen((v) => !v)}
-            >
-              <span
-                className={state.approvals.length ? "status-dot attention" : "spinner"}
-                role="img"
-                aria-label={state.approvals.length ? "Нужен ответ" : "Codex работает"}
-              />
-              <span>
-                {queue.busy
-                  ? "Передаём сообщение…"
-                  : sending
-                    ? attachments.files.length
-                      ? "Передаём вложения…"
-                      : "Отправляем сообщение…"
-                    : state.approvals.length
-                      ? "Codex ждёт твоего ответа"
-                      : state.thread.activitySource === "external"
-                        ? "Codex работает в другом клиенте"
-                        : state.progress || statusLabel(state.thread.status)}
-              </span>
-              <span className="details-chevron">
-                <Icon name="chevron" size={14} />
-              </span>
-            </button>
-            {active && (draft.trim() || attachments.files.length > 0) && (
-              <button
-                type="button"
-                className="text-button"
-                aria-label="Остановить Codex"
-                disabled={busy || state.thread.activitySource === "external"}
-                onClick={onStop}
-              >
-                Остановить
-              </button>
-            )}
-            {state.approvals.length > 0 && (
-              <button
-                type="button"
-                className="text-button"
-                onClick={() =>
-                  scroller.current?.querySelector(".approval")?.scrollIntoView({ block: "center" })
-                }
-              >
-                К вопросу ↑
-              </button>
-            )}
-          </div>
-        )}
         {detailsOpen && (sending || queue.busy || active) && (
           <TurnDetails threadId={threadId} turnId={state.thread.activeTurnId} />
         )}

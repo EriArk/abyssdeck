@@ -163,7 +163,7 @@ export function MessageNavigation(props: Props) {
           onPointerDown={(e) => e.preventDefault()}
           onClick={() => void move(direction)}
         >
-          <Icon name={icon} size={18} />
+          <Icon name={icon} size={16} />
         </button>
       ))}
     </nav>

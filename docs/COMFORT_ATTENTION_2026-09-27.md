@@ -27,8 +27,9 @@ readers away from the bottom retain their message anchor during reflow.
 ## Conversation navigation
 
 One `MessageNavigation` component serves Codex, standalone GPT, Project GPT and
-room GPT. A compact overlay above the composer moves to Previous / Next public
-message or End. It uses stable message IDs, skips technical/commentary records,
+room GPT. Compact keys beside the task-progress control move to Previous / Next public
+message or End. Visible keys are 36px with 44px hit areas; expanded progress uses
+the full row width. It uses stable message IDs, skips technical/commentary records,
 and remembers an intentional target where browser scroll clamping would otherwise
 make repeated taps oscillate. User scrolling releases that target. Empty chats do
 not show a useless disabled toolbar.

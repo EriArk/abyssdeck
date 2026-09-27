@@ -75,6 +75,35 @@ try {
           currentEffort: "2",
         },
       });
+    if (path === "/api/gpt/jobs")
+      return route.fulfill({
+        json: {
+          items: [
+            {
+              id: "layout-job",
+              nativeId: "qa-gpt",
+              status: "running",
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+              text: "",
+              files: [],
+              assets: [],
+              answer: "",
+              progress: [
+                {
+                  id: "step",
+                  activity: "code",
+                  text: "Выполняет команду с очень длинным названием",
+                },
+              ],
+              model: "Latest",
+              effort: "2",
+              error: "",
+            },
+          ],
+          stamp: 1,
+        },
+      });
     if (path.endsWith("/messages")) {
       const before = url.searchParams.has("before");
       if (before) olderGpt++;
@@ -202,9 +231,8 @@ try {
   await expect.poll(font).toBeCloseTo(normal * 1.4, 1);
   await at(".chat-scroll", "m3");
   const width = () =>
-      nav
-        .getByRole("button")
-        .first()
+      settings
+        .getByRole("button", { name: "Закрыть настройки" })
         .evaluate((el) => el.getBoundingClientRect().width),
     originalWidth = await width();
   await ui.getByRole("button", { name: "120%", exact: true }).click();
@@ -236,6 +264,42 @@ try {
   }
   await settings.getByRole("button", { name: "Закрыть настройки" }).click();
   await expect(composer).toHaveValue("Сохранить этот черновик\nвторая строка");
+  f.sessions.emit("event", f.store.append(f.thread.id, "turn.started", {}, "layout-turn"));
+  await expect(page.getByRole("button", { name: "Ход работы", exact: true })).toBeVisible();
+  const inspectRow = async (row, progress, name) => {
+    for (const theme of ["crt-green", "organizer", "hitech-2000s", "classic-dark"]) {
+      await page.evaluate((t) => (document.documentElement.dataset.theme = t), theme);
+      for (const [width, height] of [
+        [320, 568],
+        [390, 844],
+        [390, 400],
+        [820, 1024],
+        [1366, 1024],
+      ]) {
+        await page.setViewportSize({ width, height });
+        const key = await row.locator(".message-navigation button").first().boundingBox(),
+          status = await progress.boundingBox();
+        assert(
+          key && status && Math.abs(key.y - status.y) < 10,
+          JSON.stringify({ name, theme, width, key, status }),
+        );
+        assert(key.x >= status.x + status.width - 1);
+        assert(key.width < 44 && key.width >= 32);
+        assert(await row.evaluate((el) => el.scrollWidth <= el.clientWidth + 1));
+        await page.screenshot({
+          path: `.local/qa-comfort/${engine}-${name}-${theme}-${width}-${height}.png`,
+        });
+      }
+    }
+  };
+  await inspectRow(
+    page.locator(".chat-pane .chat-status-row"),
+    page.getByRole("button", { name: "Ход работы", exact: true }),
+    "codex-status",
+  );
+  await page.getByRole("button", { name: "Ход работы", exact: true }).click();
+  await expect(page.locator(".turn-details")).toBeVisible();
+  await page.getByRole("button", { name: "Ход работы", exact: true }).click();
   for (const [width, height] of [
     [390, 844],
     [390, 400],
@@ -269,10 +333,23 @@ try {
   assert.equal(olderGpt, 1);
   await gnav.getByRole("button", { name: "Следующее сообщение" }).click();
   await at(".gpt-message-scroll", "m2");
+  await expect(page.getByRole("button", { name: "Ход ответа GPT", exact: true })).toBeVisible();
+  await inspectRow(
+    page.locator(".gpt-status-row"),
+    page.getByRole("button", { name: "Ход ответа GPT", exact: true }),
+    "gpt-status",
+  );
+  await page.getByRole("button", { name: "Ход ответа GPT", exact: true }).click();
+  const details = page.getByRole("region", { name: "Этапы GPT", exact: true });
+  await expect(details).toBeVisible();
+  const detailsBox = await details.boundingBox(),
+    rowBox = await page.locator(".gpt-status-row").boundingBox();
+  assert(Math.abs(detailsBox.width - rowBox.width) < 2);
+  await page.screenshot({ path: `.local/qa-comfort/${engine}-gpt-status-expanded.png` });
   assert.deepEqual(errors, []);
   assert.equal(f.calls.filter((c) => c.method === "turn/start").length, 0);
   console.log(
-    `${engine}: scales, persistence, draft, canonical paged Codex/GPT navigation and 16 themed layouts passed`,
+    `${engine}: scales, persistence, draft, canonical paged Codex/GPT navigation and compact shared progress/navigation rows across all themes passed`,
   );
 } finally {
   await browser.close();

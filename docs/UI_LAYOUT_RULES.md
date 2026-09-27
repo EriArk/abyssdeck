@@ -135,3 +135,5 @@ Keep form text at least 16px and important targets at least 44px. Canvas/model/
 Remote coordinates and terminal metrics remain owned by their respective viewer.
 Message navigation is one compact three-key overlay within the reading viewport,
 above the composer; preserve exact message identity and canonical paged history.
+
+Owner correction, 27 September: message Previous/Next/End controls share the task-progress row on its right in Codex and GPT. Use compact 36px visible keys with 44px hit areas, no separate framed floating strip or reserved message-space gap. Truncate collapsed progress labels within the available width; expanded public details retain the full row width.
