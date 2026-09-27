@@ -5,6 +5,7 @@ import { mergeActivityPage } from "./activityCache";
 import { ApiError, api, messageOf } from "./api";
 import { readAttentionView, saveAttentionView } from "./attentionCache";
 import { Icon } from "./icons";
+import { useWorkspaceDialog } from "./useWorkspaceDialog";
 
 const labels: Record<GitHubAttentionKind, string> = {
   assigned: "Назначено тебе",
@@ -315,5 +316,39 @@ export function GitHubAttention({
         />
       )}
     </div>
+  );
+}
+
+export function GitHubAttentionWindow({
+  space,
+  onClose,
+}: {
+  space: CollaborationSpace;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+  useWorkspaceDialog(ref);
+  return (
+    <dialog
+      ref={ref}
+      className="space-dialog workspace-window activity-dialog"
+      aria-label="GitHub требует внимания"
+      onCancel={onClose}
+    >
+      <header className="panel-heading notebook-heading">
+        <h2>GitHub · Требует внимания</h2>
+        <button
+          type="button"
+          className="icon-button"
+          aria-label="Закрыть события GitHub"
+          onClick={onClose}
+        >
+          <Icon name="close" />
+        </button>
+      </header>
+      <div className="space-dialog-body shared-scroll">
+        <GitHubAttention spaces={[space]} onCount={() => {}} />
+      </div>
+    </dialog>
   );
 }

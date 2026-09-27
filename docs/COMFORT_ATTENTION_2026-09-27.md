@@ -62,8 +62,25 @@ this packet. GitHub search can have indexing delay.
 Endpoint semantics: [repository Issues and assignee filtering](https://docs.github.com/en/rest/issues/issues)
 and [GitHub issue/PR search qualifiers](https://github.com/github/docs/blob/main/content/search-github/searching-on-github/searching-issues-and-pull-requests.md).
 
+## Internal notifications (owner steering)
+
+The workspace bell no longer mounts or polls GitHub attention. Messages, invitations,
+access requests and local discussion mentions retain their existing private flows.
+Activity → GitHub · Для тебя opens the directed GitHub view above the mounted feed.
+
+The private `/workspace/notices` projection adds last unread Codex completion and
+current attention, recent terminal GPT jobs and plans explicitly marked done.
+It uses canonical local state, independently of push permission, with at most 100
+sources per kind and a 30-day window (current Codex attention can be older). It is
+not an exhaustive event archive. Stable source/version IDs and bounded read marks
+use the existing actor store. Open revalidates availability and navigates internally;
+no action/send is replayed and drafts are not replaced. An answer completing does
+not implicitly mark a plan done. No migrations or helper contract changes are needed.
+
 ## Verification and delivery
 
+- `workspace-notices.test.mjs`: push-independent private notices, read/version identities, stale and archived source rejection, no dispatch and explicit plan status.
+- `internal-notices.browser.mjs`: actual built app with the private Hub inbox, exact plan opening and parent draft, zero GitHub reads, 12 themed phone/keyboard/tablet layouts in Chromium and WebKit.
 - `personal-scale.test.mjs`: authentication, range/type/unknown-field rejection,
   separate private stores and preserving independent preferences.
 - `comfort.browser.mjs`: real Hub/app fixture, public-message adjacency, skipped

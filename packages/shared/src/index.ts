@@ -433,3 +433,5 @@ export * from "./project-gpt.js";
 export * from "./project-preparation.js";
 
 export * from "./workspace-commands.js";
+
+export * from "./workspace-notices.js";

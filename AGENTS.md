@@ -1,5 +1,11 @@
 # AGENTS.md
 
+## Owner-requested internal notifications (2026-09-27)
+
+- The workspace bell is for internal events: messages, invitations, shared access and discussions, completed work and plans. It must not poll GitHub or wait for machine connectivity.
+- GitHub assignments/review/check attention belongs in Space Activity, with internal source viewers and local read marks. Keep existing internal notifications and exact private source navigation; reading a notice never replays work.
+
+
 ## Owner-requested save continuity everywhere (2026-09-26)
 
 - Every file-saving entry uses the common DownloadLink flow, including universal

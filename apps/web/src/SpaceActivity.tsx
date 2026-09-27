@@ -16,6 +16,7 @@ import {
   saveActivityView,
 } from "./activityCache";
 import { ApiError, api, messageOf } from "./api";
+import { GitHubAttentionWindow } from "./GitHubAttention";
 import { IntakeButton } from "./IntakeWindow";
 import { Icon } from "./icons";
 import { SharedResult } from "./ResultSharing";
@@ -61,6 +62,7 @@ export function SpaceActivity({
   onProject: (id: string) => void;
   onDiscuss: (handoff: ActivityGptHandoff) => void;
 }) {
+  const [githubOpen, setGithubOpen] = useState(false);
   const cacheScope = activityScope(space);
   const [initial] = useState(() => readActivityView(cacheScope));
   const [local, setLocal] = useState<SpaceJournalEvent[]>(initial.local);
@@ -314,6 +316,13 @@ export function SpaceActivity({
       className="space-activity"
       aria-label="Активность пространства"
     >
+      <div className="activity-attention-heading">
+        <strong>События пространства</strong>
+        <button type="button" className="secondary" onClick={() => setGithubOpen(true)}>
+          GitHub · Для тебя
+        </button>
+      </div>
+      {githubOpen && <GitHubAttentionWindow space={space} onClose={() => setGithubOpen(false)} />}
       <div className="activity-toolbar">
         <label>
           <span>Проект</span>

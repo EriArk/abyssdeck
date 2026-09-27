@@ -16,7 +16,8 @@ export const openHumanConversation = (id = "") =>
   window.dispatchEvent(new CustomEvent(openEvent, { detail: id }));
 export function useHumanConversations() {
   const [items, setItems] = useState<HumanConversation[]>([]),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [ready, setReady] = useState(false);
   const active = useRef(true),
     pending = useRef<Promise<void> | null>(null);
   const refresh = useCallback(() => {
@@ -26,6 +27,7 @@ export function useHumanConversations() {
       .then((r) => {
         if (active.current) {
           setItems(r.items);
+          setReady(true);
           setError("");
         }
       })
@@ -48,7 +50,7 @@ export function useHumanConversations() {
       clearInterval(timer);
     };
   }, [refresh]);
-  return { items, error, refresh };
+  return { items, error, refresh, ready };
 }
 export function CommunicationLauncher() {
   const catalog = useHumanConversations(),

@@ -983,6 +983,16 @@ function Workspace({
   }, [pendingNotebookResult, state.loading, state.thread.id]);
   const deliveryNavigation = useRef(openNotebookTarget);
   deliveryNavigation.current = openNotebookTarget;
+  useEffect(() => {
+    const open = (event: Event) => {
+      const target = (event as CustomEvent<NotebookLink>).detail;
+      spaces.open(null);
+      deliveryNavigation.current(target);
+    };
+    window.addEventListener("open-workspace-notice", open);
+    return () => window.removeEventListener("open-workspace-notice", open);
+  }, [spaces.open]);
+
   const previewRemote = useRef((id: string) => {
     openMachineProject(id, false);
     setRightHidden(false);

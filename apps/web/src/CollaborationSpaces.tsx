@@ -7,12 +7,11 @@ import type {
   ProjectRules,
   TeamContact,
 } from "@codex-web/shared";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ActivityAttentionWindow } from "./ActivityDiscussion";
 import { pageWorkspace, accountLocalStorage as storage } from "./accountStorage";
 import { BrainstormWindow } from "./Brainstorm";
 import { CommunicationNotices, useHumanConversations } from "./Communication";
-import { GitHubAttention } from "./GitHubAttention";
 import { IntakeButton } from "./IntakeWindow";
 import { Icon } from "./icons";
 import type { ProjectSetupSeed } from "./ProjectDialog";
@@ -28,6 +27,7 @@ import { TeamContactPicker } from "./TeamContactPicker";
 import type { Project } from "./types";
 import type { SpacesController } from "./useCollaborationSpaces";
 import { useWorkspaceDialog } from "./useWorkspaceDialog";
+import { useWorkNotices, WorkNotices } from "./WorkNotices";
 import "./collaboration-spaces.css";
 
 const accessLabels = {
@@ -53,8 +53,10 @@ export function SpaceModeControl({ spaces }: { spaces: SpacesController }) {
 }
 export function SpaceBell({ spaces }: { spaces: SpacesController }) {
   const conversations = useHumanConversations();
+  const workNotices = useWorkNotices();
   if (!spaces.enabled) return null;
   const count =
+    (workNotices.value?.items.length ?? 0) +
     conversations.items.reduce((n, c) => n + (c.muted ? 0 : c.unread), 0) +
     spaces.catalog.invitations.length +
     spaces.catalog.spaces.reduce(
@@ -278,13 +280,8 @@ function SpaceWindowContent({
   useWorkspaceDialog(dialog);
   const target = spaces.window!;
   const receiptAction = useSharedAction();
-  const [githubCount, setGithubCount] = useState(0),
-    [githubBusy, setGithubBusy] = useState(true);
-  const githubStatus = useCallback((count: number, busy: boolean) => {
-    setGithubCount(count);
-    setGithubBusy(busy);
-  }, []);
   const conversations = useHumanConversations();
+  const workNotices = useWorkNotices();
   const invitation =
     "id" in target ? spaces.catalog.invitations.find((i) => i.spaceId === target.id) : undefined;
   const space = "id" in target ? spaces.catalog.spaces.find((s) => s.id === target.id) : undefined;
@@ -353,14 +350,16 @@ function SpaceWindowContent({
         {target.kind === "invitations" && (
           <>
             <CommunicationNotices />
-            <GitHubAttention spaces={spaces.catalog.spaces} onCount={githubStatus} />
+            <WorkNotices notices={workNotices} />
             {receiptAction.error && (
               <p className="notice" role="alert">
                 {receiptAction.error}
               </p>
             )}
-            {!githubBusy &&
-              !githubCount &&
+            {spaces.ready &&
+              conversations.ready &&
+              !!workNotices.value &&
+              !workNotices.value.items.length &&
               !conversations.items.some((c) => c.unread && !c.muted) &&
               spaces.catalog.invitations.length === 0 &&
               !spaces.catalog.spaces.some(
