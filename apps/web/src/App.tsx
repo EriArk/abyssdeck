@@ -58,6 +58,11 @@ import { useNavigation } from "./useNavigation";
 import { useProjectDrawer } from "./useProjectDrawer";
 import { useProjectSwipe } from "./useProjectSwipe";
 import { useWorkspace } from "./useWorkspace";
+import {
+  rememberDestination,
+  useWorkspaceCommandSource,
+  WorkspaceCommandHost,
+} from "./WorkspaceCommands";
 import { WorkspaceHelp } from "./WorkspaceHelp";
 import { WorkspaceSettings } from "./WorkspaceSettings";
 
@@ -738,6 +743,7 @@ function Workspace({
     };
   }, [view, threadId, state.revision]);
   const selectThread = (id: string, owner = projectId) => {
+    rememberDestination({ client: "codex", kind: "thread", id });
     chooseSharedProject(owner);
     if (owner !== projectId) {
       setProjectId(owner);
@@ -774,6 +780,7 @@ function Workspace({
       });
       setProjectId(owner);
       setThreadId(thread.id);
+      rememberDestination({ client: "codex", kind: "thread", id: thread.id });
       chooseSharedProject(owner);
       setThreads((list) => [thread, ...list.filter((item) => item.projectId === owner)]);
       setThreadGroups((groups) => ({ ...groups, [owner]: [thread, ...(groups[owner] ?? [])] }));
@@ -888,6 +895,7 @@ function Workspace({
     setView("results");
   };
   const openProjectOverview = (id: string) => {
+    rememberDestination({ client: "codex", kind: "project", id });
     setOverviewId(id);
     setDrawer(false);
   };
@@ -1142,6 +1150,129 @@ function Workspace({
     )
       void refreshCatalog();
   }, [navigationState.state.library, refreshCatalog]);
+  useWorkspaceCommandSource("global", {
+    client,
+    actions: {
+      "switch-client": () => {
+        setDrawer(false);
+        setClient(client === "codex" ? "gpt" : "codex");
+      },
+      settings: () => {
+        setDrawer(false);
+        setSettings(true);
+      },
+      remote: () => {
+        setDrawer(false);
+        setPcRemote(true);
+      },
+    },
+    open: (item) => {
+      const ref = item.ref;
+      const ownerId =
+        item.projectId ?? (ref.kind === "project" || ref.kind === "discuss" ? ref.id : "");
+      const destinationSpace =
+        ref.client === "codex"
+          ? spaces.catalog.spaces.find((s) =>
+              s.projects.some((p) => p.personalProjectId === ownerId),
+            )
+          : undefined;
+      const nextMode = destinationSpace ? "spaces" : "personal";
+      const nextEntry = spaces.entry + (spaces.mode === nextMode ? 0 : 1);
+      if (ref.client === "codex") switchSpaceMode(nextMode);
+      setDrawer(false);
+      if (ref.client === "codex" && ref.kind === "discuss") {
+        setClient("codex");
+        setProjectGpt({ id: ref.id, name: item.title });
+      } else if (ref.client === "codex" && ref.kind === "project") {
+        setClient("codex");
+        openProjectOverview(ref.id);
+      } else if (ref.client !== "shared")
+        openNotebookTarget({
+          client: ref.client,
+          kind: ref.kind === "project" ? "project" : "thread",
+          id: ref.id,
+          title: item.title,
+          projectId: item.projectId,
+          ...(ref.kind === "thread" ? { threadId: ref.id } : {}),
+          availability: "available",
+        });
+      if (destinationSpace && ownerId) {
+        spaces.select(destinationSpace.id);
+        setSharedSelection({ entry: nextEntry, space: destinationSpace.id, project: ownerId });
+      }
+    },
+  });
+  useWorkspaceCommandSource(
+    "codex",
+    client === "codex"
+      ? {
+          client: "codex",
+          projectId: spaceHome ? undefined : projectId,
+          actions: {
+            ...(!spaceHome && project && !project.unassigned
+              ? {
+                  home: () => openProjectOverview(project.id),
+                  work: () => {
+                    setOverviewId("");
+                    setProjectGpt(null);
+                    setView("chat");
+                    setDrawer(false);
+                  },
+                  discuss: () => {
+                    rememberDestination({ client: "codex", kind: "discuss", id: project.id });
+                    setProjectGpt({ id: project.id, name: project.name });
+                    setDrawer(false);
+                  },
+                  files: () => {
+                    setDrawer(false);
+                    setProjectTool("files");
+                  },
+                  git: () => {
+                    setDrawer(false);
+                    setProjectTool("git");
+                  },
+                }
+              : {}),
+            ...(!spaceHome && projectId && !busy ? { "new-chat": () => newThread() } : {}),
+            ...(!spaceHome && threadId
+              ? {
+                  results: () => {
+                    setDrawer(false);
+                    showResult("");
+                  },
+                }
+              : {}),
+            notes: () => openNotebook(),
+            tasks: () => openNotebook("tasks"),
+            "content-search": () => {
+              setDrawer(false);
+              setContentSearch({ client: "codex", threadId });
+            },
+          },
+        }
+      : null,
+  );
+  useWorkspaceCommandSource("shared", {
+    client,
+    actions: {},
+    open: ({ ref }) => {
+      if (ref.kind === "conversation") {
+        window.dispatchEvent(new CustomEvent("open-human-conversation", { detail: ref.id }));
+        return;
+      }
+      if (ref.kind === "brainstorm") {
+        setClient("codex");
+        setDrawer(false);
+        spaces.open({ kind: "brainstorm", id: ref.id });
+        return;
+      }
+      setClient("codex");
+      setDrawer(false);
+      spaces.setMode("spaces");
+      spaces.select(ref.id);
+      if (ref.kind === "activity") spaces.open({ kind: "activity", id: ref.id });
+    },
+  });
   const navigation = (
     <ProjectNavigation
       spaces={spaces}
@@ -1410,7 +1541,10 @@ function Workspace({
             onTarget={openNotebookTarget}
             onNotebook={setNotebook}
             onNew={() => newThread(overviewId)}
-            onProjectGpt={() => setProjectGpt({ id: overviewId, name: overviewProject.name })}
+            onProjectGpt={() => {
+              rememberDestination({ client: "codex", kind: "discuss", id: overviewId });
+              setProjectGpt({ id: overviewId, name: overviewProject.name });
+            }}
             onFiles={() => {
               selectOverviewProject();
               setProjectTool("files", overviewId);
@@ -1752,6 +1886,7 @@ function Workspace({
   return (
     <>
       {workspace}
+      <WorkspaceCommandHost onTarget={openNotebookTarget} />
       <WorkspaceHelp topic={client === "gpt" ? "gpt" : "codex"} />
       <WorkspaceSettings
         open={settings}

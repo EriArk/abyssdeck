@@ -76,6 +76,7 @@ import { registerWorkspaceTasks } from "./tasks.js";
 import { registerTechnicalPreviews } from "./technicalPreviews.js";
 import { registerUsageResets } from "./usage-resets.js";
 import { webSecurity } from "./web-security.js";
+import { registerWorkspaceNavigation } from "./workspace-navigation.js";
 
 const idSchema = z.string().min(1).max(100);
 const paramId = (req: FastifyRequest): string => z.object({ id: idSchema }).parse(req.params).id;
@@ -255,6 +256,7 @@ export async function createApp(
   );
   registerChunkUploads(app, config, store, sessions.attachments, gpt, options.authorizeExecution);
   registerContentSearch(app, sessions, gpt);
+  registerWorkspaceNavigation(app, sessions);
   const bridgeDoctor = registerBridgeDoctor(app, sessions, gpt);
   const push = registerPush(app, store, auth, config.hub.publicBaseUrl, {
     ...options.push,

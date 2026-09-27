@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Icon } from "./icons";
+import { CommandEntry, NavigationPlaces } from "./WorkspaceCommands";
 import "./navigationHeader.css";
 
 export function NavigationHeader({
@@ -12,18 +13,22 @@ export function NavigationHeader({
   onClose: () => void;
 }) {
   return (
-    <div className="navigation-top-row navigation-header">
-      {leading}
-      {children}
-      <button
-        type="button"
-        className="icon-button mobile-only panel-close"
-        aria-label="Закрыть проекты"
-        data-drawer-close
-        onClick={onClose}
-      >
-        <Icon name="close" />
-      </button>
-    </div>
+    <>
+      <div className="navigation-top-row navigation-header">
+        {leading}
+        {children}
+        <button
+          type="button"
+          className="icon-button mobile-only panel-close"
+          aria-label="Закрыть проекты"
+          data-drawer-close
+          onClick={onClose}
+        >
+          <Icon name="close" />
+        </button>
+      </div>
+      <CommandEntry />
+      <NavigationPlaces />
+    </>
   );
 }

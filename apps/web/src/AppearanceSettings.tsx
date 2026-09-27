@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 import { accountLocalStorage as localStorage } from "./accountStorage.ts";
 import { CaseColorSettings } from "./CaseColorSettings";
 import { type Theme, themes } from "./theme";
+import { ShortcutSettings } from "./WorkspaceCommands";
 
 const layoutKey = "codex-legacy-layout";
 const layoutEvent = "codex-layout-change";
@@ -38,7 +39,9 @@ export function useLegacyLayout() {
 export function AppearanceSettings({
   theme,
   onTheme,
+  visible = true,
 }: {
+  visible?: boolean;
   theme: Theme;
   onTheme: (id: Theme) => void;
 }) {
@@ -76,6 +79,7 @@ export function AppearanceSettings({
         />
         Прежняя компоновка
       </label>
+      <ShortcutSettings visible={visible} />
     </fieldset>
   );
 }

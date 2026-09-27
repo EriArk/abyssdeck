@@ -8,6 +8,7 @@ import { durableKey } from "./ResultSharing";
 import { SpaceChat } from "./SpaceChat";
 import { TeamContactPicker } from "./TeamContactPicker";
 import { useWorkspaceDialog } from "./useWorkspaceDialog";
+import { rememberDestination } from "./WorkspaceCommands";
 import "./communication.css";
 
 const openEvent = "open-human-conversation";
@@ -135,6 +136,7 @@ function CommunicationWindow({
     [settings, setSettings] = useState(false),
     [visited, setVisited] = useState(initial ? [initial] : []);
   const select = useCallback((id: string) => {
+    if (id) rememberDestination({ client: "shared", kind: "conversation", id });
     setSelected(id);
     setCreating(false);
     setSettings(false);

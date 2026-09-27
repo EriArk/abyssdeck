@@ -162,7 +162,9 @@ export function WorkspaceSettings({
           onClose={onClose}
           overview={(visible) => <UsageLimits machines={machines} open={visible} />}
           sections={{
-            appearance: () => <AppearanceSettings theme={theme} onTheme={onTheme} />,
+            appearance: (visible) => (
+              <AppearanceSettings visible={visible} theme={theme} onTheme={onTheme} />
+            ),
             sound: (visible) => (
               <>
                 <SpeechSettings />

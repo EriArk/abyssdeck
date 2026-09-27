@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { helpArticle, helpArticles, helpCategories, searchHelp } from "./helpContent";
 import { Icon } from "./icons";
 import { useWorkspaceDialog } from "./useWorkspaceDialog";
+import { ShortcutReference } from "./WorkspaceCommands";
 import type { HelpTopic } from "./WorkspaceHelp";
 
 type Position = { id: string | null; index: boolean; scroll: number };
@@ -208,6 +209,7 @@ export function HelpGuide({ initial, onClose }: { initial: HelpTopic; onClose: (
                 {article.title}
               </h2>
               <p className="help-lead">{article.summary}</p>
+              {article.id === "keys" && <ShortcutReference />}
               <nav className="help-contents" aria-label="В этой статье">
                 {article.sections.map((section, i) => (
                   <button

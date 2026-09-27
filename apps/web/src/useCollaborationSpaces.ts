@@ -2,6 +2,7 @@ import type { CollaborationCatalog } from "@codex-web/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { pageWorkspace, accountLocalStorage as storage } from "./accountStorage";
 import { api } from "./api";
+import { rememberDestination } from "./WorkspaceCommands";
 
 export type SpaceWindow =
   | { kind: "brainstorm"; id: string }
@@ -83,9 +84,16 @@ export function useCollaborationSpaces() {
     mode,
     selectedId,
     entry,
-    select,
+    select(id: string) {
+      select(id);
+      if (id) rememberDestination({ client: "shared", kind: "space", id });
+    },
     window,
-    open,
+    open(value: SpaceWindow | null) {
+      open(value);
+      if (value?.kind === "activity" || value?.kind === "brainstorm")
+        rememberDestination({ client: "shared", kind: value.kind, id: value.id });
+    },
     refresh,
     setMode(value: "personal" | "spaces") {
       if (value !== mode) setEntry((v) => v + 1);

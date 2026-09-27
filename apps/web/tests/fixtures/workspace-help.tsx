@@ -4,6 +4,7 @@ import { composerShortcut } from "../../src/composerShortcut";
 import { FileViewerDialog } from "../../src/FileViewerDialog";
 import { SettingsSections } from "../../src/SettingsSections";
 import { useWorkspaceDialog } from "../../src/useWorkspaceDialog";
+import { WorkspaceCommandHost } from "../../src/WorkspaceCommands";
 import { HelpButton, WorkspaceHelp } from "../../src/WorkspaceHelp";
 import "../../src/styles.css";
 import "../../src/themes.css";
@@ -40,6 +41,7 @@ function Fixture() {
     [blocked, setBlocked] = useState(false);
   return (
     <main style={{ padding: 16 }}>
+      <WorkspaceCommandHost onTarget={() => {}} />
       <WorkspaceHelp topic="gpt" />
       <HelpButton />
       <button type="button" onClick={() => setSettings(true)}>

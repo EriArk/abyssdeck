@@ -23,6 +23,7 @@ import {
   workspaceMediaUrl,
 } from "./accountStorage.ts";
 import { api, messageOf } from "./api";
+import { openContentSearch } from "./ContentSearch";
 import { CopyButton } from "./CopyButton";
 import { composerShortcut } from "./composerShortcut";
 import { useDictation } from "./Dictation";
@@ -53,6 +54,7 @@ import { useGptHistory } from "./useGptHistory";
 import { useProjectDrawer } from "./useProjectDrawer";
 import { useProjectSwipe } from "./useProjectSwipe";
 import { useThreadReviews, WorkReviewLink } from "./WorkReviewLink";
+import { rememberDestination, useWorkspaceCommandSource } from "./WorkspaceCommands";
 import { WorkspaceLinks } from "./WorkspaceLinks";
 import { gptSettingsChanged } from "./WorkspaceSettings";
 import "./gpt.css";
@@ -711,6 +713,8 @@ export function GptWorkspace({
     if (sticky.current && scroll.current) scroll.current.scrollTop = scroll.current.scrollHeight;
   }, [messages, currentJobs.map((j) => j.answer + j.status).join("")]);
   const choose = (id: string, jobId = "") => {
+    if (id && !projectChat && !roomEndpoint)
+      rememberDestination({ client: "gpt", kind: "thread", id });
     navigationVersion.current++;
     rememberScroll();
     setCreatedJob(jobId);
@@ -784,6 +788,33 @@ export function GptWorkspace({
     onSettings(false);
     onNotebook?.({ ...notebookContext(), mode, allProjects: true });
   };
+  useWorkspaceCommandSource(
+    "gpt",
+    !projectChat && !roomEndpoint
+      ? {
+          client: "gpt",
+          projectId: items.find((c) => c.id === selected)?.projectId,
+          actions: {
+            "new-chat": () => choose(""),
+            ...(selected
+              ? {
+                  results: () => {
+                    setView("results");
+                    setRightHidden(false);
+                    setDrawer(false);
+                  },
+                }
+              : {}),
+            notes: () => openNotebook(),
+            tasks: () => openNotebook("tasks"),
+            "content-search": () => {
+              setDrawer(false);
+              openContentSearch({ client: "gpt", threadId: selected });
+            },
+          },
+        }
+      : null,
+  );
   const composer = useRef<HTMLTextAreaElement>(null);
   // Enqueueing is durable on the Hub and does not depend on rendering history here.
   const sendReady = ready && !!model;
@@ -1489,6 +1520,7 @@ export function GptWorkspace({
                   type="button"
                   className="nav-new-thread overview-nav"
                   onClick={() => {
+                    rememberDestination({ client: "gpt", kind: "project", id: project.id });
                     setOverviewProject(project);
 
                     setDrawer(false);
@@ -1635,7 +1667,12 @@ export function GptWorkspace({
             className="header-project overview-trigger"
             disabled={!selectedProject}
             aria-label="Обзор проекта"
-            onClick={() => selectedProject && setOverviewProject(selectedProject)}
+            onClick={() => {
+              if (selectedProject) {
+                rememberDestination({ client: "gpt", kind: "project", id: selectedProject.id });
+                setOverviewProject(selectedProject);
+              }
+            }}
           >
             <span>
               <Icon name="chat" size={17} />

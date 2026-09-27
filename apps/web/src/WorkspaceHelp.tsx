@@ -34,7 +34,7 @@ export function HelpButton({ topic }: { topic?: HelpTopic }) {
       type="button"
       className="icon-button workspace-help-button"
       aria-label="Справка и клавиши"
-      title="Справка и клавиши (F1)"
+      title="Справка и клавиши"
       onClick={() => window.dispatchEvent(new CustomEvent(eventName, { detail: topic ?? "home" }))}
     >
       <Icon name="help" />
@@ -48,18 +48,7 @@ export function WorkspaceHelp({ topic = "codex" }: { topic?: HelpTopic }) {
       const requested = (event as CustomEvent).detail;
       setOpened(isTopic(requested) ? requested : topic);
     };
-    const key = (event: KeyboardEvent) => {
-      if (
-        event.key !== "F1" ||
-        event.altKey ||
-        event.ctrlKey ||
-        event.metaKey ||
-        event.shiftKey ||
-        event.isComposing ||
-        event.repeat ||
-        event.defaultPrevented
-      )
-        return;
+    const key = () => {
       // Remote/terminal surfaces own their keyboard. Do not steal keys from those sessions.
       const active = document.activeElement;
       if (active?.closest('[data-help-keys="remote"], .remote-pane, .remote-view, .xterm')) return;
@@ -75,15 +64,14 @@ export function WorkspaceHelp({ topic = "codex" }: { topic?: HelpTopic }) {
         active?.closest<HTMLElement>("[data-help-context]")?.dataset.helpContext ??
         modal?.dataset.helpContext ??
         modal?.querySelector<HTMLElement>("[data-help-context]")?.dataset.helpContext;
-      event.preventDefault();
       if (!document.querySelector(".workspace-help[open]"))
         setOpened(isTopic(context) ? context : topic);
     };
     window.addEventListener(eventName, open);
-    window.addEventListener("keydown", key);
+    window.addEventListener("workspace-command-help", key);
     return () => {
       window.removeEventListener(eventName, open);
-      window.removeEventListener("keydown", key);
+      window.removeEventListener("workspace-command-help", key);
     };
   }, [topic]);
   return opened ? <HelpGuide initial={opened} onClose={() => setOpened(null)} /> : null;

@@ -11,7 +11,12 @@ export type SettingsCategory =
   | "maintenance"
   | "access";
 const categories = [
-  { id: "appearance", title: "Оформление", hint: "Тема, цвета и компоновка", icon: "settings" },
+  {
+    id: "appearance",
+    title: "Оформление",
+    hint: "Тема, цвета, компоновка и клавиши",
+    icon: "settings",
+  },
   { id: "sound", title: "Звук и уведомления", hint: "Озвучивание и оповещения", icon: "speaker" },
   { id: "connections", title: "Подключения", hint: "Codex, GPT и компьютеры", icon: "remote" },
   { id: "library", title: "Проекты и история", hint: "Обновление списков и архив", icon: "folder" },

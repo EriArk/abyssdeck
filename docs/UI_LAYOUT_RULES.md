@@ -123,3 +123,7 @@ compact icon actions, an anchored Close and a Back when nested. Equal actions us
 an explicit grid. Keep the source window mounted under material inspection; close
 it only when the user actually navigates to a different workspace/chat/result.
 Native dialog top-layer order must survive lazy editor loading and theme changes.
+
+## Command navigation
+
+Keep a single compact touch search entry above project navigation in both clients. Recent/Pinned uses quiet single-row destinations, equal 44px pin controls and a collapsible bounded area. The palette is a centered content-sized window with a capped scrolling results list, reachable Close, symmetric phone gutters and explicit keyboard-height geometry; it must not inherit the generic fullscreen-window offset while retaining a centering transform. Shortcut recording belongs to personal settings, never to each feature's separate keyboard listener. Hidden settings sections must release capture.
