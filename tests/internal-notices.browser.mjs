@@ -30,6 +30,13 @@ new ProjectPlans(f.sessions).save("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", {
   sections: [],
   links: [],
 });
+// A noisy GPT feed must not displace personal/shared events or plans.
+for (let i = 0; i < 40; i++)
+  f.store.db
+    .prepare(
+      "INSERT INTO gpt_jobs(id,fingerprint,nativeId,text,files,model,effort,status,answer,assets,createdAt,updatedAt,error) VALUES(?,?,?,'private','[]','m','e','completed','private','[]',?,?,'')",
+    )
+    .run("notice-job-" + i, "fingerprint-" + i, "native-" + i, Date.now(), Date.now());
 await mkdir(".local/qa-internal-notices", { recursive: true });
 try {
   await f.app.listen({ host: "127.0.0.1", port: 18947 });
@@ -82,6 +89,36 @@ try {
     dialog.getByText("Большой завершённый план совместного проекта", { exact: true }),
   ).toBeVisible();
   await expect(dialog.getByText("GitHub", { exact: true })).toHaveCount(0);
+  const eventsTab = dialog.getByRole("tab", { name: "События", exact: true });
+  const gptTab = dialog.getByRole("tab", { name: /^Ответы GPT/ });
+  await expect(eventsTab).toHaveAttribute("aria-selected", "true");
+  await expect(gptTab).toContainText("40");
+  await expect(
+    dialog.getByText("Ответ GPT готов", { exact: true }).filter({ visible: true }),
+  ).toHaveCount(0);
+  await gptTab.click();
+  await expect(
+    dialog.getByText("Ответ GPT готов", { exact: true }).filter({ visible: true }),
+  ).toHaveCount(40);
+  await expect(
+    dialog.getByText("Большой завершённый план совместного проекта", { exact: true }),
+  ).toBeHidden();
+  const scroller = dialog.locator(".space-dialog-body");
+  await scroller.evaluate((el) => (el.scrollTop = 150));
+  await eventsTab.click();
+  await expect.poll(() => scroller.evaluate((el) => el.scrollTop)).toBe(0);
+  await gptTab.click();
+  await expect.poll(() => scroller.evaluate((el) => el.scrollTop)).toBe(150);
+  const gptPanel = dialog.getByRole("tabpanel", { name: /^Ответы GPT/ });
+  await gptPanel.getByRole("button", { name: "Прочитано", exact: true }).first().click();
+  await expect(gptTab).toContainText("39");
+  assert.equal(
+    f.store.db.prepare("SELECT count(*) n FROM gpt_jobs WHERE status='completed'").get().n,
+    40,
+    "reading a notice never changes or replays work",
+  );
+  await eventsTab.click();
+
   for (const theme of ["organizer", "crt-green", "hitech-2000s", "classic-dark"]) {
     await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme);
     for (const [label, width, height] of [
@@ -93,6 +130,16 @@ try {
       await expect(dialog.getByRole("button", { name: "Закрыть пространство" })).toBeVisible();
       assert.ok(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth + 2));
       await page.screenshot({ path: `.local/qa-internal-notices/${engine}-${theme}-${label}.png` });
+      await gptTab.click();
+      for (const tab of [eventsTab, gptTab]) {
+        const box = await tab.boundingBox();
+        assert.ok(box.height >= 44 && box.width > 100);
+      }
+      assert.ok(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth + 2));
+      await page.screenshot({
+        path: `.local/qa-internal-notices/${engine}-${theme}-${label}-gpt.png`,
+      });
+      await eventsTab.click();
     }
   }
   await page.setViewportSize({ width: 390, height: 844 });
@@ -107,7 +154,7 @@ try {
   assert.equal(f.calls.filter((c) => c.method === "turn/start").length, 0);
   console.log(
     engine +
-      ": internal inbox opens exact completed plan, preserves local work, no GitHub requests, 12 themed layouts passed",
+      ": internal inbox opens exact completed plan, preserves local work, no GitHub requests, GPT tab separates 40 replies, read marks and per-tab scroll retained, 24 themed layouts passed",
   );
 } finally {
   await browser.close();

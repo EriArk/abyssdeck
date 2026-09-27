@@ -1,4 +1,4 @@
-import type { NotebookLink, WorkspaceNotices } from "@codex-web/shared";
+import type { NotebookLink, WorkspaceNotice, WorkspaceNotices } from "@codex-web/shared";
 import { useEffect, useState } from "react";
 import { api, messageOf } from "./api";
 import { Icon } from "./icons";
@@ -22,7 +22,18 @@ export function useWorkNotices() {
   }, []);
   return { ...useSharedResource<WorkspaceNotices>("/workspace/notices", revision), refresh };
 }
-export function WorkNotices({ notices }: { notices: ReturnType<typeof useWorkNotices> }) {
+export const isGptNotice = (notice: WorkspaceNotice) =>
+  notice.target.client === "gpt" && notice.target.kind === "thread";
+
+export function WorkNotices({
+  notices,
+  group = "events",
+}: {
+  notices: ReturnType<typeof useWorkNotices>;
+  group?: "events" | "gpt";
+}) {
+  const title = group === "gpt" ? "Ответы GPT" : "Работа и планы";
+  const items = notices.value?.items.filter((notice) => isGptNotice(notice) === (group === "gpt"));
   const [busy, setBusy] = useState(""),
     [error, setError] = useState("");
   const read = async (ids: string[]) => {
@@ -30,9 +41,9 @@ export function WorkNotices({ notices }: { notices: ReturnType<typeof useWorkNot
     window.dispatchEvent(new Event("workspace-notices-changed"));
   };
   return (
-    <section className="work-notices" aria-label="Работа и планы">
+    <section className="work-notices" aria-label={title}>
       <div className="activity-attention-heading">
-        <strong>Работа и планы</strong>
+        <strong>{title}</strong>
         <button
           type="button"
           className="icon-button"
@@ -45,7 +56,10 @@ export function WorkNotices({ notices }: { notices: ReturnType<typeof useWorkNot
       </div>
       {!notices.value && notices.loading && <p className="muted">Загружаем события…</p>}
       {(error || notices.error) && <p role="status">{error || notices.error}</p>}
-      {notices.value?.items.map((n) => (
+      {group === "gpt" && items?.length === 0 && !notices.error && (
+        <p className="muted">Новых ответов GPT нет.</p>
+      )}
+      {items?.map((n) => (
         <article className="space-card" key={n.id}>
           <strong>{n.title}</strong>
           <p>{n.detail}</p>

@@ -7,7 +7,7 @@ import type {
   ProjectRules,
   TeamContact,
 } from "@codex-web/shared";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { ActivityAttentionWindow } from "./ActivityDiscussion";
 import { pageWorkspace, accountLocalStorage as storage } from "./accountStorage";
 import { BrainstormWindow } from "./Brainstorm";
@@ -27,7 +27,7 @@ import { TeamContactPicker } from "./TeamContactPicker";
 import type { Project } from "./types";
 import type { SpacesController } from "./useCollaborationSpaces";
 import { useWorkspaceDialog } from "./useWorkspaceDialog";
-import { useWorkNotices, WorkNotices } from "./WorkNotices";
+import { isGptNotice, useWorkNotices, WorkNotices } from "./WorkNotices";
 import "./collaboration-spaces.css";
 
 const accessLabels = {
@@ -277,6 +277,18 @@ function SpaceWindowContent({
   onDiscuss: (handoff: ActivityGptHandoff) => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const body = useRef<HTMLDivElement>(null);
+  const [noticeTab, setNoticeTab] = useState<"events" | "gpt">("events");
+  const noticeId = useId();
+  const noticeScroll = useRef({ events: 0, gpt: 0 });
+  const selectNoticeTab = (next: "events" | "gpt") => {
+    if (next === noticeTab) return;
+    noticeScroll.current[noticeTab] = body.current?.scrollTop ?? 0;
+    setNoticeTab(next);
+  };
+  useLayoutEffect(() => {
+    if (body.current) body.current.scrollTop = noticeScroll.current[noticeTab];
+  }, [noticeTab]);
   useWorkspaceDialog(dialog);
   const target = spaces.window!;
   const receiptAction = useSharedAction();
@@ -312,7 +324,43 @@ function SpaceWindowContent({
           <Icon name="close" />
         </button>
       </header>
+      {target.kind === "invitations" && (
+        <div className="workspace-notice-tabs" role="tablist" aria-label="Виды уведомлений">
+          {(["events", "gpt"] as const).map((tab) => (
+            <button
+              type="button"
+              role="tab"
+              key={tab}
+              id={`${noticeId}-${tab}-tab`}
+              aria-controls={`${noticeId}-${tab}-panel`}
+              aria-selected={noticeTab === tab}
+              tabIndex={noticeTab === tab ? 0 : -1}
+              onClick={() => selectNoticeTab(tab)}
+              onKeyDown={(event) => {
+                if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+                event.preventDefault();
+                const next =
+                  event.key === "Home"
+                    ? "events"
+                    : event.key === "End"
+                      ? "gpt"
+                      : tab === "events"
+                        ? "gpt"
+                        : "events";
+                selectNoticeTab(next);
+                document.getElementById(`${noticeId}-${next}-tab`)?.focus();
+              }}
+            >
+              <span>{tab === "events" ? "События" : "Ответы GPT"}</span>
+              {tab === "gpt" && !!workNotices.value?.items.some(isGptNotice) && (
+                <small>{workNotices.value.items.filter(isGptNotice).length}</small>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
       <div
+        ref={body}
         className={`space-dialog-body${target.kind === "chat" ? " space-chat-body" : " shared-scroll"}`}
       >
         {target.kind === "activity" && space && (
@@ -349,162 +397,179 @@ function SpaceWindowContent({
         )}
         {target.kind === "invitations" && (
           <>
-            <CommunicationNotices />
-            <WorkNotices notices={workNotices} />
-            {receiptAction.error && (
-              <p className="notice" role="alert">
-                {receiptAction.error}
-              </p>
-            )}
-            {spaces.ready &&
-              conversations.ready &&
-              !!workNotices.value &&
-              !workNotices.value.items.length &&
-              !conversations.items.some((c) => c.unread && !c.muted) &&
-              spaces.catalog.invitations.length === 0 &&
-              !spaces.catalog.spaces.some(
-                (s) =>
-                  s.unread > 0 ||
-                  !!s.activityAttention?.length ||
-                  !!s.accessAttention?.length ||
-                  !!s.issueDispatches?.length ||
-                  s.projects.some((p) => p.ownerId === pageWorkspace && p.requests.length),
-              ) && <p>Новых уведомлений нет.</p>}
-            {spaces.catalog.spaces.flatMap((s) =>
-              (s.accessAttention ?? []).map((n) => (
-                <section className="space-card" key={n.id}>
-                  <strong>{n.projectName ?? s.title}</strong>
-                  <p>{n.title}</p>
-                  <div className="activity-notice-actions">
-                    <button
-                      className="secondary"
-                      type="button"
-                      onClick={() =>
-                        spaces.open({ kind: "project", id: s.id, projectId: n.projectId! })
-                      }
-                    >
-                      Открыть проект
-                    </button>
-                    <button
-                      className="secondary"
-                      type="button"
-                      disabled={receiptAction.busy}
-                      onClick={() =>
-                        void receiptAction.run(() =>
-                          sharedMutation(`/team/spaces/${s.id}/activity/local/read`, "POST", {
-                            eventId: n.id,
-                          }).then(() => spaces.refresh()),
-                        )
-                      }
-                    >
-                      Прочитано
-                    </button>
-                  </div>
-                </section>
-              )),
-            )}
-            {spaces.catalog.spaces.flatMap((s) =>
-              (s.issueDispatches ?? []).map((n) => {
-                const p = s.projects.find((p) => p.id === n.projectId);
-                return (
+            <div
+              className="workspace-notice-panel"
+              role="tabpanel"
+              id={`${noticeId}-gpt-panel`}
+              aria-labelledby={`${noticeId}-gpt-tab`}
+              hidden={noticeTab !== "gpt"}
+            >
+              <WorkNotices notices={workNotices} group="gpt" />
+            </div>
+            <div
+              className="workspace-notice-panel"
+              role="tabpanel"
+              id={`${noticeId}-events-panel`}
+              aria-labelledby={`${noticeId}-events-tab`}
+              hidden={noticeTab !== "events"}
+            >
+              <CommunicationNotices />
+              <WorkNotices notices={workNotices} />
+              {receiptAction.error && (
+                <p className="notice" role="alert">
+                  {receiptAction.error}
+                </p>
+              )}
+              {spaces.ready &&
+                conversations.ready &&
+                !!workNotices.value &&
+                !workNotices.value.items.some((notice) => !isGptNotice(notice)) &&
+                !conversations.items.some((c) => c.unread && !c.muted) &&
+                spaces.catalog.invitations.length === 0 &&
+                !spaces.catalog.spaces.some(
+                  (s) =>
+                    s.unread > 0 ||
+                    !!s.activityAttention?.length ||
+                    !!s.accessAttention?.length ||
+                    !!s.issueDispatches?.length ||
+                    s.projects.some((p) => p.ownerId === pageWorkspace && p.requests.length),
+                ) && <p>Новых уведомлений нет.</p>}
+              {spaces.catalog.spaces.flatMap((s) =>
+                (s.accessAttention ?? []).map((n) => (
                   <section className="space-card" key={n.id}>
-                    <strong>{p?.name ?? s.title}</strong>
-                    <p>
-                      {n.sender.name} отправил Issues: {n.issues.length}
-                    </p>
-                    {p?.personalProjectId &&
-                      Array.from({ length: Math.ceil(n.issues.length / 5) }, (_, group) => (
-                        <IntakeButton
-                          key={n.issues[group * 5]!.url}
-                          projectId={p.personalProjectId!}
-                          name={p.name}
-                          draftScope={`${n.id}:${group}`}
-                          sources={n.issues.slice(group * 5, group * 5 + 5).map((i) => i.url)}
-                          label={
-                            n.issues.length <= 5
-                              ? "Изучить"
-                              : "Изучить " +
-                                (group * 5 + 1) +
-                                "–" +
-                                Math.min(n.issues.length, group * 5 + 5)
-                          }
-                        />
-                      ))}
-                    <button
-                      type="button"
-                      className="secondary"
-                      disabled={receiptAction.busy}
-                      onClick={() =>
-                        void receiptAction.run(() =>
-                          sharedMutation("/team/spaces/" + s.id + "/issues/read", "POST", {
-                            dispatchId: n.id,
-                          }).then(() => spaces.refresh()),
-                        )
-                      }
-                    >
-                      Прочитано
-                    </button>
+                    <strong>{n.projectName ?? s.title}</strong>
+                    <p>{n.title}</p>
+                    <div className="activity-notice-actions">
+                      <button
+                        className="secondary"
+                        type="button"
+                        onClick={() =>
+                          spaces.open({ kind: "project", id: s.id, projectId: n.projectId! })
+                        }
+                      >
+                        Открыть проект
+                      </button>
+                      <button
+                        className="secondary"
+                        type="button"
+                        disabled={receiptAction.busy}
+                        onClick={() =>
+                          void receiptAction.run(() =>
+                            sharedMutation(`/team/spaces/${s.id}/activity/local/read`, "POST", {
+                              eventId: n.id,
+                            }).then(() => spaces.refresh()),
+                          )
+                        }
+                      >
+                        Прочитано
+                      </button>
+                    </div>
                   </section>
-                );
-              }),
-            )}
-            {spaces.catalog.spaces.flatMap((s) =>
-              (s.activityAttention ?? []).map((n) => (
+                )),
+              )}
+              {spaces.catalog.spaces.flatMap((s) =>
+                (s.issueDispatches ?? []).map((n) => {
+                  const p = s.projects.find((p) => p.id === n.projectId);
+                  return (
+                    <section className="space-card" key={n.id}>
+                      <strong>{p?.name ?? s.title}</strong>
+                      <p>
+                        {n.sender.name} отправил Issues: {n.issues.length}
+                      </p>
+                      {p?.personalProjectId &&
+                        Array.from({ length: Math.ceil(n.issues.length / 5) }, (_, group) => (
+                          <IntakeButton
+                            key={n.issues[group * 5]!.url}
+                            projectId={p.personalProjectId!}
+                            name={p.name}
+                            draftScope={`${n.id}:${group}`}
+                            sources={n.issues.slice(group * 5, group * 5 + 5).map((i) => i.url)}
+                            label={
+                              n.issues.length <= 5
+                                ? "Изучить"
+                                : "Изучить " +
+                                  (group * 5 + 1) +
+                                  "–" +
+                                  Math.min(n.issues.length, group * 5 + 5)
+                            }
+                          />
+                        ))}
+                      <button
+                        type="button"
+                        className="secondary"
+                        disabled={receiptAction.busy}
+                        onClick={() =>
+                          void receiptAction.run(() =>
+                            sharedMutation("/team/spaces/" + s.id + "/issues/read", "POST", {
+                              dispatchId: n.id,
+                            }).then(() => spaces.refresh()),
+                          )
+                        }
+                      >
+                        Прочитано
+                      </button>
+                    </section>
+                  );
+                }),
+              )}
+              {spaces.catalog.spaces.flatMap((s) =>
+                (s.activityAttention ?? []).map((n) => (
+                  <button
+                    type="button"
+                    className="space-card"
+                    key={`activity:${n.id}`}
+                    onClick={() => spaces.open({ kind: "activity-reply", id: s.id, seq: n.id })}
+                  >
+                    <strong>{s.projects.find((p) => p.id === n.projectId)?.name ?? s.title}</strong>
+                    <span>{n.author.name} обращается к тебе в обсуждении события</span>
+                  </button>
+                )),
+              )}
+              {spaces.catalog.spaces
+                .filter((s) => s.unread > 0)
+                .map((s) => (
+                  <button
+                    type="button"
+                    className="space-card"
+                    key={`chat:${s.id}`}
+                    onClick={() => spaces.open({ kind: "chat", id: s.id })}
+                  >
+                    <strong>{s.title}</strong>
+                    <span>Новые сообщения: {s.unread}</span>
+                  </button>
+                ))}
+              {spaces.catalog.spaces.flatMap((s) =>
+                s.projects
+                  .filter((p) => p.ownerId === pageWorkspace)
+                  .flatMap((p) =>
+                    p.requests.map((userId) => (
+                      <button
+                        type="button"
+                        className="space-card"
+                        key={p.id + userId}
+                        onClick={() => spaces.open({ kind: "settings", id: s.id })}
+                      >
+                        <strong>{p.name}</strong>
+                        <span>
+                          {s.members.find((m) => m.id === userId)?.name} просит прямой доступ
+                        </span>
+                      </button>
+                    )),
+                  ),
+              )}
+              {spaces.catalog.invitations.map((i) => (
                 <button
                   type="button"
                   className="space-card"
-                  key={`activity:${n.id}`}
-                  onClick={() => spaces.open({ kind: "activity-reply", id: s.id, seq: n.id })}
+                  key={i.spaceId}
+                  onClick={() => spaces.open({ kind: "accept", id: i.spaceId })}
                 >
-                  <strong>{s.projects.find((p) => p.id === n.projectId)?.name ?? s.title}</strong>
-                  <span>{n.author.name} обращается к тебе в обсуждении события</span>
-                </button>
-              )),
-            )}
-            {spaces.catalog.spaces
-              .filter((s) => s.unread > 0)
-              .map((s) => (
-                <button
-                  type="button"
-                  className="space-card"
-                  key={`chat:${s.id}`}
-                  onClick={() => spaces.open({ kind: "chat", id: s.id })}
-                >
-                  <strong>{s.title}</strong>
-                  <span>Новые сообщения: {s.unread}</span>
+                  <strong>{i.title}</strong>
+                  <span>{i.from.name} приглашает тебя</span>
+                  <small>{i.project.name}</small>
                 </button>
               ))}
-            {spaces.catalog.spaces.flatMap((s) =>
-              s.projects
-                .filter((p) => p.ownerId === pageWorkspace)
-                .flatMap((p) =>
-                  p.requests.map((userId) => (
-                    <button
-                      type="button"
-                      className="space-card"
-                      key={p.id + userId}
-                      onClick={() => spaces.open({ kind: "settings", id: s.id })}
-                    >
-                      <strong>{p.name}</strong>
-                      <span>
-                        {s.members.find((m) => m.id === userId)?.name} просит прямой доступ
-                      </span>
-                    </button>
-                  )),
-                ),
-            )}
-            {spaces.catalog.invitations.map((i) => (
-              <button
-                type="button"
-                className="space-card"
-                key={i.spaceId}
-                onClick={() => spaces.open({ kind: "accept", id: i.spaceId })}
-              >
-                <strong>{i.title}</strong>
-                <span>{i.from.name} приглашает тебя</span>
-                <small>{i.project.name}</small>
-              </button>
-            ))}
+            </div>
           </>
         )}
         {(target.kind === "create" || (target.kind === "accept" && invitation)) && (
