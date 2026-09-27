@@ -64,7 +64,7 @@ export async function bundlePreview(
     if (url.origin !== new URL(origin).origin) return null;
     const path = decodeURIComponent(url.pathname.slice(1));
     if (!type(path) || path.split(/[\\/]/).some((p) => p.startsWith("."))) return null;
-    return { url: url.origin + url.pathname, fragment: url.hash, path };
+    return { url: url.origin + url.pathname + url.search, fragment: url.hash, path };
   };
   const load = async (url: string) => {
     if (bytes.has(url)) return bytes.get(url)!;
@@ -146,6 +146,21 @@ export async function bundlePreview(
     return tree.toString();
   };
   await init();
+  const module = async (url: string, path: string): Promise<string> => {
+    const old = modules.get(url);
+    if (old) return old;
+    const key = "cw-preview-module-" + modules.size;
+    // Reserve before walking imports so cycles share the same module identity.
+    modules.set(url, key);
+    const content = await load(url);
+    moduleData[key] =
+      dataUrl(type(path)!, /\.json$/i.test(path) ? content : await js(text(content), url)) +
+      // Equal bytes at different source URLs are still distinct ES modules.
+      // The opaque fragment preserves this without publishing private paths.
+      "#" +
+      key;
+    return key;
+  };
   const js = async (source: string, from: string): Promise<string> => {
     const [refs] = imports(source);
     const edits: { s: number; e: number; value: string }[] = [];
@@ -155,16 +170,7 @@ export async function bundlePreview(
       if (!ref.n.startsWith(".") && !ref.n.startsWith("/")) continue;
       const found = resolve(ref.n, from);
       if (!found || !/\.(m?js|json)$/i.test(found.path)) continue;
-      let key = modules.get(found.url);
-      if (!key) {
-        key = "cw-preview-module-" + modules.size;
-        modules.set(found.url, key);
-        const content = await load(found.url);
-        moduleData[key] = dataUrl(
-          type(found.path)!,
-          /\.json$/i.test(found.path) ? content : await js(text(content), found.url),
-        );
-      }
+      const key = await module(found.url + found.fragment, found.path);
       edits.push({ s: ref.s, e: ref.e, value: ref.d >= 0 ? JSON.stringify(key) : key });
     }
     for (const edit of edits.sort((a, b) => b.s - a.s))
@@ -182,7 +188,10 @@ export async function bundlePreview(
       ) {
         const found = src && resolve(src.value, base);
         if (found && /\.m?js$/i.test(found.path)) {
-          src!.value = dataUrl("text/javascript", await js(text(await load(found.url)), found.url));
+          src!.value =
+            attr("type")?.value.toLowerCase() === "module"
+              ? moduleData[await module(found.url + found.fragment, found.path)]!
+              : dataUrl("text/javascript", await js(text(await load(found.url)), found.url));
           node.attrs = node.attrs.filter((a) => a.name !== "integrity" && a.name !== "crossorigin");
         } else if (!src)
           for (const child of node.childNodes)

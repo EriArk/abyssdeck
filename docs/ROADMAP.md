@@ -1,5 +1,20 @@
 # Roadmap
 
+## Current handoff (2026-09-27)
+
+The historical proposals below are not a pending implementation queue. Work/Intake
+Result forwarding and frozen HTML dependencies shipped in `1ed3c98`; copy lifetime
+cleanup shipped in `2221c43`. [The follow-up](RESULT_HANDOFFS_AND_GPT_RECOVERY_2026-09-27.md)
+also records exact-destination asynchronous UI state and distinct JS module identity.
+
+The Hub has installed `338ef6a` with the #220 scoped-mutation changes; the matching
+native adapter images are built but still await guarded activation. The concrete
+next proposed stage is safe native-adapter installation and installed acceptance
+of the coordinated GPT fixes, **Высокое (`high`)**, after owner continuation and
+only when native maintenance admission permits it. Preserve the deferred paused
+send; never clear or reconcile it just to install an update. Physical-device
+acceptance and neflores diagnostics remain deferred as previously requested.
+
 ## Latest issue audit (2026-09-26)
 
 The [complete issue audit](ISSUE_AUDIT_2026-09-26.md) covers all 129 issues (74 open,

@@ -146,11 +146,94 @@ try {
   await expect(page.locator(".composer .attachment-list")).toContainText("exact-input.md");
   await page.reload();
   await expect(page.locator(".composer .attachment-list")).toContainText("exact-input.md");
+  // An attachment finishing in a previous destination must not lock the next chat.
+  const captured = (
+    await f.request(f.headers, "POST", "/api/team/result-snapshots", {
+      client: "codex",
+      threadId: r.thread.id,
+      resultId,
+    })
+  ).json();
+  const targets = (await f.request(f.headers, "GET", "/api/team/result-work-targets")).json().items;
+  const workTargets = targets.filter((t) => t.kind === "work");
+  const sourceTarget = workTargets.find((t) => t.projectId === "owner-project");
+  const otherTarget = workTargets.find((t) => t.projectId === "owner-extra");
+  assert(sourceTarget && otherTarget);
+  const stage = async (target) => {
+    const reply = await f.request(f.headers, "POST", "/api/team/result-work-handoffs", {
+      snapshotId: captured.id,
+      destination: { kind: "work", projectId: target.projectId },
+      binding: target.binding,
+    });
+    assert.equal(reply.statusCode, 200, reply.body);
+    return reply.json();
+  };
+  const sourceHandoff = await stage(sourceTarget);
+  await stage(otherTarget);
+  const navigate = async (target) => {
+    await page.evaluate(
+      (t) =>
+        window.dispatchEvent(
+          new CustomEvent("open-delivery-target", {
+            detail: {
+              client: "codex",
+              kind: "thread",
+              id: t.threadId,
+              threadId: t.threadId,
+              projectId: t.projectId,
+              title: t.title,
+              availability: "available",
+            },
+          }),
+        ),
+      target,
+    );
+    await expect(page.locator(".composer textarea:not([aria-hidden])").first()).toBeVisible();
+  };
+  await page.reload();
+  const attach = () =>
+    page.locator(".work-result-handoffs").getByRole("button", { name: "Прикрепить", exact: true });
+  await expect(attach()).toBeEnabled();
+  let release;
+  const held = new Promise((resolve) => {
+    release = resolve;
+  });
+  let started;
+  const ready = new Promise((resolve) => {
+    started = resolve;
+  });
+  const pattern = `**/api/team/result-work-handoffs/${sourceHandoff.id}/attachment`;
+  await page.route(pattern, async (route) => {
+    const response = await route.fetch();
+    started();
+    await held;
+    await route.fulfill({ response });
+  });
+  try {
+    await attach().click();
+    await ready;
+    await navigate(otherTarget);
+    await expect(attach()).toBeEnabled();
+    const otherCompose = page.locator(".composer textarea:not([aria-hidden])").first();
+    await otherCompose.fill("Отдельный черновик другого проекта");
+    release();
+    await page.unroute(pattern);
+    await expect(attach()).toBeEnabled();
+    await expect(page.locator(".composer .attachment-list")).toHaveCount(0);
+    await attach().click();
+    await expect(page.locator(".composer .attachment-list")).toContainText("exact-input.md");
+    await expect(otherCompose).toHaveValue("Отдельный черновик другого проекта");
+    await navigate(sourceTarget);
+    await expect(compose).toHaveValue("Мой исходный черновик");
+    await expect(page.locator(".composer .attachment-list")).toContainText("exact-input.md");
+  } finally {
+    release();
+  }
   assert.equal(r.nativeCalls.filter((c) => c.method === "turn/start").length, 0);
   assert.deepEqual(errors, []);
   console.log(
     engine +
-      ": Work/Intake exact staging, mounted drafts, reload, no automatic sends; 16 themed layouts passed",
+      ": Work/Intake exact staging, delayed cross-chat attachment, mounted drafts, reload, no automatic sends; 16 themed layouts passed",
   );
 } catch (e) {
   console.log(await page.locator("body").ariaSnapshot());

@@ -189,8 +189,9 @@ are unchanged; it is not presented as a newly repeated test. Windows helper
 contracts are unchanged. The deferred paused send was not inspected, reconciled
 or replayed. Physical iPhone/iPad acceptance remains pending owner use.
 
-Next proposed functional packet remains Result forwarding into Work/Intake and
-multi-file HTML previews (#213), reasoning High (`high`), after owner continuation.
-Before that packet, read the installed release status and finish native activation
-only if ordinary maintenance conditions allow it; never consume or clear an
-uncertain send to obtain an idle state.
+Handoff correction: the proposed #213 packet was already implemented in `1ed3c98`
+and its copy cleanup in `2221c43`; it must not be offered again as missing work.
+The following continuation confirmed engine `338ef6a` installed and checked the
+existing Result workflows, repairing destination-switch state and module identity.
+Native activation remains pending ordinary maintenance admission; never consume
+or clear an uncertain send to obtain an idle state. See the current Roadmap.

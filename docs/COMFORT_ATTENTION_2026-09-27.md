@@ -102,7 +102,8 @@ No schema change (29). Hub/UI use the ordinary guarded release path. Browser
 WebKit/screenshots are not physical iPhone/iPad acceptance. Runtime evidence and
 the exact installed/pending revision are recorded outside Git with the release.
 
-Next proposed packet: remaining Result forwarding into Work/Intake and multi-file
-HTML previews (#213), then the related resource lifetime cleanup. High (`high`),
-after owner continuation, because exact immutable source grants and isolated
-preview resources need to remain correct across recipients and nested viewers.
+That proposed packet has since shipped in `1ed3c98`: [Work/Intake forwarding and
+frozen multi-file HTML](RESULT_HANDOFFS_AND_GPT_RECOVERY_2026-09-27.md). Its
+[copy lifetime cleanup](RESULT_COPY_LIFETIME_2026-09-27.md) shipped in `2221c43`.
+Do not propose implementing those foundations again. See the current Roadmap
+handoff for remaining activation and acceptance work.

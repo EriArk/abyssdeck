@@ -52,3 +52,34 @@ the existing idle guard; no active work is interrupted.
 No Windows installed-helper contract changed: local preview dependencies use the
 existing bounded SSH file-read transport. Physical iPhone/iPad acceptance remains
 pending the owner's normal use; browser WebKit checks do not substitute for it.
+
+## Continuation: destination changes and module identity
+
+The later proposal to implement this packet again was stale: `1ed3c98` already
+contains it, and `2221c43` adds copy reclamation. At this continuation's start,
+engine `338ef6a` was installed and therefore included both earlier stages.
+The Roadmap, sharing guide and historical audit follow-ups now distinguish that
+implemented behavior from remaining native-adapter activation.
+
+Two regressions were reproduced against the unchanged implementation:
+
+- Starting attachment staging in Work A, navigating to Work B while its response
+  is held, then receiving A's response could leave B's Attach button disabled.
+  The handoff UI now owns its request/lock/error state per exact destination.
+  A late response never adopts a file into another destination. The immutable
+  server-side copy in A remains available on return or reload.
+- Two different JS source modules with identical bytes collapsed to the same
+  data URL and only one executed. Frozen modules now have opaque per-source URL
+  identities, including query/fragment variants; entry scripts and imports use
+  the same mapping. Repeated imports of one source still execute only once,
+  while distinct equal-byte sources execute independently. Private paths stay
+  out of the frozen URLs and the existing sandbox/CSP remains unchanged.
+
+Verification: 29 focused server tests pass, including sharing, Intake, lifetime,
+preview capture and help. Chromium/WebKit reproduce and then pass the delayed
+cross-chat attachment case with separate drafts, reload and no model sends, plus
+16 themed sharing layouts each. Both engines execute equal-byte modules, repeated
+imports, URL variants, cycles and dynamic imports without asset requests. Existing
+preview isolation is checked separately. Phone Intake and wide sharing screenshots
+were inspected; physical-device acceptance remains pending. No Windows helper or
+native GPT protocol changes are part of these two corrections.

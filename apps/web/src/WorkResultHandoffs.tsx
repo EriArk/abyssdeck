@@ -11,20 +11,26 @@ export type WorkResultTarget = {
   threadId: string | null;
 };
 
-/** Incoming files stay beside the exact destination draft until explicitly attached. */
-export function WorkResultHandoffs({
-  threadId,
-  projectId,
-  files,
-  disabled,
-  onAttach,
-}: {
+type Props = {
   threadId?: string;
   projectId?: string;
   files: Attachment[];
   disabled: boolean;
   onAttach: (file: Attachment) => void;
-}) {
+};
+
+/** Each destination owns its requests and UI state, including an in-flight attachment. */
+export function WorkResultHandoffs(props: Props) {
+  return (
+    <ScopedWorkResultHandoffs
+      key={props.threadId ? `thread:${props.threadId}` : `intake:${props.projectId ?? ""}`}
+      {...props}
+    />
+  );
+}
+
+/** Incoming files stay beside the exact destination draft until explicitly attached. */
+function ScopedWorkResultHandoffs({ threadId, projectId, files, disabled, onAttach }: Props) {
   const [items, setItems] = useState<{ id: string; title: string }[]>([]),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);

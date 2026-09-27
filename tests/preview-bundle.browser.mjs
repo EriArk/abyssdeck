@@ -17,9 +17,14 @@ const files = {
   "demo/cycle.js":
     'import {value} from "./dependency.js";export function read(){return "Module works"};export function later(){return value}',
   "demo/dynamic.js": 'export const value="Dynamic works";',
+  "demo/first.js": "globalThis.moduleRuns=(globalThis.moduleRuns||0)+1;",
+  "demo/second.js": "globalThis.moduleRuns=(globalThis.moduleRuns||0)+1;",
+  "demo/query.js": "globalThis.variantRuns=(globalThis.variantRuns||0)+1;",
+  "demo/identity.js":
+    'import "./first.js";import "./second.js";import "./first.js";import "./query.js?v=1";import "./query.js?v=2";import "./query.js?v=1";import "./query.js?v=1#variant";document.querySelector("#identity").textContent=`${globalThis.moduleRuns}:${globalThis.variantRuns}`;',
 };
 const html = await bundlePreview(
-  '<!doctype html><title>Bundle</title><link rel="stylesheet" href="site.css"><div id="styled">Styled</div><img id="picture" src="tiny.svg"><button id="classic">Classic</button><div id="module"></div><button id="dynamic">Dynamic</button><script src="classic.js"></script><script type="module" src="main.js"></script>',
+  '<!doctype html><title>Bundle</title><link rel="stylesheet" href="site.css"><div id="styled">Styled</div><img id="picture" src="tiny.svg"><button id="classic">Classic</button><div id="module"></div><button id="dynamic">Dynamic</button><div id="identity"></div><script src="classic.js"></script><script type="module" src="main.js"></script><script type="module" src="first.js"></script><script type="module" src="identity.js"></script>',
   "demo/index.html",
   async (path) => {
     assert(path in files, path);
@@ -54,6 +59,7 @@ try {
       const frame = page.frameLocator("#demo");
       await expect(frame.locator("#styled")).toHaveCSS("color", "rgb(0, 128, 0)");
       await expect(frame.locator("#module")).toHaveText("Module works");
+      await expect(frame.locator("#identity")).toHaveText("2:3");
       assert.equal(await frame.locator("#picture").evaluate((img) => img.naturalWidth), 12);
       await frame.locator("#classic").click();
       await expect(frame.locator("#classic")).toHaveText("Works");
@@ -65,7 +71,7 @@ try {
       );
       console.log(
         name +
-          ": CSS imports, images, classic JS, module cycles and dynamic imports work with no asset requests",
+          ": CSS/images, classic JS, module cycles, distinct equal-byte/query/fragment identities and dynamic imports work with no asset requests",
       );
     } finally {
       await browser.close();

@@ -18,13 +18,23 @@ The Result action “Отправить” captures exact canonical bytes throug
 
 The captured object stores SHA-256, type and title. Private paths and source conversation IDs are not exposed in recipient cards. Human destinations reference that object through separate grants rather than creating a file copy per recipient. Destinations are a person/direct conversation, group, Space chat or Brainstorm chat. Brainstorm requires an explicit acknowledgement that all current Hub users can read the room. Current destination access is checked on every download and preview. The source owner can revoke an individual destination from the Result picker; other grants remain usable. An already downloaded copy cannot be recalled.
 
-The grant, message and send receipt commit atomically. Retrying an uncertain send uses the same input and receipt. Removal of the original private Result does not erase previously captured bytes. Each snapshot is at most 32 MiB, with a shared 1 GiB storage budget. Automatic retention/garbage collection and a global share-management screen are not included; grants are managed from the original Result action. Captured files and conversation files participate in Team checkpoint, integrity verification and restore.
+The grant, message and send receipt commit atomically. Retrying an uncertain send uses the same input and receipt. Removal of the original private Result does not erase previously captured bytes. Each snapshot is at most 32 MiB, with a shared 1 GiB storage budget. Unreferenced prepared copies now have [bounded reclamation with a seven-day grace period](RESULT_COPY_LIFETIME_2026-09-27.md); active grants and pending/copied handoffs protect their bytes. A global share-management screen is not included; grants are managed from the original Result action. Captured files and conversation files participate in Team checkpoint, integrity verification and restore.
 
-Recipients use the existing universal file viewer. Interactive HTML retains the existing isolated preview CSP: scripts can run inside the sandbox, without same-origin privileges, network access, frames, forms or storage. The current source preview model captures a single self-contained document; multi-file sidecar packaging is not added by this stage. Revoking a grant removes an open preview on its next authorization refresh and immediately prevents new reads.
+Recipients use the existing universal file viewer. Interactive HTML retains the existing isolated preview CSP: scripts can run inside the sandbox, without same-origin privileges, network access, frames, forms or storage. New local HTML captures [explicitly referenced CSS, JavaScript, images and fonts](RESULT_HANDOFFS_AND_GPT_RECOVERY_2026-09-27.md) into a portable document, including CSS imports and literal module imports. It does not discover whole directories, fetch remote dependencies or run a server. Old snapshots keep their captured bytes. Revoking a grant removes an open preview on its next authorization refresh and immediately prevents new reads.
 
 ## Own GPT destination
 
-A material can be prepared for an existing chat in the sender's own native GPT catalog. Normal Project/Brainstorm GPT bindings use the same path. A chip appears beside that exact chat's composer; explicit attachment staging copies the verified snapshot bytes to the owner's native upload store. It preserves the snapshot ID/hash and uses a stable upload identity. The owner then sends normally. Draft text is never replaced and no native turn is submitted automatically. Binding changes or hidden utility chats reject the handoff. Intake/Work utility attachment handoffs and forwarding another person's shared grant are not included.
+A material can be prepared for an existing chat in the sender's own native GPT catalog. Normal Project/Brainstorm GPT bindings use the same path. A chip appears beside that exact chat's composer; explicit attachment staging copies the verified snapshot bytes to the owner's native upload store. It preserves the snapshot ID/hash and uses a stable upload identity. The owner then sends normally. Draft text is never replaced and no native turn is submitted automatically. Binding changes or hidden GPT utility chats reject this handoff. Forwarding another person's shared grant is not included.
+
+## Own Work and Intake destinations
+
+The same picker offers the actor's own project Work chat and Intake under “Работа
+и разбор задач”. The exact checkout, conversation and binding revision are
+validated before staging and after asynchronous work. Intake creates its
+diagnostic thread only when explicitly attaching. Nothing starts a model turn.
+Switching destinations while attaching leaves the next chat's controls independent;
+a late response cannot insert a file into another draft. Completed attachment
+copies remain recoverable in their original destination after reload.
 
 ## Verification and operations
 

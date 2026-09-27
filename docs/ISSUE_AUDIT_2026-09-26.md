@@ -1,5 +1,12 @@
 # Аудит всех GitHub issues — 26 сентября 2026
 
+> Follow-up 2026-09-27: #213 Work/Intake attachment handoffs and frozen local HTML
+> dependencies shipped in `1ed3c98`; unreferenced copy reclamation shipped in
+> `2221c43`. See [current sharing behavior](COMMUNICATION.md) and
+> [follow-up verification](RESULT_HANDOFFS_AND_GPT_RECOVERY_2026-09-27.md).
+> The missing-feature statements in the original audit below are historical,
+> not an instruction to repeat those stages. Physical-device acceptance remains pending.
+
 > Follow-up 2026-09-27: [#220 P1 mutation admission](GPT_READ_ISOLATION_2026-09-27.md#p1-mutation-admission-by-source-27-september) narrows Hub, UI and native mutation guards to the exact conversation/project/schedule. Preserved receipts, single-writer execution and coordinated runtime activation are documented separately from implementation.
 
 > Follow-up 2026-09-27: [durable GPT history and native IPC revisions](GPT_INCREMENTAL_HISTORY.md#2026-09-27-durable-display-and-native-ipc-revisions-188) implements bounded persistent display, changed-node IPC and owner-reported pin/message navigation corrections. #188 remains partial at the upstream full-GET boundary; installed and pending runtime portions are tracked separately.
