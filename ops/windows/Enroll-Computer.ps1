@@ -114,6 +114,7 @@ if ($companionTask -and $companionTask.State -eq 'Running') {
 & (Join-Path $PSScriptRoot 'Install-ProjectSetup.ps1') -NodeCommand $node.Source -ProbePath (Join-Path $PSScriptRoot 'setupProbe.js')
 & (Join-Path $PSScriptRoot 'Install-Delivery.ps1') -NodeCommand $node.Source -ProbePath (Join-Path $PSScriptRoot 'deliveryProbe.js')
 & (Join-Path $PSScriptRoot 'Install-GuiPreview.ps1') -NodeCommand $node.Source
+& (Join-Path $PSScriptRoot 'Install-FileLaunch.ps1') -NodeCommand $node.Source
 $gh = Get-Command gh.exe -ErrorAction SilentlyContinue
 if ($gh) { & (Join-Path $PSScriptRoot 'Install-GitHubReleases.ps1') -NodeCommand $node.Source }
 $desktop = @(Get-AppxPackage -Name OpenAI.Codex).Count -eq 1

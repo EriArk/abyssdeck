@@ -422,6 +422,7 @@ export * from "./codex-schedule.js";
 export * from "./collaboration.js";
 export * from "./communication.js";
 export * from "./conversation-binding.js";
+export * from "./file-launch.js";
 export * from "./file-limits.js";
 export * from "./file-tools.js";
 export { isFileSource } from "./fileSource.js";
@@ -431,7 +432,5 @@ export * from "./intake.js";
 export * from "./issue-drawer.js";
 export * from "./project-gpt.js";
 export * from "./project-preparation.js";
-
 export * from "./workspace-commands.js";
-
 export * from "./workspace-notices.js";

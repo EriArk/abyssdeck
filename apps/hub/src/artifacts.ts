@@ -12,6 +12,9 @@ export class Artifacts {
     readonly maxBytes = defaultStoragePolicy.artifactBytes,
   ) {
     mkdirSync(root, { recursive: true, mode: 0o700 });
+    store.db.exec(
+      "CREATE TABLE IF NOT EXISTS artifact_source_bindings(id TEXT PRIMARY KEY,root TEXT NOT NULL,machineBinding TEXT NOT NULL)",
+    );
   }
   putPng(
     threadId: string,

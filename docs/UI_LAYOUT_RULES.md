@@ -149,3 +149,8 @@ unbroken names, without widening the message or its scroller.
 Chat status alignment (27 September): the progress panel and navigation keys have
 the same 36px visible height and aligned top/bottom edges. Transparent vertical
 hit extensions preserve 44px touch access for progress and stop controls.
+
+Exact file launch: use a compact centered, content-height window with protected
+filename and Close, one project/PC context line, wrapping relative path, and equal
+action columns (one column on phone). Files and Remote open above the mounted
+source. Do not stretch the launch confirmation into an empty full-height viewer.

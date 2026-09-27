@@ -184,6 +184,7 @@ export async function stageAttachment(
   return transferWindowsAttachment(machine, projectId, id, safeName, sourcePath, deadline);
 }
 
+export { fileLaunchMessage, runFileLaunch } from "./fileLaunch.js";
 export { guiPreviewMessage, runGuiPreview } from "./guiPreview.js";
 export { inspectProject } from "./inspector.js";
 export { deliveryMessage, runProjectDelivery, runProjectGitHub } from "./projectDelivery.js";

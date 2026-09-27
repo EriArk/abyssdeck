@@ -7,7 +7,7 @@ import type {
   runProjectDelivery,
   runProjectSetup,
 } from "@codex-web/machines";
-import { bindMachineAuthority, projectPathAllowed } from "@codex-web/machines";
+import { bindMachineAuthority, projectPathAllowed, type runFileLaunch } from "@codex-web/machines";
 import {
   caseColorIds,
   type HubConfig,
@@ -37,6 +37,7 @@ import { type DesktopTransport, registerDesktop } from "./desktop.js";
 import { type DeviceDependencies, registerDevices } from "./devices.js";
 import { registerDictation, type Transcribe } from "./dictation.js";
 import { ENGINE_PROTOCOL } from "./engine-client.js";
+import { registerFileLaunches } from "./file-launches.js";
 import { registerFilePreviews } from "./filePreviews.js";
 import { registerGpt } from "./gpt.js";
 import { configuredNativeGpt } from "./gpt-native-config.js";
@@ -102,6 +103,7 @@ export async function createApp(
     projectSetupProbe?: typeof runProjectSetup;
     projectDeliveryProbe?: typeof runProjectDelivery;
     guiPreviewProbe?: typeof runGuiPreview;
+    fileLaunchProbe?: typeof runFileLaunch;
     stagingProbe?: typeof inspectMachineStaging;
     devices?: DeviceDependencies;
     transcribe?: Transcribe;
@@ -798,6 +800,7 @@ export async function createApp(
   registerProjectPreparation(app, preparation, projectWork);
   registerNativePlans(app, new NativePlans(sessions, projectWork.context));
   registerRelays(app, sessions, projectWork, queue);
+  registerFileLaunches(app, sessions, options.fileLaunchProbe);
   registerGuiPreviews(app, sessions, artifacts, projectWork.context, options.guiPreviewProbe);
   registerWorkspaceTasks(app, sessions);
   registerQuickCapture(app, sessions);

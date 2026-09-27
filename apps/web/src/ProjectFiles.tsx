@@ -9,6 +9,7 @@ import { api, messageOf } from "./api";
 import { CopyButton } from "./CopyButton";
 import { DownloadLink } from "./DownloadLink";
 import { FileBatchActions } from "./FileBatchActions";
+import { FileLaunch } from "./FileLaunch";
 import { FileManagerActions } from "./FileManagerActions";
 import { GitHubFilesButton } from "./GitHubFiles";
 import { GuiPreviewButton } from "./GuiPreviewHost";
@@ -268,6 +269,13 @@ export function ProjectFiles({
     <section className="inspector-selected" aria-label="Выбранный файл">
       <div className="inspector-actions">
         {download(selected)}
+        {!(mode === "git" && staged) && (
+          <FileLaunch
+            key={selected}
+            name={selected}
+            source={`/api${base}/files/content?path=${encodeURIComponent(selected)}`}
+          />
+        )}
         {editableFile(selected) && (
           <button
             type="button"

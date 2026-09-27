@@ -1,8 +1,8 @@
 ﻿import { createHash } from "node:crypto";
 import { codexArtifactPath, copyCodexArtifact, type readProjectFile } from "@codex-web/machines";
-import { CHAT_BLOCK_LINES, textBlockLines, HubError, type MachineConfig } from "@codex-web/shared";
-import { gptResultContent } from "./gpt-result-content.js";
+import { CHAT_BLOCK_LINES, HubError, type MachineConfig, textBlockLines } from "@codex-web/shared";
 import type { Artifacts } from "./artifacts.js";
+import { gptResultContent } from "./gpt-result-content.js";
 import type { Store, ThreadRecord } from "./store.js";
 
 const mimeTypes: Record<string, string> = {
@@ -252,6 +252,13 @@ export class GeneratedArtifacts {
               );
           this.store.db.exec("SAVEPOINT artifact_capture_commit");
           try {
+            this.store.db
+              .prepare("INSERT INTO artifact_source_bindings VALUES(?,?,?)")
+              .run(
+                file.artifactId,
+                target.root,
+                createHash("sha256").update(JSON.stringify(target.machine)).digest("hex"),
+              );
             c.artifactId = file.artifactId;
             c.status = "captured";
             this.store.db

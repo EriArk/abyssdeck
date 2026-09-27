@@ -1,5 +1,6 @@
 import { type ReactNode, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { FileLaunch } from "./FileLaunch";
 import { Icon } from "./icons";
 import { useWorkspaceDialog } from "./useWorkspaceDialog";
 import { ViewerEditButton } from "./ViewerEditButton";
@@ -131,6 +132,7 @@ export function FileViewerDialog({
         <span>{draft ? "Без сохранения в проект" : "Исходный файл"}</span>
         <div className="file-viewer-actions">
           {!draft && !editProvided && <ViewerEditButton name={name} source={source} file={file} />}
+          {!draft && <FileLaunch name={name} source={source} />}
           {actions}
         </div>
       </footer>
