@@ -14,6 +14,14 @@ Linux Files/Git/Terminal/Codex, личную привязку/отзыв, backup
 [Подробности и границы проверки](SERVER_WORKSPACES_2026-09-28.md).
 Владелец выбрал Linux основным направлением, действующий Windows baseline сохраняется.
 
+Host-исходники закоммичены и отправлены в `main`: `fded2b9`. Точный пакет уже на сервере:
+`/home/abysscloud/services/codex-web/workspace-setup-fded2b9`.
+Проверены manifest/checksums и dry-run; установка ещё не выполнялась. Команда владельца:
+`sudo python3 /home/abysscloud/services/codex-web/workspace-setup-fded2b9/apply-bundle.py --apply`.
+Терминал: `codexweb://terminal/hub-host`. Пароль вводится только в фактический sudo prompt.
+Пакет резервирует 64 GiB под четыре диска; живые engine/gateway/native не перезапускает.
+Не повторять prerequisites и сборку пакета: после выполнения читать readiness и завершать интеграцию.
+
 ## Установлена кнопка вставки в терминале `355fb34`
 
 «Вставить» доступна рядом с командой и скрытым паролем, отправка отдельная.

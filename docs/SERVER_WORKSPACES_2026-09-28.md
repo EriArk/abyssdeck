@@ -64,6 +64,29 @@ rootless/cgroup/seccomp и реальные ограничения, без privi
 проектные сервисы и защищённый preview. До этого UI не показывает недоступную машину.
 Подробности и контракт: [host boundary](../ops/workspaces/README.md).
 
+## Подготовленная установка `fded2b9`
+
+Исходники находятся в `main`. Пакет из точного git archive размещён на books-server:
+`/home/abysscloud/services/codex-web/workspace-setup-fded2b9`.
+Проверка manifest и запуск без `--apply` прошли. Root-установка не запускалась;
+`codex-workspace-broker.service` пока inactive. Выполнение владельцем:
+
+```sh
+sudo python3 /home/abysscloud/services/codex-web/workspace-setup-fded2b9/apply-bundle.py --apply
+```
+
+Image ID: `sha256:2dfe22e60b1cc06c94fd2bb189a2468a71cab22b471b024f0064cb8b49720a9c`.
+Архив: 399573504 bytes, SHA-256
+`a274f722a972641c0103385a91b75224ab66c48a0e129eb7629123786c09127e`.
+Образ закреплён на Node digest и Codex CLI 0.158.0; runtime archive повторно сверен
+после копирования. Системный шаг выделяет 64 GiB для четырёх частных дисков.
+Приёмка работает до пользовательского enrollment, с двумя временными контейнерами.
+После неё читать `workspaces/host-readiness.json`, не считать dry-run host-приёмкой.
+
+Работающие engine/gateway остаются `6c151b5`, native owner/member — `25f09b8`;
+ID контейнеров `a8a302224bfb` / `e4d9a82808a6` / `e2e02ae8c128` / `0c4aae142698`.
+Web-only версия остаётся `355fb34`. В этом проходе пользовательская установка не менялась.
+
 Основания для prerequisites: [Podman rootless requirements](https://github.com/podman-container-tools/podman/blob/main/docs/tutorials/rootless_tutorial.md),
 [ограничения AppArmor в Ubuntu 24.04](https://documentation.ubuntu.com/security/security-features/privilege-restriction/apparmor/).
 Не отключать ограничения user namespaces глобально ради установки.
