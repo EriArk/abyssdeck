@@ -4,6 +4,14 @@
 
 - Before proposing a stage, reconcile recent commits with `docs/CURRENT_STATUS.md` and actual installed versions. Historical next-stage proposals are not the active queue. Do not offer implemented work again; distinguish source completion, activation and acceptance.
 
+## Owner-requested Linux priority (2026-09-28)
+
+- Linux is the primary direction for the owner's users, including managed server
+  workspaces and future personal Linux machines. Preserve the existing Windows
+  baseline for users who remain there; do not remove their projects, file tools,
+  terminal or Codex support. This supersedes Windows-first planning, not existing
+  transport/privacy boundaries. Installer improvements remain the next separate pass.
+
 ## Owner-requested in-app terminal handoff (2026-09-28)
 
 - When manual commands or a password prompt are needed, use the existing private

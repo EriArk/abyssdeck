@@ -1,0 +1,5 @@
+#!/bin/bash
+set -euo pipefail
+umask 077
+mkdir -p /workspace/home /workspace/projects /workspace/integration /workspace/services
+exec sleep infinity

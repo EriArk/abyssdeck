@@ -2,6 +2,14 @@
 
 This file records decisions that should be treated as fixed unless the owner explicitly changes them.
 
+## 2026-09-28 — Linux becomes the primary direction
+
+The owner plans to move users to Linux. Managed Server Workspaces and later personal
+Linux machines are the primary development direction. Preserve the existing Windows
+baseline (projects, files, terminals and Codex); do not remove or migrate its accounts
+implicitly. The host remains private and member Linux access ends at their isolated
+workspace. Installer/new-user improvements remain the next separate approved pass.
+
 ## 2026-09-24 — Brainstorm before a repository
 
 The owner's continuation approves the next Brainstorm stage after GPT incremental history. Rooms are visible to authenticated installation users; following is not an ACL. A common board/chat and per-user private room GPT precede any Project or GitHub choice. Conversion uses an immutable selected snapshot and the ordinary project/invitation workflows. Private summaries are excluded from the common export and other users' GPT context. The room remains available. The bounded voice baseline uses the existing authenticated Hub, no extra PC/public port and no recording. See [implemented scope and remaining acceptance](BRAINSTORM.md).
