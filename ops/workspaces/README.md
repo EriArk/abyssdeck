@@ -55,8 +55,15 @@ effects remain unknown. Stop/revoke are explicit actions, not recovery side effe
 `prepare-server-workspaces.sh` previously installed rootless prerequisites.
 Build `Containerfile` with the recorded immutable Node base and pinned Codex
 version. Save the image archive and its SHA-256; prepare an exact setup manifest
-using the committed Python sources. `apply-bundle.py` without `--apply` prints the
-plan. With `sudo ... --apply`, it verifies hashes before invoking `install.py`.
+using the committed Python sources. The manifest `image` must be the archive's
+config digest from `install.archive_image_id(Path(archive))`, never an assumed
+`docker inspect .Id`: Docker's containerd store can report an OCI index digest.
+Preserve that build identifier separately as `sourceImageId` if needed. The
+[OCI config digest is the ImageID](https://github.com/opencontainers/image-spec/blob/main/config.md#imageid).
+`apply-bundle.py` without `--apply` verifies file/archive hashes and this exact
+config identity before printing the plan. With `sudo ... --apply`, `install.py`
+rechecks them, loads/inspects the exact image before provisioning disks/services,
+and pins the same config digest throughout broker and acceptance. No tag fallback.
 
 Installation creates disks/services/firewall and tests two disposable environments.
 It refuses existing running infrastructure rather than replacing active work.

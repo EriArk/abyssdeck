@@ -16,6 +16,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import tarfile
 import time
 from policy import SLOTS, DISK_GIB, ROOT, HOME, RUNTIME, podman_command
 
@@ -34,6 +35,43 @@ def runtime_read(command):
         raise RuntimeError(f'PODMAN_PREFLIGHT_FAILED ({error.returncode}): {detail}') from None
     except subprocess.TimeoutExpired:
         raise RuntimeError('PODMAN_PREFLIGHT_TIMEOUT') from None
+
+
+def archive_image_id(archive):
+    """Podman image identity is the config digest, not Docker's OCI index ID.
+
+    Read metadata only from the already checksum-verified docker-save archive;
+    never extract paths, resolve tags or choose an arbitrary loaded image.
+    """
+    with tarfile.open(archive, mode='r:') as bundle:
+        def read_member(name, limit):
+            matches = [member for member in bundle.getmembers() if member.name == name]
+            if len(matches) != 1 or not matches[0].isfile() or not 0 < matches[0].size <= limit:
+                raise RuntimeError('IMAGE_ARCHIVE_METADATA_INVALID')
+            with bundle.extractfile(matches[0]) as file:
+                return file.read(limit + 1)
+        manifest = json.loads(read_member('manifest.json', 1024 * 1024))
+        if not isinstance(manifest, list) or len(manifest) != 1 or not isinstance(manifest[0], dict):
+            raise RuntimeError('IMAGE_ARCHIVE_REQUIRES_ONE_IMAGE')
+        name = manifest[0].get('Config', '')
+        if not isinstance(name, str) or not re.fullmatch(r'(?:blobs/sha256/[a-f0-9]{64}|[a-f0-9]{64}\.json)', name):
+            raise RuntimeError('IMAGE_ARCHIVE_CONFIG_INVALID')
+        config = read_member(name, 4 * 1024 * 1024)
+        digest = hashlib.sha256(config).hexdigest()
+        expected = name.rsplit('/', 1)[-1].removesuffix('.json')
+        if digest != expected:
+            raise RuntimeError('IMAGE_ARCHIVE_CONFIG_HASH_MISMATCH')
+        return 'sha256:' + digest
+
+
+def load_image(podman, archive, image_id):
+    # Run before provisioning disks/services. The archive and config digest were
+    # checked before this call; a tag printed by `load` never grants identity.
+    with archive.open('rb') as file:
+        run(podman + ['load'], stdin=file)
+    actual = runtime_read(podman + ['image', 'inspect', image_id, '--format', '{{.Id}}']).strip()
+    if actual.removeprefix('sha256:') != image_id.removeprefix('sha256:'):
+        raise RuntimeError('IMAGE_ID_MISMATCH')
 
 
 def write(path, text, mode=0o644):
@@ -116,6 +154,8 @@ def main():
     with archive.open('rb') as file:
         if hashlib.file_digest(file, 'sha256').hexdigest() != args.archive_sha256:
             raise RuntimeError('IMAGE_ARCHIVE_HASH_MISMATCH')
+    if archive_image_id(archive) != args.image_id:
+        raise RuntimeError('IMAGE_ID_MUST_MATCH_ARCHIVE_CONFIG: rebuild setup manifest using the archive config digest')
     # Refuse replacing the runtime under any existing container/workspace.
     podman = podman_command(account.pw_uid)
     if runtime_read(podman + ['ps', '-aq']).strip():
@@ -131,6 +171,7 @@ def main():
     service = 'codex-workspace-broker.service'
     if subprocess.run(['systemctl', 'is-active', '--quiet', service]).returncode == 0:
         raise RuntimeError('BROKER_ALREADY_ACTIVE')
+    load_image(podman, archive, args.image_id)
     for path in [ROOT, ROOT+'/images', ROOT+'/slots', '/opt/codex-workspace-broker', '/etc/codex-workspaces']:
         p = Path(path)
         if p.exists() and (p.resolve() != p or p.stat().st_uid != 0):
@@ -189,12 +230,6 @@ def main():
         check_mount(Path(ROOT)/'slots'/str(i), Path(ROOT)/'images'/f'slot{i}.ext4')
         os.chown(Path(ROOT)/'slots'/str(i), account.pw_uid, account.pw_gid)
         os.chmod(Path(ROOT)/'slots'/str(i), 0o700)
-    # Stream the immutable reviewed image; no writable archive is handed to the runtime.
-    with archive.open('rb') as file:
-        run(podman + ['load'], stdin=file)
-    actual = subprocess.check_output(podman + ['image', 'inspect', args.image_id, '--format', '{{.Id}}'], text=True).strip()
-    if actual.removeprefix('sha256:') != args.image_id.removeprefix('sha256:'):
-        raise RuntimeError('IMAGE_ID_MISMATCH')
     write('/etc/codex-workspaces/config.json', json.dumps({'uid':account.pw_uid, 'hubUid':hub.pw_uid, 'image':args.image_id}))
     write('/etc/systemd/system/codex-workspace-network.service', '''[Unit]
 Description=CodexWeb workspace egress isolation
@@ -255,6 +290,6 @@ WantedBy=multi-user.target
 if __name__ == '__main__':
     try:
         main()
-    except (RuntimeError, OSError, subprocess.SubprocessError) as error:
+    except (RuntimeError, OSError, ValueError, tarfile.TarError, subprocess.SubprocessError) as error:
         print('Workspace setup stopped: ' + str(error), file=sys.stderr)
         sys.exit(1)

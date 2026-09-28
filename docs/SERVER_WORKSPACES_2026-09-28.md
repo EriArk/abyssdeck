@@ -79,7 +79,8 @@ rootless/cgroup/seccomp и реальные ограничения, без privi
 sudo python3 /home/abysscloud/services/codex-web/workspace-setup-fded2b9/apply-bundle.py --apply
 ```
 
-Image ID: `sha256:2dfe22e60b1cc06c94fd2bb189a2468a71cab22b471b024f0064cb8b49720a9c`.
+Docker build/index ID: `sha256:2dfe22e60b1cc06c94fd2bb189a2468a71cab22b471b024f0064cb8b49720a9c`.
+Это не Podman ImageID; правильный config digest указан ниже.
 Архив: 399573504 bytes, SHA-256
 `a274f722a972641c0103385a91b75224ab66c48a0e129eb7629123786c09127e`.
 Образ закреплён на Node digest и Codex CLI 0.158.0; runtime archive повторно сверен
@@ -98,16 +99,38 @@ Web-only обновлён до `b0327b4` для прокрутки термин�
 Исходная ошибка preflight выводится кратко без двойного traceback. 17 Python-проверок
 прошли. Пакет `/home/abysscloud/services/codex-web/workspace-setup-b0327b4` подготовлен
 из точного commit; manifest, хеш runtime archive и dry-run проверены. Образ прежний.
-Административный шаг **ещё не выполнен**:
+Административный шаг выполнен владельцем, но не завершён (IMG_0707):
 
 ```sh
 sudo python3 /home/abysscloud/services/codex-web/workspace-setup-b0327b4/apply-bundle.py --apply
 ```
 
-Не повторять сборку и prerequisites: после запуска проверить настоящий readiness-отчёт.
+Диски 0–3 созданы и смонтированы на loop0–3. Загрузка архива завершилась, затем inspect
+не нашёл ошибочно переданный OCI index ID. Broker/network inactive; readiness отсутствует.
+Старый пакет не повторять; исправление описано ниже.
 Первоначальная Podman-проверка prerequisites тоже падала; установленные пакеты и активный
 user manager сами по себе не доказывают работоспособность rootless-контейнеров.
 
 Основания для prerequisites: [Podman rootless requirements](https://github.com/podman-container-tools/podman/blob/main/docs/tutorials/rootless_tutorial.md),
 [ограничения AppArmor в Ubuntu 24.04](https://documentation.ubuntu.com/security/security-features/privilege-restriction/apparmor/).
 Не отключать ограничения user namespaces глобально ради установки.
+
+## Исправление идентичности образа после IMG_0707
+
+В Docker containerd store `.Id` оказался digest OCI-индекса. Podman 4.9 загрузил
+конфигурацию `sha256:6a0ac02c5b91fa738ac5d9d2d520c2a76ea1aadf92721b391b29b85d6aff185e`.
+Сам архив остался прежним, его SHA-256 совпадает. `archive_image_id()` читает одну
+manifest-запись и проверяет SHA-256 config, не извлекая путей. Подготовка manifest
+использует этот config ID; build/index ID хранится отдельно как `sourceImageId`.
+И dry-run, и root-установщик проверяют соответствие archive/config/manifest.
+Podman load/inspect перенесены перед выделением дисков и настройкой служб.
+Подмена тегом или выбор «последнего образа» не допускаются. Созданные диски не форматируются.
+
+21 Python/Linux-тест прошёл, включая различие index/config, legacy docker-save,
+повреждение/неоднозначность metadata, отказ dry-run со старым ID и точный inspect.
+Дополнительно на самом сервере rootless Podman 4.9.3 загрузил точный архив в отдельный
+временный store, нашёл образ по config ID и запустил Node 24.21.0, Git 2.39.5,
+Codex 0.158.0 без сети, capabilities и записи в rootfs. Временный store удалён.
+Это проверка UID 1000, а не полной изоляции выделенного UID 1001.
+Квитанция: `/home/abysscloud/codex-web-native-lab/workspace-image-config-evidence.json`.
+Системная установка и полноценная host-приёмка по-прежнему требуют sudo в терминале.

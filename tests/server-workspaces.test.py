@@ -1,11 +1,14 @@
 import base64
 import importlib.util
+import hashlib
+import io
 import json
 import os
 from pathlib import Path
 import socket
 import subprocess
 import sys
+import tarfile
 import tempfile
 import threading
 import time
@@ -17,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'ops/workspaces'))
 from broker import Broker, Refusal, Handler, Server, authenticate, canonical, stream_process
 from client import envelope
 from policy import CPUS, MEMORY, PIDS, SLOTS, container_args, container_name, exec_args, firewall, slot_path, podman_command
-from install import acceptance_evidence, check_mount, runtime_read
+from install import acceptance_evidence, check_mount, runtime_read, archive_image_id, load_image
 
 A = str(uuid.uuid4()); B = str(uuid.uuid4()); IMAGE = 'sha256:'+'a'*64; KEY = b'k'*32
 
@@ -51,6 +54,64 @@ class Workspaces(unittest.TestCase):
 
     def tearDown(self):
         self.broker.db.close(); self.temp.cleanup()
+
+    def make_archive(self, entries):
+        path=Path(self.temp.name)/'runtime.tar'
+        with tarfile.open(path,'w') as archive:
+            for name,data in entries:
+                member=tarfile.TarInfo(name);member.size=len(data)
+                archive.addfile(member,io.BytesIO(data))
+        return path
+
+    def test_archive_config_identity_is_distinct_from_oci_index(self):
+        config=b'{"architecture":"amd64","rootfs":{"type":"layers","diff_ids":[]}}'
+        digest=hashlib.sha256(config).hexdigest()
+        for name in ['blobs/sha256/'+digest,digest+'.json']:
+            with self.subTest(name=name):
+                path=self.make_archive([('manifest.json',json.dumps([{'Config':name}]).encode()),
+                    (name,config),('index.json',json.dumps({'manifests':[{'digest':IMAGE}]}).encode())])
+                self.assertEqual(archive_image_id(path),'sha256:'+digest)
+                self.assertNotEqual(archive_image_id(path),IMAGE)
+
+    def test_archive_rejects_ambiguous_and_changed_config(self):
+        name='blobs/sha256/'+'a'*64
+        for manifest,entries,error in [
+            ([{'Config':name},{'Config':name}],[], 'REQUIRES_ONE_IMAGE'),
+            ([{'Config':'../../outside'}],[], 'CONFIG_INVALID'),
+            ([{'Config':name}],[(name,b'changed')], 'HASH_MISMATCH'),
+            ([{'Config':name}],[(name,b'one'),(name,b'two')], 'METADATA_INVALID'),
+        ]:
+            with self.subTest(error=error):
+                path=self.make_archive([('manifest.json',json.dumps(manifest).encode())]+entries)
+                with self.assertRaisesRegex(RuntimeError,error):archive_image_id(path)
+
+    def test_loaded_image_must_match_exact_config_digest(self):
+        path=Path(self.temp.name)/'runtime.tar';path.write_bytes(b'archive')
+        with patch('install.run') as run,patch('install.runtime_read',return_value=IMAGE.removeprefix('sha256:')+'\n') as read:
+            load_image(['podman'],path,IMAGE)
+            self.assertEqual(run.call_args.args[0],['podman','load'])
+            self.assertEqual(read.call_args.args[0],['podman','image','inspect',IMAGE,'--format','{{.Id}}'])
+        with patch('install.run'),patch('install.runtime_read',return_value='b'*64):
+            with self.assertRaisesRegex(RuntimeError,'IMAGE_ID_MISMATCH'):load_image(['podman'],path,IMAGE)
+
+    def test_bundle_dry_run_rejects_index_id_before_administrator_step(self):
+        config=b'{"architecture":"amd64"}'
+        digest=hashlib.sha256(config).hexdigest();name='blobs/sha256/'+digest
+        archive=self.make_archive([('manifest.json',json.dumps([{'Config':name}]).encode()),(name,config)])
+        root=Path(self.temp.name);source=Path(__file__).resolve().parents[1]/'ops/workspaces'
+        files={}
+        for name in ['broker.py','policy.py','host-check.py','client.py','acceptance.py','install.py','apply-bundle.py']:
+            data=(source/name).read_bytes();(root/name).write_bytes(data);files[name]=hashlib.sha256(data).hexdigest()
+        manifest={'files':files,'image':'sha256:'+digest,'archiveSha256':hashlib.sha256(archive.read_bytes()).hexdigest(),
+                  'revision':'test','hubUser':'test','hubState':'/unused'}
+        (root/'setup-manifest.json').write_text(json.dumps(manifest))
+        result=subprocess.run([sys.executable,str(root/'apply-bundle.py')],capture_output=True,text=True)
+        self.assertEqual(result.returncode,0,result.stderr)
+        manifest['image']=IMAGE
+        (root/'setup-manifest.json').write_text(json.dumps(manifest))
+        result=subprocess.run([sys.executable,str(root/'apply-bundle.py')],capture_output=True,text=True)
+        self.assertNotEqual(result.returncode,0)
+        self.assertIn('IMAGE_ID_MUST_MATCH_ARCHIVE_CONFIG',result.stderr)
 
     def test_runtime_launch_uses_private_cwd_and_clean_environment(self):
         home=Path(self.temp.name)/'service-home';home.mkdir()
