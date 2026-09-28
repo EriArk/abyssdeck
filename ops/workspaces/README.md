@@ -182,6 +182,12 @@ exact mounts, original containers and the original Hub, preserving revocation.
 No user commands are replayed. If identity has changed, recovery refuses and keeps
 the journal for an administrator. Never delete that journal to force a new copy.
 
+The backup container rootfs is read-only, but its private state bind is writable:
+SQLite read-only source connections may need to create WAL/SHM bookkeeping files
+after a clean shutdown. Hub and broker remain stopped and the trusted backup CLI
+opens source databases with `readOnly: true`; user database contents are not edited.
+A read-only state mount is not compatible with cold WAL databases.
+
 Only `complete.json` marks a verified pair. Failed/incomplete directories are not
 automatically deleted. Restore uses the paired Team snapshot and `disks` directory
 with the offline procedure above, native admission still closed. Keep the previous

@@ -74,6 +74,9 @@ class Checkpoint(unittest.TestCase):
             destination.mkdir();(destination/'manifest.json').write_text('{}')
         with patch.object(backup,'create',create),patch.object(backup,'verify',return_value={}):
             result=self.op.create()
+        invocation=next(a for a in self.log if a[:2]==['docker','run'])
+        self.assertIn(f'type=bind,src={self.state},dst={self.state}',invocation)
+        self.assertIn('--read-only',invocation) # rootfs remains read-only
         with sqlite3.connect(self.registry) as db:db.execute("UPDATE workspaces SET state='revoked'")
         self.op.recover()
         self.assertFalse(self.running);self.assertTrue((result/'complete.json').exists())

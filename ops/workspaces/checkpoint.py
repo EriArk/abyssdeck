@@ -160,7 +160,11 @@ class Checkpoint:
         hub=target/'hub';hub.mkdir(mode=0o700);os.chown(hub,self.host['hubUid'],self.host['hubUid'])
         args=['docker','run','--rm','--network','none','--read-only','--cap-drop','ALL','--security-opt','no-new-privileges','--memory','1g','--cpus','1','--pids-limit','64',
               '--user',str(self.host['hubUid'])+':'+str(self.settings['hubGid']),
-              '--mount',f'type=bind,src={self.state},dst={self.state},readonly',
+              # SQLite's read-only connection still needs writable directories
+              # for WAL/SHM bookkeeping after a clean cold shutdown. The trusted
+              # backup CLI opens source databases readOnly; Hub and broker stay
+              # stopped. A read-only mount makes a valid WAL database unreadable.
+              '--mount',f'type=bind,src={self.state},dst={self.state}',
               '--mount',f'type=bind,src={hub},dst=/snapshots',engine['Config']['Image'],
               'node','dist/maintenance.js','backup','--config',str(self.state/'config.json'),'--destination','/snapshots','--keep','1','--revision',revision,
               '--private-file','config.json='+str(self.state/'config.json')]
