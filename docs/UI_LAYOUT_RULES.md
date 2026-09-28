@@ -38,6 +38,13 @@ as equal-width actions on the original card. Long filenames wrap without changin
 peer control widths; keep keyboard-accessible open buttons and existing exact
 source navigation from messages.
 
+Results search (28 September): one magnifier belongs in the feed heading.
+Keep query, two equal filter/sort controls, independently scrolling filename
+rows and a compact count/refresh footer in one themed window. Opening a file
+leaves that list mounted. File sequence and source navigation have their own
+44px rail below the viewer heading; do not crowd the filename or Close. A
+refreshed feed must not repeat a previous explicit focus scroll.
+
 Codex schedules: one clock in the chat header opens a protected-title window.
 Keep message, recurrence, timezone/date/time and equal-width footer actions in
 explicit rows. The editor scrolls independently while Save and Close remain

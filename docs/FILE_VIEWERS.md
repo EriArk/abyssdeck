@@ -6,6 +6,15 @@ Entry points: Files, Git (working copy or exact index blob), Results, authorized
 
 ## Capabilities and bounds
 
+Results search opens from the feed heading and finds filenames across paged
+Codex thread/project Results or the selected GPT conversation's public result
+index. File/image filtering and newest/oldest/name ordering use bounded metadata
+pages, never binary preloads. A nested viewer retains the query and list scroll;
+previous/next operates on loaded files and preserves the shell's properties and
+expanded state. Each switch clears the previous file bytes before enabling the
+new exact source. Source navigation opens the original message when known.
+Source-card and nested-viewer saving still use DownloadLink.
+
 `filePreviewRegistry.ts` separates full-viewer capability, cheap thumbnails, parser limits, mobile availability, isolation and server conversion.
 
 | Format | Viewer | Preview boundary |

@@ -17,6 +17,7 @@ import {
   normalizeGptConnection,
   type ResultItem,
   resultCategorySchema,
+  resultSearchQuerySchema,
   textBlockLines,
   uploadMime,
 } from "@codex-web/shared";
@@ -59,6 +60,7 @@ import {
 } from "./library.js";
 import { assertPreviewFrame, Previews, previewCsp } from "./previews.js";
 import { resultReferenceSchema } from "./result-references.js";
+import { searchGptResults } from "./result-search.js";
 import type { Store } from "./store.js";
 
 const id = z.string().regex(/^[a-zA-Z0-9_-]{1,100}$/);
@@ -2057,6 +2059,17 @@ export function registerGpt(
     service.authorize();
     service.library.assertExists("thread", p.id);
     return page;
+  });
+  app.get("/api/gpt/conversations/:id/results/search", async (req) => {
+    service.authorize();
+    const p = z.object({ id }).parse(req.params),
+      q = resultSearchQuerySchema.parse(req.query);
+    service.library.assertExists("thread", p.id);
+    const snapshot = await service.historyCache.snapshot(p.id);
+    service.authorize();
+    service.library.assertExists("thread", p.id);
+    const index = service.resultIndex(p.id, snapshot);
+    return searchGptResults(p.id, index.items, index.revision, q);
   });
   app.get("/api/gpt/conversations/:id/results", async (req) => {
     service.authorize();

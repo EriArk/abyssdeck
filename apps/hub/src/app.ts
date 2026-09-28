@@ -14,6 +14,7 @@ import {
   HubError,
   type HubEvent,
   resultCategorySchema,
+  resultSearchQuerySchema,
   turnSettingsSchema,
 } from "@codex-web/shared";
 import cookie from "@fastify/cookie";
@@ -68,6 +69,7 @@ import { connectRemote, remoteProvider } from "./remote.js";
 import { registerRepositoryFiles } from "./repository-files.js";
 import { installResultCaptureLimit } from "./result-capture-limit.js";
 import { resolveResultReference, resultReferenceSchema } from "./result-references.js";
+import { searchStoredResults } from "./result-search.js";
 import { Sessions } from "./sessions.js";
 import { registerSpeech } from "./speech.js";
 import { registerStagingStorage } from "./staging-storage.js";
@@ -542,6 +544,11 @@ export async function createApp(
     if (thread.origin !== "desktop" && !thread.historyMode) return { version: 0 };
     return sessions.catalog.readThread(thread);
   });
+  app.get("/api/projects/:id/results/search", async (req) => {
+    const id = paramId(req);
+    sessions.project(id);
+    return searchStoredResults(store, { projectId: id }, resultSearchQuerySchema.parse(req.query));
+  });
   app.get("/api/projects/:id/results", async (req) => {
     const id = paramId(req);
     sessions.project(id);
@@ -582,6 +589,11 @@ export async function createApp(
       thread.workingDirectory || project.workingDirectory,
       resultReferenceSchema.parse(req.body),
     );
+  });
+  app.get("/api/threads/:id/results/search", async (req) => {
+    const id = paramId(req);
+    sessions.thread(id);
+    return searchStoredResults(store, { threadId: id }, resultSearchQuerySchema.parse(req.query));
   });
   app.get("/api/threads/:id/results", async (req) => {
     const id = paramId(req);

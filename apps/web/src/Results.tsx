@@ -47,6 +47,7 @@ export function Results({
   onSaveLink,
   selection,
   onRevealRetry,
+  onSearch,
   showLinks = false,
   showWork = true,
   showReasoning = false,
@@ -70,6 +71,7 @@ export function Results({
   onSaveLink?: (result: ResultItem) => void;
   selection?: ArtifactSelection | null;
   onRevealRetry?: () => void;
+  onSearch?: () => void;
   showLinks?: boolean;
   showWork?: boolean;
   showReasoning?: boolean;
@@ -79,19 +81,26 @@ export function Results({
     [revealNotice, setRevealNotice] = useState<string | null>(null),
     [inspecting, setInspecting] = useState(false);
   const revealed = useRef<ArtifactSelection["request"] | null>(null);
+  const focusedRequest = useRef("");
   useEffect(() => {
     onOverlayChange(inspecting);
     return () => onOverlayChange(false);
   }, [inspecting, onOverlayChange]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: Newly loaded result cards must be focused after rendering.
   useEffect(() => {
-    if (visible && focusId)
-      requestAnimationFrame(() =>
-        ref.current
-          ?.querySelector(`[data-result="${CSS.escape(focusId)}"]`)
-          ?.scrollIntoView({ block: "center" }),
-      );
-  }, [focusId, visible, results]);
+    const request = `${focusId}:${focusVersion}`;
+    if (!visible || !focusId || focusedRequest.current === request) return;
+    const frame = requestAnimationFrame(() => {
+      const pane = ref.current;
+      const card = pane?.querySelector<HTMLElement>(`[data-result="${CSS.escape(focusId)}"]`);
+      if (!pane || !card) return;
+      const bounds = pane.getBoundingClientRect(),
+        target = card.getBoundingClientRect();
+      pane.scrollTop += target.top - bounds.top - 12;
+      focusedRequest.current = request;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [focusId, focusVersion, visible, results]);
   const inspect = (result: Result) => {
     setRevealNotice(null);
     setInspected(result);
@@ -113,6 +122,13 @@ export function Results({
     setRevealNotice(selection.item ? null : selection.error || "Открываем результат…");
   }, [selection]);
   const current = inspected && (results.find((item) => item.id === inspected.id) ?? inspected);
+  const gallery = results.filter(
+    (item) =>
+      ["file", "artifact", "image"].includes(item.type) &&
+      item.payload.url &&
+      (category === "all" || resultCategory(item.type) === category),
+  );
+  const position = current ? gallery.findIndex((item) => item.id === current.id) : -1;
   return (
     <section className="results-pane pane" data-visible={visible} aria-label="Результаты">
       <div className="pane-heading">
@@ -120,7 +136,19 @@ export function Results({
           <Icon name="results" />
           Результаты
         </span>
-        {counts.all > 0 && <span className="small muted">{counts.all}</span>}
+        <div className="results-heading-actions">
+          {counts.all > 0 && <span className="small muted">{counts.all}</span>}
+          {onSearch && (
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="Найти файл в результатах"
+              onClick={onSearch}
+            >
+              <Icon name="search" />
+            </button>
+          )}
+        </div>
       </div>
       {toolbar}
       <ResultFilters
@@ -161,8 +189,28 @@ export function Results({
           <PreviewViewer result={current} onClose={() => setInspecting(false)} />
         ) : (
           <ResultFilePreview
-            key={current.id}
             result={current}
+            navigation={
+              position < 0
+                ? undefined
+                : {
+                    index: position,
+                    count: gallery.length,
+                    previous: position > 0 ? () => inspect(gallery[position - 1]!) : undefined,
+                    next:
+                      position + 1 < gallery.length
+                        ? () => inspect(gallery[position + 1]!)
+                        : undefined,
+                  }
+            }
+            onSource={
+              current.turnId && onTurn
+                ? () => {
+                    setInspecting(false);
+                    onTurn(current.turnId!, current.threadId);
+                  }
+                : undefined
+            }
             onClose={() => setInspecting(false)}
           />
         ))}
@@ -183,6 +231,7 @@ export function Results({
               <a
                 key={r.id}
                 data-result={r.id}
+                data-focused={r.id === focusId}
                 className="result-site-link secondary"
                 href={r.payload.url}
                 target="_blank"
@@ -212,7 +261,12 @@ export function Results({
                 <Icon name="external" size={16} />
               </a>
             ) : (
-              <article className={`result-card result-${r.type}`} key={r.id} data-result={r.id}>
+              <article
+                className={`result-card result-${r.type}`}
+                key={r.id}
+                data-result={r.id}
+                data-focused={r.id === focusId}
+              >
                 <div className="result-title">
                   {onSaveLink && (
                     <button

@@ -3,12 +3,27 @@ import { workspaceUrl } from "./accountStorage";
 import { DownloadLink, isDownloadUrl } from "./DownloadLink";
 import { FilePreview } from "./FilePreview";
 import { FileViewerDialog } from "./FileViewerDialog";
+import { Icon } from "./icons";
 import { ResultShareButton } from "./ResultSharing";
 import { resultPreview } from "./resultPreview";
 import type { Result } from "./types";
 
 /** Full viewers are mounted only when a file/image is opened. */
-export function ResultFilePreview({ result, onClose }: { result: Result; onClose: () => void }) {
+export function ResultFilePreview({
+  result,
+  onClose,
+  navigation,
+  onSource,
+  resolving = false,
+  resolutionError = "",
+}: {
+  result: Result;
+  onClose: () => void;
+  navigation?: { index: number; count: number; previous?: () => void; next?: () => void };
+  onSource?: () => void;
+  resolving?: boolean;
+  resolutionError?: string;
+}) {
   const path = result.payload.url,
     mime = result.payload.mime,
     title = result.title;
@@ -18,6 +33,9 @@ export function ResultFilePreview({ result, onClose }: { result: Result; onClose
     [error, setError] = useState(""),
     [truncated, setTruncated] = useState(false);
   const [revision, setRevision] = useState(0);
+  const identity = `${result.id}:${path}:${revision}`;
+  const [loaded, setLoaded] = useState("");
+  const ready = loaded === identity;
   useEffect(() => {
     const saved = (event: Event) => {
       if ((event as CustomEvent).detail?.source === path) setRevision((v) => v + 1);
@@ -31,6 +49,7 @@ export function ResultFilePreview({ result, onClose }: { result: Result; onClose
     setUrl("");
     setError("");
     setTruncated(false);
+    if (resolving || resolutionError) return;
     const controller = new AbortController();
     let resource = "";
     void (async () => {
@@ -71,6 +90,7 @@ export function ResultFilePreview({ result, onClose }: { result: Result; onClose
         new Blob([value], { type: kind === "image" ? type : "application/octet-stream" }),
       );
       setFile(value);
+      setLoaded(identity);
       setUrl(resource);
       setTruncated(cut);
     })().catch(() => {
@@ -81,29 +101,68 @@ export function ResultFilePreview({ result, onClose }: { result: Result; onClose
       controller.abort();
       if (resource) URL.revokeObjectURL(resource);
     };
-  }, [path, mime, title, kind, limit, revision]);
+  }, [path, mime, title, kind, limit, revision, identity, resolving, resolutionError]);
   return (
     <FileViewerDialog
       name={title}
-      file={file}
+      file={ready && !resolving && !resolutionError ? file : null}
       source={path}
       onClose={onClose}
+      navigation={
+        (navigation || onSource) && (
+          <div className="file-viewer-navigation">
+            {navigation && (
+              <nav className="file-viewer-sequence" aria-label="Загруженные файлы">
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label="Предыдущий файл"
+                  disabled={!navigation.previous}
+                  onClick={navigation.previous}
+                >
+                  <Icon name="back" />
+                </button>
+                <small>
+                  {navigation.index + 1} / {navigation.count}
+                </small>
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label="Следующий файл"
+                  disabled={!navigation.next}
+                  onClick={navigation.next}
+                >
+                  <Icon name="chevron" />
+                </button>
+              </nav>
+            )}
+            {onSource && (
+              <button type="button" className="secondary" onClick={onSource}>
+                <Icon name="chat" size={17} /> К сообщению
+              </button>
+            )}
+          </div>
+        )
+      }
       actions={
-        <>
-          <ResultShareButton result={result} />
-          {isDownloadUrl(path) ? (
-            <DownloadLink href={path} name={title} mime={mime} directDownload>
-              Скачать файл
-            </DownloadLink>
-          ) : null}
-        </>
+        !resolving &&
+        !resolutionError && (
+          <>
+            <ResultShareButton result={result} />
+            {isDownloadUrl(path) ? (
+              <DownloadLink href={path} name={title} mime={mime} directDownload>
+                Скачать файл
+              </DownloadLink>
+            ) : null}
+          </>
+        )
       }
     >
-      {error ? (
-        <p role="status">{error}</p>
-      ) : file ? (
+      {resolutionError || error ? (
+        <p role="status">{resolutionError || error}</p>
+      ) : file && ready ? (
         <>
-          <FilePreview file={file} objectUrl={url} source={path} full />
+          <FilePreview key={identity} file={file} objectUrl={url} source={path} full />
           {truncated && (
             <small>Показано начало файла. Полная версия доступна для скачивания.</small>
           )}

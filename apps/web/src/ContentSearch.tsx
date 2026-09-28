@@ -1,7 +1,7 @@
 import type { NotebookLink } from "@codex-web/shared";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { api, messageOf } from "./api";
+import { ApiError, api, messageOf } from "./api";
 import { Icon } from "./icons";
 import "./quick-capture.css";
 export type SearchRequest = {
@@ -11,6 +11,7 @@ export type SearchRequest = {
   query?: string;
 };
 type Page = {
+  revision?: string;
   items: { target: NotebookLink; snippet: string }[];
   nextOffset: number | null;
   coverage: string;
@@ -68,6 +69,7 @@ export function ContentSearch({
     });
     if (scope === "chat" && request.threadId) params.set("threadId", request.threadId);
     if (scope === "project" && request.projectId) params.set("projectId", request.projectId);
+    if (more && result?.revision) params.set("revision", result.revision);
     try {
       const page = await api<Page>("/workspace/search?" + params, { signal: controller.signal });
       if (!controller.signal.aborted) {
@@ -90,6 +92,15 @@ export function ContentSearch({
         );
       }
     } catch (e) {
+      if (
+        !controller.signal.aborted &&
+        more &&
+        e instanceof ApiError &&
+        e.code === "RESULTS_CHANGED"
+      ) {
+        void search();
+        return;
+      }
       if (!controller.signal.aborted) setError(messageOf(e));
     } finally {
       if (!controller.signal.aborted) setBusy(false);
@@ -155,21 +166,19 @@ export function ContentSearch({
               <option value="chat">Этот чат · {request.client === "gpt" ? "GPT" : "Codex"}</option>
             )}
           </select>
-          {!(scope === "chat" && request.client === "gpt") && (
-            <select
-              aria-label="Что искать"
-              value={kind}
-              onChange={(e) => {
-                reset();
-                setKind(e.target.value);
-              }}
-            >
-              <option value="all">Все типы</option>
-              <option value="messages">Сообщения</option>
-              <option value="records">Записи и планы</option>
-              <option value="files">Файлы</option>
-            </select>
-          )}
+          <select
+            aria-label="Что искать"
+            value={kind}
+            onChange={(e) => {
+              reset();
+              setKind(e.target.value);
+            }}
+          >
+            <option value="all">Все типы</option>
+            <option value="messages">Сообщения</option>
+            {scope !== "chat" && <option value="records">Записи и планы</option>}
+            <option value="files">Файлы</option>
+          </select>
           <button type="submit" className="primary" disabled={busy || query.trim().length < 2}>
             Найти
           </button>

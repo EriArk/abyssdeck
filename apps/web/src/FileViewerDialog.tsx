@@ -18,6 +18,7 @@ export function FileViewerDialog({
   actions,
   draft = false,
   editProvided = false,
+  navigation,
 }: {
   name: string;
   file?: File | null;
@@ -27,6 +28,7 @@ export function FileViewerDialog({
   actions?: ReactNode;
   draft?: boolean;
   editProvided?: boolean;
+  navigation?: ReactNode;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [properties, setProperties] = useState(false),
@@ -89,6 +91,7 @@ export function FileViewerDialog({
           </button>
         </div>
       </header>
+      {navigation}
       <div className="file-viewer-body" data-properties={properties}>
         <section className="file-viewer-content" aria-label="Содержимое файла">
           {children}

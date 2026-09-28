@@ -8,6 +8,7 @@ import {
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import type { ArtifactRequest, ArtifactSelection } from "./ArtifactMarkdown";
 import { ApiError, api, messageOf } from "./api";
+import { ResultSearch } from "./ResultSearch";
 import { Results } from "./Results";
 import { cachedResults, rememberResults, resultCacheEpoch } from "./resultCache";
 import { firstResultPage, mergeResultUpdate } from "./resultState";
@@ -43,6 +44,30 @@ export function ResultFeed({
   onCount?: (count: number) => void;
   reveal?: ArtifactRequest | null;
 }) {
+  const [searchScope, setSearchScope] = useState("");
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [picked, setPicked] = useState<{
+    endpoint: string;
+    id: string;
+    version: number;
+    external: string;
+  } | null>(null);
+  const externalFocus = `${focusId}:${focusVersion}`;
+  const localFocus =
+    picked?.endpoint === endpoint && picked.external === externalFocus ? picked : null;
+  const targetId = localFocus?.id ?? focusId;
+  const targetVersion = localFocus?.version ?? focusVersion;
+  const searching = !!endpoint && searchScope === endpoint;
+  useEffect(() => {
+    onOverlayChange(searching || viewerOpen);
+    return () => onOverlayChange(false);
+  }, [searching, viewerOpen, onOverlayChange]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: A different private source closes its nested windows and selection.
+  useEffect(() => {
+    setSearchScope("");
+    setPicked(null);
+    setFocused(null);
+  }, [endpoint]);
   const [selection, setSelection] = useState<ArtifactSelection | null>(null);
   const [revealRetry, setRevealRetry] = useState(0);
   // biome-ignore lint/correctness/useExhaustiveDependencies: Retry repeats a read of the exact source reference.
@@ -144,7 +169,6 @@ export function ResultFeed({
       fullyLoaded.current = saved?.nextBefore === null;
       loadedIds.current = saved?.items.map((item) => item.id) ?? [];
       setCursor(saved?.nextBefore ?? null);
-      setFocused(null);
       sourceRef.current = saved?.sourceRevision;
       setSourceRevision(saved?.sourceRevision);
     }
@@ -164,6 +188,8 @@ export function ResultFeed({
       setItems(data.items);
       loadedIds.current = data.items.map((item) => item.id);
       fullyLoaded.current = data.nextBefore === null;
+      if (sourceRef.current !== undefined && data.sourceRevision !== sourceRef.current)
+        setFocused(null);
       sourceRef.current = data.sourceRevision;
       setSourceRevision(data.sourceRevision);
       setCounts(data.counts ?? emptyResultCounts());
@@ -208,6 +234,8 @@ export function ResultFeed({
             loadedIds.current = next.items.map((item) => item.id);
             setCounts(next.counts);
             setCursor(next.nextBefore);
+            if (sourceRef.current !== undefined && next.sourceRevision !== sourceRef.current)
+              setFocused(null);
             sourceRef.current = next.sourceRevision;
             setSourceRevision(next.sourceRevision);
             fullyLoaded.current = next.nextBefore === null;
@@ -273,9 +301,9 @@ export function ResultFeed({
   // biome-ignore lint/correctness/useExhaustiveDependencies: Reopening the same result is an explicit navigation request.
   useEffect(() => {
     setFocused(null);
-    if (!focusId || !endpoint) return;
+    if (!targetId || !endpoint) return;
     let disposed = false;
-    void api<ResultItem>(endpoint + "/" + encodeURIComponent(focusId))
+    void api<ResultItem>(endpoint + "/" + encodeURIComponent(targetId))
       .then((item) => {
         if (!disposed) {
           setFocused(item);
@@ -288,7 +316,7 @@ export function ResultFeed({
     return () => {
       disposed = true;
     };
-  }, [focusId, focusVersion, endpoint]);
+  }, [targetId, targetVersion, endpoint]);
   const older = async () => {
     if (cursor === null || busy || !endpoint) return;
     const current = ++generation.current,
@@ -342,46 +370,61 @@ export function ResultFeed({
       all.filter((row) => resultCategory(row.type) === key).length,
     );
   return (
-    <Results
-      key={sourceRevision ?? 0}
-      results={all.map((r) =>
-        r.threadId
-          ? r
-          : {
-              ...r,
-              threadId: endpoint.match(/\/(?:threads|conversations)\/([^/]+)\/results/)?.[1],
-            },
+    <>
+      <Results
+        key={`${endpoint}:${sourceRevision ?? 0}`}
+        results={all.map((r) =>
+          r.threadId
+            ? r
+            : {
+                ...r,
+                threadId: endpoint.match(/\/(?:threads|conversations)\/([^/]+)\/results/)?.[1],
+              },
+        )}
+        visible={visible}
+        focusId={targetId}
+        selection={selection?.request === reveal ? selection : null}
+        onRevealRetry={() => setRevealRetry((value) => value + 1)}
+        busy={busy || recovering}
+        hasMore={cursor !== null}
+        onOlder={() => void older()}
+        onTurn={onTurn}
+        toolbar={toolbar}
+        onFile={onFile}
+        onSaveLink={onSaveLink}
+        onOverlayChange={setViewerOpen}
+        onSearch={() => setSearchScope(endpoint)}
+        category={category}
+        onCategory={setCategory}
+        counts={totals}
+        showLinks
+        showReasoning={endpoint.startsWith("/gpt/")}
+        showWork={!endpoint.startsWith("/gpt/")}
+        error={
+          recovering
+            ? ""
+            : transientFailure && error
+              ? "Не удалось загрузить результаты. Попробуй ещё раз."
+              : error
+        }
+        focusVersion={targetVersion}
+        onRetry={() => {
+          recoveryAttempts.current = 0;
+          setRetry((v) => v + 1);
+        }}
+      />
+      {searching && (
+        <ResultSearch
+          key={endpoint}
+          endpoint={endpoint}
+          initialCategory={category}
+          onClose={() => setSearchScope("")}
+          onTurn={onTurn}
+          onSelect={(id) =>
+            setPicked({ endpoint, id, version: Date.now(), external: externalFocus })
+          }
+        />
       )}
-      visible={visible}
-      focusId={focusId}
-      selection={selection?.request === reveal ? selection : null}
-      onRevealRetry={() => setRevealRetry((value) => value + 1)}
-      busy={busy || recovering}
-      hasMore={cursor !== null}
-      onOlder={() => void older()}
-      onTurn={onTurn}
-      toolbar={toolbar}
-      onFile={onFile}
-      onSaveLink={onSaveLink}
-      onOverlayChange={onOverlayChange}
-      category={category}
-      onCategory={setCategory}
-      counts={totals}
-      showLinks
-      showReasoning={endpoint.startsWith("/gpt/")}
-      showWork={!endpoint.startsWith("/gpt/")}
-      error={
-        recovering
-          ? ""
-          : transientFailure && error
-            ? "Не удалось загрузить результаты. Попробуй ещё раз."
-            : error
-      }
-      focusVersion={focusVersion}
-      onRetry={() => {
-        recoveryAttempts.current = 0;
-        setRetry((v) => v + 1);
-      }}
-    />
+    </>
   );
 }

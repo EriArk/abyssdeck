@@ -1,4 +1,4 @@
-import type { NotebookLink } from "@codex-web/shared";
+import { HubError, type NotebookLink } from "@codex-web/shared";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { GptService } from "./gpt.js";
@@ -30,23 +30,23 @@ export function registerContentSearch(app: FastifyInstance, sessions: Sessions, 
         kind: z.enum(["all", "messages", "records", "files"]).default("all"),
         limit: z.coerce.number().int().min(1).max(100).default(40),
         offset: z.coerce.number().int().min(0).max(1000000).default(0),
+        revision: z.string().max(100).optional(),
       })
       .parse(req.query);
     const items: { target: NotebookLink; snippet: string }[] = [];
     if (q.threadId && q.client === "gpt") {
+      gpt.authorize();
       gpt.library.assertExists("thread", q.threadId);
-      const messages = await gpt.historyCache.messages(q.threadId),
-        batch = messages
-          .slice()
-          .reverse()
-          .slice(q.offset, q.offset + 500);
-      let scanned = 0;
-      for (const message of batch) {
-        scanned++;
-        if (q.kind !== "all" && q.kind !== "messages") continue;
-        const snippet = searchSnippet(message.text, q.q);
-        if (snippet !== null)
-          items.push({
+      const snapshot = await gpt.historyCache.snapshot(q.threadId);
+      gpt.authorize();
+      gpt.library.assertExists("thread", q.threadId);
+      if (q.revision && q.revision !== snapshot.revision)
+        throw new HubError(409, "RESULTS_CHANGED", "История изменилась.");
+      const records: { target: NotebookLink; text: string; stamp: number }[] = [];
+      if (q.kind === "all" || q.kind === "messages") {
+        for (const message of snapshot.items) {
+          if (message.phase === "commentary") continue;
+          records.push({
             target: {
               client: "gpt",
               kind: "thread",
@@ -56,14 +56,45 @@ export function registerContentSearch(app: FastifyInstance, sessions: Sessions, 
               title: message.role === "user" ? "Ваше сообщение" : "Ответ GPT",
               availability: "unknown",
             },
-            snippet,
+            text: message.text,
+            stamp: message.createdAt,
           });
+        }
+      }
+      if (q.kind === "all" || q.kind === "files") {
+        for (const result of gpt.resultIndex(q.threadId, snapshot).items) {
+          if (!["file", "artifact", "image"].includes(result.type)) continue;
+          records.push({
+            target: {
+              client: "gpt",
+              kind: "result",
+              id: result.id,
+              threadId: q.threadId,
+              ...(result.turnId ? { messageId: result.turnId } : {}),
+              title: result.title,
+              availability: "unknown",
+            },
+            text: result.title,
+            stamp: Date.parse(result.createdAt) / 1000,
+          });
+        }
+      }
+      records.reverse();
+      records.sort((a, b) => b.stamp - a.stamp);
+      const batch = records.slice(q.offset, q.offset + 500);
+      let scanned = 0;
+      for (const record of batch) {
+        scanned++;
+        const snippet = searchSnippet(record.text, q.q);
+        if (snippet !== null) items.push({ target: record.target, snippet });
         if (items.length >= q.limit) break;
       }
       return {
         items,
-        nextOffset: q.offset + scanned < messages.length ? q.offset + scanned : null,
-        coverage: "Текущая ветка выбранного чата ChatGPT",
+        nextOffset: q.offset + scanned < records.length ? q.offset + scanned : null,
+        revision: snapshot.revision,
+        coverage:
+          "Сообщения и названия файлов/изображений Results текущей ветки выбранного чата ChatGPT",
         scanned,
       };
     }
