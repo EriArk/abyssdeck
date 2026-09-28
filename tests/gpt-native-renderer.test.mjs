@@ -34,6 +34,7 @@ function fixture() {
     getInstance: () => ({
       fetch: async (route, options) => {
         assert.equal(options.retry, false);
+        assert.equal(Object.getPrototypeOf(options.headers), Object.prototype, "native bridge requires a serializable header record");
         const value = await service.kWt.safeGet(route, {
           parameters,
           expectedIdentity: options.expectedIdentity,
@@ -86,9 +87,10 @@ test("conditional canonical history reuses exact bytes on 304 and refreshes on c
   const requests = [];
   let changed = false;
   f.service.$rn.getInstance = () => ({ fetch: async (url, options) => {
-    const validator = options.headers.get("if-none-match"); requests.push(validator);
+    assert.equal(Object.getPrototypeOf(options.headers), Object.prototype);
+    const validator = options.headers["If-None-Match"] ?? null; requests.push(validator);
     assert.deepEqual(options.expectedIdentity, { accountId: "account-a", userId: "user-a" });
-    if (validator === '"a"' && !changed) return new Response(null, { status: 304, headers: { etag: '"a"' } });
+    if (validator === '"a"' && !changed) throw Object.assign(new Error("Not Modified"), { status: 304, responseStatus: 304 });
     return new Response(JSON.stringify(f.conversation), { headers: { etag: changed ? '"b"' : '"a"' } });
   } });
   const request = { operation: "readHistoryUpdate", conversationId, accountFingerprint };

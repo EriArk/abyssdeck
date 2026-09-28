@@ -184,12 +184,19 @@ export async function nativeRead(request, load = () => import('app://-/assets/ap
    const target=m.kWt.getRequestTarget('/conversation/{conversation_id}',{parameters:{path:{conversation_id:request.conversationId}}});
    // Validators are accepted only from this account's exact canonical response.
    // Unsupported validators simply receive the ordinary complete response.
-   const headers=new Headers(target.headers);
+   // The pinned native HTTP bridge serializes a plain header record over IPC;
+   // a DOM Headers instance loses its entries at that boundary.
+   const headers={...target.headers};
    const base=saved?.value?.conversation_id===request.conversationId?saved:undefined;
-   if(base?.etag)headers.set('If-None-Match',base.etag);
+   if(base?.etag)headers['If-None-Match']=base.etag;
    let response;
    try { response=await bounded(m.$rn.getInstance().fetch(target.url,{headers,expectedIdentity:principal,signal,retry:false})); }
-   catch(e){if(signal.aborted)fail('HISTORY_HEADERS_TIMEOUT');throw e;}
+   catch(e){
+    if(signal.aborted)fail('HISTORY_HEADERS_TIMEOUT');
+    // Native fetch throws for every non-2xx status, including a valid 304.
+    if(e?.status===304&&e.responseStatus===304)response={status:304};
+    else throw e;
+   }
    let value,bytes=0;
    if(response.status===304){
     await response.body?.cancel();
