@@ -2,6 +2,17 @@
 
 ## Прикладная интеграция, 28 сентября
 
+Выпуск `ba0aef9` сохранён в `main` и собран из чистого checkout на сервере.
+Образ `codex-web-hub:ba0aef9`, image ID
+`sha256:a922f14b1f724ba47db33eab6517f83745f317fae06c5317f6e4e577281f6129`.
+Изолированный image smoke прошёл: engine/gateway, authentication и неизменённые
+API, недоступность workspace enrollment без конфигурации. Квитанция:
+`/home/abysscloud/codex-web-native-lab/workspace-image-smoke.json`.
+Итоговая карточка проверена в Chromium при ширине 390/1024 и трёх темах;
+скриншоты с двумя действиями после подключения просмотрены. Это не физическая
+iPhone-приёмка. Production не обновлялся: engine/gateway `6c151b5`, web `b0327b4`.
+Автоматического updater для этого выпуска не запущено.
+
 Новый `server-workspace` является персональной машиной с runtime-only привязкой
 owner UUID к фиксированному host client. Browser JSON не даёт capability. Система
 использует существующий SSH Hub → собственный host и подписанный Unix broker;
