@@ -1,6 +1,6 @@
 # Текущий остаток — 28 сентября 2026
 
-## Host `1008874` установлен; активация ожидает завершения старого терминала
+## Hub и Linux-окружения `1008874` активированы
 
 Владелец выполнил `workspace-features-1008874/apply-features.py --apply` (IMG_0709).
 Новый runtime `21008971…` принят: readiness `accepted: true`, `checkedAt: 1790592433`.
@@ -9,22 +9,47 @@ Broker/network и новый checkpoint timer активны. Пять уста�
 сверены с release по SHA-256; свидетельство `verification-1008874/host-installed.json`.
 Повторять sudo-установку не требуется.
 
-Guarded preflight теперь проходит. Запущен обычный updater `1008874` с
-`--enable-server-workspaces`, без force, PID 3751523; журнал
-`workspace-activation-1008874.log`, maintenance state `waiting`.
-Engine/gateway ещё `6c151b5`; конфигурация не изменена.
-Единственный blocker — `TERMINAL_STATUS_UNAVAILABLE` для старой owner-сессии
-`hub-host` (терминал с 09:01). Отдельная проверка процесса показала Bash в foreground
-без потомков; вероятно, счётчик ввода удержал ответы на sudo prompt как будущие
-команды. Это гипотеза по коду, не подтверждённый дамп состояния tracker.
-У владельца запрошено разрешение завершить эту сессию; до ответа не закрывать её
-и не обходить обычный guard. Не запускать второй updater.
+После подтверждения владельца закрыта только старая owner-сессия `hub-host`
+(09:01, exact PID/birth через pidfd, Bash foreground без потомков).
+Обычный updater снял блокировку без force, создал и проверил полный Team checkpoint
+`backups/before-team-engine-1008874-1790595881856222014`, затем активировал выпуск.
+Завершение: `2026-09-28T11:49:00.495849+00:00`.
 
-Первый запуск root timer до активации корректно отказался с
-`WORKSPACES_NOT_ACTIVATED`; реальный парный checkpoint пока не создан.
-После установки Hub проверить версии/config/health, затем факт успешной копии
-по системному журналу. При отсутствии пользовательских слотов не выдавать пустой
-дисковый набор за приёмку сохранения пользовательского окружения.
+Фактически engine `a80173a56851` и gateway `8df7ed966efc` — `codex-web-hub:1008874`,
+оба healthy; web pointer `b251c45a3ce96105127ea757e9f177a14862fc0bb69f88145cd25271db92c4a7`.
+`serverWorkspaces` включён с точным host binding; runtime protocol 1/schema 29,
+ownerReady true. HTTP health/version работают, workspace API без авторизации
+возвращает 401. SSH→broker из установленного engine доходит с identity владельца;
+`status` отвечает `WORKSPACE_MISSING` — личный слот ещё не создан, это не ошибка связи.
+Maintenance теперь `idle: true`, blockers пусты. Установочный doctor тоже прошёл.
+Свидетельства: `verification-1008874/activation-installed.json` и deployment receipt.
+Не запускать активацию повторно и не предлагать её как следующий этап.
+
+**Остаток резервирования:** найден воспроизводимый дефект root coordinator —
+read-only bind всей state-папки мешает SQLite создать WAL/SHM после cold shutdown.
+На реальном Node/SQLite в образе воспроизведён отказ; исправленный запуск читает базу,
+SQL-запись запрещена, SHA-256 исходной базы не меняется. Rootfs остаётся read-only,
+источники CLI открываются `readOnly: true`, Hub/broker остановлены во время копии.
+6 fault checks также прошли. Исправление в `main`: `4f4dc0c`, защита установки
+root-lock от параллельного checkpoint: `cd69d64`.
+
+Проверен небольшой пакет **только** backup service (runtime/Hub не переустанавливает):
+
+```sh
+sudo python3 /home/abysscloud/services/codex-web/checkpoint-fix-cd69d64/install-checkpoint.py --apply
+```
+
+Он ещё **не применён**: noninteractive sudo недоступен. Выполнить через
+`codexweb://terminal/hub-host`; после завершения выйти из shell командой `exit`,
+чтобы её password-input tracking не удержал maintenance. Причина старого terminal
+blocker пока гипотеза по счётчику ответов на sudo, не подтверждённый дамп tracker.
+Не обходить guard и не восстанавливать неизвестную отправку для исправления терминала.
+
+Первая автоматическая парная копия ещё не принята. Team checkpoint перед обновлением
+проверен, но он не заменяет backup дисков. После root-патча проверить успешное
+выполнение timer и восстановление служб. При отсутствии личных слотов не выдавать
+пустой дисковый набор за приёмку пользовательского окружения. Личный вход Codex/GitHub
+и пользовательская приёмка остаются; installer/wizard — следующий отдельный проход.
 
 ## Закрытый просмотр сервисов и автоматические парные копии — исходники готовы
 
