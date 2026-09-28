@@ -18,6 +18,7 @@ import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import engine_checkpoint
+import workspace_activation
 
 
 def run(args, **kwargs):
@@ -79,6 +80,8 @@ def main():
     p.add_argument('--check', action='store_true')
     p.add_argument('--enable-team-owner', action='store_true')
     p.add_argument('--allow-owner-force', action='store_true')
+    p.add_argument('--enable-server-workspaces', action='store_true')
+    p.add_argument('--workspace-image')
     a = p.parse_args()
     if not a.state or not all(re.fullmatch(r'[a-f0-9]{7,64}', x) for x in [a.revision, a.expected]):
         p.error('Explicit state and image revisions required')
@@ -104,6 +107,12 @@ def main():
         assert all(proof.get(k) for k in ['teamCheckpoint', 'teamRollback', 'teamUpgradeAdmission', 'codexContinuityPreflight'])
         engine_checkpoint.team_layout(state, config)
     activation = owner_activation(state, config) if a.enable_team_owner else None
+    workspace_config = None
+    if a.enable_server_workspaces:
+        assert enabled_team and not activation and not a.allow_owner_force
+        assert proof.get('workspaceActivation'), 'Workspace activation and rollback evidence required'
+        workspace_config = workspace_activation.candidate(state, config)
+        workspace_activation.verify_host(state, a.workspace_image)
     if activation:
         assert all(proof.get(k) for k in ['ownerMigration', 'ownerTeamImage', 'ownerRollback', 'codexContinuityPreflight'])
     database = Path(config['hub']['databasePath']).resolve(strict=True)
@@ -188,6 +197,8 @@ def main():
                 assert (state / 'config.json').read_bytes() == original_config, 'Configuration changed while waiting'
                 if activation:
                     owner_activation(state, config)
+                if workspace_config:
+                    workspace_activation.verify_host(state, a.workspace_image)
                 status('installing', forced=int(force))
                 # No public admission after the final database-locked recheck.
                 run(['docker', 'stop', '--time', '10', 'codex-web-hub'])
@@ -234,11 +245,13 @@ def main():
                 before_config.write_bytes(original_config)
                 before_config.chmod(0o600)
                 atomic(state / 'config.json', activation[0])
+            if workspace_config:
+                atomic(state / 'config.json', workspace_config)
             run(compose + ['up', '-d', '--no-deps', '--no-build', '--wait', 'engine'])
             if activation:
                 run(['docker', 'exec', 'codex-web-engine', 'node', 'dist/owner-team-check.js'])
             if checkpoint:
-                engine_checkpoint.admission(state, checkpoint)
+                engine_checkpoint.admission(state, checkpoint, workspace_activation=bool(workspace_config))
             run(['docker', 'run', '--rm', '--network', 'none', '--read-only', '--user', '1000:1000', '--cap-drop', 'ALL',
                  '-v', str(state / 'engine') + ':/run/codex-engine:ro', '-v', str(web) + ':/releases',
                  'codex-web-hub:' + a.revision, 'node', 'dist/publish-web.js', '/web', '/releases', '/run/codex-engine/engine.sock', a.revision])

@@ -116,6 +116,22 @@ class CheckpointTest(unittest.TestCase):
             checkpoint.restore(self.state, self.target)
         self.assertTrue((self.data / 'results/new-after-admission').exists())
 
+    def test_workspace_activation_allows_only_exact_delta_and_rolls_back(self):
+        from workspace_activation import candidate
+        self.create()
+        target = candidate(self.state, self.config)
+        (self.state / 'config.json').write_text(json.dumps(target))
+        with self.assertRaisesRegex(RuntimeError, 'CONFIG_CHANGED'):
+            checkpoint.admission(self.state, self.target)
+        checkpoint.admission(self.state, self.target, workspace_activation=True)
+        target['auth']['ownerLogin'] = 'another-owner'
+        (self.state / 'config.json').write_text(json.dumps(target))
+        with self.assertRaisesRegex(RuntimeError, 'CONFIG_CHANGED'):
+            checkpoint.admission(self.state, self.target, workspace_activation=True)
+        checkpoint.restore(self.state, self.target)
+        self.assertNotIn('serverWorkspaces', json.loads((self.state / 'config.json').read_text()))
+        checkpoint.admission(self.state, self.target)
+
     def test_corrupt_copy_or_missing_private_database_blocks_restore(self):
         self.create()
         (self.target / 'data/team/users' / MEMBER / 'app.db').write_bytes(b'bad copy')

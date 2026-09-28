@@ -130,8 +130,72 @@ Focused coverage: `tests/server-workspace-integration.test.mjs`,
 `tests/workspace-backup.test.py`, and `tests/server-workspace-runtime.py <runtime.tar>`.
 The latter exercises the actual installed image in a disposable rootless store,
 without signing in or allocating a production owner slot. It is not real-account
-or real-disk restore acceptance. Protected service preview is still separate work;
-the transport does not expose container ports or the host network.
+or real-disk restore acceptance. The transport does not expose container ports
+or the host network.
+
+### Protected application preview
+
+The runtime includes Chromium. The project's preview window opens a separate
+ephemeral browser **inside the same user's container**, starting at its loopback
+HTTP port. The Hub transports bounded JPEG frames and explicit typed input through
+the existing private broker exec channel. No project HTML runs at the Hub origin;
+Hub cookies, browser profiles and CDP ports are not exposed. Chromium uses
+`--no-sandbox` inside the existing rootless namespace/seccomp/network/disk boundary;
+this is not an additional Chromium sandbox claim. Downloads are disabled there;
+use project Files for original bytes. The temporary browser HOME is under `/tmp`.
+
+Two views per private runtime, maximum 1600×1200, coalesced one-second frame reads,
+bounded input and two-minute inactive expiry limit resource use. Changed project,
+machine authority or revocation closes a view. A lost input confirmation is never
+replayed. Closing the window stops only its browser; the application keeps running.
+The next view has a fresh browser session (unsaved form text/cookies are not kept).
+Phone taps/swipes, keyboard/text insertion and screen presets use one themed UI.
+
+Checks: `tests/workspace-preview.test.mjs`, `tests/workspace-preview.browser.mjs`,
+and `tests/server-workspace-runtime.py <runtime.tar> --preview` (real disposable
+rootless Chromium and Codex, no production account). CDP uses the official
+[Page](https://chromedevtools.github.io/devtools-protocol/tot/Page/) and
+[Input](https://chromedevtools.github.io/devtools-protocol/tot/Input/) interfaces.
+
+### Automatic paired checkpoint service
+
+`apply-features.py --apply` installs the reviewed `features-package.json`, exact
+runtime archive/config digest, and `install-checkpoint.py` package. This combined
+runtime update is **pre-enrollment only**: any existing workspace registry row
+refuses it; existing-user image migration is separate. No disk is reformatted.
+The new timer waits until Hub activation; it is not evidence of a completed backup.
+
+Root installs fixed scripts under `/opt/codex-workspace-checkpoint`, settings at
+`/etc/codex-workspaces/checkpoint.json`, and `codex-workspace-checkpoint.timer`.
+The timer tries every 30 minutes (with jitter), skips when a verified pair is less
+than 23 hours old, and keeps three complete sets in the root-private
+`/var/lib/codex-workspace-checkpoint/backups`. Existing Hub-only copies remain
+independent; they must never be described as copies of workspace disks.
+
+The coordinator serializes with engine deployment/profile maintenance, requires
+ordinary idle admission, freezes/stops the Hub and broker, checks for detached
+workspace processes, stops only idle containers, unmounts exact claimed slots,
+then creates and verifies the Team and disk checkpoints. A running app/server
+defers the copy; it is not killed. A private journal records transitions before
+effects. `ExecStopPost` invokes the fixed `checkpoint.py --recover` to restore
+exact mounts, original containers and the original Hub, preserving revocation.
+No user commands are replayed. If identity has changed, recovery refuses and keeps
+the journal for an administrator. Never delete that journal to force a new copy.
+
+Only `complete.json` marks a verified pair. Failed/incomplete directories are not
+automatically deleted. Restore uses the paired Team snapshot and `disks` directory
+with the offline procedure above, native admission still closed. Keep the previous
+runtime archive and host keys separately. Six fault tests in
+`tests/workspace-checkpoint.test.py` cover refusal, interrupted unmount, corrupt
+copy, revocation and identity changes; they are not real production disk acceptance.
+
+Hub activation uses the ordinary `ops/linux/upgrade-engine.py` release with
+`--enable-server-workspaces --workspace-image sha256:<accepted-config-id>`.
+It requires the new accepted host image and active checkpoint timer, disallows
+forced maintenance, checkpoints Team before adding the exact fixed host binding,
+and verifies private identities before public admission. Rollback restores the
+original configuration as well as Team data. It does not migrate the owner's
+existing Windows projects or copy account credentials into new workspaces.
 
 Focused Linux checks: `python3 tests/server-workspaces.test.py`.
 Primary references: [Podman run](https://docs.podman.io/en/v4.9.3/markdown/podman-run.1.html),

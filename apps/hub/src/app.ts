@@ -44,6 +44,7 @@ import { registerGpt } from "./gpt.js";
 import { configuredNativeGpt } from "./gpt-native-config.js";
 import type { NativeGptWorkspace } from "./gpt-native-provider.js";
 import { registerGuiPreviews } from "./gui-previews.js";
+import { registerWorkspacePreviews } from "./workspace-previews.js";
 import { ProjectIntake, registerIntake } from "./intake.js";
 import { IssueDrawer, registerIssueDrawer } from "./issue-drawer.js";
 import { entityAction, libraryMutation } from "./library.js";
@@ -814,6 +815,7 @@ export async function createApp(
   registerRelays(app, sessions, projectWork, queue);
   registerFileLaunches(app, sessions, options.fileLaunchProbe);
   registerGuiPreviews(app, sessions, artifacts, projectWork.context, options.guiPreviewProbe);
+  registerWorkspacePreviews(app, sessions);
   registerWorkspaceTasks(app, sessions);
   registerQuickCapture(app, sessions);
   registerProjectOverview(app, sessions, projectWork);

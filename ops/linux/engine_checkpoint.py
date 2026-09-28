@@ -261,10 +261,17 @@ def create(state, destination, revision):
         raise
 
 
-def admission(state, checkpoint):
+def admission(state, checkpoint, workspace_activation=False):
     manifest = verify(checkpoint)
     require(str(canonical(state)) == manifest['state'], 'CHECKPOINT_INSTALLATION')
-    require(file_hash(state / 'config.json') == manifest['private']['config.json'], 'CHECKPOINT_CONFIG_CHANGED')
+    if workspace_activation:
+        # Permit one fixed addition only. Every prior setting, account and machine
+        # remains exact; the verified checkpoint still contains rollback config.
+        from workspace_activation import candidate
+        expected = candidate(state, json.loads((checkpoint / 'config.json').read_text()))
+        require(json.loads((state / 'config.json').read_text()) == expected, 'CHECKPOINT_CONFIG_CHANGED')
+    else:
+        require(file_hash(state / 'config.json') == manifest['private']['config.json'], 'CHECKPOINT_CONFIG_CHANGED')
     layout = team_layout(state, json.loads((state / 'config.json').read_text()))
     require(json.loads(json.dumps(layout)) == manifest['layout'], 'CHECKPOINT_MAPPING_CHANGED')
     require(privacy(state / 'data', layout['databases'][0], manifest['privacy']) == manifest['privacy'], 'CHECKPOINT_PRIVACY_CHANGED')

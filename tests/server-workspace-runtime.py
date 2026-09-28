@@ -32,6 +32,13 @@ os.execv(cmd[0],cmd)
 ''');(bindir/'ssh').chmod(0o700)
     testenv={**env,'PATH':str(bindir)+':'+env['PATH'],'CW_PODMAN':json.dumps(cmd),'CW_CONTAINER':container_name(owner),'CW_RUNTIME_OWNER':owner,'CW_RUNTIME_TMP':str(root)}
     subprocess.run(['node','tests/server-workspace-runtime.mjs'],cwd=source,env=testenv,check=True,timeout=120)
+    if '--preview' in sys.argv[2:]:
+        fixture=root/'preview-check'
+        for name in ['tests/workspace-browser-runtime.mjs','apps/hub/dist/workspace-browser.js']:
+            target=fixture/name;target.parent.mkdir(parents=True,exist_ok=True)
+            target.write_bytes((source/name).read_bytes())
+        run(['cp',str(fixture),container_name(owner)+':/tmp/preview-check'])
+        run(['exec',container_name(owner),'node','/tmp/preview-check/tests/workspace-browser-runtime.mjs'],timeout=90)
 finally:
     subprocess.run(cmd+['rm','--force',container_name(owner)],env=env,cwd=root,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=30)
     assert root.parent==Path('/tmp') and root.name.startswith('cw-workflow-')

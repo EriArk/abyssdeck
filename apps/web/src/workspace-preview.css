@@ -1,0 +1,51 @@
+.gui-preview-dialog.workspace-preview-dialog {
+  max-width: 1200px;
+}
+.workspace-preview {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+.workspace-preview p {
+  overflow-wrap: anywhere;
+}
+.workspace-preview-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.workspace-preview-controls label {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+.workspace-preview-controls input,
+.workspace-preview-controls select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.workspace-preview button {
+  min-height: 44px;
+}
+.workspace-preview-screen {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: var(--radius);
+  overflow: hidden;
+  min-width: 0;
+}
+.workspace-preview-screen img {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: none;
+  user-select: none;
+}
+.workspace-preview details > * {
+  margin-block: 8px;
+}
+.workspace-preview textarea {
+  box-sizing: border-box;
+  width: 100%;
+}

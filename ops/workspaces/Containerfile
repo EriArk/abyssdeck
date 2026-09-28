@@ -3,7 +3,7 @@ FROM ${NODE_IMAGE}
 ARG CODEX_VERSION=0.158.0
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bash ca-certificates curl git gh openssh-client python3 python3-venv python3-pip \
-    build-essential pkg-config unzip zip procps less sqlite3 util-linux \
+    build-essential pkg-config unzip zip procps less sqlite3 util-linux chromium fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/* \
     && npm install --global @openai/codex@${CODEX_VERSION} \
     && npm cache clean --force
