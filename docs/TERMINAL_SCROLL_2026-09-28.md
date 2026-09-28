@@ -28,3 +28,24 @@ xterm и глобальной блокировки жестов. Слушате�
 тем и телефонного viewport с клавиатурой. Физический iPhone не объявляется проверенным.
 
 Справка о поведении Podman с закрытым cwd: [upstream issue](https://github.com/podman-container-tools/podman/issues/24247).
+
+## Установка
+
+Исходники `b0327b4` находятся в `main`. Web-only опубликован штатным publisher:
+`02869d8723f3fb01a01505bc13ffbb47a394019a4e2ab82fe1d1c52148215af1`.
+Публичный version endpoint совпадает с установленным manifest; старые и новые файлы
+сверены по хешам. Backup: `backups/web-before-b0327b4.json`.
+ID/StartedAt/image engine, gateway и обоих native-контейнеров неизменны.
+Квитанция: `/home/abysscloud/codex-web-native-lab/terminal-scroll-web-activation.json`.
+
+Исправленный host-пакет подготовлен отдельно:
+`/home/abysscloud/services/codex-web/workspace-setup-b0327b4`.
+Manifest/checksums и dry-run прошли, runtime-образ сохранён прежним. Реальная установка
+и host-приёмка ожидают sudo-пароля владельца в `codexweb://terminal/hub-host`:
+
+```sh
+sudo python3 /home/abysscloud/services/codex-web/workspace-setup-b0327b4/apply-bundle.py --apply
+```
+
+Это ещё не завершение серверных окружений: после host-приёмки остаётся интеграция
+Linux Files/Git/Terminal/Codex, личного доступа, backup/restore и закрытого preview.

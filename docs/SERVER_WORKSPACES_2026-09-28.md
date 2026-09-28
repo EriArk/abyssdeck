@@ -72,7 +72,8 @@ rootless/cgroup/seccomp и реальные ограничения, без privi
 28 сентября в 07:05 по журналу сервера; sudo-сессия завершилась через две секунды.
 Каталоги `/srv/codex-workspaces`, `/etc/codex-workspaces`, `/opt/codex-workspace-broker`
 и readiness-отчёт отсутствуют; обе службы inactive. Остановка произошла до системных
-изменений, её точная причина ожидает вывода терминала владельца. Использованная команда:
+изменений. IMG_0705 подтвердил `cannot chdir to /home/abysscloud: Permission denied`:
+`runuser` сохранял недоступную рабочую папку владельца. Использованная команда:
 
 ```sh
 sudo python3 /home/abysscloud/services/codex-web/workspace-setup-fded2b9/apply-bundle.py --apply
@@ -88,7 +89,24 @@ Image ID: `sha256:2dfe22e60b1cc06c94fd2bb189a2468a71cab22b471b024f0064cb8b49720a
 
 Работающие engine/gateway остаются `6c151b5`, native owner/member — `25f09b8`;
 ID контейнеров `a8a302224bfb` / `e4d9a82808a6` / `e2e02ae8c128` / `0c4aae142698`.
-Web-only версия остаётся `355fb34`. В этом проходе пользовательская установка не менялась.
+Web-only обновлён до `b0327b4` для прокрутки терминала; engine/native не перезапускались.
+
+## Исправленный пакет `b0327b4`
+
+Общий запуск Podman теперь использует HOME служебного пользователя как cwd и чистое
+фиксированное окружение. Prerequisites и systemd WorkingDirectory исправлены также.
+Исходная ошибка preflight выводится кратко без двойного traceback. 17 Python-проверок
+прошли. Пакет `/home/abysscloud/services/codex-web/workspace-setup-b0327b4` подготовлен
+из точного commit; manifest, хеш runtime archive и dry-run проверены. Образ прежний.
+Административный шаг **ещё не выполнен**:
+
+```sh
+sudo python3 /home/abysscloud/services/codex-web/workspace-setup-b0327b4/apply-bundle.py --apply
+```
+
+Не повторять сборку и prerequisites: после запуска проверить настоящий readiness-отчёт.
+Первоначальная Podman-проверка prerequisites тоже падала; установленные пакеты и активный
+user manager сами по себе не доказывают работоспособность rootless-контейнеров.
 
 Основания для prerequisites: [Podman rootless requirements](https://github.com/podman-container-tools/podman/blob/main/docs/tutorials/rootless_tutorial.md),
 [ограничения AppArmor в Ubuntu 24.04](https://documentation.ubuntu.com/security/security-features/privilege-restriction/apparmor/).
