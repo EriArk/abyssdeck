@@ -15,12 +15,25 @@ import secrets
 import shutil
 import stat
 import subprocess
+import sys
 import time
-from policy import SLOTS, DISK_GIB, ROOT, HOME, RUNTIME
+from policy import SLOTS, DISK_GIB, ROOT, HOME, RUNTIME, podman_command
 
 
 def run(args, **kwargs):
     return subprocess.run(args, check=True, **kwargs)
+
+
+def runtime_read(command):
+    try:
+        return subprocess.check_output(command, stderr=subprocess.PIPE, text=True, timeout=45)
+    except subprocess.CalledProcessError as error:
+        # Fixed installation probes only; preserve the useful Podman error,
+        # instead of burying it under two complete Python command tracebacks.
+        detail = (error.stderr or '').strip()[-4000:]
+        raise RuntimeError(f'PODMAN_PREFLIGHT_FAILED ({error.returncode}): {detail}') from None
+    except subprocess.TimeoutExpired:
+        raise RuntimeError('PODMAN_PREFLIGHT_TIMEOUT') from None
 
 
 def write(path, text, mode=0o644):
@@ -104,15 +117,10 @@ def main():
         if hashlib.file_digest(file, 'sha256').hexdigest() != args.archive_sha256:
             raise RuntimeError('IMAGE_ARCHIVE_HASH_MISMATCH')
     # Refuse replacing the runtime under any existing container/workspace.
-    env = dict(os.environ, HOME=HOME, XDG_RUNTIME_DIR=f'/run/user/{account.pw_uid}',
-               DBUS_SESSION_BUS_ADDRESS=f'unix:path=/run/user/{account.pw_uid}/bus')
-    prefix = ['/usr/sbin/runuser', '-u', 'codex-workspaces', '--', '/usr/bin/env',
-              'HOME='+HOME, 'XDG_RUNTIME_DIR='+env['XDG_RUNTIME_DIR'],
-              'DBUS_SESSION_BUS_ADDRESS='+env['DBUS_SESSION_BUS_ADDRESS']]
-    podman = prefix + ['/usr/bin/podman', '--cgroup-manager=systemd']
-    if subprocess.check_output(podman + ['ps', '-aq'], text=True).strip():
+    podman = podman_command(account.pw_uid)
+    if runtime_read(podman + ['ps', '-aq']).strip():
         raise RuntimeError('EXISTING_WORKSPACES_REQUIRE_GUARDED_UPGRADE')
-    info = json.loads(subprocess.check_output(podman + ['info', '--format', 'json'], text=True))
+    info = json.loads(runtime_read(podman + ['info', '--format', 'json']))
     if not info['host']['security']['rootless'] or info['host']['cgroupVersion'] != 'v2' or not info['host']['security']['seccompEnabled']:
         raise RuntimeError('ROOTLESS_CGROUP_SECCOMP_REQUIRED')
     # Stock Podman 4.9 rootless does not apply container AppArmor profiles.
@@ -211,6 +219,7 @@ BindsTo=codex-workspace-network.service %s
 Type=simple
 User=codex-workspaces
 Group=codex-workspaces
+WorkingDirectory=/var/lib/codex-workspaces
 UMask=0077
 RuntimeDirectory=codex-workspace-broker
 RuntimeDirectoryMode=0755
@@ -244,4 +253,8 @@ WantedBy=multi-user.target
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except (RuntimeError, OSError, subprocess.SubprocessError) as error:
+        print('Workspace setup stopped: ' + str(error), file=sys.stderr)
+        sys.exit(1)

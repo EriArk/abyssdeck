@@ -44,7 +44,7 @@ for (const [engine, type] of [
   page.on("pageerror", (e) => errors.push(e.message));
   const button = (name) =>
     page.getByRole("button", { name, exact: true }).filter({ visible: true }).first();
-  const out = `.local/qa-devices/${engine}`;
+  const out = `${process.env.DEVICES_QA_OUTPUT ?? ".local/qa-devices"}/${engine}`;
   await mkdir(out, { recursive: true });
   try {
     await f.app.listen({ host: "127.0.0.1", port: 18873 });
@@ -164,6 +164,45 @@ for (const [engine, type] of [
     await expect(modal.locator(".device-mobile-tabs")).toBeVisible();
     await button("Терминал").click();
     await expect(modal.locator(".device-system")).not.toBeVisible();
+    f.processes[1].output(Array.from({ length: 180 }, (_, i) => `history-line-${String(i).padStart(3, "0")}\r\n`).join(""));
+    const terminalRows = modal.locator(".xterm-rows");
+    await expect(terminalRows).toContainText("history-line-179");
+    const beforeSwipe = f.processes[1].writes.join("");
+    const screenBox = await modal.locator(".xterm-screen").boundingBox();
+    const x = screenBox.x + screenBox.width / 2, y = screenBox.y + 30;
+    if (engine === "chromium") {
+      const cdp = await context.newCDPSession(page);
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y, id: 1 }] });
+      for (let delta = 20; delta <= 160; delta += 20)
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y: y + delta, id: 1 }] });
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      await cdp.detach();
+    } else {
+      // WebKit Playwright has no native swipe injection; exercise the same DOM
+      // handlers, without claiming physical Safari gesture acceptance.
+      await modal.locator(".xterm-screen").evaluate((element, { x, y }) => {
+        for (const [type, offset] of [["touchstart", 0], ["touchmove", 160], ["touchend", 160]]) {
+          const event = new Event(type, { bubbles: true, cancelable: true });
+          Object.defineProperty(event, "touches", { value: type === "touchend" ? [] : [{ identifier: 1, clientX: x, clientY: y + offset }] });
+          element.dispatchEvent(event);
+        }
+      }, { x, y });
+    }
+    await expect(button("К последнему выводу")).toBeVisible();
+    await expect(terminalRows).not.toContainText("history-line-179");
+    const oldOutput = await terminalRows.innerText();
+    f.processes[1].output("new-output-while-reading\r\n");
+    await page.waitForTimeout(150);
+    assert.equal(await terminalRows.innerText(), oldOutput, "incoming output must preserve reading position");
+    assert.equal(f.processes[1].writes.join(""), beforeSwipe, "scrolling must never send terminal input");
+    for (const theme of ["organizer", "crt-green", "hitech-2000s", "classic-dark"]) {
+      await page.evaluate((t) => (document.documentElement.dataset.theme = t), theme);
+      await page.screenshot({ path: `${out}/phone-scroll-${theme}.png` });
+    }
+    await button("К последнему выводу").click();
+    await expect(terminalRows).toContainText("new-output-while-reading");
+    await expect(button("К последнему выводу")).toHaveCount(0);
+    assert.equal(f.processes[1].writes.join(""), beforeSwipe);
     await page.screenshot({ path: `${out}/phone-terminal.png` });
     await button("Система").click();
     await expect(modal.locator(".device-console")).not.toBeVisible();

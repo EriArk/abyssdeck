@@ -16,6 +16,7 @@ export function DeviceTerminal({ id, onExit }: { id: string; onExit: () => void 
   const [status, setStatus] = useState("Подключаемся…"),
     [failed, setFailed] = useState(false),
     [connected, setConnected] = useState(false);
+  const [readingHistory, setReadingHistory] = useState(false);
   const retryRef = useRef(() => {});
   const secretRef = useRef<HTMLInputElement>(null);
   const commandRef = useRef<HTMLTextAreaElement>(null);
@@ -74,6 +75,41 @@ export function DeviceTerminal({ id, onExit }: { id: string; onExit: () => void 
     term.loadAddon(fit);
     term.open(host.current);
     termRef.current = term;
+    const screen = host.current;
+    const reading = () => setReadingHistory(term.buffer.active.viewportY < term.buffer.active.baseY);
+    const scroll = term.onScroll(reading);
+    const parsed = term.onWriteParsed(reading);
+    let gesture: { id: number; x: number; y: number; line: number; height: number; moved: boolean } | undefined;
+    const touchStart = (event: TouchEvent) => {
+      gesture = undefined;
+      if (event.touches.length !== 1 || (event.target as Element).closest(".scrollbar")) return;
+      const point = event.touches[0];
+      const height = screen.querySelector(".xterm-screen")?.getBoundingClientRect().height ?? 0;
+      if (!point || !height) return;
+      gesture = { id: point.identifier, x: point.clientX, y: point.clientY,
+        line: term.buffer.active.viewportY, height: height / term.rows, moved: false };
+    };
+    const touchMove = (event: TouchEvent) => {
+      if (!gesture || event.touches.length !== 1) { gesture = undefined; return; }
+      const point = event.touches[0];
+      if (!point || point.identifier !== gesture.id) return;
+      const dy = gesture.y - point.clientY;
+      if (!gesture.moved && (Math.abs(dy) < 6 || Math.abs(dy) < Math.abs(gesture.x - point.clientX))) return;
+      gesture.moved = true;
+      // xterm 6's custom scrollbar handles the rail, but does not provide touch
+      // panning across the output. Scroll only the local buffer, never emit keys.
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      term.scrollToLine(Math.max(0, Math.round(gesture.line + dy / gesture.height)));
+    };
+    const touchEnd = (event: TouchEvent) => {
+      if (gesture?.moved) { event.preventDefault(); event.stopImmediatePropagation(); }
+      gesture = undefined;
+    };
+    screen.addEventListener("touchstart", touchStart, { capture: true, passive: true });
+    screen.addEventListener("touchmove", touchMove, { capture: true, passive: false });
+    screen.addEventListener("touchend", touchEnd, { capture: true, passive: false });
+    screen.addEventListener("touchcancel", touchEnd, { capture: true, passive: false });
     // Never let remote OSC sequences write the device clipboard.
     const clipboard = term.parser.registerOscHandler(52, () => true);
     const theme = () => {
@@ -232,6 +268,12 @@ export function DeviceTerminal({ id, onExit }: { id: string; onExit: () => void 
       clipboard.dispose();
       observer.disconnect();
       themes.disconnect();
+      scroll.dispose();
+      parsed.dispose();
+      screen.removeEventListener("touchstart", touchStart, true);
+      screen.removeEventListener("touchmove", touchMove, true);
+      screen.removeEventListener("touchend", touchEnd, true);
+      screen.removeEventListener("touchcancel", touchEnd, true);
       term.dispose();
       termRef.current = null;
     };
@@ -275,6 +317,12 @@ export function DeviceTerminal({ id, onExit }: { id: string; onExit: () => void 
     <div className="device-terminal">
       <div className="device-terminal-status">
         <span className={connected ? "online" : ""}>{status}</span>
+        {readingHistory && (
+          <button type="button" className="icon-button" aria-label="К последнему выводу"
+            title="К последнему выводу" onClick={() => termRef.current?.scrollToBottom()}>
+            <Icon name="arrow-down" size={17} />
+          </button>
+        )}
         {failed && (
           <button
             type="button"

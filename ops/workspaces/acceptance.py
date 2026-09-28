@@ -14,7 +14,7 @@ import socket
 import sqlite3
 import subprocess
 import uuid
-from policy import HOME, ROOT, MEMORY, CPUS, PIDS, container_name, container_args, exec_args
+from policy import HOME, ROOT, MEMORY, CPUS, PIDS, container_name, container_args, exec_args, podman_command
 
 
 def main():
@@ -24,8 +24,7 @@ def main():
     try:
         if db.execute('SELECT count(*) FROM workspaces').fetchone()[0]: raise RuntimeError('WORKSPACES_ALREADY_ENROLLED')
     finally: db.close()
-    prefix=['runuser','-u','codex-workspaces','--','env','HOME='+HOME,
-        'XDG_RUNTIME_DIR=/run/user/'+str(uid),'DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/'+str(uid)+'/bus','podman','--cgroup-manager=systemd']
+    prefix=podman_command(uid)
     def run(args,timeout=60):
         result=subprocess.run(prefix+args,input=b'',stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=timeout)
         if result.returncode: raise RuntimeError('ACCEPTANCE_COMMAND_FAILED: '+result.stderr.decode(errors='replace')[-2000:])

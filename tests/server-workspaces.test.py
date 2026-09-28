@@ -16,8 +16,8 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'ops/workspaces'))
 from broker import Broker, Refusal, Handler, Server, authenticate, canonical, stream_process
 from client import envelope
-from policy import CPUS, MEMORY, PIDS, SLOTS, container_args, container_name, exec_args, firewall, slot_path
-from install import acceptance_evidence, check_mount
+from policy import CPUS, MEMORY, PIDS, SLOTS, container_args, container_name, exec_args, firewall, slot_path, podman_command
+from install import acceptance_evidence, check_mount, runtime_read
 
 A = str(uuid.uuid4()); B = str(uuid.uuid4()); IMAGE = 'sha256:'+'a'*64; KEY = b'k'*32
 
@@ -51,6 +51,27 @@ class Workspaces(unittest.TestCase):
 
     def tearDown(self):
         self.broker.db.close(); self.temp.cleanup()
+
+    def test_runtime_launch_uses_private_cwd_and_clean_environment(self):
+        home=Path(self.temp.name)/'service-home';home.mkdir()
+        with patch('policy.HOME',str(home)):
+            command=podman_command(1001)
+        self.assertEqual(command[:4],['/usr/sbin/runuser','-u','codex-workspaces','--'])
+        # Execute the actual env/chdir boundary unprivileged; no account switch
+        # or real container is needed to verify inherited environment removal.
+        launch=command[4:command.index('/usr/bin/podman')]
+        probe='import os,json;print(json.dumps({"cwd":os.getcwd(),"env":dict(os.environ)}))'
+        result=json.loads(subprocess.check_output(launch+[sys.executable,'-c',probe],text=True,
+            cwd=self.temp.name,env=dict(os.environ,CONTAINER_HOST='wrong-socket',XDG_CONFIG_HOME='/wrong-config',HTTP_PROXY='wrong-proxy',HOME='/wrong-home')))
+        self.assertEqual(result['cwd'],str(home));self.assertEqual(result['env']['HOME'],str(home))
+        self.assertEqual(result['env']['XDG_RUNTIME_DIR'],'/run/user/1001')
+        for name in ['CONTAINER_HOST','XDG_CONFIG_HOME','HTTP_PROXY']:self.assertNotIn(name,result['env'])
+
+    def test_preflight_preserves_podman_error_without_command_traceback(self):
+        failure=subprocess.CalledProcessError(125,['podman','ps'],stderr='cannot chdir: Permission denied\n')
+        with patch('install.subprocess.check_output',side_effect=failure):
+            with self.assertRaisesRegex(RuntimeError,r'PODMAN_PREFLIGHT_FAILED \(125\): cannot chdir: Permission denied'):
+                runtime_read(['podman','ps'])
 
     def test_signed_owner_operation_and_expiry(self):
         request={'op':'create'}; signed=envelope(A,request,KEY)

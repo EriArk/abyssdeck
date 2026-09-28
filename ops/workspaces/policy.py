@@ -13,6 +13,20 @@ HOME = '/var/lib/codex-workspaces'
 RUNTIME = '/run/codex-workspace-broker'
 
 
+def podman_command(uid):
+    if type(uid) is not int or uid < 1000:
+        raise ValueError('UID_INVALID')
+    # runuser changes identity, not cwd. Never inherit the administrator's
+    # private directory, container configuration, socket or proxy environment.
+    return ['/usr/sbin/runuser', '-u', 'codex-workspaces', '--', '/usr/bin/env',
+            '--ignore-environment', '--chdir=' + HOME,
+            'HOME=' + HOME, 'USER=codex-workspaces', 'LOGNAME=codex-workspaces',
+            'PATH=/usr/sbin:/usr/bin:/sbin:/bin',
+            'XDG_RUNTIME_DIR=/run/user/' + str(uid),
+            'DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/' + str(uid) + '/bus',
+            '/usr/bin/podman', '--cgroup-manager=systemd']
+
+
 def owner_id(value):
     if not isinstance(value, str) or str(uuid.UUID(value)) != value:
         raise ValueError('OWNER_INVALID')

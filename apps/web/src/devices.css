@@ -235,6 +235,8 @@
   min-width: 0;
   padding: 4px 10px 4px 16px;
   overflow: hidden;
+  touch-action: pan-x pinch-zoom;
+  overscroll-behavior: contain;
 }
 .device-terminal-screen .xterm {
   height: 100%;

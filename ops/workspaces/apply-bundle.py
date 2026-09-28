@@ -5,6 +5,7 @@ import hashlib
 import json
 from pathlib import Path
 import subprocess
+import sys
 
 
 def main():
@@ -25,10 +26,11 @@ def main():
         print('Hub state: '+manifest['hubState'])
         subprocess.run(['/usr/bin/python3',str(root/'install.py')],check=True)
         return
-    subprocess.run(['/usr/bin/python3',str(root/'install.py'),'--apply',
+    result=subprocess.run(['/usr/bin/python3',str(root/'install.py'),'--apply',
         '--hub-user',manifest['hubUser'],'--hub-state',manifest['hubState'],
         '--image-archive',str(root/'runtime.tar'),'--image-id',manifest['image'],
-        '--archive-sha256',manifest['archiveSha256']],check=True)
+        '--archive-sha256',manifest['archiveSha256']])
+    return result.returncode
 
 
-if __name__=='__main__': main()
+if __name__=='__main__': sys.exit(main())

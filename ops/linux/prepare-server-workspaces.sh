@@ -36,5 +36,5 @@ done
 loginctl enable-linger "$account"
 uid=$(id -u "$account")
 systemctl start "user@$uid.service"
-runuser -u "$account" -- env HOME="$workspace_home" XDG_RUNTIME_DIR="/run/user/$uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" podman info --format json |
+runuser -u "$account" -- env --ignore-environment --chdir="$workspace_home" HOME="$workspace_home" USER="$account" LOGNAME="$account" PATH=/usr/sbin:/usr/bin:/sbin:/bin XDG_RUNTIME_DIR="/run/user/$uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" /usr/bin/podman info --format json |
   python3 -c 'import json,sys; v=json.load(sys.stdin); h=v["host"]; assert h["security"]["rootless"] is True; assert h["cgroupVersion"]=="v2"; print("Rootless prerequisites ready; project workspaces are not enabled yet.")'
