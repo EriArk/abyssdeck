@@ -49,3 +49,7 @@ sudo python3 /home/abysscloud/services/codex-web/workspace-setup-b0327b4/apply-b
 
 Это ещё не завершение серверных окружений: после host-приёмки остаётся интеграция
 Linux Files/Git/Terminal/Codex, личного доступа, backup/restore и закрытого preview.
+
+Позднее владелец выполнил этот шаг: cwd исправлен, но выявлено различие Docker index
+и Podman config ID. Host-команда выше историческая; актуальный пакет — `2796e31`,
+см. `CURRENT_STATUS.md`. Терминальный web-релиз `b0327b4` остаётся установленным.

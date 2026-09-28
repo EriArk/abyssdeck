@@ -134,3 +134,13 @@ Codex 0.158.0 без сети, capabilities и записи в rootfs. Врем�
 Это проверка UID 1000, а не полной изоляции выделенного UID 1001.
 Квитанция: `/home/abysscloud/codex-web-native-lab/workspace-image-config-evidence.json`.
 Системная установка и полноценная host-приёмка по-прежнему требуют sudo в терминале.
+
+Исправление `2796e31` отправлено в `main`. Новый пакет из точного git archive уже на
+сервере, manifest и archive/config checksums проверены, dry-run завершился успешно:
+
+```sh
+sudo python3 /home/abysscloud/services/codex-web/workspace-setup-2796e31/apply-bundle.py --apply
+```
+
+Его ещё не запускали с sudo. Engine/gateway/native IDs остались прежними; web остаётся
+`b0327b4`. Не менять текущую установку приложения ради этого host-исправления.
