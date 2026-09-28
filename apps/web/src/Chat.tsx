@@ -23,6 +23,7 @@ import { ConnectionRecovery, type RecoveryOutcome } from "./ConnectionRecovery";
 import { ContextUsage } from "./ContextUsage";
 import { CopyButton } from "./CopyButton";
 import { composerShortcut } from "./composerShortcut";
+import { terminalDevice } from "./DeviceWorkspaceHost";
 import { useDictation } from "./Dictation";
 import { GitHubLinkContext } from "./GitHubLinkContext";
 import { useIssueCode } from "./IssueDrawer";
@@ -66,7 +67,11 @@ export const MessageText = memo(function MessageText({
       value={issueSource?.client === "codex" ? issueSource.projectId : parentProject}
     >
       <Markdown
-        urlTransform={(url) => (onArtifact && artifactSource(url) ? url : defaultUrlTransform(url))}
+        urlTransform={(url) =>
+          terminalDevice(url) || (onArtifact && artifactSource(url))
+            ? url
+            : defaultUrlTransform(url)
+        }
         remarkPlugins={[remarkGfm]}
         components={{
           pre: code,

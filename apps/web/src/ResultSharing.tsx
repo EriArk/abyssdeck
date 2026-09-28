@@ -37,7 +37,7 @@ export function ResultShareButton({ result }: { result: ResultItem }) {
     </>
   );
 }
-type Snapshot = Omit<SharedResultCard, "snapshotId" | "revoked">;
+export type Snapshot = Omit<SharedResultCard, "snapshotId" | "revoked">;
 export function durableKey(scope: string, input: unknown) {
   const value = JSON.stringify(input),
     name = "result-share-pending:" + scope + ":" + value;
@@ -59,10 +59,18 @@ export function durableKey(scope: string, input: unknown) {
     },
   };
 }
-function ResultShareWindow({ result, onClose }: { result: ResultItem; onClose: () => void }) {
+export function ResultShareWindow({
+  result,
+  onClose,
+  prepared,
+}: {
+  result: ResultItem;
+  onClose: () => void;
+  prepared?: Snapshot;
+}) {
   const ref = useRef<HTMLDialogElement>(null);
   useWorkspaceDialog(ref);
-  const [snapshot, setSnapshot] = useState<Snapshot | null>(null),
+  const [snapshot, setSnapshot] = useState<Snapshot | null>(prepared ?? null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [retry, setRetry] = useState(0),
@@ -111,12 +119,16 @@ function ResultShareWindow({ result, onClose }: { result: ResultItem; onClose: (
     };
     const request = durableKey("capture", source);
     setError("");
-    void api<Snapshot>("/team/result-snapshots", {
-      method: "POST",
-      key: request.key,
-      body: source,
-      timeoutMs: 60000,
-    })
+    void (
+      prepared
+        ? Promise.resolve(prepared)
+        : api<Snapshot>("/team/result-snapshots", {
+            method: "POST",
+            key: request.key,
+            body: source,
+            timeoutMs: 60000,
+          })
+    )
       .then((s) => {
         request.clear();
         if (live.current) {
@@ -160,7 +172,7 @@ function ResultShareWindow({ result, onClose }: { result: ResultItem; onClose: (
     return () => {
       live.current = false;
     };
-  }, [result.id, result.threadId, result.payload.url, retry]);
+  }, [result.id, result.threadId, result.payload.url, retry, prepared]);
   const send = async () => {
     if (!snapshot || busy || (!destination && !person && !ai && !work)) return;
     setBusy(true);

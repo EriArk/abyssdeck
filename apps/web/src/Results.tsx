@@ -10,6 +10,7 @@ import type { ArtifactSelection } from "./ArtifactMarkdown";
 import { workspaceMediaUrl } from "./accountStorage.ts";
 import { DownloadLink, isDownloadUrl } from "./DownloadLink";
 import { FileViewerDialog } from "./FileViewerDialog";
+import { ResultBatchActions, resultSelectable } from "./ResultBatchActions";
 import { ResultFilePreview } from "./ResultFilePreview";
 import { ResultFilters } from "./ResultFilters";
 import { ResultShareButton } from "./ResultSharing";
@@ -28,6 +29,7 @@ import { PreviewViewer } from "./PreviewViewer";
 import { TurnDetails } from "./TurnDetails";
 import type { Activity, Result } from "./types";
 export function Results({
+  sourceClient,
   focusVersion = 0,
   onRetry,
   category = "files",
@@ -52,6 +54,7 @@ export function Results({
   showWork = true,
   showReasoning = false,
 }: {
+  sourceClient?: "gpt" | "codex";
   focusVersion?: number;
   onRetry?: () => void;
   category?: ResultCategory;
@@ -80,6 +83,8 @@ export function Results({
     [inspected, setInspected] = useState<Result | null>(null),
     [revealNotice, setRevealNotice] = useState<string | null>(null),
     [inspecting, setInspecting] = useState(false);
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<ResultItem[]>([]);
   const revealed = useRef<ArtifactSelection["request"] | null>(null);
   const focusedRequest = useRef("");
   useEffect(() => {
@@ -137,6 +142,17 @@ export function Results({
           Результаты
         </span>
         <div className="results-heading-actions">
+          {results.some(resultSelectable) && (
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="Выбрать несколько результатов"
+              aria-pressed={selecting}
+              onClick={() => setSelecting((v) => !v)}
+            >
+              <Icon name="check" />
+            </button>
+          )}
           {counts.all > 0 && <span className="small muted">{counts.all}</span>}
           {onSearch && (
             <button
@@ -151,6 +167,15 @@ export function Results({
         </div>
       </div>
       {toolbar}
+      <div hidden={!selecting}>
+        <ResultBatchActions
+          client={sourceClient}
+          items={results.filter((r) => category === "all" || resultCategory(r.type) === category)}
+          selected={selected}
+          onSelect={setSelected}
+          onClose={() => setSelecting(false)}
+        />
+      </div>
       <ResultFilters
         showLinks={showLinks}
         showWork={showWork}
@@ -268,6 +293,25 @@ export function Results({
                 data-focused={r.id === focusId}
               >
                 <div className="result-title">
+                  {selecting && resultSelectable(r) && (
+                    <label className="result-select">
+                      <input
+                        type="checkbox"
+                        aria-label={`Выбрать ${r.title}`}
+                        checked={selected.some((item) => item.id === r.id)}
+                        disabled={
+                          selected.length >= 100 && !selected.some((item) => item.id === r.id)
+                        }
+                        onChange={(event) =>
+                          setSelected((old) =>
+                            event.target.checked
+                              ? [...old.filter((item) => item.id !== r.id), r]
+                              : old.filter((item) => item.id !== r.id),
+                          )
+                        }
+                      />
+                    </label>
+                  )}
                   {onSaveLink && (
                     <button
                       type="button"

@@ -26,6 +26,7 @@ import { api, messageOf } from "./api";
 import { openContentSearch } from "./ContentSearch";
 import { CopyButton } from "./CopyButton";
 import { composerShortcut } from "./composerShortcut";
+import { terminalDevice } from "./DeviceWorkspaceHost";
 import { useDictation } from "./Dictation";
 import { DownloadLink } from "./DownloadLink";
 import { EntityMenu, type LibraryChange, type LibraryEntity, libraryEvent } from "./EntityMenu";
@@ -119,7 +120,9 @@ const Text = memo(function Text({
         )}
         <Markdown
           urlTransform={(url) =>
-            hasArtifacts && artifactSource(url) ? url : defaultUrlTransform(url)
+            terminalDevice(url) || (hasArtifacts && artifactSource(url))
+              ? url
+              : defaultUrlTransform(url)
           }
           remarkPlugins={[remarkGfm]}
           components={{

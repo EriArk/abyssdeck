@@ -231,7 +231,7 @@
 }
 .device-terminal-screen {
   flex: 1;
-  min-height: 80px;
+  min-height: 0;
   min-width: 0;
   padding: 4px 10px 4px 16px;
   overflow: hidden;
@@ -434,6 +434,13 @@
 .device-terminal-screen .xterm-viewport {
   background: var(--paper) !important;
 }
+.device-terminal-entry { padding: 8px; border-top: 1px solid var(--line); flex: none; }
+.device-terminal-entry label { display: grid; gap: 6px; font-size: 13px; }
+.device-terminal-entry input { width: 100%; min-height: 44px; box-sizing: border-box; }
+.device-terminal-entry > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+.device-terminal-entry button { min-height: 44px; }
+.device-terminal-keys { flex-wrap: nowrap; flex: none; overflow-x: auto; }
+.device-terminal-keys button { flex: 0 0 auto; min-width: 44px; }
 .device-action-backdrop {
   position: fixed;
   inset: 0;
@@ -464,4 +471,12 @@
   [data-keyboard="true"] .devices-workspace {
     padding-bottom: 0;
   }
+}
+@media (max-width: 700px) and (max-height: 560px) {
+  .devices-workspace:has(.device-layout[data-page="terminal"]) .device-picker,
+  .devices-workspace:has(.device-layout[data-page="terminal"]) .device-mobile-tabs {
+    display: none;
+  }
+  .device-terminal-status { min-height: 24px; flex: none; }
+  .device-terminal-entry { max-height: 65%; overflow-y: auto; }
 }

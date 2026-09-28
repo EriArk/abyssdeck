@@ -66,6 +66,47 @@ function fixture() {
   return { account, runtime, conversation, calls, service, read, node, binding };
 }
 
+test("parallel readers share one canonical upstream response and preserve account checks", async () => {
+  const f = fixture(), accountFingerprint = await f.binding();
+  const original = f.service.kWt.safeGet;
+  const entered = Promise.withResolvers(), release = Promise.withResolvers();
+  f.service.kWt.safeGet = async (...args) => { entered.resolve(); await release.promise; return original(...args); };
+  const request = { operation: "readConversation", conversationId, accountFingerprint };
+  const a = f.read(request, true);
+  await entered.promise;
+  const b = f.read(request, true);
+  release.resolve();
+  const values = await Promise.all([a, b]);
+  assert.deepEqual(values[0], values[1]);
+  assert.equal(f.calls.length, 1);
+});
+
+test("conditional canonical history reuses exact bytes on 304 and refreshes on changed validator", async () => {
+  const f = fixture(), accountFingerprint = await f.binding();
+  const requests = [];
+  let changed = false;
+  f.service.$rn.getInstance = () => ({ fetch: async (url, options) => {
+    const validator = options.headers.get("if-none-match"); requests.push(validator);
+    assert.deepEqual(options.expectedIdentity, { accountId: "account-a", userId: "user-a" });
+    if (validator === '"a"' && !changed) return new Response(null, { status: 304, headers: { etag: '"a"' } });
+    return new Response(JSON.stringify(f.conversation), { headers: { etag: changed ? '"b"' : '"a"' } });
+  } });
+  const request = { operation: "readHistoryUpdate", conversationId, accountFingerprint };
+  const first = await f.read(request, true);
+  const expire = () => { for (const entry of f.runtime[Symbol.for("codex-web.native-history")].values()) entry.at -= 16000; };
+  expire();
+  const same = await f.read({ ...request, revision: first.revision }, true);
+  assert.equal(same.kind, "unchanged");
+  changed = true; f.node(2, "new response"); expire();
+  const updated = await f.read({ ...request, revision: first.revision }, true);
+  assert.equal(updated.kind, "delta");
+  assert.deepEqual(Object.keys(updated.graph.mapping), [id(2)]);
+  assert.deepEqual(requests, [null, '"a"', '"a"']);
+  f.runtime[Symbol.for("codex-web.native-history")].clear();
+  await f.read(request, true);
+  assert.equal(requests.at(-1), null, "invalidated snapshots cannot validate another response");
+});
+
 test("canonical graph keeps public action categories and generated images, excluding tool bodies", async () => {
   const f = fixture(),
     accountFingerprint = await f.binding();

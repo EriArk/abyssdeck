@@ -43,6 +43,7 @@ function BrowserDownload({
 }
 
 export function isDownloadUrl(value: string | undefined): value is string {
+  if (value && /^\/api\/team\/result-snapshots\/[a-f0-9-]{36}\/content$/.test(value)) return true;
   if (
     value &&
     /^\/api\/projects\/[a-zA-Z0-9_-]+\/file-archives\/[a-f0-9-]{36}\/content$/.test(value)

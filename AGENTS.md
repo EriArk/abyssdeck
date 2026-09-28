@@ -4,6 +4,18 @@
 
 - Before proposing a stage, reconcile recent commits with `docs/CURRENT_STATUS.md` and actual installed versions. Historical next-stage proposals are not the active queue. Do not offer implemented work again; distinguish source completion, activation and acceptance.
 
+## Owner-requested in-app terminal handoff (2026-09-28)
+
+- When manual commands or a password prompt are needed, use the existing private
+  Devices terminal. Offer an in-message terminal action with
+  `codexweb://terminal/<configured-device-id>`; the owner's Hub is `hub-host`.
+  Resolve only the actor's configured devices; never fall back to another account
+  or device. The action opens a shell, never executes a command from its URL.
+- Keep command entry and a separate masked password field usable on phones.
+  Passwords belong only in the terminal's actual prompt, never in chat, drafts,
+  browser storage or application logs. Reconnection never replays terminal input.
+  Closing the window preserves the parent conversation and running terminal.
+
 ## Owner-requested native pins and message stepping (2026-09-27)
 
 - GPT pins preserve native order independently of recent activity. Project-bound

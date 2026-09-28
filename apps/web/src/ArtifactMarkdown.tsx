@@ -10,6 +10,7 @@ import type { Components } from "react-markdown";
 import { pageWorkspace, workspaceMediaUrl } from "./accountStorage";
 import { CollapsibleCode, textOf } from "./CollapsibleCode";
 import { CopyButton } from "./CopyButton";
+import { openTerminal, terminalDevice } from "./DeviceWorkspaceHost";
 import { HumanReferenceLink } from "./HumanReferences";
 import "./message-artifacts.css";
 
@@ -201,6 +202,14 @@ export function artifactComponents(
   return {
     a: ({ node, ...props }) => {
       const href = String(props.href ?? "");
+      const device = terminalDevice(String(node?.properties.href ?? props.href ?? ""));
+      if (device)
+        return (
+          <button type="button" className="download-text" onClick={() => openTerminal(device)}>
+            <Icon name="terminal" size={16} />
+            {props.children}
+          </button>
+        );
       const source = artifactSource(String(node?.properties.href ?? props.href ?? ""));
       if (onOpen && source)
         return (

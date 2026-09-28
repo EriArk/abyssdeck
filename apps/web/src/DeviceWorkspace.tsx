@@ -4,7 +4,7 @@ import type {
   DeviceSnapshot,
   DeviceTerminalInfo,
 } from "@codex-web/shared";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { accountLocalStorage as localStorage } from "./accountStorage.ts";
 import { api } from "./api";
 import { DeviceTerminal } from "./DeviceTerminal";
@@ -21,11 +21,18 @@ const duration = (seconds: number) =>
   seconds >= 86400
     ? `${Math.floor(seconds / 86400)} дн. ${Math.floor((seconds % 86400) / 3600)} ч.`
     : `${Math.floor(seconds / 3600)} ч. ${Math.floor((seconds % 3600) / 60)} мин.`;
-export default function DeviceWorkspace({ onClose }: { onClose: () => void }) {
+export default function DeviceWorkspace({
+  onClose,
+  terminalDeviceId = "",
+}: {
+  onClose: () => void;
+  terminalDeviceId?: string;
+}) {
   const dialog = useRef<HTMLDialogElement>(null),
     actionDialog = useRef<HTMLDialogElement>(null);
   const [devices, setDevices] = useState<DeviceInfo[]>([]),
     [selected, setSelected] = useState(() => {
+      if (terminalDeviceId) return terminalDeviceId;
       try {
         return localStorage.getItem("codex-device") ?? "";
       } catch {
@@ -35,7 +42,7 @@ export default function DeviceWorkspace({ onClose }: { onClose: () => void }) {
   const [snapshot, setSnapshot] = useState<DeviceSnapshot>(),
     [sessions, setSessions] = useState<DeviceTerminalInfo[]>([]),
     [terminal, setTerminal] = useState("");
-  const [page, setPage] = useState<"info" | "terminal">("info"),
+  const [page, setPage] = useState<"info" | "terminal">(terminalDeviceId ? "terminal" : "info"),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [refresh, setRefresh] = useState(0),
@@ -45,9 +52,17 @@ export default function DeviceWorkspace({ onClose }: { onClose: () => void }) {
     [protocol, setProtocol] = useState<"smb" | "nfs">("smb"),
     [credentials, setCredentials] = useState(true);
   const pending = useRef<{ key: string; device: string; action: DeviceAction } | null>(null);
+  const automatic = useRef("");
+  const [loadedDevice, setLoadedDevice] = useState("");
   const selection = useRef(selected);
   selection.current = selected;
   const current = devices.find((d) => d.id === selected);
+  useEffect(() => {
+    if (terminalDeviceId) {
+      setSelected(terminalDeviceId);
+      setPage("terminal");
+    }
+  }, [terminalDeviceId]);
   useEffect(() => {
     if (action) {
       actionDialog.current?.showModal();
@@ -65,16 +80,21 @@ export default function DeviceWorkspace({ onClose }: { onClose: () => void }) {
     void api<{ devices: DeviceInfo[] }>("/devices", { signal: controller.signal })
       .then((r) => {
         setDevices(r.devices);
-        setSelected((v) => (r.devices.some((d) => d.id === v) ? v : (r.devices[0]?.id ?? "")));
+        setSelected((v) =>
+          r.devices.some((d) => d.id === v) || terminalDeviceId ? v : (r.devices[0]?.id ?? ""),
+        );
+        if (terminalDeviceId && !r.devices.some((d) => d.id === terminalDeviceId))
+          setError("Это устройство недоступно в твоём рабочем пространстве.");
       })
       .catch((e) => {
         if (!controller.signal.aborted) setError(e.message);
       });
     return () => controller.abort();
-  }, []);
+  }, [terminalDeviceId]);
   useEffect(() => {
     setSnapshot(undefined);
     setSessions([]);
+    setLoadedDevice("");
     setTerminal("");
     setAction(null);
     setError("");
@@ -104,6 +124,7 @@ export default function DeviceWorkspace({ onClose }: { onClose: () => void }) {
         setSessions(r.terminals);
         const open = r.terminals.find((t) => t.state === "open");
         setTerminal(open?.id ?? "");
+        setLoadedDevice(selected);
       })
       .catch((e) => {
         if (!controller.signal.aborted) setError(e.message);
@@ -132,37 +153,40 @@ export default function DeviceWorkspace({ onClose }: { onClose: () => void }) {
       });
     return () => controller.abort();
   }, [refresh, selected]);
-  const create = async (value: DeviceAction) => {
-    if (!current || busy) return;
-    const id = current.id;
-    if (
-      !pending.current ||
-      pending.current.device !== id ||
-      JSON.stringify(pending.current.action) !== JSON.stringify(value)
-    )
-      pending.current = { device: id, action: value, key: crypto.randomUUID() };
-    setBusy(true);
-    setError("");
-    try {
-      const result = await api<DeviceTerminalInfo>(`/devices/${id}/terminals`, {
-        method: "POST",
-        body: value,
-        key: pending.current.key,
-        timeoutMs: 20000,
-      });
-      pending.current = null;
-      if (selection.current === id) {
-        setSessions((v) => [result, ...v.filter((t) => t.id !== result.id)].slice(0, 12));
-        setTerminal(result.id);
-        setPage("terminal");
-        setAction(null);
+  const create = useCallback(
+    async (value: DeviceAction) => {
+      if (!current || busy) return;
+      const id = current.id;
+      if (
+        !pending.current ||
+        pending.current.device !== id ||
+        JSON.stringify(pending.current.action) !== JSON.stringify(value)
+      )
+        pending.current = { device: id, action: value, key: crypto.randomUUID() };
+      setBusy(true);
+      setError("");
+      try {
+        const result = await api<DeviceTerminalInfo>(`/devices/${id}/terminals`, {
+          method: "POST",
+          body: value,
+          key: pending.current.key,
+          timeoutMs: 20000,
+        });
+        pending.current = null;
+        if (selection.current === id) {
+          setSessions((v) => [result, ...v.filter((t) => t.id !== result.id)].slice(0, 12));
+          setTerminal(result.id);
+          setPage("terminal");
+          setAction(null);
+        }
+      } catch (e) {
+        if (selection.current === id) setError((e as Error).message);
+      } finally {
+        setBusy(false);
       }
-    } catch (e) {
-      if (selection.current === id) setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
+    },
+    [current, busy],
+  );
   const end = async () => {
     if (!terminal || busy) return;
     setBusy(true);
@@ -176,6 +200,19 @@ export default function DeviceWorkspace({ onClose }: { onClose: () => void }) {
       setBusy(false);
     }
   };
+  useEffect(() => {
+    if (
+      !terminalDeviceId ||
+      selected !== terminalDeviceId ||
+      loadedDevice !== selected ||
+      !current ||
+      busy ||
+      automatic.current === terminalDeviceId
+    )
+      return;
+    automatic.current = terminalDeviceId;
+    if (!terminal) void create({ kind: "shell" });
+  }, [terminalDeviceId, selected, loadedDevice, current, busy, terminal, create]);
   return (
     <dialog
       className="devices-workspace"

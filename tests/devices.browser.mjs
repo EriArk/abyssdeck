@@ -9,6 +9,7 @@ for (const [engine, type] of [
   ["webkit", webkit],
 ]) {
   const f = await devicesFixture(origin);
+  f.store.db.prepare("UPDATE threads SET origin='web' WHERE id=?").run(f.thread.id);
   f.store.setPreferences({
     projectId: "project",
     threadId: f.thread.id,
@@ -25,6 +26,10 @@ for (const [engine, type] of [
     command: "pnpm test",
     exitCode: 0,
   });
+  f.store.append(f.thread.id, "assistant.completed", {
+    id: "terminal-link",
+    text: "[Терминал сервера](codexweb://terminal/server)",
+  }, "turn");
   const browser = await type.launch(),
     context = await browser.newContext({
       viewport: { width: 1366, height: 1024 },
@@ -52,6 +57,7 @@ for (const [engine, type] of [
       if (r.url().endsWith("/output")) outputReads++;
     });
     assert.equal(outputReads, 0);
+    await page.getByRole("navigation", { name: "Категории результатов" }).getByRole("button", { name: /^Работа/ }).click();
     const output = page.locator(".command-output").first();
     await expect(output).toBeVisible();
     assert.equal(await output.getAttribute("open"), null);
@@ -70,6 +76,19 @@ for (const [engine, type] of [
     await page.keyboard.type("test");
     await page.keyboard.press("Enter");
     await expect.poll(() => f.processes[0].writes.join("")).toContain("test\r");
+    await button("Ввести пароль").click();
+    const password = modal.getByLabel("Пароль терминала", { exact: true });
+    await password.fill("TEST-SECRET-only-in-pty");
+    assert.equal(await password.getAttribute("type"), "password");
+    await button("Ввести").click();
+    await expect.poll(() => f.processes[0].writes.join("")).toContain("TEST-SECRET-only-in-pty\r");
+    await expect(password).toHaveCount(0);
+    const storage = await page.evaluate(() => JSON.stringify([localStorage, sessionStorage]));
+    assert(!storage.includes("TEST-SECRET"));
+    await button("Ввести команду").click();
+    await modal.getByRole("textbox", { name: "Команда терминала" }).fill("printf hello");
+    await button("Ввести").click();
+    await expect.poll(() => f.processes[0].writes.join("")).toContain("printf hello\r");
     for (const theme of ["organizer", "crt-green", "hitech-2000s", "classic-dark"]) {
       await page.evaluate((t) => (document.documentElement.dataset.theme = t), theme);
       await page.waitForTimeout(400);
@@ -87,9 +106,11 @@ for (const [engine, type] of [
     await button("Закрыть устройства").click();
     await expect(composer).toHaveValue("Draft stays here");
     assert(!f.processes[0].killed);
-    await button("Открыть устройства").click();
+    const writesBefore = f.processes[0].writes.join("");
+    await button("Терминал сервера").click();
     await expect(modal.locator(".device-terminal-status")).toContainText("Подключено");
     assert.equal(f.processes.length, 1);
+    assert.equal(f.processes[0].writes.join(""), writesBefore);
     await modal.getByRole("button", { name: "ПК Windows" }).click();
     await expect(modal.locator(".device-os")).toContainText("Windows 10");
     await button("Открыть терминал").click();
@@ -114,6 +135,18 @@ for (const [engine, type] of [
     const keys = await modal.locator(".device-terminal-keys").boundingBox();
     assert(keys.y + keys.height <= 431);
     await page.screenshot({ path: `${out}/phone-keyboard.png` });
+    await button("Ввести пароль").click();
+    await modal.getByLabel("Пароль терминала", { exact: true }).fill("CANCELLED-secret");
+    await page.screenshot({ path: `${out}/phone-password.png` });
+    const submit = await button("Ввести").boundingBox();
+    assert(submit.y + submit.height <= 431);
+    await button("Отмена").click();
+    assert(!f.processes[1].writes.join("").includes("CANCELLED-secret"));
+    await button("Закрыть устройства").click();
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent("open-device-terminal", { detail: "not-owned" })));
+    await expect(modal).toBeVisible();
+    await expect(modal.locator(".device-error")).toBeVisible();
+    assert.equal(f.processes.length, 2);
     assert.equal(
       f.calls.filter((c) => ["turn/start", "thread/start", "thread/resume"].includes(c.method))
         .length,

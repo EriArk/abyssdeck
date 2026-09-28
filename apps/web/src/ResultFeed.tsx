@@ -372,6 +372,7 @@ export function ResultFeed({
   return (
     <>
       <Results
+        sourceClient={endpoint.startsWith("/gpt/") ? "gpt" : "codex"}
         key={`${endpoint}:${sourceRevision ?? 0}`}
         results={all.map((r) =>
           r.threadId

@@ -1,6 +1,7 @@
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import { useEffect, useRef, useState } from "react";
+import { AutoTextarea } from "./AutoTextarea";
 import { workspaceSocket } from "./accountStorage.ts";
 import { ApiError, api } from "./api";
 import { Icon } from "./icons";
@@ -16,6 +17,25 @@ export function DeviceTerminal({ id, onExit }: { id: string; onExit: () => void 
     [failed, setFailed] = useState(false),
     [connected, setConnected] = useState(false);
   const retryRef = useRef(() => {});
+  const secretRef = useRef<HTMLInputElement>(null);
+  const [entry, setEntry] = useState<"command" | "password" | null>(null);
+  const [command, setCommand] = useState("");
+  useEffect(() => {
+    const clear = () => {
+      if (secretRef.current) secretRef.current.value = "";
+    };
+    document.addEventListener("visibilitychange", clear);
+    return () => {
+      clear();
+      document.removeEventListener("visibilitychange", clear);
+    };
+  }, []);
+  useEffect(() => {
+    if (!connected) {
+      if (secretRef.current) secretRef.current.value = "";
+      setEntry(null);
+    }
+  }, [connected]);
   useEffect(() => {
     if (!host.current) return;
     let stopped = false,
@@ -204,7 +224,8 @@ export function DeviceTerminal({ id, onExit }: { id: string; onExit: () => void 
   }, [id]);
   const input = (data: string) => {
     if (connected && socketRef.current?.readyState === 1)
-      socketRef.current.send(JSON.stringify({ type: "input", data }));
+      for (let i = 0; i < data.length; i += 1024)
+        socketRef.current.send(JSON.stringify({ type: "input", data: data.slice(i, i + 1024) }));
     termRef.current?.focus();
   };
   return (
@@ -224,7 +245,84 @@ export function DeviceTerminal({ id, onExit }: { id: string; onExit: () => void 
         )}
       </div>
       <section className="device-terminal-screen" ref={host} aria-label="Терминал устройства" />
+      {entry && (
+        <form
+          className="device-terminal-entry"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!connected || socketRef.current?.readyState !== 1) return;
+            const value = entry === "password" ? (secretRef.current?.value ?? "") : command;
+            if (secretRef.current) secretRef.current.value = "";
+            setCommand("");
+            setEntry(null);
+            input(value.replace(/\r\n|\n/g, "\r") + "\r");
+          }}
+        >
+          {entry === "password" ? (
+            <label>
+              Пароль для текущего запроса терминала
+              <input
+                ref={secretRef}
+                type="password"
+                name="terminal-secret"
+                aria-label="Пароль терминала"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="none"
+                spellCheck={false}
+                maxLength={4096}
+              />
+            </label>
+          ) : (
+            <AutoTextarea
+              aria-label="Команда терминала"
+              value={command}
+              onChange={(event) => setCommand(event.target.value)}
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
+            />
+          )}
+          <div>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => {
+                if (secretRef.current) secretRef.current.value = "";
+                setEntry(null);
+              }}
+            >
+              Отмена
+            </button>
+            <button type="submit" className="primary" disabled={!connected}>
+              Ввести
+            </button>
+          </div>
+        </form>
+      )}
       <div className="device-terminal-keys" role="toolbar" aria-label="Клавиши терминала">
+        <button
+          type="button"
+          disabled={!connected}
+          onClick={() => {
+            if (secretRef.current) secretRef.current.value = "";
+            setEntry(entry === "command" ? null : "command");
+          }}
+          aria-label="Ввести команду"
+        >
+          Ввод
+        </button>
+        <button
+          type="button"
+          disabled={!connected}
+          onClick={() => {
+            if (secretRef.current) secretRef.current.value = "";
+            setEntry(entry === "password" ? null : "password");
+          }}
+          aria-label="Ввести пароль"
+        >
+          <Icon name="lock" />
+        </button>
         <button
           type="button"
           onClick={() => termRef.current?.focus()}
@@ -233,6 +331,7 @@ export function DeviceTerminal({ id, onExit }: { id: string; onExit: () => void 
           <Icon name="keyboard" />
         </button>
         {[
+          ["Enter", "\r"],
           ["Esc", "\u001b"],
           ["Tab", "\t"],
           ["Ctrl C", "\u0003"],

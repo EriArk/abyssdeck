@@ -1,10 +1,11 @@
-import { HubError, isFileSource, type ResultItem } from "@codex-web/shared";
+import { HubError, isFileSource, type ResultItem, type ResultShareSource } from "@codex-web/shared";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import type { createApp } from "./app.js";
 import type { Communication } from "./communication.js";
 import { assertPreviewFrame, previewCsp } from "./previews.js";
 import { resultCaptureMarker } from "./result-capture-limit.js";
+import { registerResultPackages } from "./result-packages.js";
 import { registerResultWorkHandoffs } from "./result-work-handoffs.js";
 
 export function registerCommunication(
@@ -206,108 +207,107 @@ export function registerCommunication(
   }, 3600000);
   cleanup.unref();
   app.addHook("onClose", async () => clearInterval(cleanup));
-  app.post(
-    "/api/team/result-snapshots",
-    { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } },
-    async (req, reply) => {
-      const user = actor(req),
-        operation = key(req),
-        source = z
-          .object({
-            client: z.enum(["codex", "gpt", "human"]),
-            threadId: z.string().regex(/^[a-zA-Z0-9_-]{1,200}$/),
-            resultId: z.string().regex(/^[a-zA-Z0-9_:-]{1,300}$/),
-          })
-          .strict()
-          .parse(req.body);
-      const prior = communication.db
-        .prepare("SELECT 1 FROM team_receipts WHERE userId=? AND scope='result.capture' AND key=?")
-        .get(user, operation);
-      if (prior) {
-        const saved = communication.team.once<{ id: string }>(
-          user,
-          "result.capture",
-          operation,
-          source,
-          () => {
-            throw Error("unreachable");
-          },
-        );
-        communication.ownerSnapshot(user, saved.id);
-        return saved;
-      }
-      if (source.client === "human") {
-        const row = communication.db
-          .prepare(
-            "SELECT 1 FROM conversation_chat_files WHERE id=? AND spaceId=? AND authorId=? AND messageSeq IS NOT NULL",
-          )
-          .get(source.resultId, source.threadId, user);
-        if (!row) throw new HubError(404, "FILE_UNAVAILABLE", "Файл недоступен для пересылки.");
-        const file = communication.chat.readFile(user, source.threadId, source.resultId);
-        const snapshot = communication.capture(user, source, file);
-        return communication.team.once(user, "result.capture", operation, source, () => snapshot);
-      }
-      const { runtime } = await personal(user);
-      actor(req);
-      const headers = {
-        cookie: req.headers.cookie ?? "",
-        "x-workspace-id": user,
-        "sec-fetch-site": "same-origin",
-        "sec-fetch-dest": "iframe",
-        "x-result-capture": resultCaptureMarker,
-      };
-      // Resolve exact canonical metadata inside the sender's own runtime. No client URL/path is used.
-      const path =
-        source.client === "codex"
-          ? `/api/threads/${source.threadId}/results/${encodeURIComponent(source.resultId)}`
-          : `/api/gpt/conversations/${source.threadId}/results/${encodeURIComponent(source.resultId)}`;
-      const metadata = await runtime.app.inject({ method: "GET", url: path, headers });
-      if (metadata.statusCode !== 200)
-        throw new HubError(404, "RESULT_UNAVAILABLE", "Результат недоступен.");
-      const result = metadata.json<ResultItem>(),
-        url = result.payload.url;
-      if (
-        !["file", "image", "artifact", "preview"].includes(result.type) ||
-        !url ||
-        (!(isFileSource(url) && !url.startsWith("/api/team/")) &&
-          !/^\/api\/(?:gpt\/)?previews\/[a-f0-9]{64}$/.test(url))
-      )
-        throw new HubError(
-          409,
-          "RESULT_CAPTURE_REQUIRED",
-          "Сначала сохрани результат в Files или Demos.",
-        );
-      if ((result.payload.bytes ?? 0) > 32 * 1024 ** 2)
-        throw new HubError(413, "SHARE_TOO_LARGE", "Материал больше 32 МБ.");
-      const content = await runtime.app.inject({ method: "GET", url, headers });
-      actor(req);
-      if (content.statusCode !== 200)
-        throw new HubError(
-          409,
-          "RESULT_UNAVAILABLE",
-          "Не удалось прочитать сохранённый результат.",
-        );
-      const file = {
-        name:
-          result.type === "preview" && !/\.html?$/i.test(result.title)
-            ? result.title + ".html"
-            : result.title,
-        mime: String(
-          content.headers["content-type"] ?? result.payload.mime ?? "application/octet-stream",
-        ).split(";")[0]!,
-        data: content.rawPayload,
-      };
-      const snapshot = communication.capture(user, source, file);
-      const saved = communication.team.once(
+  const sourceSchema = z
+    .object({
+      client: z.enum(["codex", "gpt", "human"]),
+      threadId: z.string().regex(/^[a-zA-Z0-9_-]{1,200}$/),
+      resultId: z.string().regex(/^[a-zA-Z0-9_:-]{1,300}$/),
+    })
+    .strict();
+  const capture = async (req: FastifyRequest, source: ResultShareSource, operation: string) => {
+    const user = actor(req);
+    const prior = communication.db
+      .prepare("SELECT 1 FROM team_receipts WHERE userId=? AND scope='result.capture' AND key=?")
+      .get(user, operation);
+    if (prior) {
+      const saved = communication.team.once<{ id: string }>(
         user,
         "result.capture",
         operation,
         source,
-        () => snapshot,
+        () => {
+          throw Error("unreachable");
+        },
       );
-      return reply.header("Cache-Control", "no-store").send(saved);
-    },
+      communication.ownerSnapshot(user, saved.id);
+      return saved;
+    }
+    if (source.client === "human") {
+      const row = communication.db
+        .prepare(
+          "SELECT 1 FROM conversation_chat_files WHERE id=? AND spaceId=? AND authorId=? AND messageSeq IS NOT NULL",
+        )
+        .get(source.resultId, source.threadId, user);
+      if (!row) throw new HubError(404, "FILE_UNAVAILABLE", "Файл недоступен для пересылки.");
+      const file = communication.chat.readFile(user, source.threadId, source.resultId);
+      const snapshot = communication.capture(user, source, file);
+      return communication.team.once(user, "result.capture", operation, source, () => snapshot);
+    }
+    const { runtime } = await personal(user);
+    actor(req);
+    const headers = {
+      cookie: req.headers.cookie ?? "",
+      "x-workspace-id": user,
+      "sec-fetch-site": "same-origin",
+      "sec-fetch-dest": "iframe",
+      "x-result-capture": resultCaptureMarker,
+    };
+    // Resolve exact canonical metadata inside the sender's own runtime. No client URL/path is used.
+    const path =
+      source.client === "codex"
+        ? `/api/threads/${source.threadId}/results/${encodeURIComponent(source.resultId)}`
+        : `/api/gpt/conversations/${source.threadId}/results/${encodeURIComponent(source.resultId)}`;
+    const metadata = await runtime.app.inject({ method: "GET", url: path, headers });
+    if (metadata.statusCode !== 200)
+      throw new HubError(404, "RESULT_UNAVAILABLE", "Результат недоступен.");
+    const result = metadata.json<ResultItem>(),
+      url = result.payload.url;
+    if (
+      !["file", "image", "artifact", "preview"].includes(result.type) ||
+      !url ||
+      (!(isFileSource(url) && !url.startsWith("/api/team/")) &&
+        !/^\/api\/(?:gpt\/)?previews\/[a-f0-9]{64}$/.test(url))
+    )
+      throw new HubError(
+        409,
+        "RESULT_CAPTURE_REQUIRED",
+        "Сначала сохрани результат в Files или Demos.",
+      );
+    if ((result.payload.bytes ?? 0) > 32 * 1024 ** 2)
+      throw new HubError(413, "SHARE_TOO_LARGE", "Материал больше 32 МБ.");
+    const content = await runtime.app.inject({ method: "GET", url, headers });
+    actor(req);
+    if (content.statusCode !== 200)
+      throw new HubError(409, "RESULT_UNAVAILABLE", "Не удалось прочитать сохранённый результат.");
+    const file = {
+      name:
+        result.type === "preview" && !/\.html?$/i.test(result.title)
+          ? result.title + ".html"
+          : result.title,
+      mime: String(
+        content.headers["content-type"] ?? result.payload.mime ?? "application/octet-stream",
+      ).split(";")[0]!,
+      data: content.rawPayload,
+    };
+    const snapshot = communication.capture(user, source, file);
+    const saved = communication.team.once(
+      user,
+      "result.capture",
+      operation,
+      source,
+      () => snapshot,
+    );
+    return saved;
+  };
+  app.post(
+    "/api/team/result-snapshots",
+    { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } },
+    async (req, reply) =>
+      reply
+        .header("Cache-Control", "no-store")
+        .send(await capture(req, sourceSchema.parse(req.body), key(req))),
   );
+  registerResultPackages(app, communication, actor, capture, sourceSchema);
   const native = z.string().regex(/^[a-zA-Z0-9_-]{1,100}$/);
   const binding = (runtime: Awaited<ReturnType<typeof createApp>>, threadId: string) => {
     runtime.gpt.library.assertExists("thread", threadId);

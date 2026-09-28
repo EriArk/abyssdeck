@@ -171,40 +171,64 @@ export async function nativeRead(request, load = () => import('app://-/assets/ap
  if(saved&&live?.finished===true&&live.accountFingerprint===before.fingerprint&&live.userMessageId===request.userMessageId&&
     (live.conversationId===null||live.conversationId===request.conversationId)&&saved.at<(live.finishedAt??live.at))saved=undefined;
  const historyTtl=request.operation==='readSubmission'&&!hasSubmission?1000:15000;
- if(saved?.value&&now-saved.at<historyTtl)conversation=saved.value;
- else try {
+ // A cache entry owns its in-flight read. Waiters share it only while the exact
+ // entry remains current; dispatch/delete invalidation detaches old readers.
+ if(saved?.pending)conversation=await bounded(saved.pending);
+ else if(saved?.value&&now-saved.at<historyTtl)conversation=saved.value;
+ else {
   gate.check();
-  // A parallel read or a mutation may invalidate this entry while fetch awaits.
-  // Never repopulate the cache with an older response after that boundary.
-  const reading={at:now,bytes:0};cache.set(key,reading);
-  const principal=before.principal;
-  // The default safeGet retries history failures internally; use the pinned,
-  // principal-bound native transport once and respect its rate-limit response.
-  const {url,headers}=m.kWt.getRequestTarget('/conversation/{conversation_id}',{parameters:{path:{conversation_id:request.conversationId}}});
-  let response;
-  try { response=await bounded(m.$rn.getInstance().fetch(url,{headers,expectedIdentity:principal,signal,retry:false})); }
-  catch(e){if(signal.aborted)fail('HISTORY_HEADERS_TIMEOUT');throw e;}
-  if(!response.ok){const status=response.status,retryAfter=response.headers?.get?.('retry-after');await response.body?.cancel();if(status===429)gate.limited(retryAfter);throw {status,responseStatus:status};}
-  let bytes=0,text='';const decoder=new TextDecoder();
-  const reader=response.body.getReader();
-  try {
-   while(true){
-    let chunk;try{chunk=await bounded(reader.read());}catch(e){if(signal.aborted)fail('HISTORY_BODY_TIMEOUT');throw e;}
-    if(chunk.done)break;
-    bytes+=chunk.value.length;if(bytes>16*1024**2)fail('HISTORY_TOO_LARGE');text+=decoder.decode(chunk.value,{stream:true});
+  const reading={at:now,bytes:saved?.bytes??0,publicBytes:saved?.publicBytes??0,history:saved?.history};
+  cache.set(key,reading);
+  const fetchHistory=async()=>{
+   const principal=before.principal;
+   const target=m.kWt.getRequestTarget('/conversation/{conversation_id}',{parameters:{path:{conversation_id:request.conversationId}}});
+   // Validators are accepted only from this account's exact canonical response.
+   // Unsupported validators simply receive the ordinary complete response.
+   const headers=new Headers(target.headers);
+   const base=saved?.value?.conversation_id===request.conversationId?saved:undefined;
+   if(base?.etag)headers.set('If-None-Match',base.etag);
+   let response;
+   try { response=await bounded(m.$rn.getInstance().fetch(target.url,{headers,expectedIdentity:principal,signal,retry:false})); }
+   catch(e){if(signal.aborted)fail('HISTORY_HEADERS_TIMEOUT');throw e;}
+   let value,bytes=0;
+   if(response.status===304){
+    await response.body?.cancel();
+    if(!base?.etag||!base.value)fail('INVALID_HISTORY_VALIDATOR');
+    value=base.value;bytes=base.bytes;
+   }else{
+    if(!response.ok){const status=response.status,retryAfter=response.headers?.get?.('retry-after');await response.body?.cancel();if(status===429)gate.limited(retryAfter);throw {status,responseStatus:status};}
+    let text='';const decoder=new TextDecoder(),reader=response.body.getReader();
+    try {
+     while(true){
+      let chunk;try{chunk=await bounded(reader.read());}catch(e){if(signal.aborted)fail('HISTORY_BODY_TIMEOUT');throw e;}
+      if(chunk.done)break;
+      bytes+=chunk.value.length;if(bytes>16*1024**2)fail('HISTORY_TOO_LARGE');text+=decoder.decode(chunk.value,{stream:true});
+     }
+    }catch(e){void reader.cancel().catch(()=>{});throw e;}
+    finally{reader.releaseLock();}
+    value=JSON.parse(text+decoder.decode());
    }
-  } catch(e){void reader.cancel().catch(()=>{});throw e;}
-  finally{reader.releaseLock();}
-  text+=decoder.decode();conversation=JSON.parse(text);
-  if((await account()).fingerprint!==before.fingerprint)fail('ACCOUNT_CHANGED');
-  if(cache.get(key)===reading)cache.set(key,{value:conversation,bytes,at:now,retryAt:0});
-  gate.success();
-  let total=0;for(const v of cache.values())total+=(v.bytes??0)+(v.publicBytes??0);
-  for(const [k,v] of cache){if(total<=64*1024**2)break;if(k!==key){cache.delete(k);total-=(v.bytes??0)+(v.publicBytes??0);}}
- } catch(e) {
-  if(e?.responseStatus===429&&e.status===429)gate.limited(e.headers?.get?.('retry-after'));
-  if(/^NATIVE_[A-Z_]+$/.test(e?.message??''))throw e;
-  fail(signal.aborted ? 'TIMEOUT' : 'READ_UNAVAILABLE');
+   if((await account()).fingerprint!==before.fingerprint)fail('ACCOUNT_CHANGED');
+   if(value?.conversation_id!==request.conversationId)fail('CONVERSATION_MISMATCH');
+   if(!value.mapping||typeof value.mapping!=='object'||Array.isArray(value.mapping)||Object.keys(value.mapping).length>10000)fail('INVALID_HISTORY');
+   const raw=response.headers?.get?.('etag'),etag=typeof raw==='string'&&raw.length<=1024&&/^(W\/)?"[^"\r\n]+"$/.test(raw)?raw:response.status===304?base.etag:undefined;
+   if(cache.get(key)===reading)cache.set(key,{value,bytes,at:Date.now(),retryAt:0,etag,history:value===base?.value?base.history:undefined,publicBytes:value===base?.value?base.publicBytes:0});
+   gate.success();
+   let total=0;for(const v of cache.values())total+=(v.bytes??0)+(v.publicBytes??0);
+   for(const [k,v] of cache){if(total<=64*1024**2)break;if(k!==key&&!v.pending){cache.delete(k);total-=(v.bytes??0)+(v.publicBytes??0);}}
+   return value;
+  };
+  reading.pending=fetchHistory().catch(e=>{
+   if(e?.responseStatus===429&&e.status===429)gate.limited(e.headers?.get?.('retry-after'));
+   if(/^NATIVE_[A-Z_]+$/.test(e?.message??''))throw e;
+   fail(signal.aborted?'TIMEOUT':'READ_UNAVAILABLE');
+  });
+  try { conversation=await reading.pending; }
+  catch(e){
+   if(cache.get(key)===reading)cache.delete(key);
+   if(/^NATIVE_[A-Z_]+$/.test(e?.message??''))throw e;
+   fail(signal.aborted?'TIMEOUT':'READ_UNAVAILABLE');
+  }
  }
  if ((await account()).fingerprint !== before.fingerprint) fail('ACCOUNT_CHANGED');
  if (conversation?.conversation_id !== request.conversationId) fail('CONVERSATION_MISMATCH');

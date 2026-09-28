@@ -33,7 +33,7 @@ export type SharedResultCard = {
   revoked: boolean;
 };
 export type ResultShareSource = {
-  client: "codex" | "gpt" | "human";
+  client: "codex" | "gpt" | "human" | "package";
   threadId: string;
   resultId: string;
 };
