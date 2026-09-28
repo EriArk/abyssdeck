@@ -34,6 +34,28 @@ maintenance admission, не останавливает фоновые польз
 #170/#198 пока целиком не закрыты; новый installer/wizard — следующий отдельный этап.
 Не предлагать Files/Git/Terminal, закрытый preview или реализацию backup timer заново.
 
+Итог выпуска: `1008874` в `main`, чистый образ `codex-web-hub:1008874` собран
+и прошёл отдельный engine/gateway smoke. Проверка действующего подключения дала
+`APP_SERVER_CONNECTED`, `CODEX_AUTHENTICATED`, `GPT_NATIVE_HEALTHY`; текущие engine
+и gateway сохранили прежние ID. Квитанция и журналы на сервере:
+`verification-1008874/receipt.json`. Новое обновление **не поставлено в очередь**.
+Активационный preflight ожидаемо отказывается принимать старый host image.
+
+Готов один проверенный пакет (dry-run и оба manifest прошли):
+
+```sh
+sudo python3 /home/abysscloud/services/codex-web/workspace-features-1008874/apply-features.py --apply
+```
+
+Запуск — через `codexweb://terminal/hub-host`, пароль только в настоящем prompt.
+Runtime archive: 660029440 bytes, SHA-256
+`ff71bed6a4b7f12f82c1afe4464a52cb0593daac8f3595bd27747394b826b41d`.
+После успешного host-шага прочитать новый readiness/timer, затем использовать
+`releases/1008874/ops/linux/upgrade-engine.py` с `--expected 6c151b5`,
+`--enable-server-workspaces`, точным config ID выше и `verification-1008874/receipt.json`.
+Обычное ожидание idle и Team rollback обязательны. Привилегированная установка
+и реальный парный checkpoint ещё не выполнены; не считать их принятыми по fixtures.
+
 ## Предыдущий выпуск: прикладная интеграция проверена, выпуск собран
 
 Исходники `ba0aef9` отправлены в `main`; чистый выпуск и образ
