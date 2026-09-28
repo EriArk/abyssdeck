@@ -7,8 +7,10 @@ import type {
 } from "@codex-web/shared";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { pageWorkspace } from "./accountStorage";
 import { ApiError, api, messageOf } from "./api";
 import { Icon } from "./icons";
+import { ResultBatchActions, resultSelectable } from "./ResultBatchActions";
 import { ResultFilePreview } from "./ResultFilePreview";
 import { useWorkspaceDialog } from "./useWorkspaceDialog";
 import "./result-search.css";
@@ -39,6 +41,41 @@ export function ResultSearch({
   const [selected, setSelected] = useState<ResultSearchHit | null>(null),
     [opened, setOpened] = useState<ResultItem | null>(null),
     [openError, setOpenError] = useState("");
+  const [selecting, setSelecting] = useState(false);
+  const [chosen, setChosen] = useState<ResultItem[]>([]);
+  const [selectBusy, setSelectBusy] = useState(false);
+  const selectionRequest = useRef<AbortController | null>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: selection belongs to one exact Results endpoint.
+  useEffect(() => {
+    setChosen([]);
+    setSelectBusy(false);
+    return () => selectionRequest.current?.abort();
+  }, [endpoint]);
+  const choose = async (hits: ResultSearchHit[]) => {
+    if (selectBusy) return;
+    const controller = new AbortController();
+    selectionRequest.current = controller;
+    setSelectBusy(true);
+    setError("");
+    try {
+      const items = [...chosen];
+      for (const hit of hits) {
+        if (items.some((item) => item.id === hit.id) || items.length >= 100) continue;
+        const item = await api<ResultItem>(endpoint + "/" + encodeURIComponent(hit.id), {
+          signal: controller.signal,
+        });
+        item.threadId ??=
+          hit.threadId ?? endpoint.match(/\/(?:threads|conversations)\/([^/]+)\/results/)?.[1];
+        if (!resultSelectable(item)) throw new Error("Этот результат нельзя добавить в пакет.");
+        items.push(item);
+      }
+      if (!controller.signal.aborted) setChosen(items);
+    } catch (e) {
+      if (!controller.signal.aborted) setError(messageOf(e));
+    } finally {
+      if (!controller.signal.aborted) setSelectBusy(false);
+    }
+  };
   const pending = useRef<AbortController | null>(null),
     opening = useRef<AbortController | null>(null);
   const scroll = useRef<HTMLDivElement>(null);
@@ -143,6 +180,17 @@ export function ResultSearch({
         <header>
           <Icon name="search" />
           <h2>Файлы в результатах</h2>
+          {pageWorkspace && (
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="Выбрать несколько найденных файлов"
+              aria-pressed={selecting}
+              onClick={() => setSelecting((v) => !v)}
+            >
+              <Icon name="check" />
+            </button>
+          )}
           <button
             type="button"
             className="icon-button"
@@ -180,9 +228,43 @@ export function ResultSearch({
             <option value="name">По имени</option>
           </select>
         </div>
+        <div className="result-search-batch" hidden={!selecting}>
+          <button
+            type="button"
+            className="secondary"
+            disabled={selectBusy || !page?.items.length}
+            onClick={() => void choose(page!.items)}
+          >
+            {selectBusy ? "Добавляем файлы…" : "Выбрать найденные на странице"}
+          </button>
+          <ResultBatchActions
+            client={/^(?:\/api)?\/gpt\//.test(endpoint) ? "gpt" : "codex"}
+            items={[]}
+            selected={chosen}
+            onSelect={setChosen}
+            onClose={() => setSelecting(false)}
+            hideSelectLoaded
+            loading={selectBusy}
+          />
+        </div>
         <div className="result-search-list" ref={scroll}>
           {page?.items.map((hit) => (
-            <div className="result-search-row" key={hit.id}>
+            <div className="result-search-row" data-selecting={selecting} key={hit.id}>
+              {selecting && (
+                <label className="result-search-check">
+                  <input
+                    type="checkbox"
+                    aria-label={`Выбрать ${hit.title}`}
+                    checked={chosen.some((item) => item.id === hit.id)}
+                    disabled={selectBusy}
+                    onChange={(e) =>
+                      e.target.checked
+                        ? void choose([hit])
+                        : setChosen((items) => items.filter((item) => item.id !== hit.id))
+                    }
+                  />
+                </label>
+              )}
               <button
                 type="button"
                 className="result-search-open"

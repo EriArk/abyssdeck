@@ -14,6 +14,12 @@ The dispatcher is a hidden, operation-scoped `codex/dispatcher` binding and a fi
 
 ## Durability and isolation
 
+As of 28 September, package/item reservations replace the account-wide drawer
+lock. Independent packages and drafts progress concurrently; slow completion
+preserves subsequent ordering changes. A package selector retains all active
+packages. Other drafts remain editable during preparation. Repository writer
+queues are separate per actor/repository; aliases of one repository serialize.
+
 - Drafts and package receipts live in each principal's private Hub database. Browser edit buffers and capture/package retry keys use account-local storage and clear with the account. Editing uses an expected revision. Duplicate capture, prepare and confirm acknowledgements reuse exact durable IDs.
 - Recollecting a removed item creates a fresh private draft only after the Hub definitively identifies the old capture receipt as removed. Lost acknowledgements keep the same capture ID, including when the acknowledgement of the replacement is lost. Hidden receipts never return a misleading successful capture or revive an old publication. Chromium/WebKit exercise removal, recollection and a lost replacement acknowledgement alongside retained drafts and internal source inspection.
 - Scope freezes project, checkout, machine configuration and collaboration policy. Authorization, scope and remote are checked again before each mutation; the native worker revalidates actual GitHub identity and repository numeric identity against its prepared receipt.

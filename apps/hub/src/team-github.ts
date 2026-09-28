@@ -160,6 +160,18 @@ export class TeamGitHub {
   private equal(a: Binding, b: Binding) {
     return hash(a) === hash(b);
   }
+  private writeKey(actor: string, projectId: string) {
+    const project = this.projects.access(actor, projectId);
+    // Aliases of one repository retain one writer; unrelated repositories do not.
+    return JSON.stringify(["write", actor, project.repository?.toLowerCase() ?? projectId]);
+  }
+  private write<T>(actor: string, projectId: string, work: () => Promise<T>) {
+    const key = this.writeKey(actor, projectId);
+    return this.serial(key, async () => {
+      if (this.writeKey(actor, projectId) !== key) throw changed();
+      return work();
+    });
+  }
   private own(actor: string, projectId: string, id: string): Operation {
     this.projects.access(actor, projectId);
     const row = this.db
@@ -176,7 +188,7 @@ export class TeamGitHub {
     return this.public(this.own(actor, projectId, id));
   }
   async discard(actor: string, projectId: string, id: string) {
-    return this.serial("write:" + actor, async () => {
+    return this.write(actor, projectId, async () => {
       const v = this.own(actor, projectId, id);
       if (v.state !== "prepared" && v.state !== "failed") throw changed();
       v.state = "failed";
@@ -381,7 +393,7 @@ export class TeamGitHub {
   async prepare(actor: string, projectId: string, id: string, raw: unknown) {
     const request = teamGitHubPrepareSchema.parse(raw),
       inputHash = hash(request);
-    return this.serial("write:" + actor, async () => {
+    return this.write(actor, projectId, async () => {
       this.projects.access(actor, projectId, "write");
       this.target(actor, projectId, request);
       const prior = this.db.prepare("SELECT 1 FROM team_github_operations WHERE id=?").get(id);
@@ -452,7 +464,7 @@ export class TeamGitHub {
     });
   }
   async confirm(actor: string, projectId: string, id: string) {
-    return this.serial("write:" + actor, async () => {
+    return this.write(actor, projectId, async () => {
       const v = this.own(actor, projectId, id);
       this.projects.access(actor, projectId, "write");
       this.target(actor, projectId, v.request);
@@ -487,7 +499,7 @@ export class TeamGitHub {
     });
   }
   async status(actor: string, projectId: string, id: string) {
-    return this.serial("write:" + actor, async () => {
+    return this.write(actor, projectId, async () => {
       const v = this.own(actor, projectId, id);
       if (["completed", "failed", "prepared"].includes(v.state)) return this.public(v);
       const ctx = await this.context(actor, projectId);

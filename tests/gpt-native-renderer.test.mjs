@@ -6,6 +6,27 @@ import { nativeRead } from "../ops/gpt-native/renderer-read.mjs";
 
 const conversationId = "10000000-0000-4000-8000-000000000001";
 const id = (n) => `20000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
+test("identical full upstream responses reuse projection while old edits invalidate it", async () => {
+  const f = fixture(),
+    accountFingerprint = await f.binding();
+  for (let n = 2; n <= 300; n++) f.node(n, "Long public answer ".repeat(100));
+  const request = { operation: "readHistoryUpdate", conversationId, accountFingerprint };
+  const first = await f.read(request, true);
+  const cache = f.runtime[Symbol.for("codex-web.native-history")];
+  const entry = () => [...cache.values()][0];
+  const prior = entry().value;
+  entry().at -= 16000;
+  const same = await f.read({ ...request, revision: first.revision }, true);
+  assert.equal(same.kind, "unchanged");
+  assert.equal(entry().value, prior, "identical 200 keeps parsed graph and public projection");
+  assert.equal(f.calls.length, 2, "no upstream bandwidth reduction is claimed");
+  f.conversation.mapping[id(1)].message.content.parts = ["edited old message"];
+  entry().at -= 16000;
+  const changed = await f.read({ ...request, revision: first.revision }, true);
+  assert.notEqual(entry().value, prior);
+  assert.equal(changed.kind, "delta");
+  assert.equal(changed.graph.mapping[id(1)].message.content.parts[0], "edited old message");
+});
 function fixture() {
   const account = { accountId: "account-a", userId: "user-a", authenticatedUserId: "user-a" };
   const runtime = {
@@ -34,7 +55,11 @@ function fixture() {
     getInstance: () => ({
       fetch: async (route, options) => {
         assert.equal(options.retry, false);
-        assert.equal(Object.getPrototypeOf(options.headers), Object.prototype, "native bridge requires a serializable header record");
+        assert.equal(
+          Object.getPrototypeOf(options.headers),
+          Object.prototype,
+          "native bridge requires a serializable header record",
+        );
         const value = await service.kWt.safeGet(route, {
           parameters,
           expectedIdentity: options.expectedIdentity,
@@ -68,10 +93,16 @@ function fixture() {
 }
 
 test("parallel readers share one canonical upstream response and preserve account checks", async () => {
-  const f = fixture(), accountFingerprint = await f.binding();
+  const f = fixture(),
+    accountFingerprint = await f.binding();
   const original = f.service.kWt.safeGet;
-  const entered = Promise.withResolvers(), release = Promise.withResolvers();
-  f.service.kWt.safeGet = async (...args) => { entered.resolve(); await release.promise; return original(...args); };
+  const entered = Promise.withResolvers(),
+    release = Promise.withResolvers();
+  f.service.kWt.safeGet = async (...args) => {
+    entered.resolve();
+    await release.promise;
+    return original(...args);
+  };
   const request = { operation: "readConversation", conversationId, accountFingerprint };
   const a = f.read(request, true);
   await entered.promise;
@@ -83,23 +114,35 @@ test("parallel readers share one canonical upstream response and preserve accoun
 });
 
 test("conditional canonical history reuses exact bytes on 304 and refreshes on changed validator", async () => {
-  const f = fixture(), accountFingerprint = await f.binding();
+  const f = fixture(),
+    accountFingerprint = await f.binding();
   const requests = [];
   let changed = false;
-  f.service.$rn.getInstance = () => ({ fetch: async (url, options) => {
-    assert.equal(Object.getPrototypeOf(options.headers), Object.prototype);
-    const validator = options.headers["If-None-Match"] ?? null; requests.push(validator);
-    assert.deepEqual(options.expectedIdentity, { accountId: "account-a", userId: "user-a" });
-    if (validator === '"a"' && !changed) throw Object.assign(new Error("Not Modified"), { status: 304, responseStatus: 304 });
-    return new Response(JSON.stringify(f.conversation), { headers: { etag: changed ? '"b"' : '"a"' } });
-  } });
+  f.service.$rn.getInstance = () => ({
+    fetch: async (url, options) => {
+      assert.equal(Object.getPrototypeOf(options.headers), Object.prototype);
+      const validator = options.headers["If-None-Match"] ?? null;
+      requests.push(validator);
+      assert.deepEqual(options.expectedIdentity, { accountId: "account-a", userId: "user-a" });
+      if (validator === '"a"' && !changed)
+        throw Object.assign(new Error("Not Modified"), { status: 304, responseStatus: 304 });
+      return new Response(JSON.stringify(f.conversation), {
+        headers: { etag: changed ? '"b"' : '"a"' },
+      });
+    },
+  });
   const request = { operation: "readHistoryUpdate", conversationId, accountFingerprint };
   const first = await f.read(request, true);
-  const expire = () => { for (const entry of f.runtime[Symbol.for("codex-web.native-history")].values()) entry.at -= 16000; };
+  const expire = () => {
+    for (const entry of f.runtime[Symbol.for("codex-web.native-history")].values())
+      entry.at -= 16000;
+  };
   expire();
   const same = await f.read({ ...request, revision: first.revision }, true);
   assert.equal(same.kind, "unchanged");
-  changed = true; f.node(2, "new response"); expire();
+  changed = true;
+  f.node(2, "new response");
+  expire();
   const updated = await f.read({ ...request, revision: first.revision }, true);
   assert.equal(updated.kind, "delta");
   assert.deepEqual(Object.keys(updated.graph.mapping), [id(2)]);

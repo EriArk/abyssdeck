@@ -2,6 +2,12 @@
 
 > Historical record. Current remaining work and installed status: [CURRENT_STATUS.md](CURRENT_STATUS.md). Old next-stage proposals are not the active queue.
 
+> 28 September reconciliation: 35 implementation-complete issues were closed
+> after checking this audit against installed follow-ups. Exact list and current
+> changes: [six-item pass](INDEPENDENT_WORK_2026-09-28.md). #188 stays open for
+> the upstream full-GET boundary. Do not reuse the historical table as a fresh
+> implementation queue or treat pending physical acceptance as absent features.
+
 > Follow-up 2026-09-27: #213 Work/Intake attachment handoffs and frozen local HTML
 > dependencies shipped in `1ed3c98`; unreferenced copy reclamation shipped in
 > `2221c43`. See [current sharing behavior](COMMUNICATION.md) and

@@ -11,6 +11,30 @@ import { devicesFixture } from "./devices-fixture.mjs";
 const marker = (a, phase, jobs = 0, pid = 234, birth = "456") =>
   `\x1b]777;codexweb;${a.token};${phase};${pid};${birth};${jobs}\x07`;
 const { WebSocket } = createRequire(new URL("../apps/hub/package.json", import.meta.url))("ws");
+test("verified no-echo responses do not become future commands; typeahead still blocks", () => {
+  const a = new TerminalActivity();
+  a.output(marker(a, "prompt"));
+  a.input("sudo install\r");
+  a.output(marker(a, "busy"));
+  a.input("bad-password\r", true);
+  a.input("correct-password\r", true);
+  assert(!a.candidate(Date.now() + 2000));
+  a.output(marker(a, "prompt"));
+  assert(a.candidate(Date.now() + 2000));
+  a.input("sleep 10\r");
+  a.output(marker(a, "busy"));
+  a.input("queued-command\r");
+  a.output(marker(a, "prompt"));
+  assert(!a.candidate(Date.now() + 2000), "unverified typeahead is still pending");
+  a.output(marker(a, "busy"));
+  a.output(marker(a, "prompt"));
+  assert(a.candidate(Date.now() + 2000));
+  a.input("sudo install\r");
+  a.output(marker(a, "busy"));
+  a.input("response\rpossible-command\r", true);
+  a.output(marker(a, "prompt"));
+  assert(!a.candidate(Date.now() + 2000), "a multiline frame cannot all be a password response");
+});
 test("terminal proof requires private shell lifecycle signals; silent commands and editing stay protected", () => {
   const a = new TerminalActivity();
   assert(!a.candidate());

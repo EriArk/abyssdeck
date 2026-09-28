@@ -131,6 +131,46 @@ async function githubFixture(t) {
     },
   };
 }
+test("repository writers progress independently while aliases retain one lane", async (t) => {
+  const f = await githubFixture(t),
+    other = randomUUID();
+  f.projects.create(f.ownerId, other, {
+    title: "Other repo",
+    visibility: "private",
+    repository: "https://github.com/Owner/Other",
+  });
+  // Use the same fixture checkout for deterministic machine receipts; only remote
+  // authority differs. Production context still validates the exact real binding.
+  const originalContext = f.github.context.bind(f.github);
+  f.github.context = async (actor, projectId, write) =>
+    projectId === other
+      ? { ...(await originalContext(actor, f.a, write)), repository: "Owner/Other" }
+      : originalContext(actor, projectId, write);
+  const entered = Promise.withResolvers(),
+    release = Promise.withResolvers();
+  f.behavior(async (q) => {
+    if (q.op === "prepare" && q.repository === "Owner/Project") {
+      entered.resolve();
+      await release.promise;
+    }
+  });
+  const first = f.prepare();
+  await entered.promise;
+  try {
+    const otherOp = await f.github.prepare(f.ownerId, other, randomUUID(), {
+      input: { kind: "issue-create", title: "Independent", body: "body" },
+    });
+    assert.equal(otherOp.state, "prepared");
+    assert.notEqual(f.github.writeKey(f.ownerId, f.a), f.github.writeKey(f.ownerId, other));
+    f.registry.db
+      .prepare("UPDATE team_projects SET repository=? WHERE id=?")
+      .run("https://github.com/owner/project", other);
+    assert.equal(f.github.writeKey(f.ownerId, f.a), f.github.writeKey(f.ownerId, other));
+  } finally {
+    release.resolve();
+  }
+  await first;
+});
 
 test("GitHub uses each actor's checkout/account; private observations and receipts never cross users", async (t) => {
   const f = await githubFixture(t);

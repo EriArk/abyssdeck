@@ -5,7 +5,11 @@ import { sshOptions } from "./device-transport.js";
 import type { TerminalIdentity, TerminalWork } from "./terminal-activity.js";
 
 /** A prompt alone does not exclude background jobs or a nested terminal program. */
-export function terminalProbeScript(platform: string, identity: TerminalIdentity): string {
+export function terminalProbeScript(
+  platform: string,
+  identity: TerminalIdentity,
+  input = false,
+): string {
   if (!Number.isSafeInteger(identity.pid) || identity.pid < 2 || !/^\d{1,22}$/.test(identity.birth))
     throw new Error("Invalid terminal process identity");
   if (platform === "windows")
@@ -20,6 +24,8 @@ export function terminalProbeScript(platform: string, identity: TerminalIdentity
       "if($work){[Console]::Write('busy')}else{[Console]::Write('idle')}",
     ].join("; ");
   if (platform !== "linux") throw new Error("Unsupported terminal probe");
+  if (input)
+    return `python3 - <<'CW_PROBE'\nimport os,termios\nroot=${identity.pid}\nraw=open('/proc/'+str(root)+'/stat').read(); fields=raw[raw.rindex(')')+2:].split()\nif raw[raw.index('(')+1:raw.rindex(')')]!='bash' or fields[19]!='${identity.birth}': raise RuntimeError('Shell identity changed')\nfd=os.open('/proc/'+str(root)+'/fd/0',os.O_RDONLY|os.O_NOCTTY|os.O_NONBLOCK)\ntry:\n mode=termios.tcgetattr(fd)\n # Canonical no-echo input in a child foreground group, never readline/raw mode.\n response=bool(mode[3]&termios.ICANON) and not bool(mode[3]&termios.ECHO) and int(fields[5])>0 and int(fields[5])!=int(fields[2])\n print('response' if response else 'unknown',end='')\nfinally: os.close(fd)\nCW_PROBE`;
   // Read numeric fields only, never process command lines/environment or terminal output.
   return `python3 - <<'CW_PROBE'\nimport os\nroot=${identity.pid}\nexpected='${identity.birth}'\nrows={}\nfor name in os.listdir('/proc'):\n if not name.isdigit(): continue\n try:\n  raw=open('/proc/'+name+'/stat').read(); p=raw.rindex(')'); rows[int(name)]=(raw[raw.index('(')+1:p],raw[p+2:].split())\n except FileNotFoundError: pass\n except ProcessLookupError: pass\nshell,stat=rows[root]\nif shell!='bash' or stat[19]!=expected or int(stat[5])!=int(stat[2]): raise RuntimeError('Shell identity or foreground changed')\nseen={root};pending=[root];work=False\nwhile pending:\n parent=pending.pop()\n for pid,(name,fields) in rows.items():\n  if int(fields[1])==parent and pid not in seen:\n   seen.add(pid);pending.append(pid)\n   if fields[0]!='Z': work=True\nprint('busy' if work else 'idle',end='')\nCW_PROBE`;
 }
@@ -28,7 +34,20 @@ export function probeTerminal(
   device: DeviceConfig,
   identity: TerminalIdentity,
   workspace?: MachineConfig,
-): Promise<TerminalWork> {
+  input?: false,
+): Promise<TerminalWork>;
+export function probeTerminal(
+  device: DeviceConfig,
+  identity: TerminalIdentity,
+  workspace: MachineConfig | undefined,
+  input: true,
+): Promise<TerminalWork | "response">;
+export function probeTerminal(
+  device: DeviceConfig,
+  identity: TerminalIdentity,
+  workspace?: MachineConfig,
+  input = false,
+): Promise<TerminalWork | "response"> {
   if (
     device.workspaceMachineId &&
     (!workspace ||
@@ -38,7 +57,7 @@ export function probeTerminal(
     return Promise.resolve("unknown");
   let script: string;
   try {
-    script = terminalProbeScript(device.platform, identity);
+    script = terminalProbeScript(device.platform, identity, input);
   } catch {
     return Promise.resolve("unknown");
   }
@@ -62,14 +81,14 @@ export function probeTerminal(
   return new Promise((resolve) => {
     let text = "",
       done = false;
-    const finish = (state: TerminalWork) => {
+    const finish = (state: TerminalWork | "response") => {
       if (done) return;
       done = true;
       clearTimeout(timer);
       stopProcess(child);
       resolve(state);
     };
-    const timer = setTimeout(() => finish("unknown"), 10000);
+    const timer = setTimeout(() => finish("unknown"), input ? 2000 : 10000);
     child.stdout.on("data", (data) => {
       text += data;
       if (text.length > 1024) finish("unknown");
@@ -78,7 +97,9 @@ export function probeTerminal(
     child.on("error", () => finish("unknown"));
     child.on("close", (code) =>
       finish(
-        code === 0 && /^(idle|busy)$/.test(text.trim()) ? (text.trim() as TerminalWork) : "unknown",
+        code === 0 && (input ? /^(response|unknown)$/ : /^(idle|busy)$/).test(text.trim())
+          ? (text.trim() as TerminalWork | "response")
+          : "unknown",
       ),
     );
     child.stdin.on("error", () => finish("unknown"));

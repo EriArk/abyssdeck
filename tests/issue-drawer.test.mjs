@@ -10,6 +10,62 @@ async function fixture(t) {
   t.after(() => f.close());
   return f;
 }
+test("independent packages and draft editing continue during preparation and publication", async (t) => {
+  const f = await fixture(t);
+  const a = await f.add("first"),
+    b = await f.add("second", "second"),
+    c = await f.add("editable");
+  const entered = Promise.withResolvers(),
+    release = Promise.withResolvers();
+  f.d.probe = async (...args) => {
+    if (args[2].op === "prepare" && args[2].input.title === "first") {
+      entered.resolve();
+      await release.promise;
+    }
+    return f.native(...args);
+  };
+  const preparing = f.packageItems([a]);
+  await entered.promise;
+  try {
+    assert.throws(() =>
+      f.d.edit(a.id, { revision: a.revision, title: "wrong", body: "wrong", targetId: a.targetId }),
+    );
+    f.d.edit(c.id, { revision: c.revision, title: "edited", body: "edited", targetId: c.targetId });
+    const other = await f.packageItems([b]);
+    assert.equal(other.state, "prepared");
+    f.d.reorder([c.id, b.id, a.id]);
+  } finally {
+    release.resolve();
+  }
+  const first = await preparing;
+  assert.equal(f.d.list().items.at(-1).id, a.id, "slow save preserves order");
+  const enteredApply = Promise.withResolvers(),
+    releaseApply = Promise.withResolvers();
+  f.d.probe = async (...args) => {
+    if (args[2].op === "apply") {
+      enteredApply.resolve();
+      await releaseApply.promise;
+    }
+    return f.native(...args);
+  };
+  f.d.confirm(first.id, first.fingerprint);
+  await enteredApply.promise;
+  try {
+    const d = await f.add("new while publishing");
+    f.d.remove(d.id, d.revision);
+    const edited = f.d.item(c.id);
+    f.d.edit(c.id, {
+      revision: edited.revision,
+      title: "edited again",
+      body: "body",
+      targetId: c.targetId,
+    });
+  } finally {
+    releaseApply.resolve();
+  }
+  await f.settle();
+  assert.equal(f.d.item(a.id).state, "completed");
+});
 
 test("exact source slices, private capture receipts and quiet unchanged reads", async (t) => {
   const f = await fixture(t),

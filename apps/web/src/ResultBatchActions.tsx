@@ -20,17 +20,22 @@ export function ResultBatchActions({
   onSelect,
   onClose,
   client,
+  hideSelectLoaded = false,
+  loading = false,
 }: {
   client?: "gpt" | "codex";
+  hideSelectLoaded?: boolean;
+  loading?: boolean;
   items: ResultItem[];
   selected: ResultItem[];
   onSelect: (items: ResultItem[]) => void;
   onClose: () => void;
 }) {
-  const [busy, setBusy] = useState(false),
+  const [preparing, setBusy] = useState(false),
     [error, setError] = useState("");
   const [prepared, setPrepared] = useState<{ spec: string; snapshot: Snapshot } | null>(null);
   const [sharing, setSharing] = useState(false);
+  const busy = preparing || loading;
   const sources: ResultShareSource[] = selected.map((result) => ({
     client: client ?? (result.payload.url?.startsWith("/api/gpt/") ? "gpt" : "codex"),
     threadId: result.threadId!,
@@ -69,22 +74,24 @@ export function ResultBatchActions({
         </button>
       </div>
       <div className="result-batch-actions">
-        <button
-          type="button"
-          className="secondary"
-          disabled={busy}
-          onClick={() =>
-            onSelect(
-              [
-                ...new Map(
-                  [...selected, ...items.filter(resultSelectable)].map((r) => [r.id, r]),
-                ).values(),
-              ].slice(0, 100),
-            )
-          }
-        >
-          Выбрать загруженные
-        </button>
+        {!hideSelectLoaded && (
+          <button
+            type="button"
+            className="secondary"
+            disabled={busy}
+            onClick={() =>
+              onSelect(
+                [
+                  ...new Map(
+                    [...selected, ...items.filter(resultSelectable)].map((r) => [r.id, r]),
+                  ).values(),
+                ].slice(0, 100),
+              )
+            }
+          >
+            Выбрать загруженные
+          </button>
+        )}
         <button
           type="button"
           className="secondary"

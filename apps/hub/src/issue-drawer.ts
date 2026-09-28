@@ -50,7 +50,7 @@ type Saved = IssueDraft & {
   hidden?: boolean;
 };
 export class IssueDrawer {
-  private pending: Promise<unknown> | null = null;
+  private pending = new Map<string, Promise<unknown>>();
   private closed = false;
   private version = randomUUID();
   constructor(
@@ -104,20 +104,23 @@ export class IssueDrawer {
   private get db() {
     return this.sessions.store.db;
   }
-  private async serial<T>(work: () => Promise<T>): Promise<T> {
-    if (this.closed || this.pending)
-      throw new HubError(409, "ISSUE_DRAWER_BUSY", "Дождись текущей операции с подборкой.");
-    const p = work();
-    this.pending = p;
-    try {
-      return await p;
-    } finally {
-      if (this.pending === p) this.pending = null;
-    }
+  private assertAvailable(keys: string[]) {
+    if (this.closed || this.pending.size >= 160 || keys.some((key) => this.pending.has(key)))
+      throw new HubError(409, "ISSUE_DRAWER_BUSY", "Дождись текущей операции с этой подборкой.");
+  }
+  private serial<T>(keys: string[], work: () => Promise<T>): Promise<T> {
+    this.assertAvailable(keys);
+    const p = Promise.resolve()
+      .then(work)
+      .finally(() => {
+        for (const key of keys) if (this.pending.get(key) === p) this.pending.delete(key);
+      });
+    for (const key of keys) this.pending.set(key, p);
+    return p;
   }
   async close() {
     this.closed = true;
-    await this.pending?.catch(() => {});
+    await Promise.allSettled([...new Set(this.pending.values())]);
   }
   private own(id: string): Saved {
     const row = this.db.prepare("SELECT value FROM issue_drawer_items WHERE id=?").get(id);
@@ -128,7 +131,12 @@ export class IssueDrawer {
     const { sourceHash, operationId, native, binding, hidden, ...v } = i;
     return v;
   }
-  private save(i: Saved) {
+  private save(i: Saved, position = false) {
+    // A completed slow operation must preserve an independent reorder.
+    if (!position) {
+      const row = this.db.prepare("SELECT position FROM issue_drawer_items WHERE id=?").get(i.id);
+      if (row) i.position = Number(row.position);
+    }
     this.version = randomUUID();
     this.db
       .prepare(
@@ -150,7 +158,7 @@ export class IssueDrawer {
     return JSON.parse(String(row.value));
   }
   async waitForPublication() {
-    await this.pending;
+    await Promise.all([...new Set(this.pending.values())]);
   }
   item(id: string) {
     return this.public(this.own(id));
@@ -168,7 +176,7 @@ export class IssueDrawer {
         .map((r) => this.public(JSON.parse(String(r.value)))),
       batches: this.db
         .prepare(
-          "SELECT value FROM issue_drawer_batches WHERE state IN ('prepared','running','preparing') OR rowid IN (SELECT rowid FROM issue_drawer_batches ORDER BY rowid DESC LIMIT 3) ORDER BY rowid DESC LIMIT 20",
+          "SELECT value FROM issue_drawer_batches WHERE state IN ('prepared','running','preparing') OR rowid IN (SELECT rowid FROM issue_drawer_batches ORDER BY rowid DESC LIMIT 3) ORDER BY rowid DESC LIMIT 203",
         )
         .all()
         .map((r) => JSON.parse(String(r.value)) as IssuePackage),
@@ -245,7 +253,7 @@ export class IssueDrawer {
     return { text: String(m.text), source };
   }
   async add(id: string, raw: unknown, manual = false) {
-    return this.serial(async () => {
+    return this.serial(["item:" + id], async () => {
       const body = z
         .object({
           source: manual ? z.null() : sourceSchema,
@@ -263,6 +271,14 @@ export class IssueDrawer {
           throw new HubError(409, "ISSUE_DRAWER_REMOVED", "Эта запись уже убрана из подборки.");
         return this.public(p);
       }
+      const resolved = body.source
+          ? await this.resolveSource(body.source)
+          : { text: body.text, source: null },
+        text = resolved.text,
+        start = body.source?.start ?? 0,
+        end = body.source?.end ?? text.length;
+      if (start > end || end > text.length || text.slice(start, end) !== body.text) throw changed();
+      if (body.targetId) this.scope(body.targetId);
       if (
         this.list().items!.length >= 200 ||
         Number(this.db.prepare("SELECT count(*) n FROM issue_drawer_items").get()?.n) >= 5000 ||
@@ -280,14 +296,6 @@ export class IssueDrawer {
           "ISSUE_DRAWER_FULL",
           "В подборке уже 200 записей. Удали ненужные завершённые записи.",
         );
-      const resolved = body.source
-          ? await this.resolveSource(body.source)
-          : { text: body.text, source: null },
-        text = resolved.text,
-        start = body.source?.start ?? 0,
-        end = body.source?.end ?? text.length;
-      if (start > end || end > text.length || text.slice(start, end) !== body.text) throw changed();
-      if (body.targetId) this.scope(body.targetId);
       const i: Saved = {
         id,
         revision: 1,
@@ -334,7 +342,7 @@ export class IssueDrawer {
     )
       throw changed();
     if (body.targetId) this.scope(body.targetId);
-    if (this.pending) throw changed();
+    this.assertAvailable(["item:" + id]);
     Object.assign(i, {
       title: body.title,
       body: body.body,
@@ -353,7 +361,8 @@ export class IssueDrawer {
   remove(id: string, revision: number) {
     const i = this.own(id);
     if (
-      this.pending ||
+      this.closed ||
+      this.pending.has("item:" + id) ||
       i.revision !== revision ||
       ["prepared", "running", "unknown"].includes(i.state)
     )
@@ -363,7 +372,7 @@ export class IssueDrawer {
     return { removed: true };
   }
   reorder(ids: string[]) {
-    if (this.pending) throw changed();
+    if (this.closed) throw changed();
     const all = this.list().items!;
     if (
       ids.length !== all.length ||
@@ -376,7 +385,7 @@ export class IssueDrawer {
       ids.forEach((id, index) => {
         const i = this.own(id);
         i.position = index;
-        this.save(i);
+        this.save(i, true);
       });
       this.db.exec("COMMIT");
     } catch (e) {
@@ -437,26 +446,18 @@ export class IssueDrawer {
     this.save(i);
   }
   async prepare(id: string, raw: unknown) {
-    return this.serial(async () => {
-      const refs = z
-        .array(z.object({ id: z.string().uuid(), revision: z.number().int().positive() }).strict())
-        .min(1)
-        .max(20)
-        .parse(raw);
+    const refs = z
+      .array(z.object({ id: z.string().uuid(), revision: z.number().int().positive() }).strict())
+      .min(1)
+      .max(20)
+      .parse(raw);
+    return this.serial(["batch:" + id, ...refs.map((r) => "item:" + r.id)], async () => {
       const existing = this.db.prepare("SELECT value FROM issue_drawer_batches WHERE id=?").get(id);
       if (existing) {
         const b = JSON.parse(String(existing.value)) as IssuePackage;
         if (b.fingerprint !== digest(refs)) throw changed();
         return b;
       }
-      if (
-        this.db
-          .prepare(
-            "SELECT 1 FROM issue_drawer_batches WHERE state IN ('preparing','prepared','running')",
-          )
-          .get()
-      )
-        throw changed();
       if (Number(this.db.prepare("SELECT count(*) n FROM issue_drawer_batches").get()!.n) >= 5000)
         throw new HubError(
           409,
@@ -548,7 +549,7 @@ export class IssueDrawer {
     const b = this.batch(id);
     if (b.fingerprint !== fingerprint) throw changed();
     if (b.state !== "prepared") return b;
-    if (this.pending || this.closed) throw changed();
+    this.assertAvailable(["batch:" + id, ...b.items.map((r) => "item:" + r.id)]);
     for (const r of b.items) {
       const i = this.own(r.id);
       if (i.batchId !== id || i.revision !== r.revision || i.state !== "prepared" || !i.binding)
@@ -558,12 +559,9 @@ export class IssueDrawer {
     b.state = "running";
     this.saveBatch(b);
     // Durable acknowledgement precedes the background worker. It never resumes writes after restart.
-    const pending = Promise.resolve()
-      .then(() => this.dispatch(b))
-      .finally(() => {
-        if (this.pending === pending) this.pending = null;
-      });
-    this.pending = pending;
+    const pending = this.serial(["batch:" + id, ...b.items.map((r) => "item:" + r.id)], () =>
+      this.dispatch(b),
+    );
     void pending.catch(() => {});
     return b;
   }
@@ -626,7 +624,7 @@ export class IssueDrawer {
     }
   }
   async reconcile(id: string) {
-    return this.serial(async () => {
+    return this.serial(["item:" + id], async () => {
       const i = this.own(id);
       if (i.state !== "unknown") return this.public(i);
       if (!i.binding || !i.operationId || !i.native) throw changed();
@@ -649,8 +647,8 @@ export class IssueDrawer {
     });
   }
   cancel(id: string) {
-    if (this.pending) throw changed();
     const b = this.batch(id);
+    this.assertAvailable(["batch:" + id, ...b.items.map((r) => "item:" + r.id)]);
     if (b.state === "cancelled") return b;
     if (!["prepared", "settled"].includes(b.state)) throw changed();
     for (const r of b.items) {

@@ -68,7 +68,7 @@ export async function issueFixture(origin) {
       items.map((i) => ({ id: i.id, revision: i.revision })),
     );
   const settle = async () => {
-    await d.pending;
+    await d.waitForPublication();
   };
   return { ...f, d, receipts, operations, native, answer, add, packageItems, settle };
 }

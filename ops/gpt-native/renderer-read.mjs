@@ -197,11 +197,11 @@ export async function nativeRead(request, load = () => import('app://-/assets/ap
     if(e?.status===304&&e.responseStatus===304)response={status:304};
     else throw e;
    }
-   let value,bytes=0;
+   let value,bytes=0,bodyHash;
    if(response.status===304){
     await response.body?.cancel();
     if(!base?.etag||!base.value)fail('INVALID_HISTORY_VALIDATOR');
-    value=base.value;bytes=base.bytes;
+    value=base.value;bytes=base.bytes;bodyHash=base.bodyHash;
    }else{
     if(!response.ok){const status=response.status,retryAfter=response.headers?.get?.('retry-after');await response.body?.cancel();if(status===429)gate.limited(retryAfter);throw {status,responseStatus:status};}
     let text='';const decoder=new TextDecoder(),reader=response.body.getReader();
@@ -213,13 +213,19 @@ export async function nativeRead(request, load = () => import('app://-/assets/ap
      }
     }catch(e){void reader.cancel().catch(()=>{});throw e;}
     finally{reader.releaseLock();}
-    value=JSON.parse(text+decoder.decode());
+    text+=decoder.decode();
+    // Even without upstream validators, identical 200 responses need not be
+    // parsed/projected/fingerprinted again. Hash exact bytes, never timestamps
+    // or only the tail: old edits and branch changes must invalidate display.
+    const digest=await runtime.crypto.subtle.digest('SHA-256',new TextEncoder().encode(text));
+    bodyHash=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+    value=base?.bodyHash===bodyHash?base.value:JSON.parse(text);
    }
    if((await account()).fingerprint!==before.fingerprint)fail('ACCOUNT_CHANGED');
    if(value?.conversation_id!==request.conversationId)fail('CONVERSATION_MISMATCH');
    if(!value.mapping||typeof value.mapping!=='object'||Array.isArray(value.mapping)||Object.keys(value.mapping).length>10000)fail('INVALID_HISTORY');
    const raw=response.headers?.get?.('etag'),etag=typeof raw==='string'&&raw.length<=1024&&/^(W\/)?"[^"\r\n]+"$/.test(raw)?raw:response.status===304?base.etag:undefined;
-   if(cache.get(key)===reading)cache.set(key,{value,bytes,at:Date.now(),retryAt:0,etag,history:value===base?.value?base.history:undefined,publicBytes:value===base?.value?base.publicBytes:0});
+   if(cache.get(key)===reading)cache.set(key,{value,bytes,bodyHash,at:Date.now(),retryAt:0,etag,history:value===base?.value?base.history:undefined,publicBytes:value===base?.value?base.publicBytes:0});
    gate.success();
    let total=0;for(const v of cache.values())total+=(v.bytes??0)+(v.publicBytes??0);
    for(const [k,v] of cache){if(total<=64*1024**2)break;if(k!==key&&!v.pending){cache.delete(k);total-=(v.bytes??0)+(v.publicBytes??0);}}

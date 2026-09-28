@@ -23,6 +23,10 @@ export interface DeviceDependencies {
   spawn?: (args: string[]) => IPty;
   probe?: (device: DeviceConfig) => Promise<DeviceSnapshot>;
   terminalProbe?: (device: DeviceConfig, identity: TerminalIdentity) => Promise<TerminalWork>;
+  terminalInputProbe?: (
+    device: DeviceConfig,
+    identity: TerminalIdentity,
+  ) => Promise<TerminalWork | "response">;
 }
 type LiveTerminal = {
   info: DeviceTerminalInfo;
@@ -32,6 +36,8 @@ type LiveTerminal = {
   clients: Set<WebSocket>;
   created: number;
   activity: TerminalActivity;
+  inputs?: Promise<void>;
+  pendingInputs?: number;
 };
 const params = (req: FastifyRequest) =>
   z.object({ id: z.string().min(1).max(100) }).parse(req.params).id;
@@ -356,8 +362,43 @@ export function registerDevices(
         if (attached.info.state !== "open") return;
         if (value.type === "input") {
           assertTerminalAdmission();
-          attached.activity.input(value.data);
-          attached.pty.write(value.data);
+          const terminal = attached;
+          if ((terminal.pendingInputs ?? 0) >= 32) throw new Error("Input limit");
+          terminal.pendingInputs = (terminal.pendingInputs ?? 0) + 1;
+          terminal.inputs = (terminal.inputs ?? Promise.resolve())
+            .then(async () => {
+              if (socket.readyState !== 1 || terminal.info.state !== "open") return;
+              if (auth.session(req).tokenHash !== owner) throw new Error("Session ended");
+              assertTerminalAdmission();
+              const revision = terminal.activity.revision;
+              let response = false;
+              if (
+                terminal.activity.executing &&
+                terminal.activity.identity &&
+                /^[^\r\n]*(?:\r\n|\r|\n)$/.test(value.data) &&
+                device(terminal.info.deviceId).platform === "linux"
+              ) {
+                const d = device(terminal.info.deviceId);
+                const mode = await (deps.terminalInputProbe
+                  ? deps.terminalInputProbe(d, terminal.activity.identity)
+                  : probeTerminal(d, terminal.activity.identity, workspaceDevice(config, d), true));
+                response =
+                  mode === "response" &&
+                  revision === terminal.activity.revision &&
+                  terminal.activity.executing;
+              }
+              if (socket.readyState !== 1 || terminal.info.state !== "open") return;
+              if (auth.session(req).tokenHash !== owner) throw new Error("Session ended");
+              assertTerminalAdmission();
+              terminal.activity.input(value.data, response);
+              terminal.pty.write(value.data);
+            })
+            .catch(() => {
+              socket.close(1008, "Reconnect");
+            })
+            .finally(() => {
+              terminal.pendingInputs = (terminal.pendingInputs ?? 1) - 1;
+            });
         } else attached.pty.resize(value.cols, value.rows);
       } catch {
         socket.close(1008, "Reconnect");
@@ -377,6 +418,7 @@ export function registerDevices(
         .filter((t) => t.info.state === "open")
         .map(async (t) => {
           const revision = t.activity.revision;
+          if (t.pendingInputs) return "unknown";
           if (!t.activity.candidate()) return t.activity.state === "busy" ? "busy" : "unknown";
           let state: TerminalWork = "unknown";
           try {
@@ -387,7 +429,9 @@ export function registerDevices(
             );
           } catch {}
           if (t.info.state === "closed") return "closed";
-          return revision === t.activity.revision && t.activity.candidate() ? state : "unknown";
+          return !t.pendingInputs && revision === t.activity.revision && t.activity.candidate()
+            ? state
+            : "unknown";
         }),
     );
     // Rows without an owned PTY are not evidence of idle work.

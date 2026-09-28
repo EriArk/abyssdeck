@@ -21,13 +21,20 @@ export class TerminalActivity {
   private backgroundJobs = false;
   private earlyInput = false;
 
-  input(data: string) {
+  get executing() {
+    return this.started;
+  }
+
+  input(data: string, response = false) {
     if (!data) return;
     this.revision++;
     if (!this.identity) this.earlyInput = true;
     this.lastInput = Date.now();
     this.state = "unknown";
     this.awaitingPrompt = true;
+    // Only the server's exact-TTY no-echo probe may classify a response. It is
+    // still work until the authenticated shell reports completion.
+    if (response && this.started && /^[^\r\n]*(?:\r\n|\r|\n)$/.test(data)) return;
     // Bracketed paste is one editable buffer; only AcceptLine submits it.
     // biome-ignore lint/suspicious/noControlCharactersInRegex: Terminal bracketed-paste protocol.
     for (const part of data.split(/(\x1b\[200~|\x1b\[201~)/)) {
@@ -83,6 +90,7 @@ export class TerminalActivity {
             (this.identity.pid === identity.pid && this.identity.birth === identity.birth))
         ) {
           this.identity = identity;
+          this.revision++;
           if (fields[1] === "busy") {
             this.state = "busy";
             this.started = true;

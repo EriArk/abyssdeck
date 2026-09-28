@@ -117,6 +117,8 @@ export function IssueDrawerWindow({
     [targets, setTargets] = useState<{ id: string; name: string }[]>([]),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
+  const [preparing, setPreparing] = useState<string[]>([]);
+  const preparation = useRef(false);
   const [creating, setCreating] = useState(create);
   const [manual, setManual] = useState<{ title: string; text: string; targetId: string }>(() => {
     try {
@@ -214,18 +216,26 @@ export function IssueDrawerWindow({
       setManual({ title: "", text: "", targetId });
     } catch {}
   }, [create, packet, data.items, targetId]);
-  const act = async (fn: () => Promise<void>) => {
-    if (lock.current) return;
-    lock.current = true;
-    setBusy(true);
+  const act = async (fn: () => Promise<void>, background = false) => {
+    if (background ? preparation.current : lock.current) return;
+    if (background) preparation.current = true;
+    else {
+      lock.current = true;
+      setBusy(true);
+    }
     setError("");
     try {
       await fn();
     } catch (e) {
       if (live.current) setError(messageOf(e));
     } finally {
-      lock.current = false;
-      if (live.current) setBusy(false);
+      if (background) {
+        preparation.current = false;
+        if (live.current) setPreparing([]);
+      } else {
+        lock.current = false;
+        if (live.current) setBusy(false);
+      }
     }
   };
   const edit = (i: IssueDraft) => {
@@ -320,6 +330,7 @@ export function IssueDrawerWindow({
       const items = data.items
         .filter((i) => checked.includes(i.id) && i.state === "draft")
         .map((i) => ({ id: i.id, revision: i.revision }));
+      setPreparing(items.map((i) => i.id));
       const id = keyFor("codex-issue-package", items);
       const b = await api<IssuePackage>(`/issue-drawer/packages/${id}`, {
         method: "PUT",
@@ -327,7 +338,7 @@ export function IssueDrawerWindow({
       });
       setPacket(b);
       await refresh();
-    });
+    }, true);
   const reorder = (i: IssueDraft, delta: number) =>
     act(async () => {
       const ids = data.items.map((x) => x.id),
@@ -448,6 +459,7 @@ export function IssueDrawerWindow({
                           id={`issue-pick-${i.id}`}
                           type="checkbox"
                           aria-label={`Выбрать: ${i.title}`}
+                          disabled={preparing.includes(i.id)}
                           checked={checked.includes(i.id)}
                           onChange={(e) =>
                             setChecked((old) =>
@@ -553,7 +565,7 @@ export function IssueDrawerWindow({
                     <button
                       type="button"
                       className="secondary"
-                      disabled={busy}
+                      disabled={busy || preparing.includes(i.id)}
                       onClick={() =>
                         void act(async () => {
                           await api(`/issue-drawer/items/${i.id}`, {
@@ -577,7 +589,10 @@ export function IssueDrawerWindow({
                       <select
                         aria-label="Проект для Issue"
                         value={form.targetId}
-                        disabled={!["draft", "failed", "cancelled"].includes(i.state)}
+                        disabled={
+                          preparing.includes(i.id) ||
+                          !["draft", "failed", "cancelled"].includes(i.state)
+                        }
                         onChange={(e) => setForm({ ...form, targetId: e.target.value })}
                       >
                         <option value="">Выбери проект</option>
@@ -594,7 +609,10 @@ export function IssueDrawerWindow({
                         aria-label="Название Issue"
                         value={form.title}
                         maxLength={200}
-                        readOnly={!["draft", "failed", "cancelled"].includes(i.state)}
+                        readOnly={
+                          preparing.includes(i.id) ||
+                          !["draft", "failed", "cancelled"].includes(i.state)
+                        }
                         onChange={(e) => setForm({ ...form, title: e.target.value })}
                       />
                     </label>
@@ -605,7 +623,10 @@ export function IssueDrawerWindow({
                         rows={10}
                         value={form.body}
                         maxLength={16000}
-                        readOnly={!["draft", "failed", "cancelled"].includes(i.state)}
+                        readOnly={
+                          preparing.includes(i.id) ||
+                          !["draft", "failed", "cancelled"].includes(i.state)
+                        }
                         onChange={(e) => setForm({ ...form, body: e.target.value })}
                       />
                     </label>
@@ -618,7 +639,11 @@ export function IssueDrawerWindow({
                         <button
                           type="button"
                           disabled={
-                            busy || !form.targetId || !form.title.trim() || !form.body.trim()
+                            busy ||
+                            preparing.includes(i.id) ||
+                            !form.targetId ||
+                            !form.title.trim() ||
+                            !form.body.trim()
                           }
                           onClick={() =>
                             void act(async () => {
@@ -645,6 +670,31 @@ export function IssueDrawerWindow({
             ))}
           {packet && (
             <section className="issue-package" aria-label="Пакет Issues">
+              {data.batches.length > 1 && (
+                <label>
+                  Подборка
+                  <select
+                    aria-label="Выбрать подборку Issues"
+                    value={packet.id}
+                    onChange={(e) =>
+                      setPacket(data.batches.find((b) => b.id === e.target.value) ?? null)
+                    }
+                  >
+                    {data.batches.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {new Date(b.createdAt).toLocaleString("ru")} · {b.items.length} Issues ·{" "}
+                        {b.state === "running"
+                          ? "Публикуется"
+                          : b.state === "prepared"
+                            ? "Готова к публикации"
+                            : b.state === "preparing"
+                              ? "Подготовка"
+                              : "Завершена"}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <h3>{packet.state === "prepared" ? "Проверь публикацию" : "Результат отправки"}</h3>
               {[...new Set(packet.items.map((i) => i.projectId))].map((id) => {
                 const group = packet.items.filter((i) => i.projectId === id);
@@ -727,9 +777,9 @@ export function IssueDrawerWindow({
             type="button"
             disabled={
               busy ||
+              preparing.length > 0 ||
               !checked.length ||
-              packet?.state === "running" ||
-              packet?.state === "prepared" ||
+              !data.items.some((i) => checked.includes(i.id) && i.state === "draft") ||
               !!editing
             }
             onClick={() => void prepare()}

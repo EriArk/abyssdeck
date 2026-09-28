@@ -1,5 +1,10 @@
 # GPT incremental history and Results — 2026-09-23
 
+28 September follow-up: exact response hashes also reuse the parsed graph and
+public projection for unchanged HTTP 200 responses without ETag. This saves
+parsing/projection work, not upstream bandwidth. Old edits and branches invalidate
+reuse. See [implementation and checks](INDEPENDENT_WORK_2026-09-28.md).
+
 This stage reduces repeated work between the Hub and browser. It does not replace the native canonical conversation read with an undocumented upstream delta API.
 
 ## Behavior
