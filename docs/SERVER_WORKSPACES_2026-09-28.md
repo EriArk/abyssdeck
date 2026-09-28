@@ -142,5 +142,24 @@ Codex 0.158.0 без сети, capabilities и записи в rootfs. Врем�
 sudo python3 /home/abysscloud/services/codex-web/workspace-setup-2796e31/apply-bundle.py --apply
 ```
 
-Его ещё не запускали с sudo. Engine/gateway/native IDs остались прежними; web остаётся
-`b0327b4`. Не менять текущую установку приложения ради этого host-исправления.
+Владелец запустил его с sudo, установка завершилась успешно (IMG_0708).
+Engine/gateway/native IDs остались прежними; web остаётся `b0327b4`.
+
+## Реальная host-приёмка `2796e31` подтверждена
+
+Приватный отчёт сервера прочитан после установки: `accepted: true`,
+`checkedAt: 1790583749`, image config `sha256:6a0ac02c5b91fa738ac5d9d2d520c2a76ea1aadf92721b391b29b85d6aff185e`.
+Два временных rootless-окружения прошли проверки изоляции, инструментов, публичного
+egress, запрета частной сети, ENOSPC-квот и ресурсных ограничений; stop/start сохранил данные.
+Персональные контейнерные AppArmor-профили отсутствуют, как и предусмотрено для Podman 4.9;
+результат не заявляет эту дополнительную защиту.
+
+`codex-workspace-broker.service` и `codex-workspace-network.service` активны и включены.
+Локальный сокет существует. Установленные broker/policy/host-check/client/acceptance
+сверены с `main` по SHA-256 — все пять совпали. Runtime config содержит service UID 1001,
+Hub UID 1000 и правильный config ID. Engine/gateway/native IDs не изменились.
+Повторять административную команду или приёмку без нового основания не требуется.
+
+Пользовательский доступ пока отключён: остаются Linux-транспорт и интеграция
+Files/Git/Terminal/Codex, персональная привязка/отзыв, backup/restore и закрытый preview.
+Это подтверждённая host-основа, не завершение всей пользовательской функции #170/#198.
