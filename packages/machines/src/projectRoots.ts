@@ -4,6 +4,7 @@ import { posix, win32 } from "node:path";
 import { HubError, type MachineConfig } from "@codex-web/shared";
 import { authorizeMachine } from "./authority.js";
 import { quotePowerShell, stopProcess } from "./index.js";
+import { workspaceProbe } from "./serverWorkspace.js";
 
 const denied = () =>
   new HubError(
@@ -18,7 +19,7 @@ export function normalizedProjectPath(machine: Pick<MachineConfig, "type">, valu
     Array.from(value).some((char) => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127)
   )
     throw denied();
-  if (machine.type === "local-linux") {
+  if (machine.type !== "ssh-windows") {
     if (!value.startsWith("/")) throw denied();
     return posix.resolve(value);
   }
@@ -55,7 +56,7 @@ export function assertProjectRoot(
   // Preserve the admitted owner's existing unrestricted folder workflow until enrollment.
   if (machine.allowedProjectRoots === undefined) return path;
   const normalized = normalizedProjectPath(machine, path),
-    paths = machine.type === "local-linux" ? posix : win32;
+    paths = machine.type !== "ssh-windows" ? posix : win32;
   if (
     !machine.allowedProjectRoots.some((root) => {
       const relative = paths.relative(normalizedProjectPath(machine, root), normalized);
@@ -88,6 +89,38 @@ export async function verifyProjectRoot(
   authorizeMachine(machine);
   if (machine.allowedProjectRoots === undefined) return;
   const path = assertProjectRoot(machine, value);
+  if (machine.type === "server-workspace") {
+    await workspaceProbe(
+      machine,
+      async (path: string, missing: boolean) => {
+        const fs = await import("node:fs/promises"),
+          p = await import("node:path");
+        let current = path,
+          found = false;
+        while (true) {
+          try {
+            const stat = await fs.lstat(current);
+            if (
+              !stat.isDirectory() ||
+              stat.isSymbolicLink() ||
+              (await fs.realpath(current)) !== current
+            )
+              throw Error("PROJECT_ROOT_DENIED");
+            found = true;
+          } catch (error) {
+            if (!missing || found || (error as NodeJS.ErrnoException).code !== "ENOENT")
+              throw error;
+          }
+          const parent = p.dirname(current);
+          if (parent === current) break;
+          current = parent;
+        }
+        return true;
+      },
+      [path, allowMissing],
+    );
+    return;
+  }
   if (machine.type === "local-linux") {
     let current = path,
       found = false;

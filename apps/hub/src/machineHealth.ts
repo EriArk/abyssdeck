@@ -32,7 +32,7 @@ export async function probeMachine(
   const add = (layer: DiagnosticCheck["layer"], state: DiagnosticCheck["state"], code: string) =>
     checks.push({ layer, state, code });
   const transport =
-    machine.type === "local-linux"
+    machine.type !== "ssh-windows"
       ? "LOCAL"
       : await (dependencies.ssh ?? sshProbe)(machine).catch(() => "SSH_UNREACHABLE");
   const online = transport === "SSH_OK" || transport === "LOCAL";

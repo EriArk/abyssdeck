@@ -4,6 +4,7 @@ export const deviceConfigSchema = z.object({
   id: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/),
   name: z.string().min(1).max(120),
   platform: z.enum(["linux", "windows", "android"]),
+  workspaceMachineId: z.string().max(80).optional(),
   ssh: z.object({
     target: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_.@-]{0,200}$/),
     configFile: z.string().startsWith("/").max(1024),

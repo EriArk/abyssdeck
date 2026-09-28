@@ -4,10 +4,30 @@ import { freemem, totalmem, uptime } from "node:os";
 import type { MachineConfig, MachineProbe } from "@codex-web/shared";
 import { quotePowerShell, stopProcess } from "./index.js";
 import { verifyProjectRoot } from "./projectRoots.js";
+import { workspaceProbe } from "./serverWorkspace.js";
 
 type Metrics = NonNullable<MachineProbe["metrics"]>;
 export async function readMachineResources(machine: MachineConfig, root: string): Promise<Metrics> {
   await verifyProjectRoot(machine, root);
+  if (machine.type === "server-workspace")
+    return workspaceProbe(
+      machine,
+      async (root: string) => {
+        const fs = await import("node:fs/promises"),
+          os = await import("node:os");
+        const disk = await fs.statfs(root);
+        const total = Number(await fs.readFile("/sys/fs/cgroup/memory.max", "utf8"));
+        const used = Number(await fs.readFile("/sys/fs/cgroup/memory.current", "utf8"));
+        return {
+          memoryTotal: total,
+          memoryAvailable: Math.max(0, total - used),
+          diskTotal: disk.blocks * disk.bsize,
+          diskAvailable: disk.bavail * disk.bsize,
+          bootedAt: Date.now() - os.uptime() * 1000,
+        };
+      },
+      [root],
+    );
   if (machine.type === "local-linux") {
     const disk = await statfs(root).catch(() => undefined);
     const limit = process.constrainedMemory();

@@ -1,6 +1,7 @@
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { HubError, type MachineConfig } from "@codex-web/shared";
 import { authorizeMachine } from "./authority.js";
+import { spawnWorkspace } from "./serverWorkspace.js";
 
 export { type NativeActivity, readNativeActivity } from "./activity.js";
 export { authorizeMachine, bindMachineAuthority } from "./authority.js";
@@ -20,6 +21,16 @@ export {
   projectPathAllowed,
   verifyProjectRoot,
 } from "./projectRoots.js";
+export {
+  bindServerWorkspace,
+  collectWorkspace,
+  spawnWorkspace,
+  type WorkspaceHost,
+  workspaceCommand,
+  workspaceHomeScript,
+  workspaceHostCommand,
+  workspaceProbe,
+} from "./serverWorkspace.js";
 export { readWorkspaceDependencies, type WorkspaceDependencies } from "./workspace.js";
 
 export function quotePowerShell(value: string): string {
@@ -70,6 +81,8 @@ export function spawnCodex(
   runtime?: { capability: string; binding: string; cwd: string; create: boolean },
 ): ChildProcessWithoutNullStreams {
   authorizeMachine(machine);
+  if (machine.type === "server-workspace")
+    return spawnWorkspace(machine, [machine.codex.command, ...args], cwd);
   const options = {
     stdio: "pipe" as const,
     detached: process.platform !== "win32",
@@ -170,6 +183,18 @@ export async function stageAttachment(
       .replace(/[^a-zA-Z0-9а-яА-ЯёЁ._ -]/gu, "_")
       .slice(-120)
       .replace(/[. ]+$/, "") || "attachment";
+  if (machine.type === "server-workspace") {
+    const { createHash } = await import("node:crypto");
+    const { createReadStream } = await import("node:fs");
+    const { stageWorkspaceFile } = await import("./workspaceFiles.js");
+    const hash = createHash("sha256");
+    let bytes = 0;
+    for await (const chunk of createReadStream(sourcePath)) {
+      bytes += chunk.length;
+      hash.update(chunk);
+    }
+    return stageWorkspaceFile(machine, sourcePath, bytes, hash.digest("hex"), `upload-${safeName}`);
+  }
   if (machine.type === "local-linux") {
     const { dirname } = await import("node:path");
     const dir = join(dirname(sourcePath), "staged", projectId, id);

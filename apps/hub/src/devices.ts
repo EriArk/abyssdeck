@@ -17,6 +17,7 @@ import { probeDevice, terminalCommand } from "./device-transport.js";
 import type { Store } from "./store.js";
 import { TerminalActivity, type TerminalIdentity, type TerminalWork } from "./terminal-activity.js";
 import { probeTerminal } from "./terminal-probe.js";
+import { spawnWorkspaceTerminal, workspaceDevice } from "./workspace-terminal.js";
 
 export interface DeviceDependencies {
   spawn?: (args: string[]) => IPty;
@@ -166,7 +167,9 @@ export function registerDevices(
     const d = device(params(req));
     let entry = cache.get(d.id);
     if (!entry || entry.until < Date.now()) {
-      const pending = (deps.probe ?? probeDevice)(d).catch(() => ({
+      const pending = (
+        deps.probe ? deps.probe(d) : probeDevice(d, workspaceDevice(config, d))
+      ).catch(() => ({
         checkedAt: Date.now(),
         online: false,
         error: "Не удалось прочитать состояние устройства.",
@@ -194,7 +197,14 @@ export function registerDevices(
       owner = auth.session(req).tokenHash;
     const action = deviceActionSchema.parse(req.body),
       activity = new TerminalActivity(),
-      args = terminalCommand(d, action, activity.token);
+      workspace = workspaceDevice(config, d),
+      args = workspace ? [] : terminalCommand(d, action, activity.token);
+    if (workspace && action.kind !== "shell")
+      throw new HubError(
+        403,
+        "WORKSPACE_ACTION_UNAVAILABLE",
+        "Это действие недоступно для личного окружения.",
+      );
     const key = z.string().uuid().parse(req.headers["idempotency-key"]);
     assertTerminalAdmission();
     return store.once(`device-terminal:${owner}`, key, { deviceId: d.id, action }, async () => {
@@ -220,22 +230,24 @@ export function registerDevices(
         createdAt: new Date().toISOString(),
         exitCode: null,
       };
-      const pty = (
-        deps.spawn ??
-        ((argv) =>
-          spawnPty("ssh", argv, {
-            name: "xterm-256color",
-            cols: 100,
-            rows: 30,
-            cwd: process.env.HOME ?? "/tmp",
-            env: {
-              PATH: process.env.PATH ?? "/usr/bin:/bin",
-              HOME: process.env.HOME ?? "/tmp",
-              LANG: "C.UTF-8",
-              TERM: "xterm-256color",
-            },
-          }))
-      )(args);
+      const pty = workspace
+        ? spawnWorkspaceTerminal(workspace, activity.token)
+        : (
+            deps.spawn ??
+            ((argv) =>
+              spawnPty("ssh", argv, {
+                name: "xterm-256color",
+                cols: 100,
+                rows: 30,
+                cwd: process.env.HOME ?? "/tmp",
+                env: {
+                  PATH: process.env.PATH ?? "/usr/bin:/bin",
+                  HOME: process.env.HOME ?? "/tmp",
+                  LANG: "C.UTF-8",
+                  TERM: "xterm-256color",
+                },
+              }))
+          )(args);
       const terminal: LiveTerminal = {
         info,
         owner,
@@ -371,6 +383,7 @@ export function registerDevices(
             state = await (deps.terminalProbe ?? probeTerminal)(
               device(t.info.deviceId),
               t.activity.identity!,
+              workspaceDevice(config, device(t.info.deviceId)),
             );
           } catch {}
           if (t.info.state === "closed") return "closed";

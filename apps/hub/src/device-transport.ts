@@ -1,11 +1,12 @@
 import { spawn } from "node:child_process";
 import { StringDecoder } from "node:string_decoder";
-import { quotePowerShell, stopProcess } from "@codex-web/machines";
+import { quotePowerShell, spawnWorkspace, stopProcess, workspaceProbe } from "@codex-web/machines";
 import {
   type DeviceAction,
   type DeviceConfig,
   type DeviceSnapshot,
   HubError,
+  type MachineConfig,
 } from "@codex-web/shared";
 import { shellTracking } from "./terminal-activity.js";
 
@@ -45,6 +46,12 @@ export function terminalCommand(
   action: DeviceAction,
   activityToken?: string,
 ): string[] {
+  if (device.workspaceMachineId)
+    throw new HubError(
+      403,
+      "WORKSPACE_DEVICE_UNAVAILABLE",
+      "Для окружения требуется личный транспорт.",
+    );
   const args = sshOptions(device, true);
   if (action.kind === "shell")
     return device.platform === "windows"
@@ -250,15 +257,57 @@ export function parseDeviceSnapshot(
   return snapshot;
 }
 
-export async function probeDevice(device: DeviceConfig): Promise<DeviceSnapshot> {
-  const child = spawn(
-    "ssh",
-    [
-      ...sshOptions(device),
-      ...(device.platform === "windows" ? powershell(device, windowsProbe) : ["sh", "-s"]),
-    ],
-    { stdio: "pipe", detached: process.platform !== "win32", windowsHide: true },
-  );
+export async function probeDevice(
+  device: DeviceConfig,
+  workspace?: MachineConfig,
+): Promise<DeviceSnapshot> {
+  if (
+    device.workspaceMachineId &&
+    (!workspace ||
+      workspace.id !== device.workspaceMachineId ||
+      workspace.type !== "server-workspace")
+  )
+    throw new HubError(403, "WORKSPACE_DEVICE_UNAVAILABLE", "Серверное окружение недоступно.");
+  if (workspace)
+    return workspaceProbe(workspace, async () => {
+      const fs = await import("node:fs/promises"),
+        os = await import("node:os");
+      const disk = await fs.statfs("/workspace"),
+        total = Number(await fs.readFile("/sys/fs/cgroup/memory.max", "utf8")),
+        used = Number(await fs.readFile("/sys/fs/cgroup/memory.current", "utf8"));
+      const cpu = (await fs.readFile("/sys/fs/cgroup/cpu.max", "utf8"))
+        .trim()
+        .split(/\s+/)
+        .map(Number);
+      return {
+        checkedAt: Date.now(),
+        online: true,
+        os: "Linux",
+        architecture: os.arch(),
+        cores: cpu[0]! / cpu[1]!,
+        memoryTotal: total,
+        memoryAvailable: Math.max(0, total - used),
+        temperatures: [],
+        disks: [
+          {
+            name: "Личные файлы",
+            mount: "/workspace",
+            total: disk.blocks * disk.bsize,
+            available: disk.bavail * disk.bsize,
+          },
+        ],
+      };
+    }, []);
+  const child = workspace
+    ? spawnWorkspace(workspace, ["sh", "-s"])
+    : spawn(
+        "ssh",
+        [
+          ...sshOptions(device),
+          ...(device.platform === "windows" ? powershell(device, windowsProbe) : ["sh", "-s"]),
+        ],
+        { stdio: "pipe", detached: process.platform !== "win32", windowsHide: true },
+      );
   return new Promise((resolve) => {
     let output = "",
       done = false;

@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
-import { stopProcess } from "@codex-web/machines";
-import type { DeviceConfig } from "@codex-web/shared";
+import { spawnWorkspace, stopProcess } from "@codex-web/machines";
+import type { DeviceConfig, MachineConfig } from "@codex-web/shared";
 import { sshOptions } from "./device-transport.js";
 import type { TerminalIdentity, TerminalWork } from "./terminal-activity.js";
 
@@ -27,7 +27,15 @@ export function terminalProbeScript(platform: string, identity: TerminalIdentity
 export function probeTerminal(
   device: DeviceConfig,
   identity: TerminalIdentity,
+  workspace?: MachineConfig,
 ): Promise<TerminalWork> {
+  if (
+    device.workspaceMachineId &&
+    (!workspace ||
+      workspace.id !== device.workspaceMachineId ||
+      workspace.type !== "server-workspace")
+  )
+    return Promise.resolve("unknown");
   let script: string;
   try {
     script = terminalProbeScript(device.platform, identity);
@@ -44,11 +52,13 @@ export function probeTerminal(
           Buffer.from(script, "utf16le").toString("base64"),
         ]
       : ["sh", "-s"];
-  const child = spawn("ssh", [...sshOptions(device), ...argv], {
-    stdio: "pipe",
-    detached: process.platform !== "win32",
-    windowsHide: true,
-  });
+  const child = workspace
+    ? spawnWorkspace(workspace, ["sh", "-s"])
+    : spawn("ssh", [...sshOptions(device), ...argv], {
+        stdio: "pipe",
+        detached: process.platform !== "win32",
+        windowsHide: true,
+      });
   return new Promise((resolve) => {
     let text = "",
       done = false;

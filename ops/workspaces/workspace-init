@@ -2,4 +2,5 @@
 set -euo pipefail
 umask 077
 mkdir -p /workspace/home /workspace/projects /workspace/integration /workspace/services
+mkdir -p /workspace/home/.codex /workspace/home/.config /workspace/home/.cache /workspace/home/.local/bin
 exec sleep infinity

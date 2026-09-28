@@ -140,6 +140,13 @@ function mapping(db: DatabaseSync) {
         }
       : null,
     runtimes: db.prepare("SELECT * FROM team_runtime_config ORDER BY userId").all(),
+    ...(db.prepare("SELECT 1 FROM sqlite_master WHERE name='team_server_workspaces'").get()
+      ? {
+          serverWorkspaces: db
+            .prepare("SELECT owner,state,created FROM team_server_workspaces ORDER BY owner")
+            .all(),
+        }
+      : {}),
     gptProfiles: db.prepare("SELECT name FROM sqlite_master WHERE name='team_gpt_profiles'").get()
       ? db.prepare("SELECT userId,slot,state,revision FROM team_gpt_profiles ORDER BY userId").all()
       : [],

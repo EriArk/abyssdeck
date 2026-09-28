@@ -163,7 +163,7 @@ export class Previews {
         html = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
         if (source.path) {
           const target = this.target(String(row.threadId));
-          const paths = target.machine.type === "local-linux" ? posix : win32;
+          const paths = target.machine.type !== "ssh-windows" ? posix : win32;
           const entry = paths.relative(target.root, source.path);
           html = await bundlePreview(html, entry, (path) =>
             readMachinePreviewAsset(target.machine, target.root, path),

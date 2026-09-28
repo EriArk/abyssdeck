@@ -4,6 +4,7 @@ import { accountSessionStorage as sessionStorage } from "./accountStorage";
 import { api, messageOf } from "./api";
 import { DownloadLink } from "./DownloadLink";
 import { Icon } from "./icons";
+import { ServerWorkspace } from "./ServerWorkspace";
 import "./team.css";
 
 const stateNames: Record<MachineEnrollment["state"], string> = {
@@ -163,6 +164,11 @@ export function TeamMachines({ visible }: { visible: boolean }) {
   };
   return (
     <section className="team-access team-machines" aria-label="Личные компьютеры">
+      <ServerWorkspace
+        visible={visible}
+        active={active.includes("server-workspace")}
+        refresh={refresh}
+      />
       <h3>Мои компьютеры</h3>
       <p className="muted">
         Каждый компьютер использует твои аккаунты и выбранные на нём папки проектов.

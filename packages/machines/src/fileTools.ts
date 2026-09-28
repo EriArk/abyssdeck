@@ -5,6 +5,7 @@ import { authorizeMachine } from "./authority.js";
 import { fileToolsProbe } from "./fileToolsProbe.js";
 import { quotePowerShell, stopProcess } from "./index.js";
 import { verifyProjectRoot } from "./projectRoots.js";
+import { workspaceProbe } from "./serverWorkspace.js";
 
 export async function runFileTools(
   machine: MachineConfig,
@@ -19,6 +20,37 @@ export async function runFileTools(
 ): Promise<Awaited<ReturnType<typeof fileToolsProbe>>> {
   await verifyProjectRoot(machine, root);
   authorizeMachine(machine);
+  if (machine.type === "server-workspace") {
+    if (upload) {
+      const { stageWorkspaceFile } = await import("./workspaceFiles.js");
+      const staged = await stageWorkspaceFile(machine, upload.path, upload.bytes, upload.sha256);
+      upload = { ...upload, path: staged };
+    }
+    const result = await workspaceProbe(
+      machine,
+      fileToolsProbe,
+      [root, request, undefined, upload, textLimit],
+      upload ? 1800000 : 90000,
+      bufferLimits.MAX_STRING_LENGTH,
+    );
+    // Clean up only after a confirmed reply; an uncertain import retains its exact staged input.
+    if (upload)
+      await workspaceProbe(
+        machine,
+        async (path: string) => {
+          const fs = await import("node:fs/promises"),
+            p = await import("node:path");
+          if (!/^\/workspace\/home\/\.codex-web\/uploads\/[a-f0-9-]{36}\/upload$/.test(path))
+            throw Error("INVALID_UPLOAD");
+          await fs.unlink(path).catch((error: NodeJS.ErrnoException) => {
+            if (error.code !== "ENOENT") throw error;
+          });
+          await fs.rmdir(p.dirname(path));
+        },
+        [upload.path],
+      ).catch(() => {});
+    return result;
+  }
   const failure = () =>
     new HubError(
       503,

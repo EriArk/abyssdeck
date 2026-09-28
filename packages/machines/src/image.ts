@@ -1,20 +1,24 @@
 import { spawn } from "node:child_process";
 import { open } from "node:fs/promises";
+import { posix } from "node:path";
 import { HubError, type MachineConfig } from "@codex-web/shared";
 import { authorizeMachine } from "./authority.js";
 import { quotePowerShell, stopProcess } from "./index.js";
+import { readWorkspaceFile } from "./workspaceFiles.js";
 
 const limit = 8 * 1024 * 1024;
 export async function readMachineImage(machine: MachineConfig, path: string): Promise<Buffer> {
   authorizeMachine(machine);
   // Native Markdown/file URLs may preserve the leading slash before a Windows
   // drive. Normalize at read time so already stored Results work as well.
-  if (machine.type !== "local-linux" && /^\/[a-z]:[\\/]/i.test(path)) path = path.slice(1);
+  if (machine.type === "ssh-windows" && /^\/[a-z]:[\\/]/i.test(path)) path = path.slice(1);
   if (
     !/\.(png|jpe?g|webp|gif|avif|tiff?|heic|heif)$/i.test(path) ||
-    !(machine.type === "local-linux" ? path.startsWith("/") : /^[a-z]:[\\/]/i.test(path))
+    !(machine.type !== "ssh-windows" ? path.startsWith("/") : /^[a-z]:[\\/]/i.test(path))
   )
     throw new HubError(400, "INVALID_IMAGE_PATH", "Неподдерживаемый путь изображения");
+  if (machine.type === "server-workspace")
+    return readWorkspaceFile(machine, posix.dirname(path), path, limit);
   if (machine.type === "local-linux") {
     const file = await open(path, "r");
     try {

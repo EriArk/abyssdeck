@@ -94,7 +94,7 @@ export function registerFileTools(app: FastifyInstance, sessions: Sessions) {
     await verifyProjectRoot(c.machine, c.project.workingDirectory);
     sessions.authorizeExecution();
     current(req, expected);
-    if (c.machine.type !== "local-linux" && !c.machine.codex.activityNode)
+    if (c.machine.type === "ssh-windows" && !c.machine.codex.activityNode)
       throw new HubError(409, "FILE_UNAVAILABLE", "На компьютере не настроены файловые операции.");
     while (grants.size >= 128) grants.delete(grants.keys().next().value!);
     const capability = randomUUID();

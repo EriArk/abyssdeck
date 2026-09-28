@@ -9,6 +9,8 @@ import { HubError, type MachineConfig } from "@codex-web/shared";
 import { quotePowerShell, stopProcess } from "./index.js";
 import { codexArtifactPath, projectFilePath } from "./projectFile.js";
 import { verifyProjectRoot } from "./projectRoots.js";
+import { spawnWorkspace } from "./serverWorkspace.js";
+import { workspaceTransferScript } from "./workspaceFiles.js";
 
 export const ARTIFACT_FILE_LIMIT = 512 * 1024 * 1024;
 // Only this fixed, root-checked read is sent through system SSH. Neither endpoint
@@ -60,7 +62,7 @@ async function transferFile(
   const path = nativeLink
     ? codexArtifactPath(machine, root, input)
     : projectFilePath(machine, root, input);
-  if (nativeLink) root = (machine.type === "local-linux" ? posix : win32).dirname(path);
+  if (nativeLink) root = (machine.type !== "ssh-windows" ? posix : win32).dirname(path);
   const hash = createHash("sha256");
   let bytes = 0;
   const meter = new Transform({
@@ -120,27 +122,37 @@ async function transferFile(
       }
       return { bytes, sha256: hash.digest("hex") };
     }
-    const child = spawn(
-      "ssh",
-      [
-        ...(machine.ssh?.configFile ? ["-F", machine.ssh.configFile] : []),
-        "-T",
-        "-o",
-        "BatchMode=yes",
-        "-o",
-        "StrictHostKeyChecking=yes",
-        "-o",
-        "ConnectTimeout=8",
-        machine.ssh?.target ?? "",
-        "powershell.exe",
-        "-NoLogo",
-        "-NoProfile",
-        "-NonInteractive",
-        "-EncodedCommand",
-        Buffer.from(projectTransferScript(root, path, limit), "utf16le").toString("base64"),
-      ],
-      { stdio: "pipe", detached: process.platform !== "win32", windowsHide: true },
-    );
+    const child =
+      machine.type === "server-workspace"
+        ? spawnWorkspace(machine, [
+            "python3",
+            "-c",
+            workspaceTransferScript,
+            root,
+            path,
+            String(limit),
+          ])
+        : spawn(
+            "ssh",
+            [
+              ...(machine.ssh?.configFile ? ["-F", machine.ssh.configFile] : []),
+              "-T",
+              "-o",
+              "BatchMode=yes",
+              "-o",
+              "StrictHostKeyChecking=yes",
+              "-o",
+              "ConnectTimeout=8",
+              machine.ssh?.target ?? "",
+              "powershell.exe",
+              "-NoLogo",
+              "-NoProfile",
+              "-NonInteractive",
+              "-EncodedCommand",
+              Buffer.from(projectTransferScript(root, path, limit), "utf16le").toString("base64"),
+            ],
+            { stdio: "pipe", detached: process.platform !== "win32", windowsHide: true },
+          );
     let diagnostic = "";
     child.stderr.on("data", (chunk: Buffer) => {
       diagnostic = (diagnostic + chunk.toString()).slice(-4096);

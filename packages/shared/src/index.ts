@@ -21,7 +21,7 @@ const machine = z
   .object({
     id,
     name: z.string().min(1).max(120),
-    type: z.enum(["local-linux", "ssh-windows"]),
+    type: z.enum(["local-linux", "ssh-windows", "server-workspace"]),
     // Omitted only for pre-team owner configurations. Enrollment always supplies roots.
     allowedProjectRoots: z.array(z.string().min(1).max(2048)).min(1).max(20).optional(),
     ssh: z
@@ -136,6 +136,16 @@ export const configSchema = z
           .optional(),
       })
       .optional(),
+    serverWorkspaces: z
+      .object({
+        ssh: z.object({
+          target: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_.@-]{0,200}$/),
+          configFile: z.string().startsWith("/"),
+        }),
+        keyFile: z.string().startsWith("/").max(2048),
+      })
+      .strict()
+      .optional(),
     machines: z.array(machine).max(20),
     devices: z.array(deviceConfigSchema).max(40).default([]),
     projects: z
@@ -162,7 +172,7 @@ export const configSchema = z
       const m = machines.get(p.machineId);
       if (!m) ctx.addIssue({ code: "custom", message: "Unknown project machine" });
       else if (
-        m.type === "local-linux"
+        m.type !== "ssh-windows"
           ? !p.workingDirectory.startsWith("/")
           : !/^(?:[A-Za-z]:[\\/]|\\\\)/.test(p.workingDirectory)
       ) {

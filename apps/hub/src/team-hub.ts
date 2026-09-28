@@ -31,6 +31,7 @@ import {
 } from "./machine-enrollment.js";
 import { MachineEnrollmentStore } from "./machine-enrollment-store.js";
 import { proxyPrivateHttp, proxyPrivateSocket } from "./private-proxy.js";
+import { ServerWorkspaces, workspaceRuntime } from "./server-workspaces.js";
 import { Store } from "./store.js";
 import { sessionCookie, TeamAuth } from "./team-auth.js";
 import { registerTeamBridges } from "./team-bridge-routes.js";
@@ -86,12 +87,19 @@ export function privateConfig(config: HubConfig, registry: TeamStore, userId: st
   const enrolled = blocked
     ? { machines: [], devices: [] }
     : enrolledRuntime(config, registry, userId);
+  const server = blocked
+    ? { machines: [], devices: [] }
+    : workspaceRuntime(config, registry, userId);
   if (user.id === registry.ownerId && user.legacy)
     return {
       ...config,
       nativeGpt: !blocked && config.nativeGpt?.userId === user.id ? config.nativeGpt : undefined,
-      machines: blocked ? [] : [...structuredClone(config.machines), ...enrolled.machines],
-      devices: blocked ? [] : [...structuredClone(config.devices), ...enrolled.devices],
+      machines: blocked
+        ? []
+        : [...structuredClone(config.machines), ...enrolled.machines, ...server.machines],
+      devices: blocked
+        ? []
+        : [...structuredClone(config.devices), ...enrolled.devices, ...server.devices],
       projects: blocked ? [] : structuredClone(config.projects),
       gpt: new TeamGpt(config, registry).runtime(userId),
     };
@@ -101,9 +109,9 @@ export function privateConfig(config: HubConfig, registry: TeamStore, userId: st
     auth: { username: user.login },
     gpt: new TeamGpt(config, registry).runtime(userId),
     nativeGpt: new TeamGpt(config, registry).nativeRuntime(userId),
-    machines: enrolled.machines,
+    machines: [...enrolled.machines, ...server.machines],
     projects: [],
-    devices: enrolled.devices,
+    devices: [...enrolled.devices, ...server.devices],
   };
 }
 
@@ -130,6 +138,7 @@ export async function createTeamHub(config: HubConfig, options: Options) {
   const ownerStore = options.store ?? new Store(config.hub.databasePath);
   const registry = new TeamStore(join(config.team.root, "team.db"), config, ownerStore);
   const enrollments = new MachineEnrollmentStore(registry);
+  const serverWorkspaces = new ServerWorkspaces(config, registry);
   const teamGpt = new TeamGpt(config, registry);
   const teamProjects = new TeamProjects(registry);
   const collaboration = new CollaborationSpaces(teamProjects);
@@ -172,6 +181,7 @@ export async function createTeamHub(config: HubConfig, options: Options) {
     maintenanceUntil = 0,
     activeMutations = 0;
   const maintenanceActive = () => Date.now() < maintenanceUntil;
+  serverWorkspaces.canRun = () => !closing && !maintenanceActive();
   const maintenanceError = () =>
     new HubError(503, "ENGINE_MAINTENANCE", "Обновление сервиса. Черновик сохранён.");
   let teamExecutions: TeamExecutions;
@@ -348,6 +358,10 @@ export async function createTeamHub(config: HubConfig, options: Options) {
     if (!set.size) connections.delete(userId);
   };
   registry.events.on("revoked", revoked);
+  const revokeWorkspace = (userId: string) => {
+    void serverWorkspaces.revokeDisabled(userId).catch(() => {});
+  };
+  registry.events.on("revoked", revokeWorkspace);
   await app.register(cookie);
   await app.register(helmet, webSecurity(config));
   await app.register(rateLimit, {
@@ -616,6 +630,17 @@ export async function createTeamHub(config: HubConfig, options: Options) {
     }
     await personal(userId);
   };
+  app.get("/api/team/server-workspace", (req) => serverWorkspaces.view(actor(req)));
+  app.post("/api/team/server-workspace/start", slow, async (req) => {
+    const userId = actor(req);
+    z.object({}).strict().parse(req.body);
+    return serverWorkspaces.start(userId);
+  });
+  app.post("/api/team/server-workspace", slow, async (req) => {
+    const userId = actor(req);
+    z.object({}).strict().parse(req.body);
+    return serverWorkspaces.create(userId);
+  });
   app.get("/api/team/machines", async (req) => ({
     items: enrollments.list(actor(req)),
     enabled: !!config.team?.hubTailnetAddress,
@@ -935,7 +960,7 @@ export async function createTeamHub(config: HubConfig, options: Options) {
           .prepare("SELECT COUNT(*) n FROM team_receipts WHERE state IN ('pending','unknown')")
           .get()?.n ?? 0,
       );
-      return work;
+      return work + serverWorkspaces.busy;
     };
     const inspectTerminals = async (reserve: boolean) => {
       if (reserve) maintenanceUntil = Date.now() + 60000;
@@ -1083,6 +1108,8 @@ export async function createTeamHub(config: HubConfig, options: Options) {
     await teamExecutions.close();
     await teamConsultations.close();
     registry.events.off("revoked", revoked);
+    registry.events.off("revoked", revokeWorkspace);
+    await serverWorkspaces.close();
     for (const id of connections.keys()) revoked(id);
     await Promise.allSettled(
       [...instances.values()].map(async (pending) => (await pending).runtime.app.close()),

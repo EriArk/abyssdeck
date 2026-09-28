@@ -85,6 +85,54 @@ must become part of coordinated backup/restore before user enrollment. Do not co
 live loop image files as a supposedly consistent backup. Rebuild and deletion are
 deliberately not exposed yet; they need exact ownership and active-work admission.
 
+Application integration now uses a runtime-only owner capability and the existing
+private system SSH connection to `client.py`. Do not put a service account, key or
+raw host-shell endpoint in member configuration. The `serverWorkspaces` section
+selects the host SSH target/config and absolute host-side Hub key path; each actor
+explicitly creates their own slot through Settings. Copies of machine JSON have
+no execution authority. The application prepares missing private HOME directories
+in older images before marking an environment ready (Codex requires CODEX_HOME
+to exist). Existing Windows machines and credentials are unchanged.
+
+### Offline paired disk checkpoint
+
+`backup.py` is an administrator tool, separate from browser download/export.
+It does **not** stop users or mount/unmount anything. Before `backup --apply`:
+
+1. Enter ordinary coordinated Hub maintenance after active work has finished;
+   preserve the verified cold Team snapshot and its `team-manifest.json`.
+2. Stop the workspace broker and all its containers, then unmount the claimed
+   slot mounts. Keep the Hub engine stopped throughout the disk checkpoint.
+3. Run `sudo python3 <release>/ops/workspaces/backup.py backup --apply
+   --directory <new-private-directory> --team-snapshot <verified-team-snapshot>`.
+4. Run the same tool with `verify` and those paths. Start the exact mounts and
+   broker only after verification, then resume the Hub normally. Failure never
+   automatically starts anything.
+
+The checkpoint includes the SQLite broker registry/receipts and exact sparse
+disk bytes, SHA-256, image/config identity, slot-to-owner mapping and paired Team
+registry hash. It checks stopped broker/containers and unmounted disks before
+copying. A private Team backup without this companion does not contain workspace
+files or accounts. Keep the installation's existing keys and image archive under
+the separate host backup policy; this tool restores only the same installation.
+
+Restore the paired Team snapshot with native admission still **blocked**, stop
+engine/broker/containers and unmount the slots. Use `restore --apply --directory
+<disk-checkpoint> --team-snapshot <paired-team-checkpoint> --live-team <restored-team.db>`.
+All copies/hashes finish before replacements; mismatched identities, reused slots,
+running services, mounted disks and damaged files refuse restoration. Previous
+disk/registry files remain under an exact `.before-restore-<uuid>` suffix. Newer
+broker receipts and revocations survive restoration; accepted operations become
+unknown, never replayed. An interrupted replacement remains offline for operator
+recovery. Do not automatically reopen native admission after restore.
+
+Focused coverage: `tests/server-workspace-integration.test.mjs`,
+`tests/workspace-backup.test.py`, and `tests/server-workspace-runtime.py <runtime.tar>`.
+The latter exercises the actual installed image in a disposable rootless store,
+without signing in or allocating a production owner slot. It is not real-account
+or real-disk restore acceptance. Protected service preview is still separate work;
+the transport does not expose container ports or the host network.
+
 Focused Linux checks: `python3 tests/server-workspaces.test.py`.
 Primary references: [Podman run](https://docs.podman.io/en/v4.9.3/markdown/podman-run.1.html),
 [Podman exec](https://docs.podman.io/en/v4.9.3/markdown/podman-exec.1.html).

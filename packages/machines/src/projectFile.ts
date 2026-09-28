@@ -5,6 +5,7 @@ import { posix, win32 } from "node:path";
 import { HubError, type MachineConfig } from "@codex-web/shared";
 import { quotePowerShell, stopProcess } from "./index.js";
 import { assertProjectRoot, normalizedProjectPath, verifyProjectRoot } from "./projectRoots.js";
+import { readWorkspaceFile } from "./workspaceFiles.js";
 
 // For paths recorded in native assistant messages only, never a browser-supplied
 // filesystem request. Generated exports may live outside the working directory.
@@ -12,14 +13,14 @@ export function codexArtifactPath(machine: MachineConfig, root: string, input: s
   let value = decodeURIComponent(input);
   if (/^\/[a-z]:[\\/]/i.test(value)) value = value.slice(1);
   const absolute =
-    machine.type === "local-linux" ? value.startsWith("/") : /^[a-z]:[\\/]/i.test(value);
+    machine.type !== "ssh-windows" ? value.startsWith("/") : /^[a-z]:[\\/]/i.test(value);
   return absolute ? normalizedProjectPath(machine, value) : projectFilePath(machine, root, input);
 }
 
 export const PROJECT_FILE_LIMIT = 32 * 1024 * 1024;
 export function projectFilePath(machine: MachineConfig, root: string, input: string): string {
   assertProjectRoot(machine, root);
-  const paths = machine.type === "local-linux" ? posix : win32;
+  const paths = machine.type !== "ssh-windows" ? posix : win32;
   let value: string;
   try {
     value = decodeURIComponent(input);
@@ -30,7 +31,7 @@ export function projectFilePath(machine: MachineConfig, root: string, input: str
   if (
     /[\0\r\n]/.test(value) ||
     !paths.isAbsolute(root) ||
-    (machine.type !== "local-linux" && (/^\\\\/.test(value) || /:/.test(value.slice(2))))
+    (machine.type === "ssh-windows" && (/^\\\\/.test(value) || /:/.test(value.slice(2))))
   )
     throw invalid();
   const full = paths.resolve(root, value);
@@ -55,6 +56,8 @@ export async function readProjectFile(
 ): Promise<Buffer> {
   await verifyProjectRoot(machine, root);
   const path = projectFilePath(machine, root, input);
+  if (machine.type === "server-workspace")
+    return readWorkspaceFile(machine, root, path, PROJECT_FILE_LIMIT);
   if (machine.type === "local-linux") {
     const actualRoot = await realpath(root),
       actual = await realpath(path);

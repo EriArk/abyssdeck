@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { HubError, type MachineConfig } from "@codex-web/shared";
 import { authorizeMachine } from "./authority.js";
 import { quotePowerShell, stopProcess } from "./index.js";
+import { spawnWorkspace } from "./serverWorkspace.js";
 
 export interface NativeActivity {
   threadId: string;
@@ -60,29 +61,35 @@ export async function readNativeActivity(
     "; exit $LASTEXITCODE";
   // The script is fixed above. The only dynamic arguments are the server's own home and known IDs.
   const child =
-    machine.type === "local-linux"
-      ? spawn(machine.codex.activityNode, ["--no-warnings", "-e", activityReader, payload], options)
-      : spawn(
-          "ssh",
-          [
-            ...(machine.ssh?.configFile ? ["-F", machine.ssh.configFile] : []),
-            "-T",
-            "-o",
-            "BatchMode=yes",
-            "-o",
-            "StrictHostKeyChecking=yes",
-            "-o",
-            "ConnectTimeout=8",
-            machine.ssh?.target ?? "",
-            machine.codex.shell === "pwsh" ? "pwsh.exe" : "powershell.exe",
-            "-NoLogo",
-            "-NoProfile",
-            "-NonInteractive",
-            "-EncodedCommand",
-            Buffer.from(script, "utf16le").toString("base64"),
-          ],
-          options,
-        );
+    machine.type === "server-workspace"
+      ? spawnWorkspace(machine, ["node", "--no-warnings", "-"])
+      : machine.type === "local-linux"
+        ? spawn(
+            machine.codex.activityNode,
+            ["--no-warnings", "-e", activityReader, payload],
+            options,
+          )
+        : spawn(
+            "ssh",
+            [
+              ...(machine.ssh?.configFile ? ["-F", machine.ssh.configFile] : []),
+              "-T",
+              "-o",
+              "BatchMode=yes",
+              "-o",
+              "StrictHostKeyChecking=yes",
+              "-o",
+              "ConnectTimeout=8",
+              machine.ssh?.target ?? "",
+              machine.codex.shell === "pwsh" ? "pwsh.exe" : "powershell.exe",
+              "-NoLogo",
+              "-NoProfile",
+              "-NonInteractive",
+              "-EncodedCommand",
+              Buffer.from(script, "utf16le").toString("base64"),
+            ],
+            options,
+          );
   return new Promise((resolve, reject) => {
     let output = "",
       done = false;
@@ -137,6 +144,13 @@ export async function readNativeActivity(
           : new HubError(503, "ACTIVITY_UNSUPPORTED", "Проверь совместимость наблюдения за Codex"),
       ),
     );
-    child.stdin.end();
+    child.stdin.on("error", () =>
+      finish(new HubError(503, "ACTIVITY_UNAVAILABLE", "Наблюдение за Codex недоступно")),
+    );
+    child.stdin.end(
+      machine.type === "server-workspace"
+        ? `process.argv[1]=${JSON.stringify(payload)};\n${activityReader}`
+        : undefined,
+    );
   });
 }

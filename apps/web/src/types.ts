@@ -14,7 +14,7 @@ export interface Session {
 export interface Machine {
   id: string;
   name: string;
-  type: "ssh-windows" | "local-linux";
+  type: "ssh-windows" | "local-linux" | "server-workspace";
   projectsDirectory: string;
   allowedProjectRoots?: string[];
   canCreateProjects?: boolean;

@@ -8,6 +8,7 @@ import {
 import { authorizeMachine } from "./authority.js";
 import { quotePowerShell, stopProcess } from "./index.js";
 import { verifyProjectRoot } from "./projectRoots.js";
+import { workspaceProbe } from "./serverWorkspace.js";
 import { setupProbe } from "./setupProbe.js";
 
 const messages: Record<string, string> = {
@@ -49,6 +50,8 @@ export async function runProjectSetup(
   authorizeMachine(machine);
   if (request.op === "inspect" || request.op === "apply")
     await verifyProjectRoot(machine, request.input.workingDirectory, request.input.createDirectory);
+  if (machine.type === "server-workspace")
+    return workspaceProbe(machine, setupProbe, [request], 250000);
   if (machine.type === "local-linux") {
     try {
       return await setupProbe(request);

@@ -12,6 +12,7 @@ import { deliveryProbe } from "./deliveryProbe.js";
 import { githubWorkProbe } from "./githubWorkProbe.js";
 import { quotePowerShell, stopProcess } from "./index.js";
 import { verifyProjectRoot } from "./projectRoots.js";
+import { workspaceProbe } from "./serverWorkspace.js";
 
 const messages: Record<string, string> = {
   GITHUB_WORK_UNAVAILABLE: "GitHub пока недоступен. Проверь вход GitHub CLI на своём компьютере.",
@@ -84,6 +85,18 @@ async function runFixedProjectWorker<T>(
   if (root !== null) await verifyProjectRoot(machine, root);
   else if (request.op !== "github")
     throw new HubError(400, "GITHUB_WORK_REQUEST", deliveryMessage("GITHUB_WORK_REQUEST"));
+  if (machine.type === "server-workspace")
+    return (
+      request.op === "github"
+        ? workspaceProbe(
+            machine,
+            githubWorkProbe,
+            [root, request.request],
+            250000,
+            320 * 1024 * 1024,
+          )
+        : workspaceProbe(machine, deliveryProbe, [root!, request], 250000)
+    ) as Promise<T>;
   if (machine.type === "local-linux") {
     try {
       return await local();

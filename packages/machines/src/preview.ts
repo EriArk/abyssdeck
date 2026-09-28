@@ -5,6 +5,7 @@ import { posix, win32 } from "node:path";
 import { HubError, type MachineConfig } from "@codex-web/shared";
 import { quotePowerShell, stopProcess } from "./index.js";
 import { assertProjectRoot, verifyProjectRoot } from "./projectRoots.js";
+import { readWorkspaceFile } from "./workspaceFiles.js";
 
 export const PREVIEW_LIMIT = 2 * 1024 * 1024;
 export function previewPath(machine: MachineConfig, root: string, input: string): string {
@@ -15,7 +16,7 @@ export function previewAssetPath(machine: MachineConfig, root: string, input: st
 }
 function checkedPath(machine: MachineConfig, root: string, input: string, asset: boolean): string {
   assertProjectRoot(machine, root);
-  const paths = machine.type === "local-linux" ? posix : win32;
+  const paths = machine.type !== "ssh-windows" ? posix : win32;
   let value: string;
   try {
     value = decodeURIComponent(input);
@@ -33,7 +34,7 @@ function checkedPath(machine: MachineConfig, root: string, input: string, asset:
     (asset &&
       value.split(/[\\/]/).some((part) => part.startsWith(".") && part !== ".." && part !== ".")) ||
     !paths.isAbsolute(root) ||
-    (machine.type !== "local-linux" && (/^\\\\/.test(value) || /:/.test(value.slice(2))))
+    (machine.type === "ssh-windows" && (/^\\\\/.test(value) || /:/.test(value.slice(2))))
   )
     throw invalid();
   const full = paths.resolve(root, value);
@@ -70,6 +71,8 @@ async function readPreviewFile(
   path: string,
 ): Promise<Buffer> {
   await verifyProjectRoot(machine, root);
+  if (machine.type === "server-workspace")
+    return readWorkspaceFile(machine, root, path, PREVIEW_LIMIT);
   if (machine.type === "local-linux") {
     const actualRoot = await realpath(root),
       actual = await realpath(path);

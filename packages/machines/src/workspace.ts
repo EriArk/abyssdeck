@@ -41,6 +41,8 @@ export async function readWorkspaceDependencies(
   machine: MachineConfig,
 ): Promise<WorkspaceDependencies> {
   authorizeMachine(machine);
+  // The managed base has standard development tools, not a primary document-runtime bundle.
+  if (machine.type === "server-workspace") return { installed: false };
   if (machine.type === "local-linux") {
     const root = join(homedir(), ".cache/codex-runtimes/codex-primary-runtime");
     let manifest: Record<string, unknown>;
