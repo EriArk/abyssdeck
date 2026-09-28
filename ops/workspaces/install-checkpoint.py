@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 """Install only the fixed automatic checkpoint service, never reinstall disks/runtime."""
 import argparse
+import fcntl
 import hashlib
 import json
 import os
@@ -35,6 +36,10 @@ def main():
         path=Path(path)
         if path.resolve()!=path or (path.exists() and path.stat().st_uid!=0): raise RuntimeError('INSTALL_DIRECTORY')
         path.mkdir(mode=0o700,exist_ok=True);path.chmod(0o700)
+    # Never replace coordinator modules while it is copying or recovering. New
+    # timer invocations use the same nonblocking lock and defer until we finish.
+    lock=Path('/var/lib/codex-workspace-checkpoint/lock').open('a')
+    fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
     if Path('/var/lib/codex-workspace-checkpoint/journal.json').exists(): raise RuntimeError('RECOVER_PREVIOUS_CHECKPOINT_FIRST')
     for name in ['checkpoint.py','backup.py','policy.py','install.py']:
         write('/opt/codex-workspace-checkpoint/'+name,(source/name).read_text())
@@ -68,6 +73,7 @@ WantedBy=timers.target
     # Coordinator refuses before Hub activation. Busy work is deferred; a recent
     # verified pair suppresses further cold checkpoints for 23 hours.
     subprocess.run(['systemctl','enable','--now','codex-workspace-checkpoint.timer'],check=True)
+    lock.close()
     print('Checkpoint timer installed. It waits for Hub activation and idle work.')
 
 
