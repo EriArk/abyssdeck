@@ -15,6 +15,9 @@
   Passwords belong only in the terminal's actual prompt, never in chat, drafts,
   browser storage or application logs. Reconnection never replays terminal input.
   Closing the window preserves the parent conversation and running terminal.
+- Terminal command and masked-password fields offer an explicit Paste button.
+  Paste edits only the local field at its selection; submitting remains a separate
+  tap. Discard late clipboard reads after edits, cancellation, hiding or reconnect.
 
 ## Owner-requested native pins and message stepping (2026-09-27)
 

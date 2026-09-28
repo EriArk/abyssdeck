@@ -18,10 +18,24 @@ export function DeviceTerminal({ id, onExit }: { id: string; onExit: () => void 
     [connected, setConnected] = useState(false);
   const retryRef = useRef(() => {});
   const secretRef = useRef<HTMLInputElement>(null);
+  const commandRef = useRef<HTMLTextAreaElement>(null);
+  const pasteRequest = useRef(0);
+  const [pasting, setPasting] = useState(false);
+  const [pasteHint, setPasteHint] = useState("");
   const [entry, setEntry] = useState<"command" | "password" | null>(null);
   const [command, setCommand] = useState("");
   useEffect(() => {
+    pasteRequest.current++;
+    setPasting(false);
+    setPasteHint("");
+    return () => {
+      pasteRequest.current++;
+    };
+  }, [entry, id, connected]);
+  useEffect(() => {
     const clear = () => {
+      pasteRequest.current++;
+      setPasting(false);
       if (secretRef.current) secretRef.current.value = "";
     };
     document.addEventListener("visibilitychange", clear);
@@ -228,6 +242,35 @@ export function DeviceTerminal({ id, onExit }: { id: string; onExit: () => void 
         socketRef.current.send(JSON.stringify({ type: "input", data: data.slice(i, i + 1024) }));
     termRef.current?.focus();
   };
+  const paste = async () => {
+    const field = entry === "password" ? secretRef.current : commandRef.current;
+    if (!field) return;
+    const request = ++pasteRequest.current;
+    const start = field.selectionStart ?? field.value.length;
+    const end = field.selectionEnd ?? start;
+    setPasting(true);
+    setPasteHint("");
+    try {
+      const text = await navigator.clipboard.readText();
+      if (request !== pasteRequest.current || !field.isConnected || document.hidden) return;
+      // Only edit the local field. Even multiline clipboard text never reaches the PTY here.
+      const value =
+        entry === "password"
+          ? text
+              .replace(/[\r\n]/g, "")
+              .slice(0, Math.max(0, 4096 - field.value.length + end - start))
+          : text.replace(/\r\n?/g, "\n");
+      field.setRangeText(value, start, end, "end");
+      if (entry === "command") setCommand(field.value);
+      field.focus({ preventScroll: true });
+    } catch {
+      if (request !== pasteRequest.current || !field.isConnected || document.hidden) return;
+      setPasteHint("Зажми поле и выбери «Вставить» в меню устройства.");
+      field.focus({ preventScroll: true });
+    } finally {
+      if (request === pasteRequest.current) setPasting(false);
+    }
+  };
   return (
     <div className="device-terminal">
       <div className="device-terminal-status">
@@ -248,8 +291,14 @@ export function DeviceTerminal({ id, onExit }: { id: string; onExit: () => void 
       {entry && (
         <form
           className="device-terminal-entry"
+          onInput={() => {
+            pasteRequest.current++;
+            setPasting(false);
+            setPasteHint("");
+          }}
           onSubmit={(event) => {
             event.preventDefault();
+            pasteRequest.current++;
             if (!connected || socketRef.current?.readyState !== 1) return;
             const value = entry === "password" ? (secretRef.current?.value ?? "") : command;
             if (secretRef.current) secretRef.current.value = "";
@@ -275,6 +324,7 @@ export function DeviceTerminal({ id, onExit }: { id: string; onExit: () => void 
             </label>
           ) : (
             <AutoTextarea
+              ref={commandRef}
               aria-label="Команда терминала"
               value={command}
               onChange={(event) => setCommand(event.target.value)}
@@ -283,11 +333,25 @@ export function DeviceTerminal({ id, onExit }: { id: string; onExit: () => void 
               spellCheck={false}
             />
           )}
+          {pasteHint && (
+            <p className="device-muted" role="status">
+              {pasteHint}
+            </p>
+          )}
           <div>
             <button
               type="button"
               className="secondary"
+              disabled={pasting}
+              onClick={() => void paste()}
+            >
+              Вставить
+            </button>
+            <button
+              type="button"
+              className="secondary"
               onClick={() => {
+                pasteRequest.current++;
                 if (secretRef.current) secretRef.current.value = "";
                 setEntry(null);
               }}

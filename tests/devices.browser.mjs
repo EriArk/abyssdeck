@@ -86,9 +86,48 @@ for (const [engine, type] of [
     const storage = await page.evaluate(() => JSON.stringify([localStorage, sessionStorage]));
     assert(!storage.includes("TEST-SECRET"));
     await button("Ввести команду").click();
-    await modal.getByRole("textbox", { name: "Команда терминала" }).fill("printf hello");
+    const command = modal.getByRole("textbox", { name: "Команда терминала" });
+    await command.fill("printf old");
+    await command.evaluate((e) => e.setSelectionRange(7, 10));
+    await page.evaluate(() => Object.defineProperty(navigator, "clipboard", {
+      configurable: true, value: { readText: async () => "hello\nprintf next" },
+    }));
+    const beforePaste = f.processes[0].writes.join("");
+    await button("Вставить").click();
+    await expect(command).toHaveValue("printf hello\nprintf next");
+    assert.equal(f.processes[0].writes.join(""), beforePaste, "paste must not execute");
     await button("Ввести").click();
-    await expect.poll(() => f.processes[0].writes.join("")).toContain("printf hello\r");
+    await expect.poll(() => f.processes[0].writes.join("")).toContain("printf hello\rprintf next\r");
+    await button("Ввести пароль").click();
+    await page.evaluate(() => Object.defineProperty(navigator, "clipboard", {
+      configurable: true, value: { readText: async () => "PASTED-secret" },
+    }));
+    await button("Вставить").click();
+    await expect(password).toHaveValue("PASTED-secret");
+    assert(!f.processes[0].writes.join("").includes("PASTED-secret"));
+    assert(!(await page.evaluate(() => JSON.stringify([localStorage, sessionStorage]))).includes("PASTED-secret"));
+    await button("Отмена").click();
+    await button("Ввести команду").click();
+    await command.fill("retained");
+    await page.evaluate(() => Object.defineProperty(navigator, "clipboard", {
+      configurable: true, value: { readText: async () => { throw new DOMException("Denied", "NotAllowedError"); } },
+    }));
+    await button("Вставить").click();
+    await expect(modal.getByRole("status")).toContainText("Зажми поле");
+    await expect(command).toHaveValue("retained");
+    await page.evaluate(() => Object.defineProperty(navigator, "clipboard", {
+      configurable: true, value: { readText: () => new Promise((resolve) => { window.finishPaste = resolve; }) },
+    }));
+    await button("Вставить").click();
+    await command.fill("edited while waiting");
+    await page.evaluate(() => window.finishPaste("stale clipboard"));
+    await expect(command).toHaveValue("edited while waiting");
+    await button("Вставить").click();
+    await button("Отмена").click();
+    await button("Ввести пароль").click();
+    await page.evaluate(() => window.finishPaste("stale command"));
+    await expect(password).toHaveValue("");
+    await button("Отмена").click();
     for (const theme of ["organizer", "crt-green", "hitech-2000s", "classic-dark"]) {
       await page.evaluate((t) => (document.documentElement.dataset.theme = t), theme);
       await page.waitForTimeout(400);

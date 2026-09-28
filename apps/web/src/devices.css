@@ -437,7 +437,7 @@
 .device-terminal-entry { padding: 8px; border-top: 1px solid var(--line); flex: none; }
 .device-terminal-entry label { display: grid; gap: 6px; font-size: 13px; }
 .device-terminal-entry input { width: 100%; min-height: 44px; box-sizing: border-box; }
-.device-terminal-entry > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+.device-terminal-entry > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
 .device-terminal-entry button { min-height: 44px; }
 .device-terminal-keys { flex-wrap: nowrap; flex: none; overflow-x: auto; }
 .device-terminal-keys button { flex: 0 0 auto; min-width: 44px; }
