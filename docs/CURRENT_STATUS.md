@@ -16,7 +16,12 @@ Linux Files/Git/Terminal/Codex, личную привязку/отзыв, backup
 
 Host-исходники закоммичены и отправлены в `main`: `fded2b9`. Точный пакет уже на сервере:
 `/home/abysscloud/services/codex-web/workspace-setup-fded2b9`.
-Проверены manifest/checksums и dry-run; установка ещё не выполнялась. Команда владельца:
+Проверены manifest/checksums и dry-run. Владелец запустил установку 28 сентября,
+07:05 по журналу сервера: sudo подтвердил запуск, процесс завершился через две секунды.
+Host-каталоги, службы и `host-readiness.json` не созданы; текущая установка не затронута.
+Точная ошибка пока неизвестна: запрошены последние строки вывода терминала.
+Не считать подтверждение владельца успешной host-приёмкой и не повторять установку вслепую.
+Команда использованного пакета:
 `sudo python3 /home/abysscloud/services/codex-web/workspace-setup-fded2b9/apply-bundle.py --apply`.
 Терминал: `codexweb://terminal/hub-host`. Пароль вводится только в фактический sudo prompt.
 Пакет резервирует 64 GiB под четыре диска; живые engine/gateway/native не перезапускает.

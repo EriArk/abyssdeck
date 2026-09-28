@@ -68,8 +68,11 @@ rootless/cgroup/seccomp и реальные ограничения, без privi
 
 Исходники находятся в `main`. Пакет из точного git archive размещён на books-server:
 `/home/abysscloud/services/codex-web/workspace-setup-fded2b9`.
-Проверка manifest и запуск без `--apply` прошли. Root-установка не запускалась;
-`codex-workspace-broker.service` пока inactive. Выполнение владельцем:
+Проверка manifest и запуск без `--apply` прошли. Владелец запустил root-установку
+28 сентября в 07:05 по журналу сервера; sudo-сессия завершилась через две секунды.
+Каталоги `/srv/codex-workspaces`, `/etc/codex-workspaces`, `/opt/codex-workspace-broker`
+и readiness-отчёт отсутствуют; обе службы inactive. Остановка произошла до системных
+изменений, её точная причина ожидает вывода терминала владельца. Использованная команда:
 
 ```sh
 sudo python3 /home/abysscloud/services/codex-web/workspace-setup-fded2b9/apply-bundle.py --apply
