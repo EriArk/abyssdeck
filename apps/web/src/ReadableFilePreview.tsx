@@ -1,8 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
-import ReactMarkdown from "react-markdown";
+import { useEffect, useMemo, useRef, useState } from "react";
+import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CopyButton } from "./CopyButton";
 import { SpeechButton, useSpeechScope } from "./MessageSpeech";
+import { visibleFileSpeech } from "./fileSpeechPosition";
+
+const markdownComponents: Components = { a: ({ children }) => <span>{children}</span> };
 
 export function ReadableFilePreview({ file }: { file: File }) {
   const [loaded, setLoaded] = useState<{ file: File; text: string; readable: boolean }>(),
@@ -13,6 +16,12 @@ export function ReadableFilePreview({ file }: { file: File }) {
   useSpeechScope(scope, true);
   const current = loaded?.file === file ? loaded : undefined;
   const text = current?.text ?? "";
+  const content = useRef<HTMLDivElement & HTMLPreElement>(null);
+  const toolbar = useRef<HTMLFieldSetElement>(null);
+  const rendered = markdown && !raw && text.length <= 32768;
+  // Changing representation invalidates DOM ranges held by the current reading session.
+  const readingScope = scope + (rendered ? ":document" : ":source");
+  useSpeechScope(readingScope, true);
   useEffect(() => {
     let live = true;
     void file
@@ -35,7 +44,7 @@ export function ReadableFilePreview({ file }: { file: File }) {
   }, [file]);
   return (
     <div className="readable-file">
-      <fieldset className="file-view-tools file-text-tools" aria-label="Вид текста">
+      <fieldset ref={toolbar} className="file-view-tools file-text-tools" aria-label="Вид текста">
         <div className="file-text-options">
           <button
             type="button"
@@ -59,27 +68,32 @@ export function ReadableFilePreview({ file }: { file: File }) {
         <div className="file-text-actions">
           {current?.readable && (
             <SpeechButton
-              id={scope + ":text"}
+              id={readingScope + ":text"}
               text={text}
               format={markdown ? "markdown" : "text"}
               idleLabel="Озвучить текст"
+              prepare={() =>
+                content.current && toolbar.current
+                  ? visibleFileSpeech(content.current, toolbar.current, rendered)
+                  : undefined
+              }
             />
           )}
           <CopyButton text={text} label="Копировать показанный текст" />
         </div>
       </fieldset>
-      {markdown && !raw && text.length <= 32768 ? (
-        <div className="file-document">
+      {rendered ? (
+        <div ref={content} className="file-document">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             disallowedElements={["img"]}
-            components={{ a: ({ children }) => <span>{children}</span> }}
+            components={markdownComponents}
           >
             {text}
           </ReactMarkdown>
         </div>
       ) : (
-        <pre className="file-text" data-wrap={wrap}>
+        <pre ref={content} className="file-text" data-wrap={wrap}>
           {text}
         </pre>
       )}

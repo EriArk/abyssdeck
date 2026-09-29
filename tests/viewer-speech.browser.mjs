@@ -90,7 +90,7 @@ try {
         if (path === "/")
           return route.fulfill({
             contentType: "text/html",
-            body: '<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/fixture.css"><div id="root"></div><script src="/fixture.js"></script>',
+            body: '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/fixture.css"><div id="root"></div><script src="/fixture.js"></script>',
           });
         if (path === "/fixture.js")
           return route.fulfill({ contentType: "text/javascript", body: js });
@@ -145,6 +145,44 @@ try {
           await page.screenshot({ path: `.local/qa-viewer-speech/${name}-${theme}-${width}.png` });
         }
       }
+      await viewer.getByRole("button", { name: "Остановить озвучивание", exact: true }).tap();
+      await page.setViewportSize({ width: 390, height: 844 });
+      const pane = viewer.locator(".readable-file");
+      await viewer
+        .locator(".file-document p")
+        .last()
+        .evaluate((paragraph) => {
+          const node = paragraph.firstChild;
+          const start = node.textContent.indexOf("Чтение30");
+          const range = document.createRange();
+          range.setStart(node, start);
+          range.setEnd(node, start + 1);
+          const pane = paragraph.closest(".readable-file");
+          pane.scrollTop +=
+            range.getBoundingClientRect().top -
+            pane.querySelector("fieldset").getBoundingClientRect().bottom;
+        });
+      const startScroll = await pane.evaluate((pane) => pane.scrollTop);
+      await speak();
+      const firstVisible = await page.evaluate(() => speechMock.spoken.at(-1).text);
+      assert.doesNotMatch(firstVisible, /Кто должен был|Когда умер/);
+      const word = Number(firstVisible.match(/Чтение(\d+)/)?.[1]);
+      assert.ok(word >= 27 && word <= 30, firstVisible);
+      await page.evaluate(() => {
+        for (let i = 0; i < 7; i++) speechMock.spoken.at(-1).onend();
+      });
+      assert.ok(
+        (await pane.evaluate((pane) => pane.scrollTop)) > startScroll + 100,
+        "follows native chunks",
+      );
+      await viewer.getByRole("button", { name: "Приостановить озвучивание" }).tap();
+      const pausedScroll = await pane.evaluate((pane) => pane.scrollTop);
+      await page.evaluate(() => speechMock.spoken.at(-1).onboundary({ charIndex: 200 }));
+      assert.equal(await pane.evaluate((pane) => pane.scrollTop), pausedScroll);
+      await viewer.getByRole("button", { name: "Продолжить озвучивание" }).tap();
+      assert.equal(await page.evaluate(() => document.scrollingElement.scrollTop), 0);
+      await page.screenshot({ path: `.local/qa-viewer-speech/${name}-following.png` });
+      const spokenBeforeSwitch = await page.evaluate(() => speechMock.spoken.length);
       await viewer.getByRole("button", { name: "Следующий файл" }).tap();
       await expect(viewer.getByRole("heading", { name: "Другая глава" })).toBeVisible();
       const cancelled = await page.evaluate(() => speechMock.cancelled);
@@ -152,7 +190,7 @@ try {
       await page.evaluate(() => speechMock.spoken[0].onend());
       assert.equal(
         await page.evaluate(() => speechMock.spoken.length),
-        1,
+        spokenBeforeSwitch,
         "old file cannot continue",
       );
       await speak();
@@ -169,6 +207,20 @@ try {
       await viewer.getByRole("button", { name: "Следующий файл" }).tap();
       await speak();
       assert.match(await page.evaluate(() => speechMock.spoken.at(-1).text), /<важно>/);
+      await viewer.getByRole("button", { name: "Остановить озвучивание", exact: true }).tap();
+      await pane.evaluate((pane) => {
+        pane.scrollTop = 500;
+      });
+      await speak();
+      assert.match(await page.evaluate(() => speechMock.spoken.at(-1).text), /^Строка\d+/);
+      const plainScroll = await pane.evaluate((pane) => pane.scrollTop);
+      await page.evaluate(() => {
+        for (let i = 0; i < 30; i++) speechMock.spoken.at(-1).onend();
+      });
+      assert.ok(
+        (await pane.evaluate((pane) => pane.scrollTop)) > plainScroll,
+        "plain source follows as well",
+      );
       await viewer.getByRole("button", { name: "Следующий файл" }).tap();
       await expect(viewer.locator(".file-text")).toContainText("двоичные данные");
       await expect(viewer.getByRole("button", { name: "Озвучить текст" })).toHaveCount(0);
@@ -176,10 +228,33 @@ try {
       await viewer.getByRole("button", { name: "Закрыть просмотр" }).tap();
       await page.getByLabel("Режим озвучивания").selectOption("background");
       await page.getByRole("button", { name: "Открыть файл" }).tap();
+      await expect(
+        viewer.getByRole("button", { name: "Озвучить текст", exact: true }),
+      ).toBeEnabled();
+      await pane.evaluate((pane) => {
+        pane.scrollTop = 600;
+      });
       await speak();
       await expect.poll(() => posts.length).toBe(1);
-      assert.match(posts[0].text, /^Кто должен был/);
+      assert.doesNotMatch(posts[0].text, /Кто должен был|Когда умер/);
       assert.equal(posts[0].voice, "eugene");
+      await page.evaluate(() => {
+        const audio = audioMock.at(-1);
+        audio.duration = 100;
+        audio.currentTime = 0;
+        audio.onplaying();
+        audio.currentTime = 75;
+        audio.ontimeupdate();
+      });
+      const audioScroll = await pane.evaluate((pane) => pane.scrollTop);
+      assert.ok(audioScroll > 700, "follows actual audio time");
+      await viewer.getByRole("button", { name: "Приостановить озвучивание" }).tap();
+      await page.evaluate(() => {
+        const audio = audioMock.at(-1);
+        audio.currentTime = 90;
+        audio.ontimeupdate();
+      });
+      assert.equal(await pane.evaluate((pane) => pane.scrollTop), audioScroll);
       await viewer.getByRole("button", { name: "Закрыть просмотр" }).tap();
       await expect.poll(() => deletes.length).toBe(1);
       release();

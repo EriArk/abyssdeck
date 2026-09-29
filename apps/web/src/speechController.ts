@@ -29,6 +29,8 @@ export class MessageSpeech {
   private voice: SpeechSynthesisVoice | undefined;
   // Keep a strong reference: the browser owns the same utterance until its terminal event.
   private current: SpeechSynthesisUtterance | undefined;
+  private onPosition?: (offset: number) => void;
+  private offsets: number[] = [];
   private getDevice: () => SpeechDevice | undefined;
   constructor(getDevice: () => SpeechDevice | undefined) {
     this.getDevice = getDevice;
@@ -50,6 +52,8 @@ export class MessageSpeech {
     const device = this.device;
     this.device = undefined;
     this.current = undefined;
+    this.onPosition = undefined;
+    this.offsets = [];
     this.chunks = [];
     this.index = 0;
     this.voice = undefined;
@@ -63,7 +67,12 @@ export class MessageSpeech {
   stopScope = (scope: string) => {
     if (this.state.id?.startsWith(scope + ":")) this.stop();
   };
-  start = (id: string, chunks: string[], language: string) => {
+  start = (
+    id: string,
+    chunks: string[],
+    language: string,
+    position?: { text: string; onPosition: (offset: number) => void },
+  ) => {
     if (id === this.state.id && this.state.phase !== "idle") return;
     this.stop();
     if (!chunks.length) return;
@@ -78,6 +87,13 @@ export class MessageSpeech {
       this.device = device;
       this.voice = voice;
       this.chunks = chunks;
+      this.onPosition = position?.onPosition;
+      let cursor = 0;
+      this.offsets = chunks.map((chunk) => {
+        const offset = Math.max(cursor, position?.text.indexOf(chunk, cursor) ?? cursor);
+        cursor = offset + chunk.length;
+        return offset;
+      });
       this.update({ id, phase: "speaking", error: "" });
       // cancel() retains the browser's paused flag. Resume an empty queue before starting.
       device.engine.cancel();
@@ -104,6 +120,11 @@ export class MessageSpeech {
       utterance.voice = this.voice ?? null;
       utterance.lang = this.voice?.lang ?? "";
       const valid = () => generation === this.generation && this.current === utterance;
+      const offset = this.offsets[this.index] ?? 0;
+      utterance.onboundary = (event) => {
+        if (valid() && this.state.phase === "speaking" && Number.isFinite(event.charIndex))
+          this.onPosition?.(offset + event.charIndex);
+      };
       utterance.onend = () => {
         if (!valid()) return;
         this.current = undefined;
@@ -115,6 +136,7 @@ export class MessageSpeech {
         if (valid()) this.fail(this.state.id);
       };
       this.device.engine.speak(utterance);
+      if (valid()) this.onPosition?.(offset);
     } catch {
       this.fail(this.state.id);
     }

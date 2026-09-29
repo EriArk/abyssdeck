@@ -116,7 +116,7 @@ const player = {
   },
   pause: () => (audioPlayer.snapshot().id ? audioPlayer.pause() : systemPlayer.pause()),
   resume: () => (audioPlayer.snapshot().id ? audioPlayer.resume() : systemPlayer.resume()),
-  start: (id: string, text: string) => {
+  start: (id: string, text: string, onPosition?: (offset: number) => void) => {
     audioPlayer.stop();
     systemPlayer.stop();
     if (speechMode.snapshot() === "background" || !device()) {
@@ -128,8 +128,15 @@ const player = {
           text,
           cyrillic > latin / 2 ? "ru" : "en",
           backgroundVoices.includes(selectedVoice) ? selectedVoice : backgroundVoices[0],
+          onPosition ? (fraction) => onPosition(Math.floor(fraction * text.length)) : undefined,
         );
-    } else systemPlayer.start(id, speechChunks(text), navigator.language);
+    } else
+      systemPlayer.start(
+        id,
+        speechChunks(text),
+        navigator.language,
+        onPosition ? { text, onPosition } : undefined,
+      );
   },
 };
 type SpeechMode = "system" | "background";
@@ -265,15 +272,18 @@ export function SpeechButton({
   text,
   idleLabel = "Озвучить ответ",
   format = "markdown",
+  prepare,
 }: {
   id: string;
   text: string;
   idleLabel?: string;
   format?: "markdown" | "text";
+  prepare?: () => { text: string; onPosition: (offset: number) => void } | undefined;
 }) {
   const state = useSyncExternalStore(player.subscribe, player.snapshot, player.snapshot);
   const spokenText = useMemo(() => (format === "text" ? text : speechText(text)), [text, format]);
   const [hasVoice, setHasVoice] = useState(false);
+  const [preparationError, setPreparationError] = useState("");
   const { mode, background } = useSpeechMode();
   useEffect(() => {
     const engine = device()?.engine;
@@ -290,8 +300,10 @@ export function SpeechButton({
     return () => engine.removeEventListener("voiceschanged", refresh);
   }, []);
   useEffect(() => () => player.stop(id), [id]);
+  useEffect(() => setPreparationError(""), [id]);
   if ((!device() && !background) || !spokenText.trim()) return null;
-  const playable = mode === "system" ? hasVoice : background && spokenText.length <= 30000;
+  const playable =
+    mode === "system" ? hasVoice : background && (!!prepare || spokenText.length <= 30000);
   const active = state.id === id && state.phase !== "idle";
   const paused = active && state.phase === "paused";
   const label =
@@ -302,7 +314,7 @@ export function SpeechButton({
           ? "Продолжить озвучивание"
           : "Приостановить озвучивание"
         : idleLabel;
-  const error = state.id === id ? state.error : "";
+  const error = preparationError || (state.id === id ? state.error : "");
   return (
     <span className="speech-control" data-speech-state={active ? state.phase : "idle"}>
       <button
@@ -325,7 +337,18 @@ export function SpeechButton({
           if (active) {
             if (paused) player.resume();
             else player.pause();
-          } else player.start(id, spokenText);
+          } else {
+            setPreparationError("");
+            const plan = prepare ? prepare() : { text: spokenText, onPosition: undefined };
+            if (!plan) return;
+            if (mode === "background" && plan.text.length > 30000) {
+              setPreparationError(
+                "Для текста длиннее 30 000 символов выбери системный голос в настройках",
+              );
+              return;
+            }
+            player.start(id, plan.text, plan.onPosition);
+          }
         }}
       >
         <Icon

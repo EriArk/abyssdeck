@@ -122,3 +122,23 @@ test("no local voice means no spoken text leaves the page, and voices can become
   f.player.start("c:1", ["Личный ответ"], "ru");
   assert.equal(f.utterances[0].voice.localService, true);
 });
+
+test("reading position follows native boundaries and ignores paused or cancelled events", () => {
+  const f = fixture(),
+    positions = [];
+  f.player.start("file:1", ["Первая строка.", "Вторая строка."], "ru", {
+    text: "Первая строка.\n\nВторая строка.",
+    onPosition: (offset) => positions.push(offset),
+  });
+  f.utterances[0].onboundary({ charIndex: 7 });
+  assert.deepEqual(positions, [0, 7]);
+  f.player.pause();
+  f.utterances[0].onboundary({ charIndex: 8 });
+  assert.deepEqual(positions, [0, 7]);
+  f.player.resume();
+  f.utterances[0].onend();
+  assert.equal(positions.at(-1), 16);
+  f.player.stop();
+  f.utterances[1].onboundary({ charIndex: 8 });
+  assert.equal(positions.at(-1), 16);
+});

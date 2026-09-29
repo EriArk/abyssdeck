@@ -9,6 +9,7 @@ export class AudioMessageSpeech {
   private audio?: HTMLAudioElement;
   private clip?: string;
   private generation = 0;
+  private onProgress?: (fraction: number) => void;
   private mediaActions: MediaSessionAction[] = [];
   private dependencies: {
     audio: () => HTMLAudioElement;
@@ -45,6 +46,7 @@ export class AudioMessageSpeech {
       clip = this.clip;
     this.audio = undefined;
     this.clip = undefined;
+    this.onProgress = undefined;
     if (audio) {
       audio.onplaying = null;
       audio.onpause = null;
@@ -79,6 +81,8 @@ export class AudioMessageSpeech {
   private position() {
     const audio = this.audio;
     if (!audio || !Number.isFinite(audio.duration) || audio.duration <= 0) return;
+    if (this.state.phase === "speaking")
+      this.onProgress?.(Math.max(0, Math.min(1, audio.currentTime / audio.duration)));
     try {
       this.dependencies.media?.()?.setPositionState?.({
         duration: audio.duration,
@@ -87,10 +91,17 @@ export class AudioMessageSpeech {
       });
     } catch {}
   }
-  start = (id: string, text: string, language: string, voice?: string) => {
+  start = (
+    id: string,
+    text: string,
+    language: string,
+    voice?: string,
+    onProgress?: (fraction: number) => void,
+  ) => {
     this.stop();
     if (!text.trim()) return;
     const generation = this.generation;
+    this.onProgress = onProgress;
     const valid = () => generation === this.generation;
     const clip = crypto.randomUUID();
     this.clip = clip;
@@ -118,8 +129,12 @@ export class AudioMessageSpeech {
       audio.onerror = () => {
         if (valid()) this.fail(id);
       };
-      audio.onloadedmetadata = () => this.position();
-      audio.ontimeupdate = () => this.position();
+      audio.onloadedmetadata = () => {
+        if (valid()) this.position();
+      };
+      audio.ontimeupdate = () => {
+        if (valid()) this.position();
+      };
       this.dependencies.playback?.(true);
       const media = this.dependencies.media?.();
       if (media) {
