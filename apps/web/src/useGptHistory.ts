@@ -22,7 +22,16 @@ export function useGptHistory(selected: string) {
   const selectedRef = useRef(selected),
     mounted = useRef(true);
   const failures = useRef({ id: "", epoch: -1, count: 0, since: 0 });
-  const pending = useRef(new Map<string, Promise<void>>());
+  const pending = useRef(
+    new Map<
+      string,
+      {
+        promise: Promise<void>;
+        cachedOnly: boolean;
+        window: boolean;
+      }
+    >(),
+  );
   selectedRef.current = selected;
   const rememberScroll = useCallback((id = selectedRef.current) => {
     const cached = gptCache.chats[id];
@@ -72,9 +81,12 @@ export function useGptHistory(selected: string) {
       preferCached = false,
     ): Promise<void> => {
       if (!id) return;
-      if (pending.current.has(id)) {
-        await pending.current.get(id);
-        if (!older && !force && !messageId) return;
+      while (pending.current.has(id)) {
+        const reading = pending.current.get(id)!;
+        await reading.promise;
+        // A canonical tail read already in flight satisfies simultaneous focus,
+        // resume and timer events. A cache-only/older/source read does not.
+        if (!older && !messageId && (!force || (!reading.cachedOnly && !reading.window))) return;
       }
       const cached = gptCache.chats[id];
       if (
@@ -111,6 +123,7 @@ export function useGptHistory(selected: string) {
         }
         try {
           const query = new URLSearchParams();
+          if (force) query.set("refresh", "1");
           if (preferCached && !older && !messageId) query.set("cached", "1");
           if (messageId) query.set("messageId", messageId);
           else if (older) query.set("before", older);
@@ -152,6 +165,7 @@ export function useGptHistory(selected: string) {
               }
             });
         } catch (error) {
+          if (epoch !== gptCacheEpoch() || !currentGptHistory(id, serial)) return;
           if (
             (error instanceof ApiError && error.code === "GPT_HISTORY_CHANGED") ||
             (error instanceof Error && error.message === "GPT_HISTORY_DELTA_MISMATCH")
@@ -183,26 +197,37 @@ export function useGptHistory(selected: string) {
           }
         }
       })();
-      pending.current.set(id, task);
+      const reading = { promise: task, cachedOnly: preferCached, window: !!older || !!messageId };
+      pending.current.set(id, reading);
       try {
         await task;
       } finally {
-        if (pending.current.get(id) === task) pending.current.delete(id);
+        if (pending.current.get(id) === reading) pending.current.delete(id);
       }
     },
     [rememberScroll],
   );
   useEffect(() => {
+    let disposed = false;
     const refresh = () => {
-      if (!document.hidden) void history(selected).catch(() => {});
+      // Source-message navigation deliberately retains its reading window.
+      // Opening the tail / End exits that mode explicitly.
+      if (!disposed && !document.hidden && !gptCache.chats[selected]?.contextMessage)
+        void history(selected, undefined, true).catch(() => {});
     };
-    if (!document.hidden) void history(selected, undefined, false, undefined, true).catch(() => {});
+    if (!document.hidden)
+      void history(selected, undefined, false, undefined, true)
+        .then(refresh)
+        .catch(() => {});
     const timer = setInterval(refresh, 15000);
+    window.addEventListener("focus", refresh);
     window.addEventListener("online", refresh);
     window.addEventListener("pageshow", refresh);
     document.addEventListener("visibilitychange", refresh);
     return () => {
+      disposed = true;
       clearInterval(timer);
+      window.removeEventListener("focus", refresh);
       window.removeEventListener("online", refresh);
       window.removeEventListener("pageshow", refresh);
       document.removeEventListener("visibilitychange", refresh);

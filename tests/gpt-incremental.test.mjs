@@ -276,11 +276,38 @@ test("actual Hub routes negotiate private deltas and still enforce deletion and 
     assert.equal(next.json().delta.baseRevision, initial.revision);
     assert.equal(next.json().items.length, 1);
     assert.equal((await apps[0].inject("/api/gpt/conversations/chat/results/f2")).statusCode, 200);
+    // External native work has no local gpt_job. An explicit viewer refresh
+    // must await it even while the ordinary one-minute snapshot is still fresh.
+    let now = 10000;
+    let loads = 0;
+    const external = new GptHistoryCache(
+      async () => {
+        loads++;
+        return messages(3);
+      },
+      () => now,
+    );
+    const baseline = external.seed("external", messages(2));
+    services[0].historyCache = external;
+    now += 2000;
+    const historyUrl = "/api/gpt/conversations/external/messages?known=" + baseline.revision;
+    assert.equal((await apps[0].inject(historyUrl)).json().notModified, true);
+    assert.equal(loads, 0);
+    const refreshed = await apps[0].inject(historyUrl + "&refresh=1");
+    assert.equal(refreshed.statusCode, 200);
+    assert.equal(refreshed.json().items.length, 3);
+    assert.equal(loads, 1);
+    await apps[0].inject(historyUrl + "&refresh=1");
+    assert.equal(loads, 1, "adjacent viewers share the bounded fresh snapshot");
+    now += 2000;
+    await apps[0].inject("/api/gpt/conversations/external/messages?cached=1&refresh=1");
+    assert.equal(loads, 2, "refresh also awaits canonical data without a browser revision");
     services[0].library.save("thread", "chat", { deleted: true });
     assert.equal((await apps[0].inject(url + "&known=" + initial.revision)).statusCode, 404);
     services[0].library.save("thread", "chat", { deleted: false });
     revoked = true;
     assert.equal((await apps[0].inject(url + "&known=" + initial.revision)).statusCode, 403);
+    assert.equal((await apps[0].inject(historyUrl + "&refresh=1")).statusCode, 403);
   } finally {
     for (const app of apps) await app.close();
     for (const store of stores) store.close();

@@ -38,6 +38,10 @@ try {
       let mode = "healthy",
         reads = 0,
         writes = 0;
+      let replyText = "Saved reply";
+      let hold;
+      let release;
+      const requests = [];
       await page.route("https://history.test/**", async (r) => {
         const path = new URL(r.request().url()).pathname;
         if (path === "/fixture.js")
@@ -49,6 +53,8 @@ try {
           });
         if (r.request().method() !== "GET") writes++;
         reads++;
+        requests.push(new URL(r.request().url()).searchParams);
+        if (hold) await hold;
         if (mode === "denied" || mode === "transport")
           return r.fulfill({
             status: mode === "denied" ? 403 : 503,
@@ -62,7 +68,7 @@ try {
         return r.fulfill({
           json: {
             items: [
-              { id: "reply", role: "assistant", text: "Saved reply", createdAt: 1, complete: true },
+              { id: "reply", role: "assistant", text: replyText, createdAt: 1, complete: true },
             ],
             revision: "v1",
             nextBefore: null,
@@ -74,6 +80,8 @@ try {
       });
       await page.goto("https://history.test/");
       await expect(page.getByText("Saved reply", { exact: true })).toBeVisible();
+      await expect.poll(() => reads).toBe(2);
+      await expect(page.getByTestId("busy")).toHaveText("false");
       await page.getByLabel("Draft").fill("Keep this draft");
       const refresh = async () => {
         const before = reads;
@@ -85,10 +93,11 @@ try {
       await refresh();
       await expect(page.getByTestId("error")).toBeEmpty();
       await expect(page.getByTestId("stale")).toHaveText("true");
-      await page.clock.setSystemTime(base + 15000);
+      const failureAt = await page.evaluate(() => Date.now());
+      await page.clock.setSystemTime(failureAt + 15000);
       await refresh();
       await expect(page.getByTestId("error")).toBeEmpty();
-      await page.clock.setSystemTime(base + 31000);
+      await page.clock.setSystemTime(failureAt + 31000);
       await refresh();
       await expect(page.getByTestId("error")).toHaveText("History temporarily unavailable");
       mode = "healthy";
@@ -104,10 +113,43 @@ try {
       await expect(page.getByTestId("error")).toHaveText("denied");
       await expect(page.getByText("Saved reply", { exact: true })).toBeVisible();
       await expect(page.getByLabel("Draft")).toHaveValue("Keep this draft");
+      mode = "healthy";
+      // A remote reply arrives less than 15s after the previous read. Returning
+      // to this same mounted chat must not be suppressed by browser freshness.
+      replyText = "Reply written in another app";
+      const beforeResume = reads;
+      await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+      await expect(page.getByText(replyText, { exact: true })).toBeVisible();
+      assert.equal(reads, beforeResume + 1);
+      assert.equal(requests.at(-1).get("refresh"), "1");
+      await expect(page.getByTestId("error")).toBeEmpty();
+      // Simultaneous return events and a periodic tick share one slow read.
+      replyText = "Later external response";
+      hold = new Promise((resolve) => {
+        release = resolve;
+      });
+      const beforeBurst = reads;
+      await page.evaluate(() => {
+        window.dispatchEvent(new Event("pageshow"));
+        window.dispatchEvent(new Event("online"));
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+      await expect.poll(() => reads).toBe(beforeBurst + 1);
+      await page.clock.fastForward(15000);
+      assert.equal(reads, beforeBurst + 1);
+      hold = undefined;
+      release();
+      await expect(page.getByText(replyText, { exact: true })).toBeVisible();
+      await expect(page.getByTestId("busy")).toHaveText("false");
+      assert.equal(reads, beforeBurst + 1);
+      replyText = "External message while this chat stays open";
+      await page.clock.fastForward(15000);
+      await expect(page.getByText(replyText, { exact: true })).toBeVisible();
+      await expect(page.getByLabel("Draft")).toHaveValue("Keep this draft");
       assert.equal(writes, 0);
       console.log(
         name +
-          ": transient history quietly recovers; prolonged/access failures visible; saved text/draft retained; no writes",
+          ": resume/focus and periodic external updates, coalesced slow reads, quiet recovery and draft preservation; no writes",
       );
     } finally {
       await browser.close();

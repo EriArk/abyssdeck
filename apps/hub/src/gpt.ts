@@ -2033,6 +2033,7 @@ export function registerGpt(
           before: id.optional(),
           messageId: id.optional(),
           cached: z.literal("1").optional(),
+          refresh: z.literal("1").optional(),
           known: z
             .string()
             .regex(/^[a-f0-9]{64}$/)
@@ -2053,8 +2054,11 @@ export function registerGpt(
     const page = await service.historyCache.page(
       p.id,
       q,
-      running ? 15000 : 60000,
-      !q.known || q.cached === "1",
+      // An open viewer can observe native work started outside CodexWeb.
+      // Resume/foreground reads await canonical data, with a small shared TTL
+      // to coalesce multiple tabs; they never reconcile or dispatch jobs.
+      q.refresh === "1" ? 1500 : running ? 15000 : 60000,
+      q.refresh !== "1" && (!q.known || q.cached === "1"),
     );
     service.authorize();
     service.library.assertExists("thread", p.id);
