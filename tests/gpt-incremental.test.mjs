@@ -11,7 +11,7 @@ import { Store } from "../apps/hub/dist/store.js";
 import Fastify from "../apps/hub/node_modules/fastify/fastify.js";
 import { mergeGptHistory } from "../apps/web/src/gptState.ts";
 import { firstResultPage, mergeResultUpdate } from "../apps/web/src/resultState.ts";
-import { configSchema, HubError } from "../packages/shared/dist/index.js";
+import { configSchema, HubError, isGptChatMessage } from "../packages/shared/dist/index.js";
 
 const messages = (n) =>
   Array.from({ length: n }, (_, i) => ({
@@ -23,6 +23,41 @@ const messages = (n) =>
     complete: true,
   }));
 const previews = { inline: (_chat, id) => `demo-${id}` };
+test("history pages count twenty rendered messages, retain progress and paginate without gaps", async () => {
+  const visible = messages(53);
+  const list = visible.flatMap((m, i) => [
+    ...Array.from({ length: (i % 5) + 1 }, (_, n) => ({
+      ...m,
+      id: `progress-${i}-${n}`,
+      role: "assistant",
+      phase: "commentary",
+    })),
+    { ...m, id: `partial-${i}`, role: "assistant", complete: false },
+    m,
+  ]);
+  const cache = new GptHistoryCache(async () => list);
+  let page = await cache.page("c", {});
+  let all = page.items;
+  assert.equal(page.items.filter(isGptChatMessage).length, 20);
+  const first = page;
+  while (page.nextBefore) {
+    page = await cache.page("c", { before: page.nextBefore });
+    assert.equal(page.items.filter(isGptChatMessage).length, page.nextBefore ? 20 : 13);
+    all = [...page.items, ...all];
+  }
+  assert.deepEqual(
+    all.map((m) => m.id),
+    list.map((m) => m.id),
+  );
+  const focus = await cache.page("c", { messageId: "progress-25-0" });
+  assert.ok(focus.items.some((m) => m.id === "progress-25-0"));
+  assert.equal(focus.items.filter(isGptChatMessage).length, 20);
+  const view = mergeGptHistory(undefined, first);
+  assert.deepEqual(
+    mergeGptHistory(view, await cache.page("c", { known: view.revision, delta: "1" })).messages,
+    view.messages,
+  );
+});
 const file = (i) => ({
   id: `f${i}`,
   name: `${i}.txt`,

@@ -46,7 +46,8 @@ export function useGptHistory(selected: string) {
     const cached = gptCache.chats[selected];
     setPage(cached);
     sticky.current = cached?.sticky ?? true;
-    setLoading(!!selected && !cached);
+    setLoading(!!selected && (!cached || !!pending.current.get(selected)?.window));
+    setRevalidating(pending.current.has(selected));
     setError("");
     return () => {
       rememberScroll(selected);

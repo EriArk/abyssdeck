@@ -70,6 +70,20 @@ export function gptLinkedText(body: string, metadata: unknown): string {
     }
     // During streaming, a direct URL can precede its metadata. Never guess search IDs.
     const parts = inner.split("\ue202");
+    // Entity cards carry their visible name in the token itself. The native
+    // business/search ID is not a URL: retain the name without inventing a link.
+    if (parts[0] === "entity" && parts.length === 2) {
+      try {
+        const entity: unknown = JSON.parse(parts[1]!);
+        if (Array.isArray(entity) && typeof entity[1] === "string")
+          return entity[1]
+            .slice(0, 2000)
+            .replace(/[\u0000-\u001f\u007f\ue200-\ue203]/g, " ")
+            .replace(/[\\\x60*_[\]<>!]/g, "\\$&");
+      } catch {
+        // Incomplete streaming tokens are resolved by the next canonical read.
+      }
+    }
     if (!ref && parts[0] === "url" && parts.length === 3) return link(parts[2], parts[1], false);
     return "";
   });

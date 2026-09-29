@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { GptHistoryPage, GptMessage } from "@codex-web/shared";
-import { HubError } from "@codex-web/shared";
+import { HubError, isGptChatMessage } from "@codex-web/shared";
 import type { GptHistoryDisk } from "./gpt-history-disk.js";
 import type { GptResultIndex } from "./gpt-result-index.js";
 
@@ -337,12 +337,14 @@ export class GptHistoryCache {
         "Сообщение больше не находится в этой ветке чата.",
       );
     const end = query.messageId
-      ? Math.min(list.length, focus + 11)
+      ? this.chatBoundary(list, focus, 11, 1)
       : query.before
         ? list.findIndex((m) => m.id === query.before)
         : list.length;
     if (end < 0) throw new HubError(409, "GPT_HISTORY_CHANGED", "История изменилась. Обнови чат.");
-    const start = Math.max(0, end - 20);
+    // Public progress remains in the same canonical slice for Reasoning, but
+    // never consumes the twenty conversation messages promised by Load more.
+    const start = this.chatBoundary(list, end, 20, -1);
     const anchor = query.anchor ? list.findIndex((m) => m.id === query.anchor) : -1;
     return {
       items: list.slice(start, end),
@@ -356,5 +358,14 @@ export class GptHistoryCache {
       stale: entry.stale,
       refreshMessage: entry.refreshMessage,
     };
+  }
+  private chatBoundary(list: GptMessage[], offset: number, count: number, direction: 1 | -1) {
+    let index = offset;
+    while (direction < 0 ? index > 0 : index < list.length) {
+      const message = list[direction < 0 ? --index : index++]!;
+      if (isGptChatMessage(message) && --count === 0) break;
+    }
+    if (direction < 0) while (index > 0 && !isGptChatMessage(list[index - 1]!)) index--;
+    return index;
   }
 }

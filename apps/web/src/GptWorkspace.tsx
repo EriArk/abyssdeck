@@ -11,7 +11,7 @@ import type {
   ResultCategory,
   ResultItem,
 } from "@codex-web/shared";
-import { projectContextEnd, projectContextStart } from "@codex-web/shared";
+import { isGptChatMessage, projectContextEnd, projectContextStart } from "@codex-web/shared";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Markdown, { defaultUrlTransform } from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -1876,7 +1876,7 @@ export function GptWorkspace({
                       void history(selected, before).catch(() => {});
                     }}
                   >
-                    Загрузить ещё 20
+                    {loading ? "Загружаем сообщения…" : "Загрузить ещё 20"}
                   </button>
                 )}
                 {selected && !historyReady && (
@@ -1907,170 +1907,155 @@ export function GptWorkspace({
                     )}
                   </div>
                 )}
-                {selected && historyReady && revalidating && !historyNotice && (
-                  <div className="gpt-revalidating" role="status">
-                    <span className="spinner" />
-                    Обновляем разговор…
-                  </div>
-                )}
                 {!selected && !messages.length && !currentJobs.length && (
                   <div className="gpt-empty">Что обсудим?</div>
                 )}
-                {messages
-                  .filter(
-                    (message) =>
-                      message.role === "user" ||
-                      (message.phase !== "commentary" && message.complete !== false),
-                  )
-                  .map((message) => (
-                    <article
-                      className={"message " + message.role}
-                      key={message.id}
-                      data-message={message.id}
-                      data-chat-message={message.id}
-                    >
-                      <div className="message-header">
-                        <span className="avatar">{message.role === "user" ? "Я" : "G"}</span>
-                        <b>{message.role === "user" ? "Вы" : "GPT"}</b>
-                        <span className="message-actions">
-                          {!roomEndpoint && nativeOperations.button(message, !!active || busy)}
-                          {onPublishToRoom &&
-                            message.role === "assistant" &&
-                            message.text.trim() && (
-                              <button
-                                type="button"
-                                className="icon-button"
-                                aria-label="Предложить на общую доску"
-                                onClick={() => onPublishToRoom(message.text)}
-                              >
-                                <Icon name="plus" size={17} />
-                              </button>
-                            )}
-                          {message.role === "assistant" && (
-                            <SpeechButton id={`${speechScope}:${message.id}`} text={message.text} />
-                          )}
-                          {onNotebook && message.text.trim() && (
-                            <button
-                              type="button"
-                              className="icon-button"
-                              aria-label="Сохранить в заметки"
-                              onClick={() => {
-                                const context = notebookContext();
-                                onNotebook({
-                                  ...context,
-                                  mode: "notes",
-                                  capture: {
-                                    scope: context.scope,
-                                    text: message.text,
-                                    role: message.role,
-                                    target: {
-                                      client: "gpt",
-                                      kind: "thread",
-                                      id: selected,
-                                      threadId: selected,
-                                      messageId: message.id,
-                                      title:
-                                        items.find((c) => c.id === selected)?.title || "Чат GPT",
-                                    },
+                {messages.filter(isGptChatMessage).map((message) => (
+                  <article
+                    className={"message " + message.role}
+                    key={message.id}
+                    data-message={message.id}
+                    data-chat-message={message.id}
+                  >
+                    <div className="message-header">
+                      <span className="avatar">{message.role === "user" ? "Я" : "G"}</span>
+                      <b>{message.role === "user" ? "Вы" : "GPT"}</b>
+                      <span className="message-actions">
+                        {!roomEndpoint && nativeOperations.button(message, !!active || busy)}
+                        {onPublishToRoom && message.role === "assistant" && message.text.trim() && (
+                          <button
+                            type="button"
+                            className="icon-button"
+                            aria-label="Предложить на общую доску"
+                            onClick={() => onPublishToRoom(message.text)}
+                          >
+                            <Icon name="plus" size={17} />
+                          </button>
+                        )}
+                        {message.role === "assistant" && (
+                          <SpeechButton id={`${speechScope}:${message.id}`} text={message.text} />
+                        )}
+                        {onNotebook && message.text.trim() && (
+                          <button
+                            type="button"
+                            className="icon-button"
+                            aria-label="Сохранить в заметки"
+                            onClick={() => {
+                              const context = notebookContext();
+                              onNotebook({
+                                ...context,
+                                mode: "notes",
+                                capture: {
+                                  scope: context.scope,
+                                  text: message.text,
+                                  role: message.role,
+                                  target: {
+                                    client: "gpt",
+                                    kind: "thread",
+                                    id: selected,
+                                    threadId: selected,
+                                    messageId: message.id,
+                                    title: items.find((c) => c.id === selected)?.title || "Чат GPT",
                                   },
-                                });
+                                },
+                              });
+                            }}
+                          >
+                            <Icon name="file" size={17} />
+                          </button>
+                        )}
+                        {!roomEndpoint &&
+                          message.role === "assistant" &&
+                          message.complete !== false &&
+                          message.phase !== "commentary" && (
+                            <IssueCollect
+                              text={message.text}
+                              source={{
+                                client: "gpt",
+                                threadId: selected,
+                                messageId: message.id,
+                                projectId: roomEndpoint ? undefined : projectChat?.projectId,
                               }}
-                            >
-                              <Icon name="file" size={17} />
-                            </button>
+                              targetId={roomEndpoint ? undefined : projectChat?.projectId}
+                            />
                           )}
-                          {!roomEndpoint &&
-                            message.role === "assistant" &&
-                            message.complete !== false &&
-                            message.phase !== "commentary" && (
-                              <IssueCollect
-                                text={message.text}
-                                source={{
-                                  client: "gpt",
-                                  threadId: selected,
-                                  messageId: message.id,
-                                  projectId: roomEndpoint ? undefined : projectChat?.projectId,
-                                }}
-                                targetId={roomEndpoint ? undefined : projectChat?.projectId}
-                              />
-                            )}
-                          <CopyButton text={message.text} />
-                        </span>
-                      </div>
-                      <div className="message-body">
-                        <Text
-                          value={message.text}
-                          issueSource={
-                            !roomEndpoint &&
-                            message.role === "assistant" &&
-                            message.complete !== false &&
-                            message.phase !== "commentary"
-                              ? {
-                                  client: "gpt",
-                                  threadId: selected,
-                                  messageId: message.id,
-                                  projectId: roomEndpoint ? undefined : projectChat?.projectId,
-                                }
-                              : undefined
-                          }
-                          complete={message.complete !== false && message.phase !== "commentary"}
-                          resolveImage={async (source) =>
-                            (
-                              await api<ResultItem>(
-                                `/gpt/conversations/${encodeURIComponent(selected)}/results/reveal`,
-                                { method: "POST", body: { source, messageId: message.id } },
+                        <CopyButton text={message.text} />
+                      </span>
+                    </div>
+                    <div className="message-body">
+                      <Text
+                        value={message.text}
+                        issueSource={
+                          !roomEndpoint &&
+                          message.role === "assistant" &&
+                          message.complete !== false &&
+                          message.phase !== "commentary"
+                            ? {
+                                client: "gpt",
+                                threadId: selected,
+                                messageId: message.id,
+                                projectId: roomEndpoint ? undefined : projectChat?.projectId,
+                              }
+                            : undefined
+                        }
+                        complete={message.complete !== false && message.phase !== "commentary"}
+                        resolveImage={async (source) =>
+                          (
+                            await api<ResultItem>(
+                              `/gpt/conversations/${encodeURIComponent(selected)}/results/reveal`,
+                              { method: "POST", body: { source, messageId: message.id } },
+                            )
+                          ).payload.url
+                        }
+                        onArtifact={
+                          message.role === "assistant"
+                            ? (source) => openArtifact(source, message.files, message.id)
+                            : undefined
+                        }
+                      />
+                      {!!message.unsupported?.length && (
+                        <aside className="native-content-notice">
+                          <p>
+                            {message.unsupported
+                              .map(
+                                (kind) =>
+                                  ({
+                                    audio: "Аудио",
+                                    video: "Видео",
+                                    interactive: "Интерактивное содержимое",
+                                    other: "Дополнительное содержимое",
+                                  })[kind],
                               )
-                            ).payload.url
-                          }
-                          onArtifact={
-                            message.role === "assistant"
-                              ? (source) => openArtifact(source, message.files, message.id)
-                              : undefined
-                          }
+                              .join(" · ")}{" "}
+                            доступно в оригинале.
+                          </p>
+                          <a
+                            href={`https://chatgpt.com/c/${encodeURIComponent(selected)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            Открыть этот диалог в ChatGPT
+                          </a>
+                        </aside>
+                      )}
+                      {message.role === "user" ? (
+                        <Files files={message.files} />
+                      ) : (
+                        <ResponseResults
+                          text={message.text}
+                          files={message.files}
+                          onOpen={openResults}
+                          onArtifact={(source) => openArtifact(source, message.files, message.id)}
                         />
-                        {!!message.unsupported?.length && (
-                          <aside className="native-content-notice">
-                            <p>
-                              {message.unsupported
-                                .map(
-                                  (kind) =>
-                                    ({
-                                      audio: "Аудио",
-                                      video: "Видео",
-                                      interactive: "Интерактивное содержимое",
-                                      other: "Дополнительное содержимое",
-                                    })[kind],
-                                )
-                                .join(" · ")}{" "}
-                              доступно в оригинале.
-                            </p>
-                            <a
-                              href={`https://chatgpt.com/c/${encodeURIComponent(selected)}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              Открыть этот диалог в ChatGPT
-                            </a>
-                          </aside>
-                        )}
-                        {message.role === "user" ? (
-                          <Files files={message.files} />
-                        ) : (
-                          <ResponseResults
-                            text={message.text}
-                            files={message.files}
-                            onOpen={openResults}
-                            onArtifact={(source) => openArtifact(source, message.files, message.id)}
-                          />
-                        )}
-                      </div>
-                      {reviews
-                        .filter((r) => r.source?.messageId === message.id)
-                        .map((r) => (
-                          <WorkReviewLink key={r.id} scope={r.scope} id={r.id} state={r.state} />
-                        ))}
-                    </article>
-                  ))}
+                      )}
+                    </div>
+                    {reviews
+                      .filter((r) => r.source?.messageId === message.id)
+                      .map((r) => (
+                        <WorkReviewLink key={r.id} scope={r.scope} id={r.id} state={r.state} />
+                      ))}
+                  </article>
+                ))}
                 {jobElements}
                 {reviews
                   .filter(
@@ -2259,11 +2244,16 @@ export function GptWorkspace({
               <div className="gpt-input-row">
                 <div className="composer-tools">
                   <div className="composer-loading-slot">
-                    {(preparingSend || busy) && (
+                    {(preparingSend || busy || loading || revalidating) && (
                       <div
                         className="composer-loading"
                         role="status"
-                        aria-label="Загрузка чата GPT"
+                        aria-label={
+                          loading || revalidating ? "Загрузка истории GPT" : "Загрузка чата GPT"
+                        }
+                        title={
+                          loading || revalidating ? "Загружаем сообщения…" : "Подготовка отправки…"
+                        }
                       >
                         <span className="spinner" aria-hidden="true" />
                       </div>

@@ -4,6 +4,19 @@ import { gptHistory } from "../apps/hub/dist/gpt-history.js";
 import { gptLinkedText } from "../apps/hub/dist/gpt-links.js";
 
 const marker = (type, ...parts) => "\ue200" + [type, ...parts].join("\ue202") + "\ue201";
+test("entity names survive native business cards inside bold list headings", () => {
+  for (const name of ["Бабель", "Bookhaus", "Halper's Bookstore", "תולעת ספרים"]) {
+    const token = marker("entity", JSON.stringify(["turn847156business15", name]));
+    assert.equal(gptLinkedText(`2. **${token} — bookstore.**`, {}), `2. **${name} — bookstore.**`);
+  }
+  const malicious = marker(
+    "entity",
+    JSON.stringify(["private-id", "[Click](javascript:evil)<img>"]),
+  );
+  assert.equal(gptLinkedText(malicious, {}), "\\[Click\\](javascript:evil)\\<img\\>");
+  for (const value of ["[", "null", "{}", '["id",{}]', '["id",3]'])
+    assert.equal(gptLinkedText(marker("entity", value), {}), "");
+});
 test("native GPT URL cards and grouped sources survive canonical history at their original positions", () => {
   const a = marker("url", "Store", "turn123search0"),
     b = marker("url", "Store", "turn123search1"),

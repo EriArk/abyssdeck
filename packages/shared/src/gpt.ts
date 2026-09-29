@@ -18,6 +18,10 @@ export interface GptMessage {
   /** Visible native content that the web renderer cannot yet display. Never raw payloads. */
   unsupported?: ("audio" | "video" | "interactive" | "other")[];
 }
+/** Messages counted by chat pagination and rendered in the conversation pane. */
+export function isGptChatMessage(message: GptMessage): boolean {
+  return message.role === "user" || (message.phase !== "commentary" && message.complete !== false);
+}
 export interface GptConversation {
   pinned?: boolean;
   /** Exact position in the native pin list; independent of chat activity. */
