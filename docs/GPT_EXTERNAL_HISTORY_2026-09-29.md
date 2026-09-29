@@ -34,3 +34,12 @@
 Физический iPhone отдельно не проверялся. Старую остановленную отправку не
 возобновляли. Native runtime/Windows helpers не меняются; новый параметр относится
 только к чтению истории между web и Hub.
+
+Установлен выпуск `44d55e6`, 2026-09-29 08:23:54 UTC, штатным updater без force.
+Холодная копия `backups/before-team-engine-44d55e6-1790669954889709826` проверена.
+Engine/gateway healthy; web ID
+`ac69547ae5d981ba548684f8168309386f99ff79153829886e5ca8f3e0f52da1` совпадает
+с публичным `/version.json`. Чтение реального чата через новый `refresh=1`
+вернуло 20 сообщений за 3240 мс, stale=false. 134 native-квитанции сохранили
+тот же digest; native-контейнер не перезапускался. Приватные свидетельства:
+`verification-44d55e6/installed.json`, `history-read.json`, `receipt.json`.
