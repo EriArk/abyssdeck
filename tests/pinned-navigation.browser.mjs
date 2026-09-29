@@ -132,6 +132,61 @@ try {
           hasTouch: true,
         });
         const page = await context.newPage();
+        let catalogReads = 0;
+        let extraChats =
+          mode === "gpt"
+            ? [{ id: "external-removal", title: "Удалён снаружи", updatedAt: 70, pinned: false }]
+            : [];
+        let failCatalog = false;
+        const writes = [];
+        page.on("request", (request) => {
+          if (request.url().includes("/api/") && request.method() !== "GET")
+            writes.push(request.url());
+        });
+        if (mode === "gpt") {
+          await page.addInitScript(() => {
+            if (sessionStorage.getItem("seeded-catalog")) return;
+            sessionStorage.setItem("seeded-catalog", "1");
+            localStorage.setItem(
+              "gpt-navigation-cache-v1",
+              JSON.stringify({
+                version: 1,
+                expires: Date.now() + 86400000,
+                projects: [],
+                offset: null,
+                items: [
+                  { id: "old-cache-ghost", title: "Старый фантом", updatedAt: 80, pinned: false },
+                ],
+              }),
+            );
+          });
+          await page.route("**/api/gpt/conversations?*", async (route) => {
+            catalogReads++;
+            if (failCatalog) return route.fulfill({ status: 503, json: { error: "offline" } });
+            return route.fulfill({
+              json: {
+                items: [
+                  ...items.map((item, i) => ({
+                    ...item,
+                    pinnedOrder: i,
+                    ...(i === 0 ? { projectId: "g-p-test" } : {}),
+                  })),
+                  ...extraChats,
+                ],
+                pinnedIds: items.filter((item) => item.pinned).map((item) => item.id),
+                nextOffset: null,
+                library: [
+                  {
+                    kind: "thread",
+                    id: "external-removal",
+                    name: "Удалён снаружи",
+                    archived: false,
+                  },
+                ],
+              },
+            });
+          });
+        }
         await page.goto(origin + "/?" + mode);
         const show = async () => {
           if (mode === "gpt")
@@ -155,6 +210,30 @@ try {
           .filter({ visible: true });
         await expect(live).toBeVisible();
         if (mode === "gpt") {
+          await expect(
+            page.getByRole("button", { name: "Старый фантом", exact: true }),
+          ).toHaveCount(0);
+          await expect(
+            page.getByRole("button", { name: "Удалён снаружи", exact: true }),
+          ).toBeVisible();
+          // Failed refresh keeps the existing list. Successful native absence removes
+          // the row without a library tombstone, deletion request or user cache reset.
+          failCatalog = true;
+          let before = catalogReads;
+          await page.evaluate(() => window.dispatchEvent(new Event("online")));
+          await expect.poll(() => catalogReads).toBeGreaterThan(before);
+          await expect(
+            page.getByRole("button", { name: "Удалён снаружи", exact: true }),
+          ).toBeVisible();
+          await page.waitForTimeout(150);
+          failCatalog = false;
+          extraChats = [];
+          before = catalogReads;
+          await page.evaluate(() => window.dispatchEvent(new Event("pageshow")));
+          await expect.poll(() => catalogReads).toBeGreaterThan(before);
+          await expect(
+            page.getByRole("button", { name: "Удалён снаружи", exact: true }),
+          ).toHaveCount(0);
           assert(
             (await live.boundingBox()).y >=
               (await panel.boundingBox()).y + (await panel.boundingBox()).height,
@@ -196,6 +275,7 @@ try {
           }),
         ).toBeVisible();
         await page.keyboard.press("Escape");
+        assert.deepEqual(writes, [], "navigation recovery must never send or mutate native chats");
         await context.close();
         console.log(
           engine +

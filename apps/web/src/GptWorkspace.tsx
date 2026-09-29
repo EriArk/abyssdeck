@@ -29,13 +29,14 @@ import { composerShortcut } from "./composerShortcut";
 import { terminalDevice } from "./DeviceWorkspaceHost";
 import { useDictation } from "./Dictation";
 import { DownloadLink } from "./DownloadLink";
-import { EntityMenu, type LibraryChange, type LibraryEntity, libraryEvent } from "./EntityMenu";
+import { EntityMenu, type LibraryChange, libraryEvent } from "./EntityMenu";
 import { GptImage } from "./GptImage";
 import { useGptNativeOperations } from "./GptNativeOperations";
 import { GptProgress } from "./GptProgress";
 import { GptProjectPending } from "./GptProjectContent";
 import { GptResultHandoffs } from "./GptResultHandoffs";
-import { beginGptHistory, gptCache, saveGptCache } from "./gptCache";
+import { beginGptHistory, gptCache, gptCacheEpoch, saveGptCache } from "./gptCache";
+import { type GptCatalogPage, readGptNavigation } from "./gptCatalog";
 import { mergeGptJobs, showGptJob, waitingGptJob } from "./gptState";
 import { IssueCollect, useIssueCode } from "./IssueDrawer";
 import { Icon } from "./icons";
@@ -412,53 +413,62 @@ export function GptWorkspace({
     }
   }, []);
   const catalogVersion = useRef(0);
+  const catalogDepth = useRef(gptCache.catalogDepth);
+  const catalogFlight = useRef<{ version: number; promise: Promise<void> } | null>(null);
+  const catalogMounted = useRef(true);
+  useEffect(() => {
+    catalogMounted.current = true;
+    return () => {
+      catalogMounted.current = false;
+      catalogVersion.current++;
+    };
+  }, []);
   const [catalogLoaded, setCatalogLoaded] = useState(gptCache.catalogAt > 0);
   const catalog = useCallback(async (append = false, next = 0, force = true) => {
+    if (!catalogMounted.current) return;
+    // Slow reads are shared, never replaced by the next polling tick. A local
+    // mutation invalidates their result and gets a fresh read after they settle.
+    while (catalogFlight.current) {
+      const pending = catalogFlight.current;
+      await pending.promise;
+      if (!catalogMounted.current) return;
+      if (pending.version === catalogVersion.current && (!append || next <= catalogDepth.current))
+        return;
+    }
     if (!append && !force && Date.now() - gptCache.catalogAt < 30000) return;
     const version = catalogVersion.current;
-    const data = await api<{
-      items: GptConversation[];
-      nextOffset: number | null;
-      pinnedIds?: string[];
-      library?: LibraryEntity[];
-    }>("/gpt/conversations?offset=" + next);
-    if (version !== catalogVersion.current) return;
-    gptCache.catalogAt = Date.now();
-    setCatalogLoaded(true);
-    setLoadNotice("");
-    const metadata = new Map(
-      (data.library ?? []).filter((e) => e.kind === "thread").map((e) => [e.id, e]),
-    );
-    setItems((old) =>
-      [...new Map([...old, ...data.items].map((c) => [c.id, c])).values()].map((row) => ({
-        ...row,
-        title: metadata.get(row.id)?.name || row.title,
-        pinned: data.pinnedIds ? data.pinnedIds.includes(row.id) : row.pinned,
-        pinnedOrder: data.pinnedIds ? data.pinnedIds.indexOf(row.id) : row.pinnedOrder,
-        archived: metadata.get(row.id)?.archived ?? row.archived,
-        deleted: metadata.get(row.id)?.deleted ?? row.deleted,
-      })),
-    );
-    setOffset((old) =>
-      !append && next === 0 && old !== null
-        ? Math.max(old, data.nextOffset ?? 0) || null
-        : data.nextOffset,
-    );
+    const epoch = gptCacheEpoch();
+    const promise = (async () => {
+      const data = await readGptNavigation(
+        (offset) => api<GptCatalogPage>("/gpt/conversations?offset=" + offset),
+        () => api<{ items: GptProject[]; conversations: GptConversation[] }>("/gpt/projects"),
+        Math.max(catalogDepth.current, append ? next : 0),
+      );
+      if (
+        !catalogMounted.current ||
+        version !== catalogVersion.current ||
+        epoch !== gptCacheEpoch()
+      )
+        return;
+      catalogDepth.current = data.lastOffset;
+      gptCache.catalogDepth = data.lastOffset;
+      gptCache.catalogAt = gptCache.projectsAt = Date.now();
+      setCatalogLoaded(true);
+      setLoadNotice("");
+      setItems(data.items);
+      setProjects(data.projects);
+      setOffset(data.nextOffset);
+    })();
+    const flight = { version, promise };
+    catalogFlight.current = flight;
+    try {
+      await promise;
+    } finally {
+      if (catalogFlight.current === flight) catalogFlight.current = null;
+    }
   }, []);
   useEffect(() => {
-    const refresh = async () => {
-      const version = catalogVersion.current;
-      await catalog();
-      const data = await api<{ items: GptProject[]; conversations: GptConversation[] }>(
-        "/gpt/projects",
-      );
-      if (version !== catalogVersion.current) return;
-      setProjects(data.items);
-      setItems((old) => [
-        ...new Map([...data.conversations, ...old].map((t) => [t.id, t])).values(),
-      ]);
-      gptCache.projectsAt = Date.now();
-    };
+    const refresh = () => catalog();
     const changed = (event: Event) => {
       const d = (event as CustomEvent<LibraryChange>).detail;
       if (d.client !== "gpt") return;
@@ -487,11 +497,15 @@ export function GptWorkspace({
     window.addEventListener(libraryEvent, changed);
     window.addEventListener(gptSettingsChanged, visible);
     document.addEventListener("visibilitychange", visible);
+    window.addEventListener("pageshow", visible);
+    window.addEventListener("online", visible);
     const timer = setInterval(visible, 30000);
     return () => {
       window.removeEventListener(libraryEvent, changed);
       window.removeEventListener(gptSettingsChanged, visible);
       document.removeEventListener("visibilitychange", visible);
+      window.removeEventListener("pageshow", visible);
+      window.removeEventListener("online", visible);
       clearInterval(timer);
     };
   }, [catalog, items]);
@@ -518,18 +532,6 @@ export function GptWorkspace({
     };
     void readConnection().catch(() => {});
     void load();
-    if (Date.now() - gptCache.projectsAt >= 30000)
-      void api<{ items: GptProject[]; conversations: GptConversation[] }>("/gpt/projects")
-        .then((data) => {
-          if (!disposed) {
-            gptCache.projectsAt = Date.now();
-            setProjects(data.items);
-            setItems((old) => [
-              ...new Map([...old, ...data.conversations].map((c) => [c.id, c])).values(),
-            ]);
-          }
-        })
-        .catch(() => {});
     return () => {
       disposed = true;
       clearTimeout(retry);

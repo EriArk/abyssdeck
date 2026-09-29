@@ -1,7 +1,7 @@
 import type { GptConversation, GptJob, GptMessage, GptModels, GptProject } from "@codex-web/shared";
 import {
-  accountSessionStorage as sessionStorage,
   accountLocalStorage as localStorage,
+  accountSessionStorage as sessionStorage,
 } from "./accountStorage.ts";
 
 export interface GptCachedChat {
@@ -62,6 +62,7 @@ type Cache = {
   model: string;
   effort: string;
   offset: number | null;
+  catalogDepth: number;
   stamps: Record<string, number>;
 };
 const empty = (): Cache => ({
@@ -75,6 +76,7 @@ const empty = (): Cache => ({
   model: "",
   effort: "",
   offset: null,
+  catalogDepth: 0,
   stamps: {},
 });
 function restore(): Cache {
@@ -107,6 +109,12 @@ function restore(): Cache {
       cache.items = value.items;
       cache.projects = value.projects;
       cache.offset = Number.isSafeInteger(value.offset) && value.offset >= 0 ? value.offset : null;
+      cache.catalogDepth =
+        Number.isSafeInteger(value.catalogDepth) &&
+        value.catalogDepth >= 0 &&
+        value.catalogDepth <= 10000
+          ? value.catalogDepth
+          : 0;
     }
   } catch {}
   return cache;
@@ -151,6 +159,7 @@ export function flushGptCache() {
       items: gptCache.items,
       projects: gptCache.projects,
       offset: gptCache.offset,
+      catalogDepth: gptCache.catalogDepth,
     });
     if (data.length < 500000) localStorage.setItem(navigationKey, data);
   } catch {}
