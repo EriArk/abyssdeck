@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { accountLocalStorage as localStorage, workspaceUrl } from "./accountStorage.ts";
 import { api } from "./api";
 import { AudioMessageSpeech } from "./audioSpeech";
@@ -260,8 +260,19 @@ export function useSpeechScope(scope: string, visible: boolean) {
     };
   }, [scope, visible]);
 }
-export function SpeechButton({ id, text }: { id: string; text: string }) {
+export function SpeechButton({
+  id,
+  text,
+  idleLabel = "Озвучить ответ",
+  format = "markdown",
+}: {
+  id: string;
+  text: string;
+  idleLabel?: string;
+  format?: "markdown" | "text";
+}) {
   const state = useSyncExternalStore(player.subscribe, player.snapshot, player.snapshot);
+  const spokenText = useMemo(() => (format === "text" ? text : speechText(text)), [text, format]);
   const [hasVoice, setHasVoice] = useState(false);
   const { mode, background } = useSpeechMode();
   useEffect(() => {
@@ -279,8 +290,8 @@ export function SpeechButton({ id, text }: { id: string; text: string }) {
     return () => engine.removeEventListener("voiceschanged", refresh);
   }, []);
   useEffect(() => () => player.stop(id), [id]);
-  if ((!device() && !background) || !text.trim()) return null;
-  const playable = mode === "system" ? hasVoice : background && speechText(text).length <= 30000;
+  if ((!device() && !background) || !spokenText.trim()) return null;
+  const playable = mode === "system" ? hasVoice : background && spokenText.length <= 30000;
   const active = state.id === id && state.phase !== "idle";
   const paused = active && state.phase === "paused";
   const label =
@@ -290,7 +301,7 @@ export function SpeechButton({ id, text }: { id: string; text: string }) {
         ? paused
           ? "Продолжить озвучивание"
           : "Приостановить озвучивание"
-        : "Озвучить ответ";
+        : idleLabel;
   const error = state.id === id ? state.error : "";
   return (
     <span className="speech-control" data-speech-state={active ? state.phase : "idle"}>
@@ -303,7 +314,9 @@ export function SpeechButton({ id, text }: { id: string; text: string }) {
             ? label
             : mode === "system"
               ? "Системный голос пока недоступен"
-              : "Фоновое аудио недоступно"
+              : background && spokenText.length > 30000
+                ? "Для текста длиннее 30 000 символов выбери системный голос в настройках"
+                : "Фоновое аудио недоступно"
         }
         disabled={(state.id === id && state.phase === "loading") || (!playable && !active)}
         onClick={(event) => {
@@ -312,7 +325,7 @@ export function SpeechButton({ id, text }: { id: string; text: string }) {
           if (active) {
             if (paused) player.resume();
             else player.pause();
-          } else player.start(id, speechText(text));
+          } else player.start(id, spokenText);
         }}
       >
         <Icon
