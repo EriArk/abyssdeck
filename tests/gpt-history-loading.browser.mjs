@@ -95,7 +95,20 @@ try {
         if (path.endsWith("/messages")) {
           reads++;
           if (url.searchParams.has("cached"))
-            data = { items: [], revision: "cached", nextBefore: "m20" };
+            data = {
+              items: [
+                {
+                  id: "old-progress",
+                  role: "assistant",
+                  phase: "commentary",
+                  text: "Public progress",
+                  files: [],
+                  createdAt: 1,
+                },
+              ],
+              revision: "canonical",
+              nextBefore: "m20",
+            };
           else {
             if (hold) await hold;
             if (fail)

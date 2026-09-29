@@ -1,4 +1,5 @@
 import type { GptHistoryPage } from "@codex-web/shared";
+import { isGptChatMessage } from "@codex-web/shared";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ApiError, api, messageOf } from "./api";
 import {
@@ -129,8 +130,13 @@ export function useGptHistory(selected: string) {
           if (messageId) query.set("messageId", messageId);
           else if (older) query.set("before", older);
           else if (cached?.revision && !cached.contextMessage) {
-            query.set("known", cached.revision);
-            query.set("delta", "1");
+            // An older client may have cached twenty progress records but no
+            // visible answers. Equal content revision does not mean its page
+            // is full under the current conversation-message pagination rule.
+            if (!cached.before || cached.messages.filter(isGptChatMessage).length >= 20) {
+              query.set("known", cached.revision);
+              query.set("delta", "1");
+            }
             if (cached.anchor) query.set("anchor", cached.anchor);
             if (cached.prefix) query.set("prefix", cached.prefix);
           }
