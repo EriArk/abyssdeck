@@ -28,7 +28,7 @@ export default defineConfig({
           this.emitFile({
             type: "asset",
             fileName: "engine-compat.json",
-            source: JSON.stringify({ protocol: 1, minSchema: 29, maxSchema: 29 }),
+            source: JSON.stringify({ protocol: 1, minSchema: 30, maxSchema: 30 }),
           });
           // Shared lazy CSS can be deduplicated after transformIndexHtml. Stamp
           // both outputs from the final bundle so the installed PWA has one ID.
