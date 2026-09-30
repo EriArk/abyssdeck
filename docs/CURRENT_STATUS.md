@@ -1,15 +1,22 @@
 # Текущий остаток — 30 сентября 2026
 
-## Companion — аудит и проект универсального приложения
+## Companion — первый Windows UI/трей
 
 Согласован один Companion с правами по Hub account, трей, readiness/recovery и
 автообновление. Windows — ближайший приоритет; управление Hub остаётся в вебе.
 [Проект и этапы](COMPANION_APP.md), [текущая установка/переход](COMPANION_APP_MIGRATION.md).
-Новый UI и перенос работников ещё не установлены. Этот заход подготовил проект;
-accounts/projects/tasks владельца не менялись.
+Реализован отдельный UI **0.2.0**: native окно/трей, overview Hub/ПК, read-only
+inventory девяти tasks, passive broker/Computer Use status, четыре темы,
+настройки и локальный отчёт. Автономный win-x64 пакет Avalonia 12.1.3/.NET 10.0.12;
+build SDK 10.0.401 локален, пользовательскому приложению не нужен.
+[Сборка, установка и доступное поведение](COMPANION_APP_BUILD.md).
+Compatibility spike на реальном Windows 10 Home/build 19045/125% DPI прошёл;
+9 целевых checks по SID, settings, roots, readiness и coalescing прошли.
+Установка UI и её точная приёмка завершаются в этом заходе. Workers/accounts/
+projects/roots и нынешние девять tasks не заменяются.
 
-Следующий заход: первый Windows UI/трей, автономная упаковка и read-only подхват
-нынешнего ПК без замены workers. **GPT‑6.1 Sol, Высокое (`high`)**;
+Следующий заход: scoped Hub device pairing/roles, owner binding и resumable
+мастер участника (Windows/LAN/Tailnet). **GPT‑6.1 Sol, Высокое (`high`)**;
 ждать «Продолжаем» перед началом следующего этапа.
 
 ## Ответы на вопросы — исправление активной передачи
@@ -41,7 +48,8 @@ UTC** обычным guarded release, без owner force. Оба сервиса 
 thread/ход `01a0f2d0-bfe7-7bd2-95e9-2a521388ee54`: остаётся running, без нового
 `turn/start` после установки. Persistent процесс PID 8248 стартовал в 14:55:17
 UTC, до обновления Hub; его runtime и GUI task не заменялись. Public HTTPS
-и installed Companion stdio подтверждены. Новый Companion UI ещё не создан.
+и installed Companion stdio подтверждены. Последующий UI Companion описан выше;
+тот Hub release его не устанавливал.
 
 По скриншоту «Конец задачи» проверен exact owner thread: **30 сентября 14:11:56
 UTC** native ход завершился с `CODEX_ERROR`: `Selected model is at capacity.

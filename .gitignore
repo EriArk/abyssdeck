@@ -53,3 +53,9 @@ playwright-report/
 
 __pycache__/
 *.pyc
+
+# Native Companion build output
+apps/companion/bin/
+apps/companion/obj/
+tests/companion-app/bin/
+tests/companion-app/obj/
