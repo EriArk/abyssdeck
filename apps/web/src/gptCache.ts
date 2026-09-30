@@ -63,7 +63,6 @@ type Cache = {
   effort: string;
   offset: number | null;
   catalogDepth: number;
-  stamps: Record<string, number>;
 };
 const empty = (): Cache => ({
   chats: {},
@@ -77,7 +76,6 @@ const empty = (): Cache => ({
   effort: "",
   offset: null,
   catalogDepth: 0,
-  stamps: {},
 });
 function restore(): Cache {
   try {
@@ -87,7 +85,6 @@ function restore(): Cache {
         ...empty(),
         ...value.data,
         ...(!value.data.models ? restoreModels() : {}),
-        stamps: {},
       };
   } catch {}
   const cache = { ...empty(), ...restoreModels() };

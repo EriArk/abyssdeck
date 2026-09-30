@@ -122,6 +122,45 @@ test("GPT job summaries cannot erase retained answers and late snapshots cannot 
   assert.equal(mergeGptJobs(result, [old])[0].status, "completed");
 });
 
+test("Confirmed GPT summaries clear obsolete errors without discarding uncertain receipts or text", () => {
+  const old = {
+    id: "paused",
+    nativeId: "chat",
+    status: "unknown",
+    text: "Exact question",
+    answer: "Partial answer",
+    files: [{ id: "upload" }],
+    assets: [],
+    error: "Checks stopped after repeated failures",
+    createdAt: 1,
+    updatedAt: 10,
+  };
+  const summary = (status) => ({
+    ...old,
+    status,
+    text: "",
+    answer: "",
+    files: [],
+    error: "",
+    summaryOnly: true,
+    updatedAt: 20,
+  });
+  for (const status of ["queued", "preparing", "running", "completed"]) {
+    const [healed] = mergeGptJobs([old], [summary(status)]);
+    assert.equal(healed.error, "", status);
+    assert.equal(healed.text, old.text);
+    assert.equal(healed.answer, old.answer);
+    assert.deepEqual(healed.files, old.files);
+    assert.equal(mergeGptJobs([healed], [old])[0].error, "");
+    const [full] = mergeGptJobs([healed], [{ ...healed, answer: "Full confirmed answer" }]);
+    assert.equal(full.answer, "Full confirmed answer");
+  }
+  for (const status of ["unknown", "failed", "cancelled"])
+    assert.equal(mergeGptJobs([old], [summary(status)])[0].error, old.error, status);
+  const [other] = mergeGptJobs([old], [{ ...summary("completed"), id: "another-job" }]);
+  assert.equal(other.error, old.error);
+});
+
 test("Late GPT polling cannot resurrect a dismissed outbox item or its cached contents", () => {
   const job = {
     id: "deleted",

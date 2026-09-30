@@ -100,7 +100,17 @@ export function mergeGptJobs(previous: GptJob[], incoming: GptJob[]): GptJob[] {
       job.dismissed
         ? { ...job, text: "", files: [], answer: "", assets: [], progress: [], error: "" }
         : job.summaryOnly && old && !old.summaryOnly
-          ? { ...old, status: job.status, nativeId: job.nativeId, updatedAt: job.updatedAt }
+          ? {
+              ...old,
+              status: job.status,
+              nativeId: job.nativeId,
+              updatedAt: job.updatedAt,
+              // Summary payloads omit errors. Only a confirmed healthy status
+              // supersedes the old failure; unknown/failed still need full details.
+              error: ["queued", "preparing", "running", "completed"].includes(job.status)
+                ? ""
+                : old.error,
+            }
           : job,
     );
   }

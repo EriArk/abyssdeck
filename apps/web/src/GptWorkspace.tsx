@@ -577,14 +577,20 @@ export function GptWorkspace({
     let disposed = false,
       timer: ReturnType<typeof setTimeout>;
     const controller = new AbortController();
+    // A cursor belongs to this mounted scope, not the cached presentation.
+    // Reopening must hydrate full jobs even if summaries arrived elsewhere.
     let polling = false,
-      stamp = gptCache.stamps[selected || createdJob] ?? 0;
+      stamp = 0,
+      snapshot = true;
     const poll = async () => {
       if (polling || disposed) return;
       clearTimeout(timer);
       polling = true;
+      const full = snapshot;
+      snapshot = false;
+      let failed = false;
       try {
-        const query = new URLSearchParams({ after: String(stamp) });
+        const query = new URLSearchParams({ after: String(full ? 0 : stamp) });
         if (selected) query.set("nativeId", selected);
         if (createdJob) query.set("watch", createdJob);
         const data = await api<{ items: GptJob[]; stamp: number; live?: typeof live }>(
@@ -594,14 +600,15 @@ export function GptWorkspace({
             timeoutMs: 15000,
           },
         );
-        stamp = data.stamp;
-        gptCache.stamps[selected || createdJob] = stamp;
         if (disposed) return;
+        stamp = data.stamp;
         if (data.live?.items.length) setLive(data.live);
         const completed = data.items.some(
           (job) =>
             job.status === "completed" &&
-            previousJobs.current.some((old) => old.id === job.id && isActive(old)),
+            previousJobs.current.some(
+              (old) => old.id === job.id && (isActive(old) || old.status === "unknown"),
+            ),
         );
         setJobs((old) => mergeGptJobs(old, data.items));
         previousJobs.current = mergeGptJobs(previousJobs.current, data.items);
@@ -612,15 +619,23 @@ export function GptWorkspace({
         }
       } catch {
         /* The composer reports network errors; polling resumes after reconnect. */
+        failed = true;
+        snapshot ||= full;
       }
       polling = false;
-      if (!disposed) timer = setTimeout(poll, document.hidden ? 5000 : 1200);
+      if (!disposed)
+        timer = setTimeout(poll, snapshot && !failed ? 0 : document.hidden ? 5000 : 1200);
     };
     void poll();
     const resume = () => {
-      if (!document.hidden) void poll();
+      if (!document.hidden) {
+        // Coalesce recovery events without losing one during an in-flight read.
+        snapshot = true;
+        void poll();
+      }
     };
     document.addEventListener("visibilitychange", resume);
+    window.addEventListener("focus", resume);
     window.addEventListener("pageshow", resume);
     window.addEventListener("online", resume);
     return () => {
@@ -628,6 +643,7 @@ export function GptWorkspace({
       clearTimeout(timer);
       controller.abort();
       document.removeEventListener("visibilitychange", resume);
+      window.removeEventListener("focus", resume);
       window.removeEventListener("pageshow", resume);
       window.removeEventListener("online", resume);
     };
@@ -1326,7 +1342,10 @@ export function GptWorkspace({
                   onClick={() =>
                     void action(async () => {
                       if (job.nativeId) await history(job.nativeId, undefined, true);
-                      await api("/gpt/jobs/" + job.id + "/resolve", { method: "POST" });
+                      const data = await api<{ job: GptJob }>("/gpt/jobs/" + job.id + "/resolve", {
+                        method: "POST",
+                      });
+                      setJobs((old) => mergeGptJobs(old, [data.job]));
                     })
                   }
                 >
