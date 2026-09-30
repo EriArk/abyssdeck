@@ -30,7 +30,11 @@ Private evidence: `.local/companion-build/{before,installed-inventory,installed,
 roots не мигрированы. Pairing, lifecycle recovery и auto-update ещё не реализованы.
 
 Следующий заход: scoped Hub device pairing/roles, owner binding и resumable
-мастер участника (Windows/LAN/Tailnet). **GPT‑6.1 Sol, Высокое (`high`)**;
+мастер участника (Windows/LAN/Tailnet), видимые галочки исправности и кнопки
+ручного ремонта конкретной неисправности (уточнение владельца 30 сентября).
+UI 0.2.0 пока показывает текстовые статусы; эти controls не установлены.
+Контракт причин/действий закреплён в [проекте Companion](COMPANION_APP.md).
+**GPT‑6.1 Sol, Высокое (`high`)**;
 ждать «Продолжаем» перед началом следующего этапа.
 
 ## Ответы на вопросы — исправление активной передачи
