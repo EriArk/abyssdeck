@@ -38,6 +38,16 @@ roots не мигрированы. Pairing, lifecycle recovery и auto-update е
 памятка для друга входят в тот же этап. Существующий ПК владельца подхватывается.
 UI 0.2.0 пока показывает текстовые статусы; эти controls не установлены.
 Контракт причин/действий закреплён в [проекте Companion](COMPANION_APP.md).
+Владелец разрешил обновить уже подключённый ПК друга с сохранением его личных
+входов и настроек и использовать реальную установку для приёмки. Проверка
+30 сентября: approved ПК `flores`/`Fima` найден; exact member terminal SSH
+завершается ConnectTimeout. Hub Tailnet Running/Online; peer Online=false,
+LastSeen **28 сентября 09:54:17 UTC**. Обновление на ПК не начиналось.
+После появления доступа сначала снять его собственный baseline/accounts/roots/
+task definitions и проверить idle admission для замены workers; UI ставится
+отдельно. Проверить уже установленные входы без переноса owner credentials.
+Новый wizard не объявлять установленным раньше его реализации. Evidence:
+`.local/companion-build/member-access.json`.
 **GPT‑6.1 Sol, Высокое (`high`)**;
 ждать «Продолжаем» перед началом следующего этапа.
 
