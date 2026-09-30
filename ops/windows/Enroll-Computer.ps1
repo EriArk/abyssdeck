@@ -40,7 +40,7 @@ if (Test-Path -LiteralPath $savedReport) {
     return
 }
 if ([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() -ge $connection.expires) { throw 'The one-day connection package expired. Download a new one in CodexWeb.' }
-if (-not (Confirm-Cw ('Подключаем ' + $identity.Name + ' к ' + $base.Host + '. Мастер установит недостающие Tailscale, Node.js, Git, GitHub CLI, приложение Codex и приватные компоненты CodexWeb. Существующие проекты и аккаунты сохранятся. Продолжить?'))) { throw 'Установка отменена.' }
+if (-not $Companion -and -not (Confirm-Cw ('Подключаем ' + $identity.Name + ' к ' + $base.Host + '. Мастер установит недостающие Tailscale, Node.js, Git, GitHub CLI, приложение Codex и приватные компоненты CodexWeb. Существующие проекты и аккаунты сохранятся. Продолжить?'))) { throw 'Установка отменена.' }
 Write-CwStep 1 '1 из 5 · Приватное соединение Tailscale'
 $tailscalePath = Join-Path $env:ProgramFiles 'Tailscale\tailscale.exe'
 if (-not (Test-Path -LiteralPath $tailscalePath)) {
@@ -76,11 +76,13 @@ if (-not (Get-Command node.exe -ErrorAction SilentlyContinue)) { Install-CwPacka
 if (-not (Get-Command git.exe -ErrorAction SilentlyContinue)) { Install-CwPackage 'Git.Git' }
 if (-not (Get-Command gh.exe -ErrorAction SilentlyContinue)) { Install-CwPackage 'GitHub.cli' }
 $node = Get-Command node.exe -ErrorAction SilentlyContinue
-$codex = Get-Command codex.exe -ErrorAction SilentlyContinue
+. (Join-Path $PSScriptRoot 'Copy-CompanionRuntime.ps1')
+$codexPath=Resolve-CwCodexCommand
+$codex=if($codexPath){[pscustomobject]@{Source=$codexPath}}else{$null}
 if (-not $codex) {
     if (-not (Get-AppxPackage -Name OpenAI.Codex)) { Install-CwPackage '9PLM9XGG6VKS' 'msstore' }
-    $candidates = @(Get-ChildItem -LiteralPath (Join-Path $env:LOCALAPPDATA 'OpenAI\Codex\bin') -Filter codex.exe -Recurse -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTimeUtc -Descending)
-    if (-not $candidates.Count) {
+    $codexPath=Resolve-CwCodexCommand
+    if (-not $codexPath) {
         $package = Get-AppxPackage -Name OpenAI.Codex
         if ($package) {
             $manifest = Get-AppxPackageManifest -Package $package.PackageFullName
@@ -88,9 +90,9 @@ if (-not $codex) {
             if ($appId) { Start-Process ('shell:AppsFolder\' + $package.PackageFamilyName + '!' + $appId) }
         }
         if (-not (Confirm-Cw 'Откройте установленное приложение Codex, войдите в свой аккаунт и дождитесь его первоначальной подготовки. Затем нажмите ОК.')) { throw 'Вход можно завершить позже.' }
-        $candidates = @(Get-ChildItem -LiteralPath (Join-Path $env:LOCALAPPDATA 'OpenAI\Codex\bin') -Filter codex.exe -Recurse -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTimeUtc -Descending)
+        $codexPath=Resolve-CwCodexCommand
     }
-    if ($candidates.Count) { $codex = [pscustomobject]@{ Source = $candidates[0].FullName } }
+    if ($codexPath) { $codex = [pscustomobject]@{ Source = $codexPath } }
 }
 if (-not $node -or -not $codex) { throw 'Install stable Node.js and the native Codex application/CLI for this Windows account, sign in to Codex, then run this file again.' }
 if (-not (Test-CwNativeLogin $codex.Source @('login', 'status') 'codex-login-status.log')) {
@@ -119,6 +121,8 @@ $gh = Get-Command gh.exe -ErrorAction SilentlyContinue
 if ($gh) { & (Join-Path $PSScriptRoot 'Install-GitHubReleases.ps1') -NodeCommand $node.Source }
 $desktop = @(Get-AppxPackage -Name OpenAI.Codex).Count -eq 1
 if ($desktop) { & (Join-Path $PSScriptRoot 'Install-DesktopControl.ps1') -NodeCommand $node.Source }
+$computerUseTask=Get-ScheduledTask -TaskName 'CodexWebComputerUse' -ErrorAction SilentlyContinue
+if(-not $computerUseTask){& (Join-Path $PSScriptRoot 'Install-ComputerUse.ps1') -CodexCommand $codex.Source}
 $companion = Join-Path $env:LOCALAPPDATA 'CodexWeb\companion\CodexWebBridge.exe'
 & $companion --probe | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'Companion is not ready. No connection was activated.' }

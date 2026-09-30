@@ -14,12 +14,12 @@ namespace CodexWeb.Companion;
 public static class Program
 {
     public static string[] Arguments = [];
-    public static readonly string InstancePipe = "codex-web-companion-ui-" + SettingsStore.CurrentSid + "-" + Process.GetCurrentProcess().SessionId;
+    public static string InstancePipe => "codex-web-companion-ui-" + SettingsStore.CurrentSid + "-" + Process.GetCurrentProcess().SessionId + (Arguments.Contains("--terminal") ? "-terminal" : "");
     [STAThread]
     public static int Main(string[] args)
     {
         Arguments = args;
-        if (args.Length > 0 && args.Any(x => x != "--tray" && x != "--inventory")) return 2;
+        if (args.Length > 0 && args.Any(x => x != "--tray" && x != "--inventory" && x != "--terminal" && x != "--login-codex" && x != "--login-github" && x != "--install-node" && x != "--install-git" && x != "--install-gh")) return 2;
         if (args.Contains("--inventory"))
         {
             var store = new SettingsStore(SettingsStore.DirectoryPath, SettingsStore.CurrentSid);
@@ -35,7 +35,9 @@ public static class Program
             try
             {
                 using var pipe = new NamedPipeClientStream(".", InstancePipe, PipeDirection.Out);
-                pipe.Connect(3000); pipe.Write(Encoding.UTF8.GetBytes("SHOW\n")); return 0;
+                var command = args.Contains("--login-codex") ? "CODEX" : args.Contains("--login-github") ? "GITHUB"
+                    : args.Contains("--install-node") ? "NODE" : args.Contains("--install-git") ? "GIT" : args.Contains("--install-gh") ? "GH" : "SHOW";
+                pipe.Connect(3000); pipe.Write(Encoding.UTF8.GetBytes(command + "\n")); return 0;
             }
             catch { return 3; }
         }
@@ -49,6 +51,8 @@ public sealed class CompanionApp : Application
     public MainWindow? Window { get; private set; }
     public bool Exiting { get; private set; }
     TrayIcon? tray;
+    TerminalWindow? terminalWindow;
+    SettingsStore? terminalStore;
     readonly CancellationTokenSource shutdown = new();
     public override void Initialize() => Styles.Add(new FluentTheme());
     public override void OnFrameworkInitializationCompleted()
@@ -60,6 +64,24 @@ public sealed class CompanionApp : Application
             string? error = null;
             try { profile = store.Load(); }
             catch (Exception e) { profile = new(store.Sid, "", "", "Не настроен", AutoStart: false); error = e is IOException ? e.Message : "Не удалось прочитать настройки."; }
+            if (Program.Arguments.Contains("--terminal")) {
+                var terminal = new TerminalWindow(Themes.Get(profile.Theme));
+                terminalWindow = terminal;
+                terminalStore = store;
+                using var readiness = new ReadinessService(store);
+                if (Program.Arguments.Contains("--login-codex")) {
+                    var command = readiness.ReadWorkerConfig().Runtime;
+                    terminal.SetCommand(File.Exists(command) ? "& '" + command.Replace("'", "''") + "' login" : "codex login");
+                } else if (Program.Arguments.Contains("--login-github")) terminal.SetCommand("gh auth login --hostname github.com --git-protocol https --web");
+                else {
+                    var package = Program.Arguments.Contains("--install-node") ? "OpenJS.NodeJS.LTS" : Program.Arguments.Contains("--install-git") ? "Git.Git" : Program.Arguments.Contains("--install-gh") ? "GitHub.cli" : null;
+                    if (package is not null) terminal.SetCommand("winget install --id " + package + " --exact --source winget --accept-source-agreements --accept-package-agreements");
+                }
+                desktop.MainWindow = terminal; desktop.ShutdownMode = ShutdownMode.OnMainWindowClose; terminal.Show();
+                desktop.Exit += (_, _) => shutdown.Cancel();
+                _ = Listen();
+                base.OnFrameworkInitializationCompleted(); return;
+            }
             Window = new MainWindow(this, store, profile, error);
             var icon = new WindowIcon(AssetLoader.Open(new Uri("avares://CodexWeb.Companion/Assets/icon.png")));
             Window.Icon = icon;
@@ -87,6 +109,7 @@ public sealed class CompanionApp : Application
     public void UpdateTray(string status) { if (tray is not null) tray.ToolTipText = "CodexWeb Companion · " + status; }
     public void ShowWindow()
     {
+        if (terminalWindow is { } terminal) { terminal.Show(); if (terminal.WindowState == WindowState.Minimized) terminal.WindowState = WindowState.Normal; terminal.Activate(); return; }
         if (Window is null) return;
         Window.ShowInTaskbar = true; Window.Show();
         if (Window.WindowState == WindowState.Minimized) Window.WindowState = WindowState.Normal;
@@ -96,6 +119,18 @@ public sealed class CompanionApp : Application
     {
         Exiting = true;
         (ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Shutdown();
+    }
+    void TerminalAction(string command)
+    {
+        if (terminalWindow is null || terminalStore is null) { if (command == "SHOW") ShowWindow(); return; }
+        var value = command switch { "GITHUB" => "gh auth login --hostname github.com --git-protocol https --web",
+            "NODE" => "winget install --id OpenJS.NodeJS.LTS --exact --source winget --accept-source-agreements --accept-package-agreements",
+            "GIT" => "winget install --id Git.Git --exact --source winget --accept-source-agreements --accept-package-agreements",
+            "GH" => "winget install --id GitHub.cli --exact --source winget --accept-source-agreements --accept-package-agreements", _ => null };
+        if (command == "CODEX") { using var readiness = new ReadinessService(terminalStore); var path = readiness.ReadWorkerConfig().Runtime;
+            value = File.Exists(path) ? "& '" + path.Replace("'", "''") + "' login" : "codex login"; }
+        if (value is not null) terminalWindow.SetCommand(value);
+        ShowWindow();
     }
     async Task Listen()
     {
@@ -108,13 +143,14 @@ public sealed class CompanionApp : Application
                 await pipe.WaitForConnectionAsync(shutdown.Token);
                 using var timeout = CancellationTokenSource.CreateLinkedTokenSource(shutdown.Token);
                 timeout.CancelAfter(TimeSpan.FromSeconds(2));
-                var bytes = new byte[5]; var count = 0;
+                var bytes = new byte[16]; var count = 0;
                 while (count < bytes.Length)
                 {
                     var read = await pipe.ReadAsync(bytes.AsMemory(count), timeout.Token);
-                    if (read == 0) break; count += read;
+                    if (read == 0) break; count += read; if (bytes[count - 1] == 10) break;
                 }
-                if (count == 5 && Encoding.UTF8.GetString(bytes) == "SHOW\n") Dispatcher.UIThread.Post(ShowWindow);
+                var command = Encoding.UTF8.GetString(bytes, 0, count).TrimEnd('\n');
+                if (command is "SHOW" or "CODEX" or "GITHUB" or "NODE" or "GIT" or "GH") Dispatcher.UIThread.Post(() => TerminalAction(command));
             }
             catch (OperationCanceledException) { }
             catch (IOException) { await Task.Delay(1000, shutdown.Token).ConfigureAwait(false); }

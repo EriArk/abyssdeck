@@ -5,7 +5,7 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Version>0.2.0</Version>
+    <Version>0.3.0</Version>
     <AssemblyName>CodexWeb.Companion</AssemblyName>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <ApplicationManifest>app.manifest</ApplicationManifest>
@@ -15,6 +15,7 @@
     <PackageReference Include="Avalonia.Desktop" Version="12.1.3" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.3" />
     <EmbeddedResource Include="../../ops/windows/Read-CompanionInventory.ps1" Link="Read-CompanionInventory.ps1" />
+    <EmbeddedResource Include="../../ops/windows/Repair-CompanionComponent.ps1" Link="Repair-CompanionComponent.ps1" />
     <AvaloniaResource Include="../web/public/icon-192.png" Link="Assets/icon.png" />
   </ItemGroup>
 </Project>

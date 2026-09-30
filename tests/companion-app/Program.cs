@@ -39,7 +39,29 @@ try
     await first;
     await coalesced.Refresh(profile);
     Check(calls == 2, "completed probe refreshes again instead of caching stale health forever");
-    Console.WriteLine("9 Companion checks passed; no native process or task was changed.");
+    if (OperatingSystem.IsWindows()) {
+        var deviceStore = new SettingsStore(Path.Combine(temporary, "protected-session"), SettingsStore.CurrentSid);
+        var encrypted = new DeviceSessionStore(deviceStore);
+        var marker = "private-fixture-token-" + Guid.NewGuid();
+        var device = new DeviceSession("https://fixture.example", deviceStore.Sid, DeviceSessionStore.MachineGuid(), marker, "fixture-user");
+        encrypted.Save(device);
+        Check(encrypted.Load(device.HubOrigin) == device && encrypted.Load("https://other.example") is null,
+            "DPAPI round-trip preserves account and refuses another Hub");
+        Check(!System.Text.Encoding.UTF8.GetString(File.ReadAllBytes(Path.Combine(deviceStore.Directory, "device-session.bin"))).Contains(marker),
+            "saved credential is encrypted, not plain JSON");
+        using var connection = new HubConnection(deviceStore); connection.Restore(new(deviceStore.Sid, device.HubOrigin, "", ""));
+        var one = connection.Enrollment(); var two = connection.Enrollment();
+        Check(one.EnrollmentId == two.EnrollmentId && one.EnrollmentToken == two.EnrollmentToken,
+            "interrupted pairing retains one request identity before network effects");
+        encrypted.Clear(); Check(encrypted.Load(device.HubOrigin) is null, "local sign-out removes only the scoped credential");
+        using var console = new LocalTerminal();
+        var output = new TaskCompletionSource<bool>();
+        var collected = new System.Text.StringBuilder();
+        _ = console.Read(text => { lock(collected) { collected.Append(text); if (collected.ToString().Contains("CONPTY-READY-493")) output.TrySetResult(true); } });
+        await console.Write("Write-Output 'CONPTY-READY-493'\r");
+        Check(await output.Task.WaitAsync(TimeSpan.FromSeconds(15)), "real same-user ConPTY accepts input and produces output without SSH");
+    }
+    Console.WriteLine("Companion focused checks passed; no existing native process or task was changed.");
 }
 finally
 {

@@ -226,6 +226,13 @@ export class TeamAuth extends Auth {
       if (!path.startsWith("/api/")) return;
       reply.header("Cache-Control", "no-store");
       if (path === "/api/health" || path === "/api/auth/status") return;
+      if (!this.userId && (/^\/api\/companion\/(status|enrollment|logout|repair-kit)$/.test(path)
+          || path === "/api/companion/enrollment/:id/bundle")) {
+        if (req.headers.cookie || (req.headers.origin && req.headers.origin !== this.config.hub.publicBaseUrl)
+            || !/^Bearer [A-Za-z0-9_-]{43}$/.test(String(req.headers.authorization ?? "")))
+          throw new HubError(401, "COMPANION_LOGIN_REQUIRED", "Войди в Companion.");
+        return; // Only these fixed handlers validate the purpose-specific credential.
+      }
       if (!this.userId && path === "/api/machine-enrollment/report" && req.method === "POST") {
         // A purpose-specific script token is checked by this one handler. It is never a login session.
         if (

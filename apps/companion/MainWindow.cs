@@ -12,10 +12,20 @@ namespace CodexWeb.Companion;
 
 public sealed class MainWindow : Window, IDisposable
 {
-    const string Version = "0.2.0";
+    const string Version = "0.3.0";
     readonly CompanionApp app;
     readonly SettingsStore store;
     readonly ReadinessService readiness;
+    readonly HubConnection hub;
+    readonly SetupOperations setup;
+    JsonElement? account;
+    bool loginRequired, operating, accountReady;
+    string? accountError;
+    Border connectionCard = new();
+    TextBox connectionAddress = new(), loginField = new(), passwordField = new();
+    StackPanel loginControls = new();
+    TextBlock connectionState = new();
+    Button connectButton = new(), setupButton = new(), adminButton = new(), logoutButton = new();
     readonly DispatcherTimer timer;
     Profile profile;
     Snapshot? snapshot;
@@ -37,14 +47,16 @@ public sealed class MainWindow : Window, IDisposable
     {
         this.app = app; this.store = store; this.profile = profile; notice = error;
         hubDraft = profile.HubOrigin; palette = Themes.Get(profile.Theme); readiness = new(store);
+        hub = new(store); setup = new(store, hub);
+        try { hub.Restore(profile); } catch { notice = "Сохранённое подключение недоступно. Войди снова."; }
         Title = "CodexWeb Companion";
         Width = 840; Height = 690; MinWidth = 650; MinHeight = 520;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         FontFamily = new FontFamily("Segoe UI"); FontSize = 14;
         Closing += (_, e) => { if (!app.Exiting) { e.Cancel = true; Hide(); ShowInTaskbar = false; } };
         Activated += (_, _) => { if (snapshot is null || DateTimeOffset.Now - snapshot.CheckedAt > TimeSpan.FromSeconds(15)) _ = Refresh(); };
-        timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(60) };
-        timer.Tick += (_, _) => _ = Refresh(); timer.Start();
+        timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
+        timer.Tick += (_, _) => { if (operating || setup.Running) RenderSnapshot(); if (!operating || snapshot is null || DateTimeOffset.Now - snapshot.CheckedAt > TimeSpan.FromSeconds(30)) _ = Refresh(); }; timer.Start();
         Build();
     }
 
@@ -117,6 +129,7 @@ public sealed class MainWindow : Window, IDisposable
         pageHost = new Grid();
         overview = new StackPanel { Spacing = 14 }; components = new StackPanel { Spacing = 10 };
         pages[0].Content = overview; pages[1].Content = components; pages[2].Content = SettingsPage();
+        BuildConnection();
         foreach (var page in pages)
         {
             page.HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled;
@@ -156,7 +169,8 @@ public sealed class MainWindow : Window, IDisposable
                 if (!SettingsStore.ValidOrigin(origin)) throw new IOException("Введите HTTPS-адрес Hub без пути и параметров.");
                 var changed = origin != profile.HubOrigin;
                 var next = profile with { HubOrigin = origin, DeviceId = changed ? "" : profile.DeviceId, Route = changed ? "Не привязан" : profile.Route };
-                store.Save(next); profile = next; generation++; notice = null; _ = Refresh();
+                if (operating || setup.Running) throw new IOException("Дождись текущего шага настройки перед сменой Hub.");
+                store.Save(next); profile = next; generation++; account = null; accountReady = false; hub.Restore(profile); notice = null; Build(); _ = Refresh();
             }
             catch (Exception e) { notice = e is IOException ? e.Message : "Не удалось сохранить настройки."; RenderSnapshot(); }
         });
@@ -193,7 +207,7 @@ public sealed class MainWindow : Window, IDisposable
             }
         };
         return Stack(
-            Section(Stack(Text("Подключение к Hub", 18, bold: true), Text("Вход в аккаунт, пользователи и приглашения — в CodexWeb.", muted: true), address, save)),
+            Section(Stack(Text("Подключение к Hub", 18, bold: true), Text("Вход — в Обзоре Companion. Пользователи и приглашения — в вебе.", muted: true), address, save)),
             Section(Stack(Text("Приложение", 18, bold: true), Text("Тема", muted: true), theme, autoStart,
                 Text("Крестик скрывает окно в трей. Выход из интерфейса оставляет работающие компоненты запущенными.", muted: true))),
             Section(Stack(Text("Companion " + Version + " · Windows x64", 16, bold: true),
@@ -203,12 +217,64 @@ public sealed class MainWindow : Window, IDisposable
                 Header = "Как пользоваться Companion",
                 Content = Section(Stack(
                 Text("Значок в трее открывает это окно. Крестик скрывает его, а выход завершает только интерфейс."),
-                Text("Обзор показывает связь с Hub и рабочие папки. Компоненты проверяются раз в минуту; кнопка проверки обновляет состояние сразу."),
+                Text("Обзор показывает связь с Hub и рабочие папки. Компоненты проверяются раз в 30 секунд; кнопка проверки обновляет состояние сразу."),
                 Text("Готов по запросу — нормальное состояние: компонент запустится, когда понадобится. Занято — текущая работа продолжается."),
                 Text("После восстановления сети связь проверяется автоматически. Сообщения, команды и действия не отправляются повторно."),
                 Text("Кнопка CodexWeb открывает веб. Аккаунты, приглашения и управление Hub остаются там; полная справка доступна в настройках веба."),
                 Text("Отчёт сохраняется в выбранный локальный файл. Он не содержит паролей, токенов или текста чатов.")))
             });
+    }
+
+    void BuildConnection()
+    {
+        var previousLogin = loginField.Text; var previousPassword = passwordField.Text;
+        connectionAddress = new TextBox { Text = profile.HubOrigin, PlaceholderText = "https://hub.example", MinHeight = 44 };
+        loginField = new TextBox { Text = previousLogin, PlaceholderText = "Логин Hub", MinHeight = 44 };
+        passwordField = new TextBox { Text = previousPassword, PlaceholderText = "Пароль Hub", PasswordChar = '●', MinHeight = 44 };
+        connectButton = Button("Войти и настроить", () => _ = Connect(), true);
+        loginControls = Stack(Text("Сначала войди в свой Hub. Пароль не сохраняется.", muted: true), connectionAddress, Row(loginField, passwordField), connectButton);
+        connectionState = Text("Проверяем подключение…");
+        setupButton = Button("Продолжить настройку", () => _ = RunOperation(async () => { await setup.Start(); await Refresh(); }));
+        adminButton = Button("Управление Hub", OpenWeb);
+        logoutButton = Button("Выйти из аккаунта Hub", () => _ = RunOperation(async () => { await hub.Logout(); account = null; accountReady = false; loginRequired = false; accountError = null; }));
+        connectionCard = Section(Stack(Text("Подключение и настройка", 20, bold: true), loginControls, connectionState,
+            Row(setupButton, Button("Локальный терминал", () => OpenTerminal()), adminButton),
+            logoutButton,
+            new Expander { Header = "Первый запуск и помощь", Content = Stack(
+                Text("1. Войди в Hub. Companion получает доступ только к состоянию и подключению твоего ПК; роли проверяет сервер."),
+                Text("2. Дождись установки. Личные входы, папка проектов и подтверждение Windows потребуют твоего действия. Галочки появляются после проверки готовности."),
+                Text("3. При подтверждении администратора открой Подключения в вебе и активируй свой ПК. Существующий LAN-профиль владельца остаётся на месте."),
+                Text("Если настройка прервана, нажми Продолжить: тот же пакет и точный отчёт будут проверены заново. Уже работающий мастер второй раз не запускается."),
+                Text("В Компонентах доступен ремонт остановленных собственных модулей, включая восстановление файлов из Hub. Работающий Codex не перезапускается; переход самого исполнителя выполняется отдельно."),
+                Text("Локальный терминал имеет Вставить и отдельную отправку, включая маскированное поле пароля. Вставка сама ничего не выполняет. Текст ввода не сохраняется и не воспроизводится после закрытия."),
+                Row(Button("Войти в Codex", () => OpenTerminal("--login-codex")), Button("Войти в GitHub", () => OpenTerminal("--login-github")))) }));
+    }
+    async Task Connect() => await RunOperation(async () => {
+        var origin = (connectionAddress.Text ?? "").Trim().TrimEnd('/');
+        if (!SettingsStore.ValidOrigin(origin)) throw new IOException("Введите HTTPS-адрес Hub.");
+        var changed = origin != profile.HubOrigin;
+        var next = profile with { HubOrigin = origin, DeviceId = changed ? "" : profile.DeviceId, Route = changed ? "Не привязан" : profile.Route };
+        var password = passwordField.Text ?? ""; passwordField.Text = "";
+        var candidate = await hub.Login(next, (loginField.Text ?? "").Trim(), password);
+        next = next with { Theme = profile.Theme, AutoStart = profile.AutoStart };
+        store.Save(next);
+        try { hub.Accept(candidate); } catch { store.Save(profile); throw; }
+        profile = next; generation++; loginRequired = false; account = null; accountReady = false; hubDraft = origin;
+        await Refresh();
+        if (profile.DeviceId.Length == 0) { await setup.Start(); await Refresh(); }
+    });
+    async Task RunOperation(Func<Task> action)
+    {
+        if (operating || setup.Running) return;
+        operating = true; timer.Interval = TimeSpan.FromSeconds(2); notice = null; RenderSnapshot();
+        try { await action(); } catch (Exception e) { notice = e is IOException ? e.Message : "Действие не подтверждено. Проверь состояние; автоматического повтора не будет."; }
+        finally { operating = false; timer.Interval = TimeSpan.FromSeconds(30); if (!disposed) RenderSnapshot(); }
+    }
+    void OpenTerminal(string? login = null)
+    {
+        try { var start = new ProcessStartInfo(Environment.ProcessPath!) { UseShellExecute = false, CreateNoWindow = true };
+            start.ArgumentList.Add("--terminal"); if (login is not null) start.ArgumentList.Add(login); Process.Start(start); }
+        catch { notice = "Локальный терминал не открылся."; RenderSnapshot(); }
     }
 
     public async Task Refresh()
@@ -220,7 +286,9 @@ public sealed class MainWindow : Window, IDisposable
         var expected = generation;
         try
         {
+            var accountTask = hub.Session is not null && hub.Session.HubOrigin == profile.HubOrigin ? ReadAccount(expected) : Task.CompletedTask;
             var result = await readiness.Refresh(profile);
+            await accountTask;
             if (disposed) return;
             if (expected != generation) { refreshAgain = true; return; }
             snapshot = result; probeError = null; RenderSnapshot();
@@ -237,20 +305,55 @@ public sealed class MainWindow : Window, IDisposable
             }
         }
     }
+    async Task ReadAccount(int expected)
+    {
+        try { var result = await hub.Request("/api/companion/status");
+            if (expected != generation || disposed) return;
+            if (result.GetProperty("user").GetProperty("id").GetString() != hub.Session?.UserId) throw new IOException("Изменился аккаунт Hub.");
+            account = result; accountReady = true; accountError = null; loginRequired = false;
+            var device = result.GetProperty("deviceId").GetString()!;
+            if (device != profile.DeviceId) { var next = profile with { DeviceId = device, Route = device.Length > 0 ? result.GetProperty("route").GetString()! : "Не привязан" }; store.Save(next); profile = next; }
+        } catch (HubConnectionException e) when (e.Status is 401 or 403) { if (expected == generation) { loginRequired = true; accountReady = false; account = null; accountError = null; } }
+        catch { if (expected == generation) { accountReady = false; accountError = "Связь с аккаунтом Hub пока не подтверждена. Настройки и текущая работа сохранены."; } }
+    }
     void RenderSnapshot()
     {
         overview.Children.Clear(); components.Children.Clear();
+        overview.Children.Add(connectionCard);
+        loginControls.IsVisible = hub.Session is null || loginRequired;
+        logoutButton.IsVisible = hub.Session is not null;
+        logoutButton.IsEnabled = !operating;
+        connectButton.IsEnabled = !operating; passwordField.IsEnabled = !operating; loginField.IsEnabled = !operating; connectionAddress.IsEnabled = !operating;
+        setupButton.IsVisible = hub.Session is not null && !loginRequired && profile.DeviceId.Length == 0;
+        setupButton.IsEnabled = accountReady && !operating && !setup.Running;
+        adminButton.IsVisible = accountReady && account?.GetProperty("user").GetProperty("role").GetString() == "admin";
+        connectionState.Text = operating || setup.Running ? (setup.Progress().Length > 0 ? setup.Progress() : "Подключаемся…")
+            : accountReady && account is { } a ? "✓ Hub · " + a.GetProperty("user").GetProperty("name").GetString() + (profile.DeviceId.Length > 0 ? " · ПК привязан" : " · ожидаем подготовку/подтверждение ПК")
+            : hub.Session is null || loginRequired ? "Ожидаем вход в Hub" : "Вход сохранён · проверяем связь с Hub";
         if (notice is not null) overview.Children.Add(Section(Text(notice)));
         if (probeError is not null) overview.Children.Add(Section(Text(probeError)));
+        if (accountError is not null) overview.Children.Add(Section(Text(accountError)));
         if (snapshot is null)
         {
             overview.Children.Add(Section(Stack(Text("Проверяем этот компьютер", 20, bold: true), Text("Подхватываем установленный Companion и выбранные рабочие папки.", muted: true)))); return;
         }
         var s = snapshot;
+        var dependencies = Stack(Text("Программы и личные входы", 18, bold: true));
+        foreach (var requirement in s.Inventory.Requirements ?? []) {
+            var line = new Grid { ColumnDefinitions = new("*,200"), ColumnSpacing = 12 };
+            line.Children.Add(Text(requirement.Title));
+            Control action = requirement.Ready ? Text("✓ Установлен", bold: true) : Button("Установить", () => {
+                if (profile.DeviceId.Length == 0) { _ = RunOperation(async () => { await setup.Start(); await Refresh(); }); }
+                else OpenTerminal("--install-" + requirement.Id);
+            }); Grid.SetColumn(action, 1); line.Children.Add(action); dependencies.Children.Add(line);
+        }
+        dependencies.Children.Add(Row(Button("Логин Codex", () => OpenTerminal("--login-codex")), Button("Логин GitHub", () => OpenTerminal("--login-github"))));
+        dependencies.Children.Add(Text("Личные входы сохраняют сами Codex и GitHub. Повторный вход требуется только при выходе из аккаунта или истечении доступа.", muted: true));
+        overview.Children.Add(Section(dependencies));
         overview.Children.Add(Section(Stack(Text("Hub · " + s.HubState, 20, bold: true), Text(profile.HubOrigin.Length == 0 ? "Адрес Hub не настроен" : profile.HubOrigin),
             Text("Windows: " + s.Inventory.User, muted: true),
             Text("Маршрут: " + profile.Route + (profile.DeviceId.Length > 0 ? " · " + profile.DeviceId : ""), muted: true))));
-        var readyCount = s.Components.Count(x => !x.Attention && x.State != "Выключен");
+        var readyCount = s.Components.Count(x => !x.Attention && x.State is "Запущен" or "Занято" or "Готов по запросу");
         overview.Children.Add(Section(Stack(Text($"Компоненты · {readyCount} из {s.Components.Length} доступны", 20, bold: true),
             Text(s.Inventory.NativeProcesses.Length > 0 ? "Codex запущен независимо от интерфейса" : "Постоянный Companion работает независимо от этого окна", muted: true),
             Row(Button("Все компоненты", () => SelectPage(1)), Button("Открыть CodexWeb", OpenWeb)))));
@@ -262,13 +365,23 @@ public sealed class MainWindow : Window, IDisposable
         overview.Children.Add(Section(roots));
         var detail = new Expander { Header = "Подробности установленного Codex", Content = Text(s.Runtime, muted: true) };
         overview.Children.Add(detail);
-        foreach (var c in s.Components)
+        for (var i = 0; i < s.Components.Length; i++)
         {
+            var c = s.Components[i]; var source = s.Inventory.Components[i];
             var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,170"), ColumnSpacing = 12 };
             row.Children.Add(Stack(Text(c.Title, 16, bold: true), Text(c.Detail, muted: true)));
-            var state = Text(c.State, bold: true); state.VerticalAlignment = VerticalAlignment.Center;
+            var state = Text(!c.Attention && c.State is "Запущен" or "Занято" or "Готов по запросу" ? "✓ " + c.State : c.State, bold: true); state.VerticalAlignment = VerticalAlignment.Center;
             state.Foreground = Themes.Brush(c.Attention ? palette.Danger : palette.Accent); Grid.SetColumn(state, 1); row.Children.Add(state);
-            components.Children.Add(Section(row));
+            var content = Stack(row);
+            if (c.Attention || c.State == "Выключен" || c.State == "Не используется" && source.Id == "CodexWebComputerUse") {
+                var repair = Button("Исправить и проверить", () => _ = RunOperation(async () => {
+                    if (profile.DeviceId.Length == 0 && (!source.Installed || !source.ExecutableExists)) {
+                        if (!accountReady) { SelectPage(0); throw new IOException("Сначала войди в Hub в Обзоре."); }
+                        await setup.Start();
+                    } else await setup.Repair(source, s.Inventory);
+                    await Refresh(); })); repair.IsEnabled = !operating && !setup.Running && source.State != "Running"; content.Children.Add(repair);
+            }
+            components.Children.Add(Section(content));
         }
         app.UpdateTray(!s.HubReady ? "Hub недоступен" : s.Components.Any(x => x.Attention) ? "есть компоненты, требующие внимания" : "компоненты доступны");
     }
@@ -306,5 +419,5 @@ public sealed class MainWindow : Window, IDisposable
         }
         catch { notice = "Не удалось сохранить отчёт."; RenderSnapshot(); }
     }
-    public void Dispose() { disposed = true; timer.Stop(); readiness.Dispose(); }
+    public void Dispose() { disposed = true; timer.Stop(); readiness.Dispose(); hub.Dispose(); passwordField.Text = ""; }
 }

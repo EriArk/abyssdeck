@@ -34,7 +34,7 @@ Assert-NoLink $package
 $manifestPath = Join-Path $package 'release.json'
 Assert-NoLink $manifestPath
 $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
-if ($manifest.format -ne 1 -or $manifest.product -cne 'codexweb-companion-ui' -or $manifest.platform -cne 'win-x64' -or $manifest.version -cne '0.2.0') { throw 'Unknown UI package.' }
+if ($manifest.format -ne 1 -or $manifest.product -cne 'codexweb-companion-ui' -or $manifest.platform -cne 'win-x64' -or $manifest.version -cne '0.3.0') { throw 'Unknown UI package.' }
 $entries = @($manifest.files.PSObject.Properties)
 if ($entries.Count -lt 2 -or $entries.Count -gt 300) { throw 'Invalid package inventory.' }
 $expected = @('release.json')
@@ -68,6 +68,7 @@ foreach ($ownerSid in @($sid, 'S-1-5-18')) {
 $directoryInfo.SetAccessControl($acl)
 $profilePath = Join-Path $root 'profile.json'
 Assert-NoLink $profilePath
+$firstRun=-not(Test-Path -LiteralPath $profilePath)
 if (Test-Path -LiteralPath $profilePath) {
     $profile = Get-Content -LiteralPath $profilePath -Raw -Encoding UTF8 | ConvertFrom-Json
     if ($profile.sid -cne $sid) { throw 'UI profile belongs to another Windows identity.' }
@@ -115,6 +116,6 @@ $shortcut.WorkingDirectory = $root
 $shortcut.Description = 'CodexWeb Companion'
 $shortcut.IconLocation = (Join-Path $runtime 'CodexWeb.Companion.exe') + ',0'
 $shortcut.Save()
-if (-not $NoStart) { & $launcher -Tray }
+if (-not $NoStart) { if($firstRun){& $launcher}else{& $launcher -Tray} }
 @{installed=$true;release=$release;version=$manifest.version;preservedWorkers=$true;runtime=$runtime} | ConvertTo-Json -Compress
 } finally { $installerMutex.Dispose() }

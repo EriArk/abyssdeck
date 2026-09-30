@@ -39,10 +39,18 @@ $components = foreach ($definition in $definitions) {
     if ($task -and $mine -and $executable) {
         $registered = if ($definition[3] -like '*.ps1') { ([string]$task.Actions[0].Arguments).Contains('"' + $module + '"') } else { $executable.StartsWith($folder.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase) }
     }
-    [ordered]@{ id=$definition[0]; title=$definition[1]; folder=$definition[2]; installed=[bool]$task; owned=$mine; known=$tasksKnown; state=$(if ($task -and $mine) { $task.State.ToString() } else { 'Unknown' }); executable=$executable; executableExists=[bool]($registered -and (Test-Path -LiteralPath $executable -PathType Leaf) -and (Test-Path -LiteralPath $module -PathType Leaf)) }
+    $digest = ''
+    if ($task -and $mine) { try { $sha=[Security.Cryptography.SHA256]::Create(); try { $digest=([BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes((Export-ScheduledTask -TaskName $definition[0]))))).Replace('-','').ToLowerInvariant() } finally { $sha.Dispose() } } catch { $mine=$false } }
+    [ordered]@{ id=$definition[0]; title=$definition[1]; folder=$definition[2]; installed=[bool]$task; owned=$mine; known=$tasksKnown; state=$(if ($task -and $mine) { $task.State.ToString() } else { 'Unknown' }); executable=$executable; executableExists=[bool]($registered -and (Test-Path -LiteralPath $executable -PathType Leaf) -and (Test-Path -LiteralPath $module -PathType Leaf)); taskDigest=$digest }
 }
 # No unrelated processes/windows, titles, arguments or environment variables.
 $codexProcesses = @(Get-CimInstance Win32_Process -Filter "Name='codex.exe'" -ErrorAction SilentlyContinue | Where-Object {
     $_.ExecutablePath -and $_.ExecutablePath.StartsWith((Join-Path $env:LOCALAPPDATA 'CodexWeb\companion-persistent\runtime\'), [StringComparison]::OrdinalIgnoreCase) -and $_.SessionId -eq $session
 } | ForEach-Object { [ordered]@{ pid=$_.ProcessId; started=$_.CreationDate.ToUniversalTime().ToString('o') } })
-[ordered]@{ sid=$sid; user=$identity.Name; computer=$env:COMPUTERNAME; session=$session; components=@($components); nativeProcesses=$codexProcesses } | ConvertTo-Json -Depth 6 -Compress
+$env:PATH += ';'+[Environment]::GetEnvironmentVariable('PATH','Machine')+';'+[Environment]::GetEnvironmentVariable('PATH','User')
+$requirements=@(
+  [ordered]@{id='node';title='Node.js';ready=[bool](Get-Command node.exe -ErrorAction SilentlyContinue)},
+  [ordered]@{id='git';title='Git';ready=[bool](Get-Command git.exe -ErrorAction SilentlyContinue)},
+  [ordered]@{id='gh';title='GitHub CLI';ready=[bool](Get-Command gh.exe -ErrorAction SilentlyContinue)}
+)
+[ordered]@{ sid=$sid; user=$identity.Name; computer=$env:COMPUTERNAME; session=$session; components=@($components); nativeProcesses=$codexProcesses;requirements=$requirements } | ConvertTo-Json -Depth 6 -Compress

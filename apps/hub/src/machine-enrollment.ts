@@ -252,6 +252,9 @@ export const ENROLLMENT_FILES = [
   "Copy-CompanionRuntime.ps1",
   "companion/CodexWebBridge.cs",
   "companion/RuntimeBroker.cs",
+  "Install-ComputerUse.ps1",
+  "computer-use/ComputerUse.cs",
+  "computer-use/Start-ComputerUse.ps1",
   "Install-ProjectSetup.ps1",
   "ProjectSetupWorker.cjs",
   "Run-ProjectSetup.ps1",
@@ -276,6 +279,23 @@ export const ENROLLMENT_FILES = [
   "desktop-activity.cjs",
   "DesktopWindow.ps1",
 ] as const;
+export function companionRepairFiles() {
+  const source = process.env.HUB_ENROLLMENT_ROOT ?? fileURLToPath(new URL("../../../ops/windows/", import.meta.url));
+  const read = (path: string) => {
+    const stat = lstatSync(path);
+    if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 1024 * 1024) throw new Error("ENROLLMENT_BUNDLE_INVALID");
+    return readFileSync(path);
+  };
+  const files: { name: string; data: string }[] = ENROLLMENT_FILES.map(name => {
+    const bytes = read(join(source, name));
+    const content = name.endsWith(".ps1") ? Buffer.from("\uFEFF" + bytes.toString("utf8").replace(/^\uFEFF/, "")) : bytes;
+    return { name, data: content.toString("base64") };
+  });
+  for (const name of ["setupProbe.js", "deliveryProbe.js", "githubWorkProbe.js"])
+    files.push({ name, data: read(process.env.HUB_ENROLLMENT_ROOT ? join(source, "probes", name)
+      : resolve(source, "../../packages/machines/dist", name)).toString("base64") });
+  return files;
+}
 export function enrollmentBundle(
   config: HubConfig,
   store: MachineEnrollmentStore,
@@ -297,23 +317,7 @@ export function enrollmentBundle(
       throw new Error("ENROLLMENT_BUNDLE_INVALID");
     return readFileSync(path);
   };
-  const files = ENROLLMENT_FILES.map((name) => {
-    const bytes = read(join(source, name));
-    // Windows PowerShell 5 treats UTF-8 without BOM as ANSI, including smart quotes in Cyrillic.
-    const content = name.endsWith(".ps1")
-      ? Buffer.from("\uFEFF" + bytes.toString("utf8").replace(/^\uFEFF/, ""))
-      : bytes;
-    return { name, data: content.toString("base64") };
-  });
-  for (const name of ["setupProbe.js", "deliveryProbe.js", "githubWorkProbe.js"])
-    files.push({
-      name: name as (typeof ENROLLMENT_FILES)[number],
-      data: read(
-        process.env.HUB_ENROLLMENT_ROOT
-          ? join(source, "probes", name)
-          : resolve(source, "../../packages/machines/dist", name),
-      ).toString("base64"),
-    });
+  const files = companionRepairFiles();
   const keys = JSON.parse(row.keys) as EnrollmentKeys;
   const descriptor = {
     version: 1,

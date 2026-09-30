@@ -11,6 +11,7 @@ import Fastify, { type FastifyRequest } from "fastify";
 import { ZodError, z } from "zod";
 import { createApp } from "./app.js";
 import { tokenHash } from "./auth.js";
+import { registerCompanion } from "./companion-devices.js";
 import { BrainstormRooms } from "./brainstorm.js";
 import { BrainstormGpts } from "./brainstorm-gpt.js";
 import { registerBrainstorm } from "./brainstorm-routes.js";
@@ -442,6 +443,7 @@ export async function createTeamHub(config: HubConfig, options: Options) {
       !path.startsWith("/api/") ||
       path === "/api/health" ||
       path === "/api/machine-enrollment/report" ||
+      path.startsWith("/api/companion/") ||
       centralAuth.has(path) ||
       path.startsWith("/api/team/")
     )
@@ -631,6 +633,7 @@ export async function createTeamHub(config: HubConfig, options: Options) {
     await personal(userId);
   };
   app.get("/api/team/server-workspace", (req) => serverWorkspaces.view(actor(req)));
+  registerCompanion(app, config, auth, registry, enrollments);
   app.post("/api/team/server-workspace/start", slow, async (req) => {
     const userId = actor(req);
     z.object({}).strict().parse(req.body);

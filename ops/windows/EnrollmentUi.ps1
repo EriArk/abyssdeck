@@ -2,7 +2,7 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 [Windows.Forms.Application]::EnableVisualStyles()
 $script:CwWindow = $null
-function New-CwWindow {
+function New-CwWindow([switch]$Hidden) {
     $form = [Windows.Forms.Form]::new()
     $form.Text = 'CodexWeb — подключение компьютера · v5'
     $form.Size = [Drawing.Size]::new(690, 520)
@@ -29,7 +29,7 @@ function New-CwWindow {
     $script:CwStatus = [Windows.Forms.Label]::new(); $script:CwStatus.Dock = 'Fill'
     foreach ($control in @($heading, $script:CwProgress, $script:CwLog, $script:CwStatus)) { $layout.Controls.Add($control) }
     $form.Controls.Add($layout); $script:CwWindow = $form
-    $form.Show(); [Windows.Forms.Application]::DoEvents()
+    if(-not $Hidden){$form.Show()}; [Windows.Forms.Application]::DoEvents()
 }
 function Write-CwStep([int]$step, [string]$text) {
     if (Get-Command Save-CwEnrollmentStep -ErrorAction SilentlyContinue) { Save-CwEnrollmentStep $step }

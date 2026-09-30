@@ -7,10 +7,11 @@ using System.Text.Json;
 namespace CodexWeb.Companion;
 
 public sealed record Component(string Id, string Title, string Folder, bool Installed,
-    bool Owned, bool Known, string State, string Executable, bool ExecutableExists);
+    bool Owned, bool Known, string State, string Executable, bool ExecutableExists, string TaskDigest = "");
 public sealed record NativeProcess(int Pid, string Started);
+public sealed record Requirement(string Id, string Title, bool Ready);
 public sealed record Inventory(string Sid, string User, string Computer, int Session,
-    Component[] Components, NativeProcess[] NativeProcesses);
+    Component[] Components, NativeProcess[] NativeProcesses, Requirement[]? Requirements = null);
 public sealed record ComponentView(string Title, string State, string Detail, bool Attention);
 public sealed record Snapshot(DateTimeOffset CheckedAt, Inventory Inventory, ComponentView[] Components,
     string HubState, bool HubReady, string[] Roots, string Runtime, string? Notice);
@@ -26,6 +27,8 @@ public static class StatusProjection
         if (c.State == "Disabled") return new(c.Title, "Выключен", "Задача отключена в Windows.", false);
         if (c.State == "Running" && pipe == false) return new(c.Title, "Недоступен", "Процесс запущен, но локальный статус не отвечает.", true);
         if (c.State == "Running") return new(c.Title, "Запущен", pipe == true ? "Локальное соединение отвечает." : "Работает в этой Windows-сессии.", false);
+        if (c.State == "Ready" && c.Id is "CodexWebCompanion" or "CodexWebCompanionPersistent" or "CodexWebComputerUse")
+            return new(c.Title, "Остановлен", "Компонент установлен, но его локальный процесс не запущен.", true);
         if (c.State == "Ready") return new(c.Title, "Готов по запросу", "Windows запускает этот компонент при необходимости.", false);
         return new(c.Title, "Неизвестно", "Состояние Windows: " + c.State, true);
     }
@@ -75,6 +78,14 @@ public sealed class ReadinessService(SettingsStore settings, Func<Task<Inventory
             }
             views.Add(StatusProjection.Project(component, pipe));
         }
+        var healthyWriter = inventory.Components.Any(c => c.Id is "CodexWebCompanionPersistent" or "CodexWebCompanion"
+            && c.Installed && c.Owned && c.ExecutableExists && c.State == "Running");
+        for (int i = 0; i < inventory.Components.Length; i++) {
+            var c = inventory.Components[i];
+            if (!c.Installed && c.Known && (c.Id is "CodexWebComputerUse" or "CodexWebDesktopRestart"
+                || healthyWriter && c.Id is "CodexWebCompanion" or "CodexWebCompanionPersistent"))
+                views[i] = new(c.Title, "Не используется", "Дополнительный компонент; включается при необходимости.", false);
+        }
         var (roots, runtime, configNotice) = ReadWorkerConfig();
         var (ready, state) = await hub;
         return new(DateTimeOffset.Now, inventory, views.ToArray(), state, ready, roots, runtime, configNotice);
@@ -112,6 +123,7 @@ public sealed class ReadinessService(SettingsStore settings, Func<Task<Inventory
     public (string[] Roots, string Runtime, string? Notice) ReadWorkerConfig()
     {
         var directory = Path.GetFullPath(Path.Combine(settings.Directory, "..", "companion-persistent"));
+        if (!File.Exists(Path.Combine(directory, "config.json"))) directory = Path.GetFullPath(Path.Combine(settings.Directory, "..", "companion"));
         var path = Path.Combine(directory, "config.json");
         try
         {

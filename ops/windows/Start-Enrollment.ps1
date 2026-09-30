@@ -1,6 +1,6 @@
 #Requires -Version 5.1
 [CmdletBinding()]
-param()
+param([switch]$Companion, [string]$ExpectedSid)
 $ErrorActionPreference = 'Stop'
 trap {
     Add-Type -AssemblyName System.Windows.Forms
@@ -8,8 +8,13 @@ trap {
     exit 1
 }
 $principal = [Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent())
+if ($ExpectedSid -and [Security.Principal.WindowsIdentity]::GetCurrent().User.Value -cne $ExpectedSid) { throw 'Продолжи настройку под тем же пользователем Windows.' }
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Start-Process -FilePath (Join-Path $PSHOME 'powershell.exe') -ArgumentList @('-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $PSCommandPath + '"')) -Verb RunAs -WindowStyle Hidden
+    $elevationArgs=@('-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $PSCommandPath + '"'))
+    if($Companion){$elevationArgs += '-Companion'}
+    if($ExpectedSid){$elevationArgs += @('-ExpectedSid',$ExpectedSid)}
+    $elevated=Start-Process -FilePath (Join-Path $PSHOME 'powershell.exe') -ArgumentList $elevationArgs -Verb RunAs -WindowStyle Hidden -PassThru
+    if($Companion){$elevated.WaitForExit();exit $elevated.ExitCode}
     return
 }
 # This file is generated for one connection. It contains a short-lived pairing token.
@@ -33,12 +38,14 @@ while ($ancestor) {
     $ancestor = Split-Path -Parent $ancestor
 }
 New-Item -ItemType Directory -Path $directory -Force | Out-Null
-$acl = [Security.AccessControl.DirectorySecurity]::new()
+$directoryInfo=[IO.DirectoryInfo]::new($directory)
+$acl=$directoryInfo.GetAccessControl([Security.AccessControl.AccessControlSections]::Access)
 $acl.SetAccessRuleProtection($true, $false)
+foreach($rule in @($acl.GetAccessRules($true,$false,[Security.Principal.SecurityIdentifier]))){$acl.RemoveAccessRuleSpecific($rule)}
 foreach ($sid in @($identity.User, [Security.Principal.SecurityIdentifier]::new('S-1-5-18'), [Security.Principal.SecurityIdentifier]::new('S-1-5-32-544'))) {
     $acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($sid, 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow'))
 }
-Set-Acl -LiteralPath $directory -AclObject $acl
+$directoryInfo.SetAccessControl($acl)
 foreach ($file in $payload.files) {
     if ($file.name -notmatch '^[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*\.(ps1|cjs|js|cs)$') { throw 'Unexpected package file.' }
     $path = [IO.Path]::GetFullPath((Join-Path $directory $file.name))
@@ -55,14 +62,15 @@ $descriptor = Join-Path $directory 'connection.json'
 if ((Test-Path -LiteralPath $descriptor) -and ((Get-Item -LiteralPath $descriptor -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'Connection descriptor contains a link.' }
 [IO.File]::WriteAllText($descriptor, ($payload.descriptor | ConvertTo-Json -Depth 6), [Text.UTF8Encoding]::new($false))
 . (Join-Path $directory 'EnrollmentUi.ps1')
-New-CwWindow
+New-CwWindow -Hidden:$Companion
 try {
     # Keep script-scoped window controls and checkpoint state in the same scope.
     . (Join-Path $directory 'Enroll-Computer.ps1') -ConnectionFile $descriptor
-    if (Confirm-Cw 'Компьютер подготовлен. Открыть сайт и продолжить настройку? Там появится подтверждение администратора и активация подключения.') {
+    if (-not $Companion -and (Confirm-Cw 'Компьютер подготовлен. Открыть сайт и продолжить настройку? Там появится подтверждение администратора и активация подключения.')) {
         $target = [Uri]$payload.descriptor.baseUrl
         if ($target.Scheme -eq 'https' -and -not $target.UserInfo -and $target.AbsolutePath -eq '/' -and -not $target.Query -and -not $target.Fragment) { Start-Process ($target.AbsoluteUri + '#setup') }
     }
 } catch {
     [void][Windows.Forms.MessageBox]::Show($script:CwWindow, $_.Exception.Message, 'CodexWeb — настройка приостановлена', 'OK', 'Warning')
+    exit 1
 } finally { $script:CwWindow.Dispose(); $enrollmentMutex.ReleaseMutex(); $enrollmentMutex.Dispose() }

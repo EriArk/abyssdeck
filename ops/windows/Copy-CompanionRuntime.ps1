@@ -1,3 +1,23 @@
+function Resolve-CwCodexCommand {
+    # Prefer the configured retained runtime; desktop update directories are candidates only.
+    foreach($folder in @('companion-persistent','companion')) {
+        $config=Join-Path $env:LOCALAPPDATA ('CodexWeb\'+$folder+'\config.json')
+        if(Test-Path -LiteralPath $config){
+            $path=(Get-Content -LiteralPath $config -Raw -Encoding UTF8 | ConvertFrom-Json).codexCommand
+            if($path -and (Test-Path -LiteralPath $path -PathType Leaf)){return [string]$path}
+        }
+    }
+    $command=Get-Command codex.exe -ErrorAction SilentlyContinue
+    if($command -and $command.Source -notmatch '\\WindowsApps\\' -and (Test-Path -LiteralPath $command.Source -PathType Leaf)){return $command.Source}
+    $root=Join-Path $env:LOCALAPPDATA 'OpenAI\Codex\bin'
+    if(Test-Path -LiteralPath $root){
+        foreach($candidate in @(Get-ChildItem -LiteralPath $root -Filter codex.exe -Recurse -File | Sort-Object LastWriteTimeUtc -Descending)){
+            $folder=$candidate.DirectoryName
+            if(@('codex-code-mode-host.exe','codex-command-runner.exe','codex-windows-sandbox-setup.exe' | Where-Object {-not(Test-Path -LiteralPath (Join-Path $folder $_) -PathType Leaf)}).Count -eq 0){return $candidate.FullName}
+        }
+    }
+    return $null
+}
 function Copy-CompanionRuntime {
     [CmdletBinding()]
     param(
