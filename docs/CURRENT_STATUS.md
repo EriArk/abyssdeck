@@ -32,7 +32,16 @@ native plan и очереди; Chromium/WebKit с устаревшим `canSteer
 вопросом, сохранённым черновиком и отдельным полным ответом режима плана.
 Plan regression подтверждает native answers и дальнейшее сохранение плана,
 без нового `turn/start`. Физический iPhone — последующая обычная приёмка.
-Код подготовлен; активация Hub/web требует общего guarded release при простое.
+Код в `main` (`95fd0b5`), Hub/engine/web установлен **30 сентября в 15:19:14
+UTC** обычным guarded release, без owner force. Оба сервиса healthy, схема 30;
+публичный ID `37c2fbdd672001267f78a6680b87fb57fa521a7d4ea7e3aa1ff9b86088b011ad`
+совпадает с установленным указателем. 18 checkpoint/rollback/admission fixtures
+и проверка пары actual image/web прошли; приватная резервная копия проверена.
+`verification-95fd0b5/installed-continuity.json` подтверждает текущий owner
+thread/ход `01a0f2d0-bfe7-7bd2-95e9-2a521388ee54`: остаётся running, без нового
+`turn/start` после установки. Persistent процесс PID 8248 стартовал в 14:55:17
+UTC, до обновления Hub; его runtime и GUI task не заменялись. Public HTTPS
+и installed Companion stdio подтверждены. Новый Companion UI ещё не создан.
 
 По скриншоту «Конец задачи» проверен exact owner thread: **30 сентября 14:11:56
 UTC** native ход завершился с `CODEX_ERROR`: `Selected model is at capacity.

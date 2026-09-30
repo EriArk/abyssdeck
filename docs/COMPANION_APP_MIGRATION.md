@@ -8,8 +8,8 @@
 
 | Часть | Evidence |
 | --- | --- |
-| Hub engine/gateway/web | `e7e0be8`, schema 30, healthy; активация 13:16 UTC |
-| Web identity | `06db348b0e93abafd8c32f9428cf88887d83d922f19768f2f17bd67d7ee7ce20` |
+| Hub engine/gateway/web | После аудита обновлён до `95fd0b5`, schema 30, healthy; активация 15:19:14 UTC |
+| Web identity | `37c2fbdd672001267f78a6680b87fb57fa521a7d4ea7e3aa1ff9b86088b011ad` |
 | Persistent CLI | **0.159.2**, config → `companion-persistent/runtime/c6fe824d725f02d7/codex.exe` |
 | Каталог моделей | `gpt-6.1-sol` подтверждена Hub → SSH → installed Companion, аккаунт совпал |
 | CLI activation receipt | `verification-e7e0be8/runtime-activation.json`: `installed`, 13:18:48 UTC |
@@ -21,6 +21,9 @@
 
 Hub receipt также подтверждает сохранение прежнего CLI runtime. Ожидание его
 активации из предыдущего захода **завершилось**; повторная установка не нужна.
+Обновление Hub `95fd0b5` исправило передачу ответов на вопросы; оно не ставило
+новый Companion. Текущий native ход сохранился при обновлении, persistent PID
+8248 запущен в 14:55:17 UTC и продолжил работу после активации Hub в 15:19 UTC.
 Корневой `codex.command` Hub ещё содержит старый fallback 0.153.4, в отличие от
 активного persistent launcher. Это конкретный остаток для общего updater;
 в аудитном заходе live config не менялся.
