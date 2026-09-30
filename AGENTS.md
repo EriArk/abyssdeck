@@ -16,6 +16,24 @@
   value, then wait for the owner's continuation. See docs/COMPANION_APP.md and
   docs/COMPANION_APP_MIGRATION.md; distinguish design, source, installation and acceptance.
 
+## Owner-requested Companion first-run wizard (2026-09-30)
+
+- First sign in to the exact Hub account; then show one component checklist with
+  visible success checks. Automatically install and configure required missing
+  components in dependency order, checking actual readiness after every step.
+- Resume interrupted setup from durable per-account/device/component state;
+  reconcile accepted but unconfirmed effects instead of replaying installation.
+  Use the same checklist and repair operations after setup.
+- Provide contextual login and terminal command buttons, usable input/password
+  fields and explicit Paste/Submit. Passwords belong only in the actual terminal
+  prompt; never persist them or terminal input for replay. Do not automate sign-in.
+- Supply an in-app first-use guide and a short distributable instruction for the
+  friend. One universal package must contain no owner's credentials or private
+  identity. Preserve the preconfigured owner PC and its direct LAN route.
+- Ordinary required setup is automatic; pause only for personal authentication,
+  Windows elevation, deliberate folder/optional choices or access approval.
+  A pending user step is not a generic setup failure and does not restart setup.
+
 ## Owner-approved independent Windows Computer Use (2026-09-30)
 
 - The owner explicitly approved a Companion GUI adapter with ordinary access to
