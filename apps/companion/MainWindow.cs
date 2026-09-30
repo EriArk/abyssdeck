@@ -95,6 +95,10 @@ public sealed class MainWindow : Window, IDisposable
 
     void Build()
     {
+        // Reuse the scroll panes, but detach them before attaching the new shell.
+        // Avalonia rejects a second parent; a failed theme rebuild otherwise
+        // leaves old header colours around newly themed settings.
+        pageHost.Children.Clear();
         RequestedThemeVariant = palette.Dark ? ThemeVariant.Dark : ThemeVariant.Light;
         FontFamily = new FontFamily(profile.Theme == "crt-green" ? "Consolas" : "Segoe UI");
         Background = Themes.Brush(palette.Canvas); Foreground = Themes.Brush(palette.Ink);
@@ -120,9 +124,11 @@ public sealed class MainWindow : Window, IDisposable
             pageHost.Children.Add(page);
         }
         Grid.SetRow(pageHost, 2); shell.Children.Add(pageHost);
-        checkedText = Text("Проверяем состояние…", muted: true);
+        checkedText = Text(refreshing ? "Обновляем состояние…" : snapshot is null
+            ? "Проверяем состояние…" : "Проверено " + snapshot.CheckedAt.ToString("HH:mm:ss"), muted: true);
         progress = new ProgressBar { IsIndeterminate = true, Height = 3, IsVisible = refreshing, Foreground = Themes.Brush(palette.Accent) };
         refreshButton = Button("Проверить состояние", () => _ = Refresh());
+        refreshButton.IsEnabled = !refreshing;
         var footer = new Grid { ColumnDefinitions = new ColumnDefinitions("*,210"), ColumnSpacing = 16 };
         footer.Children.Add(Stack(progress, checkedText)); Grid.SetColumn(refreshButton, 1); footer.Children.Add(refreshButton);
         Grid.SetRow(footer, 3); shell.Children.Add(footer);
