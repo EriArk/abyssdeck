@@ -53,13 +53,19 @@ if (-not $manifest.files.'CodexWeb.Companion.exe') { throw 'UI executable is mis
 $root = Join-Path $env:LOCALAPPDATA 'CodexWeb/companion-app'
 Assert-NoLink $root
 New-Item -ItemType Directory -Path $root -Force | Out-Null
-$acl = [Security.AccessControl.DirectorySecurity]::new()
+$directoryInfo = [IO.DirectoryInfo]::new($root)
+# Modify only the DACL. A fresh descriptor passed to Set-Acl can request SACL
+# privileges on a repeat install, even for this user's own protected directory.
+$acl = $directoryInfo.GetAccessControl([Security.AccessControl.AccessControlSections]::Access)
 $acl.SetAccessRuleProtection($true, $false)
+foreach ($existingRule in @($acl.GetAccessRules($true, $false, [Security.Principal.SecurityIdentifier]))) {
+    $acl.RemoveAccessRuleSpecific($existingRule)
+}
 foreach ($ownerSid in @($sid, 'S-1-5-18')) {
     $rule = [Security.AccessControl.FileSystemAccessRule]::new([Security.Principal.SecurityIdentifier]::new($ownerSid), 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow')
     $acl.AddAccessRule($rule)
 }
-Set-Acl -LiteralPath $root -AclObject $acl
+$directoryInfo.SetAccessControl($acl)
 $profilePath = Join-Path $root 'profile.json'
 Assert-NoLink $profilePath
 if (Test-Path -LiteralPath $profilePath) {
