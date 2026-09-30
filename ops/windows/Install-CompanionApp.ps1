@@ -34,7 +34,7 @@ Assert-NoLink $package
 $manifestPath = Join-Path $package 'release.json'
 Assert-NoLink $manifestPath
 $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
-if ($manifest.format -ne 1 -or $manifest.product -cne 'codexweb-companion-ui' -or $manifest.platform -cne 'win-x64' -or $manifest.version -cne '0.3.0') { throw 'Unknown UI package.' }
+if ($manifest.format -ne 1 -or $manifest.product -cne 'codexweb-companion-ui' -or $manifest.platform -cne 'win-x64' -or $manifest.version -notmatch '^0\.4\.\d+$') { throw 'Unknown UI package.' }
 $entries = @($manifest.files.PSObject.Properties)
 if ($entries.Count -lt 2 -or $entries.Count -gt 300) { throw 'Invalid package inventory.' }
 $expected = @('release.json')

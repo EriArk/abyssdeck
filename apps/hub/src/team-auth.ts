@@ -63,8 +63,15 @@ export class TeamAuth extends Auth {
       .all(this.userId, Date.now());
     this.store.db.exec("BEGIN IMMEDIATE");
     try {
-      this.store.db.exec("DELETE FROM sessions");
-      const put = this.store.db.prepare("INSERT INTO sessions VALUES(?,?,?)");
+      // Subscriptions/receipts reference sessions with ON DELETE CASCADE. Rebuilding
+      // the mirror destroyed valid devices on every login and engine restart.
+      const retained = new Set(rows.map((row) => String(row.tokenHash)));
+      const remove = this.store.db.prepare("DELETE FROM sessions WHERE tokenHash=?");
+      for (const row of this.store.db.prepare("SELECT tokenHash FROM sessions").all())
+        if (!retained.has(String(row.tokenHash))) remove.run(String(row.tokenHash));
+      const put = this.store.db.prepare(
+        "INSERT INTO sessions VALUES(?,?,?) ON CONFLICT(tokenHash) DO UPDATE SET csrf=excluded.csrf,expires=excluded.expires",
+      );
       for (const row of rows) put.run(String(row.tokenHash), String(row.csrf), Number(row.expires));
       this.store.db.exec("COMMIT");
     } catch (error) {
@@ -226,8 +233,8 @@ export class TeamAuth extends Auth {
       if (!path.startsWith("/api/")) return;
       reply.header("Cache-Control", "no-store");
       if (path === "/api/health" || path === "/api/auth/status") return;
-      if (!this.userId && (/^\/api\/companion\/(status|enrollment|logout|repair-kit)$/.test(path)
-          || path === "/api/companion/enrollment/:id/bundle")) {
+      if (!this.userId && (/^\/api\/companion\/(status|enrollment|logout|repair-kit|update)$/.test(path)
+          || path === "/api/companion/enrollment/:id/bundle" || path === "/api/companion/update/:digest/bundle")) {
         if (req.headers.cookie || (req.headers.origin && req.headers.origin !== this.config.hub.publicBaseUrl)
             || !/^Bearer [A-Za-z0-9_-]{43}$/.test(String(req.headers.authorization ?? "")))
           throw new HubError(401, "COMPANION_LOGIN_REQUIRED", "Войди в Companion.");

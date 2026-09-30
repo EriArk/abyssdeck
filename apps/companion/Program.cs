@@ -19,7 +19,14 @@ public static class Program
     public static int Main(string[] args)
     {
         Arguments = args;
-        if (args.Length > 0 && args.Any(x => x != "--tray" && x != "--inventory" && x != "--terminal" && x != "--login-codex" && x != "--login-github" && x != "--install-node" && x != "--install-git" && x != "--install-gh")) return 2;
+        if(args.Length==2 && args[0]=="--apply-update") {
+            var result=UpdateActivationWorker.Run(args[1]);
+            if(result!=0)try {var restart=new ProcessStartInfo(Environment.ProcessPath!){UseShellExecute=false,CreateNoWindow=true};restart.ArgumentList.Add("--tray");Process.Start(restart);}catch { }
+            return result;
+        }
+        if(args.Contains("--update-health") && (args.Length!=3 || args[0]!="--tray" || args[1]!="--update-health" || !System.Text.RegularExpressions.Regex.IsMatch(args[2],"^[a-f0-9]{32}$")))return 2;
+        var normalArgs=args.Contains("--update-health")?new[]{"--tray"}:args;
+        if (normalArgs.Length > 0 && normalArgs.Any(x => x != "--tray" && x != "--inventory" && x != "--terminal" && x != "--login-codex" && x != "--login-github" && x != "--install-node" && x != "--install-git" && x != "--install-gh")) return 2;
         if (args.Contains("--inventory"))
         {
             var store = new SettingsStore(SettingsStore.DirectoryPath, SettingsStore.CurrentSid);
@@ -89,6 +96,7 @@ public sealed class CompanionApp : Application
             AddMenu(menu, "Открыть Companion", () => ShowWindow());
             AddMenu(menu, "Открыть CodexWeb", Window.OpenWeb);
             AddMenu(menu, "Проверить состояние", () => { ShowWindow(); _ = Window.Refresh(); });
+            AddMenu(menu, "Обновления", () => { ShowWindow(); Window.SelectPage(2); _ = Window.CheckUpdates(); });
             AddMenu(menu, "Настройки", () => { ShowWindow(); Window.SelectPage(2); });
             menu.Items.Add(new NativeMenuItemSeparator());
             AddMenu(menu, "Выйти из интерфейса", Exit);
@@ -98,6 +106,7 @@ public sealed class CompanionApp : Application
             desktop.Exit += (_, _) => { shutdown.Cancel(); tray.Dispose(); Window.Dispose(); };
             if (!Program.Arguments.Contains("--tray")) ShowWindow();
             _ = Listen();
+            if(Program.Arguments.Contains("--update-health"))UpdateActivationWorker.WriteHealth(Window,Program.Arguments[2]);
             _ = Window.Refresh();
         }
         base.OnFrameworkInitializationCompleted();

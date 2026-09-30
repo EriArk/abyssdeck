@@ -1,32 +1,26 @@
 import { useEffect, useRef, useState } from "react";
 import { accountLocalStorage as localStorage } from "./accountStorage.ts";
 import { api, messageOf } from "./api";
+import {
+  createPushState,
+  type PushCategories as Categories,
+  type PushStatus,
+} from "./pushState.ts";
 import "./notifications.css";
 
-const storageKey = "codex-push-device";
 const changed = "codex-push-changed";
-function deviceId() {
-  try {
-    return localStorage.getItem(storageKey) || "";
-  } catch {
-    return "";
-  }
-}
-function saveDevice(id: string) {
-  try {
-    if (id) localStorage.setItem(storageKey, id);
-    else localStorage.removeItem(storageKey);
-  } catch {}
-  window.dispatchEvent(new Event(changed));
-}
-type Categories = { completed: boolean; attention: boolean; errors: boolean };
-type PushStatus = {
-  available: boolean;
-  publicKey?: string;
-  enabled: boolean;
-  categories: Categories;
-  preview: boolean;
-};
+const pushState = createPushState({
+  storage: localStorage,
+  api,
+  ready: () => navigator.serviceWorker.ready,
+  permission: () => Notification.permission,
+  hash: async (endpoint) =>
+    [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(endpoint)))]
+      .map((x) => x.toString(16).padStart(2, "0"))
+      .join(""),
+  changed: () => window.dispatchEvent(new Event(changed)),
+});
+const deviceId = pushState.id;
 export function Notifications({ visible }: { visible: boolean }) {
   const supported =
     "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
@@ -41,32 +35,32 @@ export function Notifications({ visible }: { visible: boolean }) {
     const timer = setTimeout(() => {
       if (!disposed) setError("Не удалось подготовить уведомления. Обнови страницу.");
     }, 12000);
-    void (async () => {
-      const id = deviceId();
-      const [data, reg] = await Promise.all([
-        api<PushStatus>("/push" + (id ? "?id=" + id : "")),
-        navigator.serviceWorker.ready,
-      ]);
-      const sub = await reg.pushManager.getSubscription();
-      if (disposed) return;
-      if (data.enabled && (!sub || Notification.permission === "denied")) {
-        await api("/push/" + id, { method: "DELETE", timeoutMs: 10000 });
-        data.enabled = false;
-        saveDevice("");
-      }
-      if (disposed) return;
-      setStatus(data);
-      setRegistration(reg);
-      setSubscription(sub);
-      setError("");
-    })()
-      .catch((e) => {
-        if (!disposed) setError(messageOf(e));
-      })
-      .finally(() => clearTimeout(timer));
+    const refresh = () => {
+      if (document.visibilityState !== "visible") return;
+      void pushState
+        .restore()
+        .then(({ status: data, registration: reg, subscription: sub }) => {
+          if (disposed) return;
+          setStatus(data);
+          setRegistration(reg);
+          setSubscription(sub);
+          setError("");
+        })
+        .catch((e) => {
+          if (!disposed) setError(messageOf(e));
+        })
+        .finally(() => clearTimeout(timer));
+    };
+    refresh();
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("pageshow", refresh);
+    window.addEventListener("online", refresh);
     return () => {
       disposed = true;
       clearTimeout(timer);
+      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("pageshow", refresh);
+      window.removeEventListener("online", refresh);
     };
   }, [visible, supported]);
   const store = async (
@@ -74,12 +68,7 @@ export function Notifications({ visible }: { visible: boolean }) {
     categories: Categories,
     preview = status?.preview ?? true,
   ) => {
-    const data = await api<{ id: string }>("/push", {
-      method: "POST",
-      body: { subscription: sub.toJSON(), categories, preview },
-      timeoutMs: 15000,
-    });
-    saveDevice(data.id);
+    await pushState.save(sub, categories, preview);
     setSubscription(sub);
     setStatus((s) => (s ? { ...s, enabled: true, categories, preview } : s));
   };
@@ -110,9 +99,7 @@ export function Notifications({ visible }: { visible: boolean }) {
     setPending(true);
     setError("");
     try {
-      const id = deviceId();
-      if (id) await api("/push/" + id, { method: "DELETE", timeoutMs: 10000 });
-      saveDevice("");
+      await pushState.disable();
       setStatus((s) => (s ? { ...s, enabled: false } : s));
       await subscription?.unsubscribe();
       setSubscription(null);
@@ -157,6 +144,11 @@ export function Notifications({ visible }: { visible: boolean }) {
           </button>
           {Notification.permission === "denied" && (
             <p className="small muted">Уведомления запрещены в настройках устройства.</p>
+          )}
+          {status?.enabled && !subscription && Notification.permission === "granted" && (
+            <button type="button" disabled={pending} onClick={enable}>
+              Восстановить на этом устройстве
+            </button>
           )}
           {status?.enabled && (
             <>
@@ -243,9 +235,22 @@ export function useNotificationPresence(client: "codex" | "gpt", target: string,
     };
     const show = () => update(),
       hide = () => update(true);
+    const restore = () => {
+      if (
+        document.visibilityState === "visible" &&
+        "serviceWorker" in navigator &&
+        "PushManager" in window &&
+        "Notification" in window
+      )
+        void pushState.restore().catch(() => {});
+    };
+    restore();
     show();
     const timer = setInterval(show, 10000);
     document.addEventListener("visibilitychange", show);
+    document.addEventListener("visibilitychange", restore);
+    window.addEventListener("pageshow", restore);
+    window.addEventListener("online", restore);
     window.addEventListener("focus", show);
     window.addEventListener("blur", hide);
     window.addEventListener("pagehide", hide);
@@ -254,6 +259,9 @@ export function useNotificationPresence(client: "codex" | "gpt", target: string,
       clearInterval(timer);
       hide();
       document.removeEventListener("visibilitychange", show);
+      document.removeEventListener("visibilitychange", restore);
+      window.removeEventListener("pageshow", restore);
+      window.removeEventListener("online", restore);
       window.removeEventListener("focus", show);
       window.removeEventListener("blur", hide);
       window.removeEventListener("pagehide", hide);

@@ -7,6 +7,7 @@ $repairAcquired=$false
 try {
 try {$repairAcquired=$repairMutex.WaitOne(0)} catch [Threading.AbandonedMutexException] {$repairAcquired=$true}
 if(-not $repairAcquired){throw 'REPAIR_ALREADY_RUNNING'}
+if($automatic -and $componentId -in @('CodexWebCompanion','CodexWebCompanionPersistent','CodexWebDesktopRestart')){throw 'AUTOMATIC_WRITER_OR_ELEVATION_REFUSED'}
 $task=Get-ScheduledTask -TaskName $componentId -ErrorAction SilentlyContinue
 if($task){
 $principalSid=if($task.Principal.UserId -like 'S-1-*'){$task.Principal.UserId}else{([Security.Principal.NTAccount]::new($task.Principal.UserId)).Translate([Security.Principal.SecurityIdentifier]).Value}
@@ -14,7 +15,9 @@ if($principalSid -cne $expectedSid -or $task.Principal.LogonType -ne 'Interactiv
 $sha=[Security.Cryptography.SHA256]::Create()
 try {$digest=([BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes((Export-ScheduledTask -TaskName $componentId))))).Replace('-','').ToLowerInvariant()} finally {$sha.Dispose()}
 if($digest -cne $expectedDigest){throw 'TASK_DEFINITION_CHANGED'}
+if($automatic -and $task.State -ne 'Ready'){throw 'AUTOMATIC_TASK_NOT_IDLE'}
 } elseif($expectedDigest){throw 'TASK_DISAPPEARED'}
+if($automatic -and -not $task){throw 'AUTOMATIC_TASK_UNKNOWN'}
 if($componentId -in @('CodexWebCompanion','CodexWebCompanionPersistent')){
   $native=@(Get-CimInstance Win32_Process -Filter "Name='codex.exe'" | Where-Object {$_.ExecutablePath -and $_.ExecutablePath.StartsWith((Join-Path $env:LOCALAPPDATA 'CodexWeb\companion-persistent\runtime\'),[StringComparison]::OrdinalIgnoreCase)})
   if($native.Count){throw 'NATIVE_WORK_PRESENT'}

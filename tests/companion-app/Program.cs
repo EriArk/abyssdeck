@@ -1,6 +1,11 @@
 using System.Text.Json;
 using CodexWeb.Companion;
 
+if(args.Length==2) {
+    var signed=JsonSerializer.Deserialize<SignedUpdate>(File.ReadAllBytes(args[0]),SettingsStore.Json)!;
+    var trusted=ReleaseVerifier.Verify(signed);ReleaseVerifier.VerifyPackage(args[1],trusted);
+    Console.WriteLine("PASS actual Node publisher signature and clean package accepted by Windows verifier");return;
+}
 var temporary = Path.Combine(Path.GetTempPath(), "companion-ui-check-" + Guid.NewGuid());
 Directory.CreateDirectory(temporary);
 try
@@ -65,6 +70,53 @@ try
         await console.Write("Write-Output 'CONPTY-READY-493'\r");
         Check(await output.Task.WaitAsync(TimeSpan.FromSeconds(15)), "real same-user ConPTY accepts input and produces output without SSH");
     }
+    using(var signing=System.Security.Cryptography.RSA.Create(3072)) {
+        var candidate=new UpdateRelease(1,"codexweb-companion-ui","win-x64","0.4.9",101,19045,1,new string('a',64),new string('b',64),4096,new string('c',40),DateTimeOffset.UtcNow);
+        SignedUpdate Signed(UpdateRelease value) {
+            var data=JsonSerializer.SerializeToUtf8Bytes(value,SettingsStore.Json);
+            return new(1,Convert.ToBase64String(data),Convert.ToBase64String(signing.SignData(data,System.Security.Cryptography.HashAlgorithmName.SHA256,System.Security.Cryptography.RSASignaturePadding.Pss)));
+        }
+        var package=Path.Combine(temporary,"package");Directory.CreateDirectory(package);
+        File.WriteAllBytes(Path.Combine(package,"CodexWeb.Companion.exe"),[1,2,3]);File.WriteAllText(Path.Combine(package,"README.txt"),"fixture");
+        File.WriteAllBytes(Path.Combine(package,"release.json"),JsonSerializer.SerializeToUtf8Bytes(new {format=1,product=candidate.Product,platform=candidate.Platform,
+            version=candidate.Version,sourceRevision=candidate.SourceRevision,sourceDirty=false,files=new Dictionary<string,string>{
+                ["CodexWeb.Companion.exe"]=ReleaseVerifier.HashFile(Path.Combine(package,"CodexWeb.Companion.exe")),["README.txt"]=ReleaseVerifier.HashFile(Path.Combine(package,"README.txt"))}},SettingsStore.Json));
+        var zipPath=Path.Combine(temporary,"fixture.zip");System.IO.Compression.ZipFile.CreateFromDirectory(package,zipPath);
+        var archiveRelease=candidate with {ManifestSha256=ReleaseVerifier.HashFile(Path.Combine(package,"release.json")),PackageSha256=ReleaseVerifier.HashFile(zipPath),PackageBytes=new FileInfo(zipPath).Length};
+        ReleaseVerifier.Extract(zipPath,Path.Combine(temporary,"unpacked"),archiveRelease);Check(true,"exact signed inventory extraction preserves every file");
+        try {ReleaseVerifier.Extract(zipPath,Path.Combine(temporary,"tampered"),archiveRelease with {PackageSha256=new string('0',64)});throw new Exception("archive accepted");}catch(IOException){Console.WriteLine("PASS changed archive rejected before extraction");}
+        File.WriteAllText(Path.Combine(package,"extra.txt"),"unexpected");
+        try {ReleaseVerifier.VerifyPackage(package,archiveRelease);throw new Exception("extra accepted");}catch(IOException){Console.WriteLine("PASS unsigned extra package file rejected");}
+        var signed=Signed(candidate);var key=signing.ExportSubjectPublicKeyInfoPem();
+        Check(ReleaseVerifier.Verify(signed,100,key)==candidate,"trusted exact signature accepts a compatible release");
+        try {ReleaseVerifier.Verify(signed,102,key);throw new Exception("rollback allowed");}catch(IOException){Console.WriteLine("PASS signed rollback sequence refused");}
+        try {ReleaseVerifier.Verify(signed with {Payload=Convert.ToBase64String(JsonSerializer.SerializeToUtf8Bytes(candidate with {Version="9.0.0"},SettingsStore.Json))},0,key);throw new Exception("tampering allowed");}catch(IOException){Console.WriteLine("PASS modified manifest refused before staging");}
+        try {ReleaseVerifier.Verify(Signed(candidate with {Platform="linux-x64"}),0,key);throw new Exception("platform accepted");}catch(IOException){Console.WriteLine("PASS incompatible platform refused");}
+        using var stranger=System.Security.Cryptography.RSA.Create(3072);
+        try {ReleaseVerifier.Verify(signed,0,stranger.ExportSubjectPublicKeyInfoPem());throw new Exception("foreign key allowed");}catch(IOException){Console.WriteLine("PASS untrusted publisher refused");}
+    }
+    var recoverStore=new SettingsStore(Path.Combine(temporary,"recovery"),"fixture-sid");Directory.CreateDirectory(recoverStore.Directory);
+    var clock=DateTimeOffset.UtcNow;
+    var policy=new RecoveryManager(recoverStore,()=>clock);
+    var stopped=new Component("CodexWebComputerUse","Computer Use","computer-use",true,true,true,"Ready","fixture.exe",true,new string('a',64));
+    Snapshot Ready()=>new(clock,new("fixture-sid","fixture","pc",1,[stopped],[]),[],"ready",true,[],"",null);
+    var effects=0;
+    Task Repair(Component c,Inventory inventory,string? kit){effects++;return Task.CompletedTask;}
+    await policy.Recover(Ready(),false,null,Repair,()=>Task.FromResult(Ready()));Check(effects==0,"unconfirmed Hub account never grants automatic repair");
+    await policy.Recover(Ready(),true,null,Repair,()=>Task.FromResult(Ready()));
+    await policy.Recover(Ready(),true,null,Repair,()=>Task.FromResult(Ready()));Check(effects==1,"repeated ticks do not replay an accepted recovery effect");
+    var reloaded=new RecoveryManager(recoverStore,()=>clock);Check(!reloaded.Due(stopped),"reopened UI retains recovery backoff");
+    clock+=TimeSpan.FromSeconds(31);await reloaded.Recover(Ready(),true,null,Repair,()=>Task.FromResult(Ready()));
+    clock+=TimeSpan.FromSeconds(121);await reloaded.Recover(Ready(),true,null,Repair,()=>Task.FromResult(Ready()));
+    clock+=TimeSpan.FromSeconds(121);Check(effects==3 && !reloaded.Due(stopped),"three failed checks enter fifteen-minute cooling period");
+    Check(!RecoveryManager.Candidate(stopped with {State="Running"}) && !RecoveryManager.Candidate(stopped with {State="Disabled"})
+        && !RecoveryManager.Candidate(stopped with {Known=false}) && !RecoveryManager.Candidate(stopped with {Owned=false})
+        && !RecoveryManager.Candidate(stopped with {Id="CodexWebCompanionPersistent"}) && !RecoveryManager.Candidate(stopped with {Id="CodexWebDelivery"}),
+        "running, disabled, foreign, unknown, native writers and ready demand workers are untouched");
+    File.WriteAllText(Path.Combine(recoverStore.Directory,"recovery-state.json"),"corrupted");
+    var corrupted=new RecoveryManager(recoverStore,()=>clock);
+    await corrupted.Recover(Ready(),true,null,Repair,()=>Task.FromResult(Ready()));
+    Check(effects==3 && !corrupted.Due(stopped),"damaged recovery journal cannot replay previous effects");
     Console.WriteLine("Companion focused checks passed; no existing native process or task was changed.");
 }
 finally

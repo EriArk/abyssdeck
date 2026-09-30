@@ -101,6 +101,26 @@ public sealed class HubConnection(SettingsStore settings) : IDisposable
         return candidate;
     }
     public void Accept(DeviceSession candidate) { Sessions.Save(candidate); Session = candidate; }
+    public async Task DownloadUpdate(string digest, string destination, long size, DeviceSession expected)
+    {
+        if (!System.Text.RegularExpressions.Regex.IsMatch(digest, "^[a-f0-9]{64}$") || size is < 1 or > 128 * 1024 * 1024) throw new IOException("Неверный пакет обновления.");
+        var session = Session ?? throw new IOException("Сначала войди в Hub.");
+        if(session.UserId!=expected.UserId || session.HubOrigin!=expected.HubOrigin)throw new IOException("Hub connection changed");
+        using var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false }) { Timeout = TimeSpan.FromMinutes(3) };
+        using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(new Uri(session.HubOrigin), "/api/companion/update/" + digest + "/bundle"));
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", session.Token);
+        using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+        if (!response.IsSuccessStatusCode) { await Body(response); return; }
+        if (response.Content.Headers.ContentLength != size) throw new IOException("Размер обновления изменился.");
+        SettingsStore.NoLinks(destination);
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+        await using var source = await response.Content.ReadAsStreamAsync(timeout.Token);
+        await using var output = new FileStream(destination, FileMode.CreateNew, FileAccess.Write);
+        var bytes = new byte[65536]; long total = 0;
+        while (true) { var n = await source.ReadAsync(bytes, timeout.Token); if (n == 0) break;
+            total += n; if (total > size) throw new IOException("Пакет обновления слишком велик."); await output.WriteAsync(bytes.AsMemory(0,n), timeout.Token); }
+        if (total != size) throw new IOException("Обновление загружено не полностью.");
+    }
     public async Task<JsonElement> Request(string path, object? body = null)
     {
         var session = Session ?? throw new IOException("Сначала войди в Hub.");

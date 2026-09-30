@@ -24,6 +24,14 @@ if($started -ne 1 -or $enabled -ne 1){throw 'Refusal mutated a task'}
 $fixture.Principal.UserId='S-1-5-21-999-888-777-1001'
 try{& ([scriptblock]::Create($repairScript));throw 'Foreign task accepted'}catch{if($_.Exception.Message -notmatch 'TASK_CHANGED_OR_BUSY'){throw}}
 'PASS other Windows identity refused'
+$automatic=$true;$fixture.Principal.UserId=$expectedSid;$fixtureXml='reviewed task fixture';$fixture.State='Disabled'
+try{& ([scriptblock]::Create($repairScript));throw 'Automatic enabling accepted'}catch{if($_.Exception.Message -notmatch 'AUTOMATIC_TASK_NOT_IDLE'){throw}}
+if($started -ne 1 -or $enabled -ne 1){throw 'Automatic refusal mutated a task'}
+'PASS automatic repair never enables a disabled component'
+$componentId='CodexWebCompanionPersistent'
+try{& ([scriptblock]::Create($repairScript));throw 'Automatic writer accepted'}catch{if($_.Exception.Message -notmatch 'AUTOMATIC_WRITER_OR_ELEVATION_REFUSED'){throw}}
+'PASS automatic native writer repair refused before task access'
+$automatic=$false;$componentId='CodexWebComputerUse'
 $blocker=[Threading.Mutex]::new($false,('Local\CodexWebRepair-'+$expectedSid+'-'+$componentId))
 # Hold the mutex from a separate process; same-thread acquisition would be reentrant.
 $ready=Join-Path $env:TEMP ('companion-repair-check-'+[Guid]::NewGuid().ToString('N'))

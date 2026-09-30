@@ -351,7 +351,8 @@ export function registerPush(
     )
       throw new HubError(409, "PUSH_LIMIT", "Достигнут лимит устройств с уведомлениями.");
     const old = owned(id, owner);
-    // A fresh login must explicitly re-enable this browser. Old session delivery receipts never transfer.
+    // Registration requires this browser's per-account opt-in. Rebinding a renewed
+    // login starts fresh delivery authorization; old session receipts never transfer.
     if (!old) store.db.prepare("DELETE FROM push_subscriptions WHERE id=?").run(id);
     store.db
       .prepare(

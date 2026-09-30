@@ -12,12 +12,18 @@ namespace CodexWeb.Companion;
 
 public sealed class MainWindow : Window, IDisposable
 {
-    const string Version = "0.3.0";
+    const string Version = CompanionVersion.Current;
     readonly CompanionApp app;
     readonly SettingsStore store;
     readonly ReadinessService readiness;
     readonly HubConnection hub;
     readonly SetupOperations setup;
+    readonly UpdateManager updates;
+    readonly RecoveryManager recovery;
+    bool maintaining;
+    double[]? restoreOffsets;
+    TextBlock updateText = new();
+    Button updateApply = new();
     JsonElement? account;
     bool loginRequired, operating, accountReady;
     string? accountError;
@@ -50,7 +56,7 @@ public sealed class MainWindow : Window, IDisposable
     {
         this.app = app; this.store = store; this.profile = profile; notice = error;
         hubDraft = profile.HubOrigin; palette = Themes.Get(profile.Theme); readiness = new(store);
-        hub = new(store); setup = new(store, hub);
+        hub = new(store); setup = new(store, hub); updates=new(store,hub);recovery=new(store);
         try { hub.Restore(profile); } catch { notice = "Сохранённое подключение недоступно. Войди снова."; }
         Title = "CodexWeb Companion";
         Width = 840; Height = 690; MinWidth = 650; MinHeight = 520;
@@ -59,7 +65,7 @@ public sealed class MainWindow : Window, IDisposable
         Closing += (_, e) => { if (!app.Exiting) { e.Cancel = true; Hide(); ShowInTaskbar = false; } };
         Activated += (_, _) => { if (snapshot is null || DateTimeOffset.Now - snapshot.CheckedAt > TimeSpan.FromSeconds(15)) _ = Refresh(); };
         timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
-        timer.Tick += (_, _) => { if (operating || setup.Running) RenderSnapshot(); if (!operating || snapshot is null || DateTimeOffset.Now - snapshot.CheckedAt > TimeSpan.FromSeconds(30)) _ = Refresh(); }; timer.Start();
+        timer.Tick += (_, _) => { if (operating || setup.Running || maintaining) RenderSnapshot(); if (!operating || snapshot is null || DateTimeOffset.Now - snapshot.CheckedAt > TimeSpan.FromSeconds(30)) _ = Refresh(); }; timer.Start();
         Build();
     }
 
@@ -160,6 +166,10 @@ public sealed class MainWindow : Window, IDisposable
             navigation[i].BorderBrush = Themes.Brush(i == index ? palette.Accent : palette.Line);
         }
     }
+    public void RestoreView(int index,double[]? offsets) {
+        SelectPage(Math.Clamp(index,0,2));
+        restoreOffsets=offsets is {Length:3} && offsets.All(x=>double.IsFinite(x) && x>=0 && x<=1_000_000) ? offsets : null;
+    }
     Control SettingsPage()
     {
         var address = new TextBox { Text = hubDraft, PlaceholderText = "https://hub.example", MinHeight = 44 };
@@ -209,10 +219,20 @@ public sealed class MainWindow : Window, IDisposable
                 autoStart.IsChecked = profile.AutoStart; notice = e is IOException ? e.Message : "Не удалось изменить автозапуск."; RenderSnapshot();
             }
         };
+        updateText=Text(updates.Description);
+        updateApply=Button("Установить проверенное обновление",()=>ApplyUpdate());
+        var autoUpdates=new CheckBox {Content="Автоматически обновлять Companion",IsChecked=profile.AutoUpdates,MinHeight=44};
+        var autoRecovery=new CheckBox {Content="Автоматически восстанавливать остановленные вспомогательные компоненты",IsChecked=profile.AutoRecovery,MinHeight=44};
+        autoUpdates.Click+=(_,_)=>{try {var next=profile with {AutoUpdates=autoUpdates.IsChecked==true};store.Save(next);profile=next;}catch {autoUpdates.IsChecked=profile.AutoUpdates;} };
+        autoRecovery.Click+=(_,_)=>{try {var next=profile with {AutoRecovery=autoRecovery.IsChecked==true};store.Save(next);profile=next;}catch {autoRecovery.IsChecked=profile.AutoRecovery;} };
         return Stack(
             Section(Stack(Text("Подключение к Hub", 18, bold: true), Text("Вход — в Обзоре Companion. Пользователи и приглашения — в вебе.", muted: true), address, save)),
             Section(Stack(Text("Приложение", 18, bold: true), Text("Тема", muted: true), theme, autoStart,
                 Text("Крестик скрывает окно в трей. Выход из интерфейса оставляет работающие компоненты запущенными.", muted: true))),
+            Section(Stack(Text("Обновления и восстановление",18,bold:true),updateText,
+                Row(Button("Проверить обновление",()=>_ = CheckUpdates()),updateApply),autoUpdates,autoRecovery,
+                Text("Подпись и файлы проверяются до установки. Автообновление ждёт скрытия окна и завершения личных шагов. Проекты и входы сохраняются.",muted:true),
+                Text("Вспомогательные модули восстанавливаются ограниченными попытками; выключенные и неизвестные задачи требуют твоего действия. Исполнитель Codex не заменяется автоматически.",muted:true))),
             Section(Stack(Text("Companion " + Version + " · Windows x64", 16, bold: true),
                 Row(Button("Сохранить отчёт", () => _ = SaveReport()), Button("Выйти из интерфейса", app.Exit)))),
             new Expander
@@ -222,7 +242,7 @@ public sealed class MainWindow : Window, IDisposable
                 Text("Значок в трее открывает это окно. Крестик скрывает его, а выход завершает только интерфейс."),
                 Text("Обзор показывает связь с Hub и рабочие папки. Компоненты проверяются раз в 30 секунд; кнопка проверки обновляет состояние сразу."),
                 Text("Готов по запросу — нормальное состояние: компонент запустится, когда понадобится. Занято — текущая работа продолжается."),
-                Text("После восстановления сети связь проверяется автоматически. Сообщения, команды и действия не отправляются повторно."),
+                Text("После восстановления сети связь проверяется автоматически. Известный остановленный вспомогательный компонент может восстановиться сам; после повторных сбоев попытки замедляются. Сообщения, команды и действия не отправляются повторно."),
                 Text("Кнопка CodexWeb открывает веб. Аккаунты, приглашения и управление Hub остаются там; полная справка доступна в настройках веба."),
                 Text("Отчёт сохраняется в выбранный локальный файл. Он не содержит паролей, токенов или текста чатов.")))
             });
@@ -262,7 +282,7 @@ public sealed class MainWindow : Window, IDisposable
         var next = profile with { HubOrigin = origin, DeviceId = changed ? "" : profile.DeviceId, Route = changed ? "Не привязан" : profile.Route };
         var password = passwordField.Text ?? ""; passwordField.Text = "";
         var candidate = await hub.Login(next, (loginField.Text ?? "").Trim(), password);
-        next = next with { Theme = profile.Theme, AutoStart = profile.AutoStart };
+        next = next with { Theme = profile.Theme, AutoStart = profile.AutoStart, AutoUpdates = profile.AutoUpdates, AutoRecovery = profile.AutoRecovery };
         store.Save(next);
         try { hub.Accept(candidate); } catch { store.Save(profile); throw; }
         profile = next; generation++; loginRequired = false; account = null; accountReady = false; hubDraft = origin;
@@ -308,8 +328,36 @@ public sealed class MainWindow : Window, IDisposable
                 progress.IsVisible = false; refreshButton.IsEnabled = true;
                 checkedText.Text = snapshot is null ? "Состояние пока неизвестно" : "Проверено " + snapshot.CheckedAt.ToString("HH:mm:ss");
                 if (refreshAgain) { refreshAgain = false; _ = Refresh(); }
+                else _ = Maintain();
             }
         }
+    }
+    bool UpdateIdle => !operating && !setup.Running && !recovery.Running && !refreshing
+        && string.IsNullOrEmpty(passwordField.Text) && hubDraft.Trim().TrimEnd('/')==profile.HubOrigin
+        && (!loginControls.IsVisible || string.IsNullOrEmpty(loginField.Text)) && connectionAddress.Text==profile.HubOrigin;
+    public async Task CheckUpdates() {await updates.Check(true);if(!disposed)RenderSnapshot();}
+    void ApplyUpdate() {
+        if(!UpdateIdle || !accountReady){notice="Дождись настройки и сохрани ввод перед обновлением.";RenderSnapshot();return;}
+        try {updates.StartActivation(selectedPage,pages.Select(p=>p.Offset.Y).ToArray());app.Exit();}catch(Exception e){notice=e is IOException?e.Message:"Обновление пока не запустилось.";RenderSnapshot();}
+    }
+    async Task Maintain() {
+        if(maintaining || disposed || !accountReady || profile.DeviceId.Length==0 || operating || setup.Running)return;
+        maintaining=true;var expected=generation;
+        try {
+            if(profile.AutoUpdates)await updates.Check();
+            if(expected!=generation || disposed || !accountReady)return;
+            if(profile.AutoRecovery && snapshot is not null) {
+                string? kit=null;
+                if(snapshot.Inventory.Components.Any(c=>!c.ExecutableExists && recovery.Due(c)))try {kit=updates.VerifiedHelpers;}catch { }
+                var recovered=await recovery.Recover(snapshot,accountReady,kit,(c,inventory,source)=>setup.Repair(c,inventory,source,true),()=>readiness.Refresh(profile));
+                if(expected!=generation || disposed)return;
+                snapshot=recovered;
+            }
+            if(expected!=generation || disposed)return;
+            RenderSnapshot();
+            if(profile.AutoUpdates && updates.State.State=="ready" && !IsVisible && UpdateIdle)ApplyUpdate();
+        } catch { /* A maintenance failure never owns or restarts a native turn. */ }
+        finally {maintaining=false;}
     }
     async Task ReadAccount(int expected)
     {
@@ -324,6 +372,8 @@ public sealed class MainWindow : Window, IDisposable
     }
     void RenderSnapshot()
     {
+        updateText.Text=updates.Description;
+        updateApply.IsEnabled=updates.State.State=="ready" && !updates.Running && !operating && !setup.Running;
         overview.Children.Clear(); components.Children.Clear();
         overview.Children.Add(connectionCard);
         loginControls.IsVisible = hub.Session is null || loginRequired;
@@ -391,6 +441,7 @@ public sealed class MainWindow : Window, IDisposable
             var state = Text(!c.Attention && c.State is "Запущен" or "Занято" or "Готов по запросу" ? "✓ " + c.State : c.State, bold: true); state.VerticalAlignment = VerticalAlignment.Center;
             state.Foreground = Themes.Brush(c.Attention ? palette.Danger : palette.Accent); Grid.SetColumn(state, 1); row.Children.Add(state);
             var content = Stack(row);
+            var recovering=recovery.Description(source);if(recovering.Length>0)content.Children.Add(Text(recovering,muted:true));
             if (c.Attention || c.State == "Выключен" || c.State == "Не используется" && source.Id == "CodexWebComputerUse") {
                 var repair = Button("Исправить и проверить", () => _ = RunOperation(async () => {
                     if (profile.DeviceId.Length == 0 && (!source.Installed || !source.ExecutableExists)) {
@@ -402,6 +453,7 @@ public sealed class MainWindow : Window, IDisposable
             components.Children.Add(Section(content));
         }
         app.UpdateTray(!s.HubReady ? "Hub недоступен" : s.Components.Any(x => x.Attention) ? "есть компоненты, требующие внимания" : "компоненты доступны");
+        if(restoreOffsets is { } offsets) {restoreOffsets=null;Dispatcher.UIThread.Post(()=>{for(var i=0;i<3;i++)pages[i].Offset=new Vector(0,offsets[i]);},DispatcherPriority.Loaded);}
     }
     public void OpenWeb()
     {

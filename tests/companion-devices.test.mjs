@@ -46,6 +46,11 @@ test('native Companion authentication stays scoped, revocable and separate from 
     assert.notEqual((await request(url, native)).statusCode, 200, url);
   assert.equal((await request('/api/companion/status', { ...native, cookie: cookie.cookie })).statusCode, 401);
   assert.equal((await request('/api/companion/status', { ...native, origin: 'https://foreign.example.test' })).statusCode, 401);
+  assert.equal((await request('/api/companion/update', cookie)).statusCode, 401);
+  const updates = await request('/api/companion/update', native);
+  assert.equal(updates.statusCode, 200, updates.body);
+  assert.equal(updates.json().available, false);
+  assert.equal((await request('/api/companion/update/'+'a'.repeat(64)+'/bundle', native)).statusCode, 404);
   const kit = await request('/api/companion/repair-kit', native);
   assert.equal(kit.statusCode, 200, kit.body);
   assert(kit.json().files.some(f => f.name === 'computer-use/ComputerUse.cs'));

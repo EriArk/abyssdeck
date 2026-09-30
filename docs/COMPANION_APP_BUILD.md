@@ -1,10 +1,9 @@
-# Companion 0.3.0: сборка, вход и настройка Windows
+# Companion 0.4.0: сборка, вход и настройка Windows
 
 Пакет содержит окно/трей, вход в Hub, мастер подключения ПК, проверку компонентов,
 явный ремонт остановленных помощников и локальный терминал. Существующий исполнитель
 Codex сохраняется. Наличие local `deviceId` не даёт прав Hub: сервер проверяет
-аккаунт, действующий сеанс и собственную Windows identity. Автообновление и
-автоматический lifecycle recovery ещё не включены; статус установки указан в CURRENT_STATUS.md.
+аккаунт, действующий сеанс и собственную Windows identity. Подписанный UI updater и bounded recovery реализованы; статус установки указан в CURRENT_STATUS.md.
 
 ## Зафиксированная сборка
 
@@ -19,19 +18,63 @@ Codex сохраняется. Наличие local `deviceId` не даёт пр
 
 ```powershell
 # Подставить установленный SDK 10.0.401; в рабочем checkout он может быть .local.
-ops/windows/Build-CompanionApp.ps1 -Dotnet dotnet -OutputDirectory D:\builds\companion-ui-0.3.0
+ops/windows/Build-CompanionApp.ps1 -Dotnet dotnet -OutputDirectory D:\builds\companion-ui-0.4.0
 dotnet run --project tests/companion-app/CompanionApp.Checks.csproj -c Release
 ```
 
 Build требует locked restore и новую выходную папку. Manifest содержит version,
 sourceRevision/sourceDirty и точные SHA-256 всех файлов. Для выпуска `sourceDirty`
 должен быть false. Локальный hash manifest — проверка exact owner-reviewed
-пакета; он **не заменяет** подписанный manifest будущего auto-updater.
+пакета; он **не заменяет** подписанный manifest auto-updater.
 
 ## Отдельная установка UI
 
+## Подписанное обновление UI 0.4
+
+Проверенная первоначальная установка закрепляет публичный RSA-3072 ключ в exe.
+Hub проверяет тот же ключ; серверный URL или локальный флаг не меняют доверие.
+Приватный ключ находится только в gitignored `.local/companion-signing` с DACL
+текущего пользователя/SYSTEM; его нельзя включать в архив, передавать на Hub
+или печатать в журнал. Ротация ключа требует отдельного проверенного выпуска.
+
+После чистой сборки создать ZIP только из файлов пакета, без верхней папки и
+directory entries. Затем подписать локально:
+
 ```powershell
-ops/windows/Install-CompanionApp.ps1 -PackageDirectory D:\builds\companion-ui-0.3.0 `
+node ops/companion/publish-update.mjs D:\builds\companion-ui-0.4.0 D:\builds\companion.zip D:\private\publisher.pem D:\builds\signed
+```
+
+На Hub передаются только `<sha256>.zip` и `latest.json` в
+`dirname(databasePath)/companion-releases`. ZIP сохраняется неизменяемым;
+`latest.json` заменяется атомарно после копирования архива. Endpoint доступен
+только действующему purpose-bound Companion grant, без browser cookies.
+Updater проверяет подпись, platform/OS/protocol, version/монотонную sequence,
+размер и SHA архива, exact file inventory/manifest SHA и каждый файл.
+Повреждённый journal не отменяет anti-rollback. Staging ограничен тремя папками;
+старые установленные releases сохраняются для rollback/действующих клиентов.
+
+Проверка при старте и раз в шесть часов; после неудачной/пустой проверки — не чаще
+раза в десять минут. Ручная проверка доступна в Настройках/трее. Background
+activation ждёт скрытия окна, завершения setup/recovery и сохранения полей ввода.
+Установщик ждёт точный старый UI PID/start/exe, меняет только current pointer,
+запускает новый UI и подтверждает nonce/PID/start/version/release. При неудаче
+возвращает точный старый pointer и интерфейс. Профиль, DPAPI grant, task definitions,
+native accounts и активные workers не меняются. Отдельное окно терминала продолжает
+работать. Health подтверждает UI/config, а не замену native backend.
+
+Kit `helpers/` входит в подписанный inventory. Автовосстановление сохраняет SID,
+task digest и backoff до эффекта; свежая проверка task XML повторяется перед
+действием. Только собственные известные Ready auxiliaries: остановленный Computer
+Use либо отсутствующий файл модуля. Demand Ready с целым файлом исправен.
+Running/Disabled/foreign/absent/unknown tasks, desktop elevation и оба native
+writers не затрагиваются. После трёх неудач пауза 15 минут; повреждённый recovery
+journal требует ручного разбора. Настройки отключают автоматические функции.
+
+Полное обновление CLI/broker/native desktop runtime — следующий отдельный этап
+с idle lease и protocol/account/model acceptance; UI updater его не имитирует.
+
+```powershell
+ops/windows/Install-CompanionApp.ps1 -PackageDirectory D:\builds\companion-ui-0.4.0 `
   -HubOrigin https://your-hub.example -DeviceId your-device-id -Route 'LAN SSH'
 ```
 
@@ -136,5 +179,5 @@ SID/MachineGuid-проверку и ограниченный DPAPI grant; native
 проверен пятью fixtures без намеренной поломки исправной установки владельца.
 Полный первый мастер на другом физическом ПК ещё не принят: peer друга offline.
 Пакет `CodexWeb-Companion-0.3.0-win-x64.zip` содержит Install.cmd/README; старые
-immutable releases сохранены. Auto-update/recovery и перенос workers остаются
+immutable releases сохранены. Перенос workers остаются
 следующими отдельно согласованными этапами. Актуальная приёмка — CURRENT_STATUS.md.

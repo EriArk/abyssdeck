@@ -10,6 +10,7 @@ import type { TeamAuth } from "./team-auth.js";
 import { publicUser, type TeamStore } from "./team-store.js";
 import type { MachineEnrollmentStore } from "./machine-enrollment-store.js";
 import { companionRepairFiles, enrollmentBundle, enrollmentKeys } from "./machine-enrollment.js";
+import { registerCompanionUpdates } from "./companion-updates.js";
 
 const execute = promisify(execFile);
 const identity = z.object({ sid: z.string().regex(/^S-1-5-21-(?:\d+-){3}\d+$/),
@@ -70,6 +71,7 @@ export async function verifyCompanionOwner(config: HubConfig, input: Identity) {
 export function registerCompanion(app: FastifyInstance, config: HubConfig, auth: TeamAuth,
   registry: TeamStore, enrollments: MachineEnrollmentStore) {
   const devices = new CompanionDevices(registry);
+  registerCompanionUpdates(app, config, devices);
   app.post("/api/team/companion", { config: { rateLimit: { max: 5, timeWindow: "1 minute" } } }, async req => {
     const session = auth.session(req), input = identity.parse(req.body);
     if (input.deviceId) {

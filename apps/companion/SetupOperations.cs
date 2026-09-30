@@ -104,12 +104,14 @@ public sealed class SetupOperations(SettingsStore settings, HubConnection hub)
         }
         return folder;
     }
-    public async Task Repair(Component component, Inventory inventory)
+    public async Task Repair(Component component, Inventory inventory, string? verifiedKit = null, bool automatic = false)
     {
         if (Running) return;
         if (!component.Known || component.Installed && (!component.Owned || component.TaskDigest.Length != 64))
             throw new IOException("Windows не подтвердил задачу этого пользователя. Сначала проверь состояние.");
         if (component.State == "Running") throw new IOException("Компонент работает. Проверим состояние, не прерывая его.");
+        if (automatic && (!component.Installed || component.State != "Ready" || component.Id is "CodexWebCompanion" or "CodexWebCompanionPersistent" or "CodexWebDesktopRestart"))
+            throw new IOException("Этот компонент требует явного действия пользователя.");
         if (component.Id is "CodexWebCompanion" or "CodexWebCompanionPersistent" && inventory.NativeProcesses.Length > 0)
             throw new IOException("Codex выполняет работу; запуск другого исполнителя отложен.");
         Running = true;
@@ -118,12 +120,13 @@ public sealed class SetupOperations(SettingsStore settings, HubConnection hub)
             if (reinstall && component.Id is "CodexWebCompanion" or "CodexWebCompanionPersistent")
                 throw new IOException("Исполнитель Codex требует отдельного перехода с сохранением конфигурации. Другие компоненты можно ремонтировать независимо.");
             SettingsStore.NoLinks(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CodexWeb", component.Folder));
-            var source = reinstall ? await RepairKit() : "";
+            if (automatic && reinstall && verifiedKit is null) throw new IOException("Для восстановления нужен подписанный пакет.");
+            var source = reinstall ? verifiedKit ?? await RepairKit() : "";
             using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("CodexWeb.Companion.Repair-CompanionComponent.ps1")!;
             using var reader = new StreamReader(stream);
             var script = await reader.ReadToEndAsync();
             var prefix = "$componentId='" + component.Id.Replace("'", "''") + "';$expectedSid='" + settings.Sid.Replace("'", "''")
-                + "';$expectedDigest='" + component.TaskDigest.Replace("'", "''") + "';$repairSource='" + source.Replace("'", "''") + "';";
+                + "';$expectedDigest='" + component.TaskDigest.Replace("'", "''") + "';$repairSource='" + source.Replace("'", "''") + "';$automatic=" + (automatic ? "$true" : "$false") + ";";
             var elevate = reinstall && component.Id == "CodexWebDesktopRestart";
             var start = new ProcessStartInfo(PowerShell) { UseShellExecute = elevate, CreateNoWindow = !elevate,
                 WindowStyle = ProcessWindowStyle.Hidden, RedirectStandardError = !elevate, RedirectStandardOutput = !elevate };

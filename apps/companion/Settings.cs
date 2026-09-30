@@ -5,7 +5,7 @@ using Microsoft.Win32;
 namespace CodexWeb.Companion;
 
 public sealed record Profile(string Sid, string HubOrigin, string DeviceId, string Route,
-    string Theme = "classic-dark", bool AutoStart = true);
+    string Theme = "classic-dark", bool AutoStart = true, bool AutoUpdates = true, bool AutoRecovery = true);
 
 public sealed class SettingsStore(string directory, string sid)
 {
