@@ -1,5 +1,65 @@
 import type { GptHistoryPage, GptJob, GptMessage } from "@codex-web/shared";
 import type { GptCachedChat } from "./gptCache";
+
+export function gptJobUser(job: GptJob, messages: GptMessage[]): number {
+  const matches = messages.flatMap((message, index) =>
+    (
+      message.role === "user" &&
+      (job.userMessageId
+        ? message.id === job.userMessageId
+        : message.text === job.text &&
+          message.createdAt * 1000 >= job.createdAt - 30000 &&
+          message.createdAt * 1000 <= job.updatedAt)
+    ) ? [index] : [],
+  );
+  return matches.length === 1 ? matches[0]! : -1;
+}
+
+// A later native turn is history, not evidence that an earlier receipt succeeded.
+// Keep that receipt accessible without appending its optimistic text to the new tail.
+export function historicalGptJob(
+  job: GptJob,
+  messages: GptMessage[],
+  historyUnavailable: boolean,
+): boolean {
+  if (historyUnavailable || job.status !== "unknown" || !job.error) return false;
+  const user = gptJobUser(job, messages);
+  return user >= 0
+    ? messages.slice(user + 1).some((message) => message.role === "user")
+    : messages.some(
+        (message) =>
+          message.role === "user" &&
+          message.createdAt * 1000 > job.createdAt + (job.userMessageId ? 0 : 30000),
+      );
+}
+
+export function gptTurnProgress(messages: GptMessage[], job?: GptJob) {
+  const latest = messages.findLastIndex((message) => message.role === "user");
+  const own = job ? gptJobUser(job, messages) : -1;
+  const external =
+    latest >= 0 &&
+    latest !== own &&
+    (!job || messages[latest]!.createdAt * 1000 > job.createdAt + 30000);
+  const user = external ? latest : own;
+  const after = user < 0 ? [] : messages.slice(user + 1);
+  const next = after.findIndex((message) => message.role === "user");
+  const turn = next < 0 ? after : after.slice(0, next);
+  const answers = turn.filter((message) => message.role === "assistant");
+  return {
+    external,
+    userId: messages[user]?.id,
+    pending:
+      user >= 0 &&
+      next < 0 &&
+      !answers.some((message) => message.phase !== "commentary" && message.complete !== false),
+    items: answers.map((message) => ({
+      id: message.id,
+      text: message.text,
+      activity: message.activity,
+      state: message.complete ? ("completed" as const) : ("active" as const),
+    })),
+  };
+}
 // The durable outbox's initial "queued" state is not a user-visible queue.
 export function waitingGptJob(job: GptJob, jobs: GptJob[]): boolean {
   return (
@@ -61,13 +121,7 @@ export function showGptJob(
     )
   )
     return false;
-  const user = messages.findIndex(
-    (message) =>
-      message.role === "user" &&
-      message.text === job.text &&
-      message.createdAt * 1000 >= job.createdAt - 30000 &&
-      message.createdAt * 1000 <= job.updatedAt,
-  );
+  const user = gptJobUser(job, messages);
   if (user >= 0) {
     const later = messages.slice(user + 1);
     const nextUser = later.findIndex((message) => message.role === "user");

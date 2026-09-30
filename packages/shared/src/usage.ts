@@ -3,10 +3,16 @@ export interface UsageWindow {
   remainingPercent: number;
   resetsAt: number | null;
 }
+export interface UsageCredits {
+  hasCredits: boolean;
+  unlimited: boolean;
+  balance: string | null;
+}
 export interface UsageGroup {
   id: string;
   name: string;
   windows: UsageWindow[];
+  credits?: UsageCredits | null;
 }
 export interface ResetCredit {
   id: string;

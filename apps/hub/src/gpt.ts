@@ -1003,6 +1003,12 @@ export class GptService {
   private publicJob(row: Json): GptJob {
     return {
       id: row.id,
+      ...(typeof row.requestId === "string" &&
+      this.store.db
+        .prepare("SELECT 1 FROM gpt_job_providers WHERE jobId=? AND provider='native'")
+        .get(row.id)
+        ? { userMessageId: String(row.requestId) }
+        : {}),
       dismissed: this.library.get("thread", "outbox:" + row.id)?.deleted === true,
       nativeId: row.nativeId,
       text: row.text,

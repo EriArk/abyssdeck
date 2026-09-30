@@ -37,7 +37,14 @@ import { GptProjectPending } from "./GptProjectContent";
 import { GptResultHandoffs } from "./GptResultHandoffs";
 import { beginGptHistory, gptCache, gptCacheEpoch, saveGptCache } from "./gptCache";
 import { type GptCatalogPage, readGptNavigation } from "./gptCatalog";
-import { mergeGptJobs, showGptJob, waitingGptJob } from "./gptState";
+import {
+  gptJobUser,
+  gptTurnProgress,
+  historicalGptJob,
+  mergeGptJobs,
+  showGptJob,
+  waitingGptJob,
+} from "./gptState";
 import { IssueCollect, useIssueCode } from "./IssueDrawer";
 import { Icon } from "./icons";
 import { MarkdownTable } from "./MarkdownTable";
@@ -738,26 +745,21 @@ export function GptWorkspace({
   const active = currentJobs.find(isActive);
   const awaitingReply = currentJobs.find((job) => job.status === "unknown" && !job.error);
   const progressJob = active ?? awaitingReply;
-  const progressUser = progressJob
-    ? messages.findLastIndex(
-        (message) =>
-          message.role === "user" &&
-          message.text === progressJob.text &&
-          message.createdAt * 1000 >= progressJob.createdAt - 30000,
+  const turnProgress = gptTurnProgress(messages, progressJob);
+  const externalReply =
+    !contextMessage && !hasNewer && turnProgress.external && turnProgress.pending;
+  const cachedProgress = turnProgress.items;
+  const historicalJobs = new Set(
+    currentJobs
+      .filter((job) =>
+        historicalGptJob(
+          job,
+          messages,
+          !historyReady || historyStale || !!historyNotice || !!contextMessage || !!hasNewer,
+        ),
       )
-    : -1;
-  const cachedProgress =
-    progressUser >= 0
-      ? messages
-          .slice(progressUser + 1)
-          .filter((message) => message.role === "assistant")
-          .map((message) => ({
-            id: message.id,
-            text: message.text,
-            activity: message.activity,
-            state: message.complete ? ("completed" as const) : ("active" as const),
-          }))
-      : [];
+      .map((job) => job.id),
+  );
   // biome-ignore lint/correctness/useExhaustiveDependencies: New content scrolls only while the reader follows the latest reply.
   useLayoutEffect(() => {
     if (sticky.current && scroll.current) scroll.current.scrollTop = scroll.current.scrollHeight;
@@ -1131,16 +1133,7 @@ export function GptWorkspace({
     scroller: scroll,
     content: messageList,
     entries: currentJobs.map((job) => {
-      const matchingUsers = messages
-        .map((m, index) => ({ m, index }))
-        .filter(
-          ({ m }) =>
-            m.role === "user" &&
-            m.text === job.text &&
-            m.createdAt * 1000 >= job.createdAt - 30000 &&
-            m.createdAt * 1000 <= job.updatedAt,
-        );
-      const user = matchingUsers.length === 1 ? matchingUsers[0]!.index : -1;
+      const user = gptJobUser(job, messages);
       const subsequent = user >= 0 ? messages.slice(user + 1) : [];
       const nextUser = subsequent.findIndex((m) => m.role === "user");
       const answer = (nextUser >= 0 ? subsequent.slice(0, nextUser) : subsequent).findLast(
@@ -1236,10 +1229,7 @@ export function GptWorkspace({
             projectId: roomEndpoint ? undefined : projectChat?.projectId,
           }
         : undefined;
-      const nativeUser = messages.some(
-        (m) =>
-          m.role === "user" && m.text === job.text && m.createdAt * 1000 >= job.createdAt - 30000,
-      );
+      const nativeUser = gptJobUser(job, messages) >= 0;
       const answerInHistory =
         !!job.answer &&
         !job.assets.length &&
@@ -1742,7 +1732,7 @@ export function GptWorkspace({
             </span>
             <small>{selectedTitle}</small>
           </button>
-          {(active || awaitingReply || busy) && (
+          {(active || awaitingReply || busy || externalReply) && (
             <span className="spinner" role="img" aria-label="Ожидаем ответ GPT" />
           )}
           <button
@@ -1929,6 +1919,12 @@ export function GptWorkspace({
                 {!selected && !messages.length && !currentJobs.length && (
                   <div className="gpt-empty">Что обсудим?</div>
                 )}
+                {!!historicalJobs.size && (
+                  <details className="gpt-previous-sends">
+                    <summary>Предыдущие отправки · {historicalJobs.size}</summary>
+                    {jobElements.filter((element) => historicalJobs.has(String(element.key)))}
+                  </details>
+                )}
                 {messages.filter(isGptChatMessage).map((message) => (
                   <article
                     className={"message " + message.role}
@@ -2075,7 +2071,7 @@ export function GptWorkspace({
                       ))}
                   </article>
                 ))}
-                {jobElements}
+                {jobElements.filter((element) => !historicalJobs.has(String(element.key)))}
                 {reviews
                   .filter(
                     (r) =>
@@ -2111,33 +2107,39 @@ export function GptWorkspace({
               </div>
             )}
             <div className="chat-status-row gpt-status-row">
-              {(active || awaitingReply || busy) && (
+              {(active || awaitingReply || busy || externalReply) && (
                 <GptProgress
-                  key={active?.id ?? awaitingReply?.id ?? "sending"}
+                  key={
+                    externalReply
+                      ? turnProgress.userId
+                      : (active?.id ?? awaitingReply?.id ?? "sending")
+                  }
                   items={
-                    cachedProgress.length
+                    externalReply || cachedProgress.length
                       ? cachedProgress
                       : active?.status === "running"
                         ? (active.progress ?? [])
                         : []
                   }
                   live={
-                    live && live.jobId === (active?.id ?? awaitingReply?.id)
+                    !externalReply && live && live.jobId === (active?.id ?? awaitingReply?.id)
                       ? live.items
                       : undefined
                   }
                   running
                   label={
-                    active?.status === "running"
-                      ? titles.running
-                      : active && waitingGptJob(active, jobs)
-                        ? titles.queued
-                        : awaitingReply
-                          ? "Ожидаем ответ GPT"
-                          : "Отправляется"
+                    externalReply
+                      ? "Ответ GPT в другом клиенте"
+                      : active?.status === "running"
+                        ? titles.running
+                        : active && waitingGptJob(active, jobs)
+                          ? titles.queued
+                          : awaitingReply
+                            ? "Ожидаем ответ GPT"
+                            : "Отправляется"
                   }
                   onStop={
-                    active
+                    active && !externalReply
                       ? () =>
                           void action(async () => {
                             await api("/gpt/jobs/" + active.id + "/cancel", { method: "POST" });

@@ -44,8 +44,10 @@ test("explicit redemption is exact-idempotent, canonical refresh updates both me
   const data = await f.read();
   assert.equal(data.resetCredits.availableCount, 2);
   assert(data.resetContext);
-  const body = f.body(data),
-    response = await f.request("POST", endpoint, body);
+  const body = f.body(data);
+  // A balance change is informational, not a changed reset entitlement.
+  f.state.raw.rateLimits.credits.balance = "124.00";
+  const response = await f.request("POST", endpoint, body);
   assert.equal(response.status, 200);
   assert.equal(response.data.outcome, "reset");
   assert.deepEqual(await f.request("POST", endpoint, body), response);

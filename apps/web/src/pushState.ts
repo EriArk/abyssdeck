@@ -91,7 +91,9 @@ export function createPushState(deps: Dependencies) {
       }
       const retainedDevice =
         subscription && storedId && (await deps.hash(subscription.endpoint)) === storedId;
-      const preference = status.enabled ? status : (intent() ?? (retainedDevice ? status : null));
+      const preference = status.enabled
+        ? status
+        : (intent() ?? (storedId && original.enabled ? original : retainedDevice ? status : null));
       if (preference && status.available && deps.permission() === "granted") {
         if (!subscription && status.publicKey) {
           // Some browsers still require a tap. Keep consent/preferences and let

@@ -17,6 +17,15 @@ const label = (minutes: number) =>
 function Windows({ group }: { group: Group }) {
   return (
     <>
+      <div className="usage-credit-balance">
+        <span>Осталось кредитов</span>
+        <strong>
+          {group.credits?.unlimited
+            ? "Без ограничений"
+            : (group.credits?.balance ??
+              (group.credits?.hasCredits === false ? "Нет доступных" : "Нет данных"))}
+        </strong>
+      </div>
       {group.windows.map((w) => (
         <div className="usage-window" key={w.minutes}>
           <div>

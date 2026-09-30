@@ -219,6 +219,15 @@
   border-radius: 9px;
   margin: 10px 0;
 }
+.gpt-previous-sends {
+  margin: 8px 0;
+  color: var(--muted);
+}
+.gpt-previous-sends > summary {
+  min-height: 44px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
 .gpt-job-error button,
 .gpt-job > button {
   min-height: 44px;

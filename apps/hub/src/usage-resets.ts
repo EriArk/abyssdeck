@@ -29,7 +29,11 @@ const hash = (v: unknown) => createHash("sha256").update(JSON.stringify(v)).dige
 const obj = (v: unknown): Record<string, unknown> =>
   v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
 const identity = (v: unknown) => (typeof v === "string" && v.trim() && v.length <= 2048 ? v : null);
-const fingerprint = (v: UsageLimitsData) => hash({ groups: v.groups, credits: v.resetCredits });
+const fingerprint = (v: UsageLimitsData) =>
+  hash({
+    groups: v.groups.map(({ credits: _balance, ...group }) => group),
+    credits: v.resetCredits,
+  });
 const publicReceipt = (r: Receipt): ResetOperation => ({
   id: r.id,
   machineId: r.machineId,

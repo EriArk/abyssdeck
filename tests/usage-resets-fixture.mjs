@@ -7,6 +7,7 @@ export function limits() {
     accountId: "private-account-qa",
     rateLimits: {
       limitId: "codex",
+      credits: { hasCredits: true, unlimited: false, balance: "125.50" },
       primary: { usedPercent: 80, windowDurationMins: 300, resetsAt: 2000000000 },
       secondary: { usedPercent: 63, windowDurationMins: 10080, resetsAt: 2000100000 },
     },

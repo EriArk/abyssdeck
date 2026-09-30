@@ -15,11 +15,18 @@
 .usage-window {
   margin-top: 12px;
 }
-.usage-window > div {
+.usage-window > div,
+.usage-credit-balance {
   display: flex;
   justify-content: space-between;
   gap: 8px;
   font-size: 13px;
+  flex-wrap: wrap;
+  overflow-wrap: anywhere;
+}
+.usage-credit-balance {
+  margin-top: 12px;
+  font-variant-numeric: tabular-nums;
 }
 .usage-window progress {
   display: block;

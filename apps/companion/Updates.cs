@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 
 namespace CodexWeb.Companion;
 
-public static class CompanionVersion { public const string Current = "0.4.0"; }
+public static class CompanionVersion { public const string Current = "0.4.1"; }
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record SignedUpdate(int Format, string Payload, string Signature);
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
@@ -81,8 +81,8 @@ public static class ReleaseVerifier
             var path = Path.Combine(folder, entry.FullName.Replace('/', Path.DirectorySeparatorChar)); SettingsStore.NoLinks(path);
             Directory.CreateDirectory(Path.GetDirectoryName(path)!); using var input=entry.Open();using var output=new FileStream(path,FileMode.CreateNew,FileAccess.Write);
             var buffer=new byte[65536];long written=0;int count;
-            while((count=input.Read(buffer))>0){written+=count;if(written>entry.Length)throw new IOException("Archive size mismatch");output.Write(buffer,0,count);}
-            if(written!=entry.Length)throw new IOException("Archive size mismatch");
+            while((count=input.Read(buffer))>0){written+=count;if(written>entry.Length)throw new IOException("Размер файла в архиве не совпадает.");output.Write(buffer,0,count);}
+            if(written!=entry.Length)throw new IOException("Размер файла в архиве не совпадает.");
         }
         VerifyPackage(folder, release);
     }
@@ -128,7 +128,7 @@ public sealed class UpdateManager(SettingsStore settings, HubConnection hub)
         try {
             var response = await hub.Request("/api/companion/update");
             if (!response.GetProperty("available").GetBoolean()) { State=State with { CheckedAt=DateTimeOffset.UtcNow };SaveState(settings,State);return; }
-            if(hub.Session?.UserId!=account.UserId || hub.Session.HubOrigin!=account.HubOrigin)throw new IOException("Hub connection changed");
+            if(hub.Session?.UserId!=account.UserId || hub.Session.HubOrigin!=account.HubOrigin)throw new IOException("Подключение Hub изменилось; проверим обновление заново.");
             var signed = response.GetProperty("signed").Deserialize<SignedUpdate>(SettingsStore.Json)!;
             var release = ReleaseVerifier.Verify(signed,State.HighestSequence);
             var installed=InstalledRelease(settings);
@@ -140,7 +140,7 @@ public sealed class UpdateManager(SettingsStore settings, HubConnection hub)
             State=new(release.Sequence,DateTimeOffset.UtcNow,nonce,"downloading",release.Version);SaveState(settings,State);
             ReleaseVerifier.Atomic(Path.Combine(folder,"signed.json"),JsonSerializer.SerializeToUtf8Bytes(signed,SettingsStore.Json));
             var zip=Path.Combine(folder,"update.zip"); await hub.DownloadUpdate(release.PackageSha256,zip,release.PackageBytes,account);
-            if(hub.Session?.UserId!=account.UserId || hub.Session.HubOrigin!=account.HubOrigin)throw new IOException("Hub connection changed");
+            if(hub.Session?.UserId!=account.UserId || hub.Session.HubOrigin!=account.HubOrigin)throw new IOException("Подключение Hub изменилось; проверим обновление заново.");
             await Task.Run(()=>ReleaseVerifier.Extract(zip,Path.Combine(folder,"package"),release));
             State=State with {State="ready",Error=""};SaveState(settings,State);
         } catch (Exception e) { State=State with {State="failed",CheckedAt=DateTimeOffset.UtcNow,Error=e is IOException ? e.Message : "Проверим при следующем подключении."};SaveState(settings,State); }
@@ -161,7 +161,7 @@ public sealed class UpdateManager(SettingsStore settings, HubConnection hub)
         var path=Path.Combine(settings.Directory,"current.json");SettingsStore.NoLinks(path);
         using var doc=JsonDocument.Parse(File.ReadAllBytes(path));
         if(doc.RootElement.GetProperty("sid").GetString()!=settings.Sid)throw new IOException("Другая Windows identity.");
-        var release=doc.RootElement.GetProperty("release").GetString()!;if(!ReleaseVerifier.Digest(release))throw new IOException("Invalid installed release");return release;
+        var release=doc.RootElement.GetProperty("release").GetString()!;if(!ReleaseVerifier.Digest(release))throw new IOException("Установленный пакет нужно проверить.");return release;
     }
     public void StartActivation(int selectedPage, double[]? offsets = null)
     {

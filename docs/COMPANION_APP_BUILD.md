@@ -1,4 +1,4 @@
-# Companion 0.4.0: сборка, вход и настройка Windows
+# Companion 0.4.1: сборка, вход и настройка Windows
 
 Пакет содержит окно/трей, вход в Hub, мастер подключения ПК, проверку компонентов,
 явный ремонт остановленных помощников и локальный терминал. Существующий исполнитель
@@ -26,8 +26,6 @@ Build требует locked restore и новую выходную папку. M
 sourceRevision/sourceDirty и точные SHA-256 всех файлов. Для выпуска `sourceDirty`
 должен быть false. Локальный hash manifest — проверка exact owner-reviewed
 пакета; он **не заменяет** подписанный manifest auto-updater.
-
-## Отдельная установка UI
 
 ## Подписанное обновление UI 0.4
 
@@ -72,6 +70,8 @@ journal требует ручного разбора. Настройки отк�
 
 Полное обновление CLI/broker/native desktop runtime — следующий отдельный этап
 с idle lease и protocol/account/model acceptance; UI updater его не имитирует.
+
+## Отдельная установка UI
 
 ```powershell
 ops/windows/Install-CompanionApp.ps1 -PackageDirectory D:\builds\companion-ui-0.4.0 `

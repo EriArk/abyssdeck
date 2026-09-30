@@ -2,7 +2,58 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { GptHistoryCache } from "../apps/hub/dist/gpt-cache.js";
 import { gptProgress, mergeGptProgress } from "../apps/hub/dist/gpt-progress.js";
-import { mergeGptHistory, mergeGptJobs, showGptJob } from "../apps/web/src/gptState.ts";
+import {
+  gptJobUser,
+  gptTurnProgress,
+  historicalGptJob,
+  mergeGptHistory,
+  mergeGptJobs,
+  showGptJob,
+} from "../apps/web/src/gptState.ts";
+
+test("External native turns remain independent of off-branch receipts and repeated prompt text", () => {
+  const job = {
+    id: "old",
+    userMessageId: "off-branch",
+    status: "unknown",
+    error: "paused",
+    text: "Continue",
+    createdAt: 1000,
+    updatedAt: 5000,
+  };
+  const user = { id: "native-user", role: "user", text: "Continue", createdAt: 2, files: [] };
+  const step = {
+    id: "public-step",
+    role: "assistant",
+    phase: "commentary",
+    complete: false,
+    text: "Public progress",
+    createdAt: 3,
+    files: [],
+  };
+  const current = [user, step];
+  assert.equal(gptJobUser(job, current), -1);
+  assert.equal(historicalGptJob(job, current, false), true);
+  assert.equal(historicalGptJob(job, current, true), false);
+  assert.equal(job.status, "unknown");
+  const progress = gptTurnProgress(current);
+  assert.equal(progress.external, true);
+  assert.equal(progress.pending, true);
+  assert.equal(progress.userId, user.id);
+  assert.deepEqual(
+    progress.items.map((item) => item.id),
+    [step.id],
+  );
+  assert.equal(
+    gptTurnProgress([...current, { ...step, id: "final", phase: "final", complete: true }]).pending,
+    false,
+  );
+  // Another turn's stages can never be attributed to the earlier exact receipt.
+  const own = { ...user, id: job.userMessageId, createdAt: 1 };
+  assert.deepEqual(gptTurnProgress([own, step, { ...user, createdAt: 50 }], job).items, []);
+  assert.equal(gptTurnProgress([own, step, { ...user, createdAt: 50 }], job).external, true);
+  assert.equal(historicalGptJob(job, [own, step], false), false);
+});
 
 const messages = (count) =>
   Array.from({ length: count }, (_, i) => ({

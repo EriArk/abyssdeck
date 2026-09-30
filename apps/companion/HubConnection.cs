@@ -105,7 +105,7 @@ public sealed class HubConnection(SettingsStore settings) : IDisposable
     {
         if (!System.Text.RegularExpressions.Regex.IsMatch(digest, "^[a-f0-9]{64}$") || size is < 1 or > 128 * 1024 * 1024) throw new IOException("Неверный пакет обновления.");
         var session = Session ?? throw new IOException("Сначала войди в Hub.");
-        if(session.UserId!=expected.UserId || session.HubOrigin!=expected.HubOrigin)throw new IOException("Hub connection changed");
+        if(session.UserId!=expected.UserId || session.HubOrigin!=expected.HubOrigin)throw new IOException("Подключение Hub изменилось; проверим обновление заново.");
         using var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false }) { Timeout = TimeSpan.FromMinutes(3) };
         using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(new Uri(session.HubOrigin), "/api/companion/update/" + digest + "/bundle"));
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", session.Token);

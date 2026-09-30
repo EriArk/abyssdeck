@@ -1,4 +1,4 @@
-CodexWeb Companion 0.4.0 — Windows x64
+CodexWeb Companion 0.4.1 — Windows x64
 
 1. Распакуйте весь архив в свою папку. Откройте Install.cmd.
    SDK и отдельный .NET устанавливать не нужно. Новый Companion откроет окно

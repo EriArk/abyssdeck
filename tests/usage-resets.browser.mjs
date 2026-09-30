@@ -74,6 +74,8 @@ for (const [engine, browserType] of [
     await draft.fill("Черновик должен сохраниться после сброса лимитов");
     await openSettings();
     await expect(panel.getByText("37% осталось", { exact: true })).toBeVisible();
+    await expect(panel.locator(".usage-credit-balance")).toContainText("Осталось кредитов");
+    await expect(panel.locator(".usage-credit-balance strong")).toHaveText("125.50");
     await expect(panel.locator(".usage-reset-count")).toHaveText("2");
     // The overview and Connections reuse a single poller, and the same canonical snapshot.
     let usageReads = 0;

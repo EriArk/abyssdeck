@@ -1,6 +1,7 @@
 import type {
   ResetCredit,
   ResetCredits,
+  UsageCredits,
   UsageGroup,
   UsageLimitsData,
   UsageWindow,
@@ -16,6 +17,21 @@ const displayControls = /[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/
 const idControls = /[\u0000-\u001f\u007f]/;
 const display = (v: unknown, max: number) =>
   typeof v === "string" ? v.replace(displayControls, " ").trim().slice(0, max) || null : null;
+export function normalizeUsageCredits(value: unknown): UsageCredits | null {
+  const raw = record(value);
+  if (typeof raw.hasCredits !== "boolean" || typeof raw.unlimited !== "boolean") return null;
+  return {
+    hasCredits: raw.hasCredits,
+    unlimited: raw.unlimited,
+    // Preserve the native decimal exactly; do not round a balance through Number.
+    balance:
+      typeof raw.balance === "string" &&
+      raw.balance.length <= 64 &&
+      /^\d+(?:\.\d+)?$/.test(raw.balance)
+        ? raw.balance
+        : null,
+  };
+}
 export function normalizeResetCredits(value: unknown): ResetCredits | null {
   const raw = record(value);
   if (
@@ -70,6 +86,14 @@ export function normalizeLimits(value: unknown): UsageLimitsData {
   for (const [key, raw] of sources.slice(0, 16)) {
     const limit = record(raw),
       windows: UsageWindow[] = [];
+    // Legacy native snapshots can carry credits only in rateLimits. Borrow them
+    // only for that exact quota, never for another quota/model.
+    const creditSource = Object.hasOwn(limit, "credits")
+      ? limit.credits
+      : String(fallback.limitId || "codex") === key
+        ? fallback.credits
+        : null;
+    const credits = normalizeUsageCredits(creditSource);
     for (const candidate of [limit.primary, limit.secondary]) {
       const v = record(candidate),
         minutes = v.windowDurationMins,
@@ -93,7 +117,7 @@ export function normalizeLimits(value: unknown): UsageLimitsData {
             : null,
       });
     }
-    if (windows.length)
+    if (windows.length || credits)
       groups.push({
         id: String(key).slice(0, 100),
         name:
@@ -103,6 +127,7 @@ export function normalizeLimits(value: unknown): UsageLimitsData {
               ? "Codex"
               : "Дополнительный лимит",
         windows: windows.sort((a, b) => b.minutes - a.minutes),
+        credits,
       });
   }
   groups.sort((a, b) =>

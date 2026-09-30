@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { chromium, expect, webkit } from "@playwright/test";
@@ -67,6 +67,17 @@ try {
         writes = [];
       let holdNext = false,
         release;
+      let nativeMessages = [
+        {
+          id: "canonical-final",
+          role: "assistant",
+          complete: true,
+          text: "A final answer is visible",
+          files: [],
+          createdAt: 2,
+        },
+      ];
+      let historyFails = false;
       await page.route("https://jobs.test/**", async (route) => {
         const request = route.request(),
           url = new URL(request.url()),
@@ -97,19 +108,17 @@ try {
             items: ["alpha", "beta"].map((id) => ({ id, title: "Chat " + id, updatedAt: 1 })),
             nextOffset: null,
           };
+        if (path.endsWith("/messages") && historyFails)
+          return route.fulfill({
+            status: 503,
+            json: {
+              error: { code: "GPT_CONNECTION_LOST", message: "Temporary native read failure" },
+            },
+          });
         if (path.endsWith("/messages"))
           data = {
-            items: [
-              {
-                id: "canonical-final",
-                role: "assistant",
-                complete: true,
-                text: "A final answer is visible",
-                files: [],
-                createdAt: 2,
-              },
-            ],
-            revision: "canonical",
+            items: nativeMessages,
+            revision: JSON.stringify(nativeMessages),
             nextBefore: null,
           };
         if (path === "/api/gpt/jobs") {
@@ -196,6 +205,62 @@ try {
       // Explicit confirmation consumes its own response; no later poll is needed.
       await page.getByRole("button", { name: "Проверено", exact: true }).click();
       await expect(warningCard).toHaveCount(0);
+      assert.deepEqual(writes, ["/api/gpt/jobs/job-beta/resolve"]);
+      // The owner continues elsewhere; that history must replace the visible tail
+      // while the old off-branch receipt stays unknown, without a review or resend.
+      jobs.beta = { ...job("beta"), userMessageId: "old-branch-user", updatedAt: 200 };
+      nativeMessages = [
+        { id: "old-branch-user", role: "user", text: "Question beta", createdAt: 1, files: [] },
+      ];
+      await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+      await expect(warningCard).toBeVisible();
+      await textarea.fill("Keep independent draft");
+      nativeMessages = [
+        { id: "other-native-user", role: "user", text: "Question beta", createdAt: 2, files: [] },
+        {
+          id: "external-step",
+          role: "assistant",
+          phase: "commentary",
+          complete: false,
+          text: "New public progress from the native app",
+          createdAt: 3,
+          files: [],
+        },
+      ];
+      await page.evaluate(() => window.dispatchEvent(new Event("pageshow")));
+      await expect(page.getByText("Предыдущие отправки · 1", { exact: true })).toBeVisible();
+      await expect(warningCard).toBeHidden();
+      await expect(page.locator('[data-chat-message="other-native-user"]')).toBeVisible();
+      await expect(page.locator('[data-chat-message="job-user:job-beta"]')).toBeHidden();
+      await page.getByRole("button", { name: "Ход ответа GPT", exact: true }).click();
+      await expect(
+        page.getByText("New public progress from the native app", { exact: true }),
+      ).toBeVisible();
+      await expect(page.getByRole("button", { name: "Остановить GPT", exact: true })).toHaveCount(
+        0,
+      );
+      historyFails = true;
+      await page.evaluate(() => window.dispatchEvent(new Event("online")));
+      await page.clock.runFor(100);
+      historyFails = false;
+      nativeMessages.push({
+        id: "external-final",
+        role: "assistant",
+        phase: "final",
+        complete: true,
+        text: "The actual new final answer",
+        createdAt: 4,
+        files: [],
+      });
+      await page.clock.fastForward(15000);
+      await expect(page.getByText("The actual new final answer", { exact: true })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Ход ответа GPT", exact: true })).toHaveCount(
+        0,
+      );
+      await page.getByText("Предыдущие отправки · 1", { exact: true }).click();
+      await expect(warningCard).toContainText(warning);
+      await expect(textarea).toHaveValue("Keep independent draft");
+      assert.equal(jobs.beta.status, "unknown");
       assert.deepEqual(writes, ["/api/gpt/jobs/job-beta/resolve"]);
       assert.deepEqual(errors, []);
       console.log(

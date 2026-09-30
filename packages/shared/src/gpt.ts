@@ -50,6 +50,8 @@ export interface GptModels {
   currentEffort: string;
 }
 export interface GptJob {
+  /** Exact native user node of this receipt, including a node outside the current branch. */
+  userMessageId?: string;
   dismissed?: boolean;
   id: string;
   nativeId: string | null;
