@@ -56,11 +56,20 @@
   including login/password fields, Tab, Enter and the sign-in button. Do not
   classify a normal login form as a prohibited security-settings operation.
   This supersedes the earlier blanket authentication/password-input prohibition.
-- Use only credentials explicitly provided for the requested login. Never extract
-  credentials from another account, password managers, stores or files. Do not
-  reveal passwords or echo secrets in replies. The adapter does not log input,
-  but ordinary MCP arguments can enter conversation history; offer direct user
-  entry for private secrets rather than requesting passwords in chat.
+- Use credentials explicitly provided or from the user's explicitly designated
+  files/configurations for the requested account, including test fixtures. This
+  supersedes the blanket file-credential prohibition. Scoped authorization persists;
+  do not ask again for every field/login. Respect credentials explicitly marked
+  non-sensitive test data; do not echo private secrets. Do not harvest unrelated
+  sources, operate password managers or access another person's account without
+  authorization. Ordinary MCP arguments can enter conversation history; direct
+  user entry remains available for private secrets. The adapter does not log input.
+- Explicitly requested security/privacy setting changes on the ordinary desktop
+  are allowed. Do not categorically prohibit terminals or the Codex interface;
+  prefer existing CLI/Devices tools for commands and native protocol for chat
+  actions. Preserve native ownership and the single writer. Windows secure desktop,
+  elevation boundaries and other users' Windows sessions remain outside this module.
+  Prefer browser tools when available; this preference is not a browser prohibition.
 - Preserve observation/focus admission, same-user/session isolation, secure-desktop
   boundaries and at-most-once input. This permission creates no credential vault,
   extra login endpoint or account/permission changes in the Companion wizard.

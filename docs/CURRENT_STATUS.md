@@ -1,5 +1,37 @@
 # Текущий остаток — 30 сентября 2026
 
+## Computer Use — разрешённые операции и обновление существующего MCP
+
+**1.0.2 установлен 30 сентября в 17:41 UTC**, runtime/source SHA-256
+`414818cc4b5e7d72bc403055f8ea20ca13d1cb285dee81b052904b5c301d28c1`.
+По явному запросу разрешены настройки безопасности/приватности обычного рабочего
+стола и логины/пароли из указанных пользователем файлов/конфигураций, включая
+тестовые данные. Сняты общие запреты на терминалы и интерфейс Codex; предпочтение
+CLI/Devices/native protocol сохраняется вместе с single-writer admission.
+Scoped authorization не требует повторного согласия для каждого поля/логина.
+Добавлены клавиши WIN/LWIN/RWIN. Same-user/session, свежий снимок, фокус,
+secure desktop/elevation boundaries и запрет повторять неопределённый ввод сохранены.
+
+Найдена причина старого контракта в **AltarAppsReborn**: `current.json` обновлялся,
+но MCP configuration оставалась прежней из-за стабильного пути запуска. Native
+`config/mcpServer/reload` принимался, однако старый клиент **1.0.0** сохранялся.
+Регистрация теперь содержит несекретный `CODEXWEB_COMPUTER_USE_RELEASE` с SHA-256
+релиза, чтобы native reload видел изменение. Путь запуска остаётся стабильным;
+старые runtime directories сохраняются для действующих клиентов.
+
+После регистрации отпечатка и повторного штатного reload **30 сентября в 18:10 UTC**
+thread-scoped `mcpServerStatus/list` для `01a05159-31cb-7c50-b7e3-df8516584081`
+показал **1.0.2 / connected**, четыре инструмента и новый контракт `act` с WIN+R.
+Ни один model turn не отправлен. Для запроса временно передан только владелец
+SSH-контроллера существующего native runtime (`create:false`); Hub engine, broker,
+native PID **8248** / начало **14:55:17 UTC** и Companion UI PID **2656** сохранены.
+Hub снова подключился, обе активные задачи подтверждены persistent inspection.
+Хеши восьми остальных task definitions и обеих установленных программ проверены;
+host probe готов, версия 1.0.2. Focused protocol/key/isolation checks проходят;
+реальная смена настроек безопасности/вход в аккаунты не выполнялись. WIN+R проверен
+на уровне разбора/Win32 extended flag, отдельной GUI-проверки сочетания не было.
+Private evidence: `.local/companion-build/computer-use-policy-{before,installed,reload}.json`.
+
 ## Computer Use — обычная авторизация
 
 По запросу владельца снят blanket запрет на ordinary app sign-in: он находился

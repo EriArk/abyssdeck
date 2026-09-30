@@ -10,7 +10,7 @@ chat ownership and Hub authentication remain unchanged.
 Ask Codex to work with the intended application. It can list visible windows,
 launch an existing local `.exe` by its exact discovered path, bring a selected
 window forward, capture it, click/double-click, type Unicode text, press key
-chords, scroll and drag. An action uses one recent screenshot and is followed
+chords (including `WIN`, `LWIN`, `RWIN`), scroll and drag. An action uses one recent screenshot and is followed
 by a fresh observation. Launch has no shell or command arguments.
 
 The image covers the visible portion of the selected foreground window. Unlike
@@ -23,17 +23,24 @@ the same fresh observation and focus checks as other input. The adapter does
 not reject a field merely because it masks its text. This owner-approved rule
 supersedes the original blanket authentication prohibition.
 
-Use only credentials explicitly supplied for the requested login; never extract
-them from password managers, stores, files or another account. Do not reveal a
-password or echo secrets in replies. The adapter does not log input, but ordinary
-MCP arguments can be retained in conversation history. Direct user entry remains
-available for private passwords without sending them through chat/MCP. This is
-not a new secret vault or a claim that MCP text is absent from conversation logs.
+Use credentials explicitly supplied or read using appropriate file tools from
+the user's designated files/configurations for the requested account, including
+test fixtures. Authorization for that scope persists; do not ask again for each
+field or login. Respect the user's explicit identification of non-sensitive test
+data. Do not harvest unrelated sources, operate password managers, access another
+person's account without authorization, or echo private secrets in replies.
+The adapter does not log input, but ordinary MCP arguments can be retained in
+conversation history. Direct user entry remains available for private passwords.
+This is not a new secret vault or a claim that MCP text is absent from conversation logs.
 
-Do not automate password managers, security/privacy settings, secure desktop,
-terminals or the Codex interface through these GUI tools. An ordinary sign-in
-form is not a security-settings operation. Existing private Devices terminals
-remain the route for commands and terminal password prompts.
+Explicitly requested security/privacy changes through ordinary desktop controls
+are allowed. There is no categorical ban on terminals or the Codex interface.
+Prefer existing CLI/Devices tools for commands and native protocol for chat
+actions; GUI use must preserve active native ownership and the single writer.
+Browser tools are preferred when available, without a blanket ban on browser GUI.
+Secure desktop, elevation bypass and another user's Windows session remain
+outside the module. Ask only for missing authorization or an unresolved consequential
+choice; do not add approval prompts to routine steps the user already authorized.
 
 Do not repeat an input or app launch just because its response timed out. Read
 the current window again and determine what happened. A used screenshot cannot
@@ -73,6 +80,16 @@ module without changing the Codex configuration.
 New native sessions read the MCP registration. A native session that already
 cached its tool catalog may need a normal idle reconnect/reopen or supported MCP
 reload. Do not restart a running task merely to refresh its catalog.
+
+The registration includes the non-secret `CODEXWEB_COMPUTER_USE_RELEASE` source
+SHA-256. Updating only the stable launcher's `current.json` leaves the native MCP
+configuration unchanged, so a supported `config/mcpServer/reload` can retain the
+old client and its initialize instructions. The release fingerprint makes the
+configuration change visible without moving the launcher or replacing an active
+client's files. After registering an upgrade, use the supported native reload and
+verify the target thread with `mcpServerStatus/list`; acknowledgement alone is
+not proof that it received the new contract. Reload queues refreshes for loaded
+threads; do not interrupt active work to force an immediate refresh.
 
 To disable, remove `codexweb_computer_use` with `codex mcp remove`, then stop its
 GUI task. To keep it disabled across logon, disable that task too. This does not
@@ -116,3 +133,19 @@ text, Enter and Tab through the installed host, verified in fresh images. No rea
 account login was attempted. The fixture was closed; main workers, Companion UI,
 existing MCP clients and their old runtime files were preserved. Existing clients
 may retain old initialize instructions until their next normal MCP connection.
+
+Version **1.0.2**, installed on 2026-09-30, permits explicitly requested ordinary
+desktop security/privacy changes and credentials from user-designated files or
+configurations. It removes categorical terminal/Codex GUI bans and supports
+Windows-key modifiers. Key parsing, extended input flags and the existing
+capability/isolation checks passed; this pass did not perform a real account
+login or change security settings.
+
+At 18:10 UTC, the existing idle AltarAppsReborn thread was refreshed through the
+owner's actual Hub/LAN SSH/persistent runtime. Before registration of the release
+fingerprint, native reload acknowledged the request but the thread still reported
+1.0.0. With the fingerprint, the same supported reload produced **1.0.2 / connected**
+and the updated `act` description. The native PID/runtime instance and active
+turn were preserved; both active Hub threads remained persistent. No model turn,
+native worker restart or main Companion restart was used. The eight unrelated
+task definitions, UI process and installed binary hashes were also verified.

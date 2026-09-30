@@ -70,7 +70,9 @@ if (-not $SkipMcpRegistration) {
     $mcpConfig = Join-Path $codexRoot 'config.toml'
     if (Test-Path -LiteralPath $mcpConfig) { Copy-Item -LiteralPath $mcpConfig -Destination (Join-Path $codexRoot "config.toml.before-computer-use-$stamp") }
     $windowsPowerShell = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
-    & $CodexCommand mcp add codexweb_computer_use -- $windowsPowerShell -NoLogo -NoProfile -NonInteractive -File $launcher
+    # The stable launcher path does not change between releases. Include the
+    # non-secret release fingerprint so a native MCP reload sees the upgrade.
+    & $CodexCommand mcp add codexweb_computer_use --env "CODEXWEB_COMPUTER_USE_RELEASE=$sourceHash" -- $windowsPowerShell -NoLogo -NoProfile -NonInteractive -File $launcher
     if ($LASTEXITCODE -ne 0) { throw 'Module is installed, but MCP registration failed.' }
 }
 @{ task = $taskName; clientSha256 = $clientHash; serverSha256 = $serverHash; sourceSha256 = $sourceHash } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $target 'installed.json') -Encoding UTF8

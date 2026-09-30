@@ -18,7 +18,10 @@ try {
     }
     $keys = Invoke-Private 'ParseKeys' @('CTRL+SHIFT+A')
     if (($keys -join ',') -ne '17,16,65') { throw 'Modifier order changed' }
-    Assert-Throws { Invoke-Private 'ParseKeys' @('WIN+R') } 'INVALID_KEY'
+    if (((Invoke-Private 'ParseKeys' @('WIN+R')) -join ',') -ne '91,82') { throw 'Windows modifier rejected' }
+    if (((Invoke-Private 'ParseKeys' @('CTRL+RWIN+A')) -join ',') -ne '17,92,65') { throw 'Right Windows modifier order changed' }
+    Assert-Throws { Invoke-Private 'ParseKeys' @('WIN+LWIN') } 'INVALID_KEY'
+    foreach ($key in @([uint16]91,[uint16]92)) { if ((Invoke-Private 'Extended' @($key)) -ne 1) { throw 'Windows key needs extended input flag' } }
     Assert-Throws { Invoke-Private 'ParseKeys' @('A+B') } 'INVALID_KEY'
     Assert-Throws { Invoke-Private 'ReadBounded' @([IO.StringReader]::new("12345`n"),4) } 'InvalidDataException'
     if ((Invoke-Private 'ReadBounded' @([IO.StringReader]::new("1234`r`n"),5)) -ne '1234') { throw 'Frame changed bytes' }
@@ -47,6 +50,7 @@ try {
     $instructions = $type.GetField('Instructions',$flags).GetRawConstantValue()
     if (-not $instructions.Contains('including ordinary sign-in and authorization') -or -not $instructions.Contains('masked password fields') -or $instructions.Contains('Codex, authentication,')) { throw 'MCP instructions incorrectly prohibit requested ordinary login' }
     if (-not $instructions.Contains('conversation history') -or -not $instructions.Contains('never automatically replay')) { throw 'Login permission lost secret-history or uncertain-input guidance' }
+    if (-not $instructions.Contains('user-designated files/configurations') -or -not $instructions.Contains('Explicitly requested security/privacy settings changes') -or $instructions.Contains('Do not automate terminals')) { throw 'Explicitly authorized work is still categorically prohibited' }
     Write-Output 'PASS: keys, bounded frames, cross-client isolation, single use, cross-client invalidation, expiration, MCP schema and requested login contract; no GUI input.'
 } finally {
     $resolved = [IO.Path]::GetFullPath($temporary)
