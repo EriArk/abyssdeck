@@ -1,5 +1,36 @@
 # Native Computer Use in Companion sessions (#166)
 
+## Standalone startup narrowed — 2026-09-30
+
+**Still not repaired or deployed.** A process-parent observation of the normal
+`node_repl` -> `@oai/sky` call now establishes this chain:
+trusted JS worker -> library-started Computer Use helper -> `codex app-server`.
+The helper does start. The failing service is its child, not an absent helper
+binary or a failure before helper launch. No helper protocol was called directly.
+
+The stock node_repl workers run in a read-only filesystem sandbox. A separate
+reproduction of the observed child command under that read-only policy exits
+before initialization: with the owner's `CODEX_HOME` explicitly present it says
+`failed to initialize sqlite state runtime` and reports denied temporary-path
+writes. Without an explicit home it instead says `Could not find home directory`.
+Both the installed 0.153.4 and current 0.158.0-alpha.2.1 App Servers fail in this
+reproduction. The current CLI lists `sqlite` as a removed feature, not an
+available configuration-only startup mode.
+
+This is strong evidence of a startup/permission incompatibility in the
+standalone route, but the original helper's nested stderr was not exposed:
+do not present the reproduction as a captured original SQLite error. Direct
+node_repl MCP stderr only reported initialization. A CLI diagnostic wrapper
+captured sandbox launches but did not capture that nested stderr. No ordinary
+model turn, app-input acceptance or host-with-desktop-closed acceptance passed.
+
+Do not disable node_repl isolation, make the owner's Codex state writable from
+its JS sandbox, patch the bundled helper, or substitute approval state to force
+this probe through. A compatible native host outside the JS sandbox must retain
+the stock app-policy/approval behavior and exact conversation writer ownership.
+That integration is not established. This investigation changed no production
+configuration, installed binary, desktop lifecycle or application source.
+
 ## Follow-up: runtime relocation and library-owned host — 2026-09-30
 
 The owner reports that this previously worked and suspects an update relocated
