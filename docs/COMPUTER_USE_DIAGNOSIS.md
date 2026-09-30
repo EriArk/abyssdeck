@@ -1,5 +1,67 @@
 # Native Computer Use in Companion sessions (#166)
 
+## Recheck — 2026-09-30
+
+**Status: not repaired.** The owner deliberately switched to desktop execution
+for this investigation. The September 27 missing-host finding remains relevant
+to web handoff, but it must not be read as proof that a separate App Server can
+never use the desktop-hosted tool.
+
+### Confirmed cause in CodexWeb
+
+`apps/web/src/WebHandoff.tsx` requests `releaseDesktop: true` together with the
+explicit stop confirmation. `apps/hub/src/desktop.ts` dispatches `ForceRelease`
+and admits web writes only after verified desktop closure.
+`ops/windows/CodexDesktopControl.ps1` closes the desktop package and its own
+direct App Server children, preserving Companion. The Computer Use host belongs
+to that desktop package, so the handoff also removes its native endpoint.
+The independently running Companion cannot recreate it merely by importing
+`@oai/sky` or reloading MCP configuration.
+
+The shutdown is not an accidental blanket process kill: it implements the
+single-writer handoff required by AGENTS.md and decisions D22/D24. Removing this
+step or reopening the desktop immediately after it is **not a verified fix**:
+the native conversation writer can still conflict. Do not weaken that guard to
+make window enumeration pass.
+
+### New evidence with the desktop running
+
+- Desktop package `OpenAI.Codex_26.924.2738.0_x64__2p2nqsd0c76g0`, app version
+  `26.924.22138`; bundled `cua_node/b63ee7ee40c23b77`, `@oai/sky` 0.7.4.
+- Companion still configures App Server 0.153.4. The separately installed CLI
+  is 0.158.0-alpha.2.1; no active runtime was replaced.
+- The current configured native endpoint had a live matching pipe. Endpoint
+  identity and private config are intentionally not included here.
+- The official `node_repl` / `@oai/sky` entry point listed windows in this
+  desktop session. A fresh **separate** App Server, using Companion's configured
+  executable and an ephemeral thread, also listed windows through public
+  `mcpServer/tool/call`. It submitted no model turn and approved no requests.
+  This was a local stdio probe, **not** acceptance of Hub -> SSH -> installed
+  Companion or of an existing Companion thread's MCP configuration.
+- A disposable Calculator was opened using `sky.launch_app`. Window capture in
+  the current desktop session failed with `FrameArrived timed out`; fresh window
+  selection and one activation/capture retry failed with `window capture timed
+  out`. The cause of these capture timeouts is not established. Enumeration is
+  not evidence of working screenshots, input or approval routing.
+- The installed CLI's public App Server schema provides
+  `config/mcpServer/reload`. This can refresh configured MCP connections, but
+  does not bootstrap the desktop-owned native host. The current desktop does
+  not expose a reachable App Server daemon control socket for the documented
+  stdio proxy. Do not describe a proxy transport as installed or tested here.
+
+### Remaining integration requirement
+
+The unresolved part is a supported host/approval lifecycle compatible with
+CodexWeb's independent execution and exact native writer ownership. Keeping a
+desktop process alive is only a necessary condition in this observed setup,
+not an accepted implementation. No standalone host bootstrap or safe
+desktop-writer release/host-retention contract was established in this pass.
+
+No desktop restart/closure, global config edit, permission change, native helper
+spawn, conversation handoff or Companion replacement was performed. Application
+code and the installed release are unchanged. #166 stays open; capture and
+end-to-end web execution have **not** passed acceptance.
+
 ## Recheck — 2026-09-27
 
 **Status: reproduced; not repaired.** The current Companion session still has no
