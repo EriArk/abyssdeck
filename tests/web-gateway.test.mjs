@@ -10,7 +10,8 @@ import test from "node:test";
 import { engineInfo } from "../apps/hub/dist/engine-client.js";
 import { prepareEngineSocket } from "../apps/hub/dist/engine-socket.js";
 import { createWebGateway } from "../apps/hub/dist/web-gateway.js";
-import { currentRelease, publishWeb } from "../apps/hub/dist/web-releases.js";
+import { compatible, currentRelease, publishWeb } from "../apps/hub/dist/web-releases.js";
+import { Store } from "../apps/hub/dist/store.js";
 import { devicesFixture } from "./devices-fixture.mjs";
 import { formRequest } from "./elicitation-fixture.mjs";
 import { healthyConnection } from "./fixtures/gpt-connection.mjs";
@@ -27,6 +28,18 @@ const waitFor = async (fn) => {
 };
 
 import { gatewayFixture } from "./web-gateway-fixture.mjs";
+
+test("built web contract accepts the current engine schema", () => {
+  const store = new Store(":memory:");
+  try {
+    const contract = JSON.parse(
+      readFileSync(new URL("../apps/web/dist/engine-compat.json", import.meta.url), "utf8"),
+    );
+    assert.doesNotThrow(() => compatible(contract, { protocol: 1, schema: store.schemaVersion }));
+  } finally {
+    store.close();
+  }
+});
 
 test("GPT reply and queued Codex message survive gateway updates without replay", async () => {
   const streams = [],

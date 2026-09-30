@@ -91,6 +91,15 @@ def main():
     image = inspect('codex-web-hub:' + a.revision)
     assert image and image['Config']['Labels']['org.opencontainers.image.revision'] == a.revision
     assert image['Config']['Labels'].get('io.codex-web.release-kind') != 'web-only', 'Asset publisher is not an engine release'
+    # Validate the actual candidate pair before stopping the current service.
+    # A successful frontend build alone does not detect a stale schema manifest.
+    run(['docker', 'run', '--rm', '--network', 'none', '--read-only', '--cap-drop', 'ALL',
+         'codex-web-hub:' + a.revision, 'node', '--input-type=module', '-e',
+         "import {readFileSync} from 'node:fs'; import {Store} from './dist/store.js'; "
+         "import {compatible} from './dist/web-releases.js'; const s=new Store(':memory:'); "
+         "try { compatible(JSON.parse(readFileSync('/web/engine-compat.json','utf8')), "
+         "{protocol:1,schema:s.schemaVersion}); } finally { s.close(); }"],
+        stdout=subprocess.DEVNULL, timeout=60)
     # Git's default abbreviation length differs as object databases grow. Match
     # the explicit image revision against HEAD rather than that local default.
     assert subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=release, text=True).strip().startswith(a.revision)

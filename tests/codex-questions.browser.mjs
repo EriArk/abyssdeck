@@ -122,6 +122,16 @@ try {
         page.getByRole("radio", { name: "Да, Калькулятор виден", exact: true }),
       ).toBeChecked();
       assert.equal(posts.length, 0, "preselection never submits");
+      await page.screenshot({
+        path: `.local/qa-codex-questions/${name}-choices-phone.png`,
+        fullPage: true,
+      });
+      await page.setViewportSize({ width: 1366, height: 1024 });
+      await page.screenshot({
+        path: `.local/qa-codex-questions/${name}-choices-tablet.png`,
+        fullPage: true,
+      });
+      await page.setViewportSize({ width: 390, height: 844 });
       await page.getByRole("radio", { name: "Свой ответ", exact: true }).check();
       await page.getByRole("textbox", { name: /Свой ответ:/ }).fill("Вижу на основном экране");
       await page.getByRole("button", { name: "Переоткрыть", exact: true }).click();
