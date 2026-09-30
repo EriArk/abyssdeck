@@ -1,5 +1,48 @@
 # Native Computer Use in Companion sessions (#166)
 
+## Follow-up: runtime relocation and library-owned host — 2026-09-30
+
+The owner reports that this previously worked and suspects an update relocated
+the executable. Treat that as a hypothesis to check, not evidence of which
+component failed. The installed `node_repl.exe`, Node executable and module
+directory all currently exist under `cua_node/b63ee7ee40c23b77`; their explicit
+config does not reference the removed `4004642ff3fabdc7` runtime. A fresh session
+through the **installed persistent Companion's legacy CODEX1 entry** initialized
+0.153.4, read the current config and enumerated windows using normal `@oai/sky`.
+This still does not inspect a previously loaded CODEX2 thread's cached MCP state.
+
+A separate, unauthenticated disposable App Server/MCP fixture reproduced an
+absent command followed by a config path update. The new tool appeared on the
+next `mcpServerStatus/list`, even before explicit `config/mcpServer/reload`, and
+its tool call succeeded. This fixture tests direct MCP discovery/calls, not an
+active model turn. It does not justify unconditional MCP resets before every
+user message or a claim that a stale path caused this incident.
+
+**Correction to the earlier integration assessment:** the installed `@oai/sky`
+Windows client has a library-owned helper transport as well as the desktop
+native-pipe transport. Its helper transport retains app approval through
+`nodeRepl.createElicitation` and refuses when approval is unavailable. The
+expected helper is included in the current package. Therefore a standalone
+route exists in the installed library; do not repeat that keeping the desktop
+open is necessarily the only implementation path.
+
+In ephemeral diagnostic threads only, selecting that transport via the
+`SKY_CUA_NATIVE_PIPE` MCP environment override caused `sky.list_windows()` to
+fail with `codex app-server exited before returning response 1`. It failed with
+the Companion and with a fresh 0.158.0-alpha.2.1 App Server, including advertised
+MCP elicitation support. Matching the diagnostic `CODEX_CLI_PATH` to 0.153.4 did
+not fix it. The error propagates through the trusted node_repl RPC worker; the
+exact reason its supporting App Server exits is **not established**. No model
+turn was submitted, so a direct-tool-call context limitation is also unexcluded.
+Do not claim this proves the standalone transport cannot work in a normal turn.
+
+No helper was spawned manually, private protocol client implemented, sandbox
+disabled, app permission granted or production configuration changed. The
+stock library was invoked through node_repl. Continue with the standalone
+transport's failed supporting-service startup and its real approval contract;
+do not repeat runtime-directory replacement as a complete repair. Neither
+native Computer Use acceptance nor a production fix has been achieved.
+
 ## Recheck — 2026-09-30
 
 **Status: not repaired.** The owner deliberately switched to desktop execution
