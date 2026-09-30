@@ -363,6 +363,23 @@ test("model, effort and native planning mode are validated and persist across th
       mode: "plan",
       settings: { model: "qa-model", reasoning_effort: "low", developer_instructions: null },
     });
+    rpc.emit("request", {
+      id: 602,
+      method: "item/tool/requestUserInput",
+      params: {
+        threadId: t.codexThreadId,
+        turnId: store.thread(t.id).activeTurnId,
+        questions: [{ id: "scope", question: "Scope?", options: [{ label: "First stage" }] }],
+      },
+    });
+    const question = sessions.pending(t.id)[0];
+    await sessions.answer(question.id, { scope: ["First stage"] });
+    assert.deepEqual(rpc.responses.at(-1), {
+      id: 602,
+      result: { answers: { scope: { answers: ["First stage"] } } },
+    });
+    assert.equal(store.thread(t.id).status, "running");
+    assert.equal(rpc.calls.filter((c) => c.method === "turn/start").length, 1);
     rpc.emit("notification", "item/plan/delta", {
       threadId: t.codexThreadId,
       turnId: store.thread(t.id).activeTurnId,

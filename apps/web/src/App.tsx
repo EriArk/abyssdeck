@@ -1458,22 +1458,30 @@ function Workspace({
               className={
                 sending || ["running", "starting"].includes(state.thread.status)
                   ? "spinner"
-                  : `status-dot ${state.thread.status === "waiting_approval" ? "attention" : state.connection === "connected" ? "online" : ""}`
+                  : `status-dot ${["waiting_approval", "failed", "interrupted"].includes(state.thread.status) ? "attention" : state.connection === "connected" ? "online" : ""}`
               }
               role="img"
               aria-label={
                 state.thread.status === "waiting_approval"
                   ? "Codex ждёт ответа"
-                  : sending || ["running", "starting"].includes(state.thread.status)
-                    ? "Codex работает"
-                    : "Соединение"
+                  : state.thread.status === "failed"
+                    ? "Ход завершился с ошибкой"
+                    : state.thread.status === "interrupted"
+                      ? "Ход остановлен"
+                      : sending || ["running", "starting"].includes(state.thread.status)
+                        ? "Codex работает"
+                        : "Соединение"
               }
             />
             <span>
               {threadId
-                ? state.connection === "connected"
-                  ? "На связи"
-                  : "Подключение…"
+                ? state.thread.status === "failed"
+                  ? "Ход завершился с ошибкой"
+                  : state.thread.status === "interrupted"
+                    ? "Ход остановлен"
+                    : state.connection === "connected"
+                      ? "На связи"
+                      : "Подключение…"
                 : "Личный Hub"}
             </span>
           </div>

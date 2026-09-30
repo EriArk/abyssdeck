@@ -1,3 +1,4 @@
+import { questionReplyDisplay } from "@codex-web/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AutoTextarea } from "./AutoTextarea";
 import { workspaceMediaUrl } from "./accountStorage.ts";
@@ -29,7 +30,9 @@ export function useMessageQueue(threadId: string) {
   const current = useRef(threadId);
   current.current = threadId;
   const request = useRef(0),
-    pending = useRef<{ signature: string; id: string } | undefined>(undefined);
+    pending = useRef<{ signature: string; id: string; expectedTurnId?: string | null } | undefined>(
+      undefined,
+    );
   const busyRef = useRef(false);
   const refresh = useCallback(async () => {
     if (!threadId) return;
@@ -149,26 +152,18 @@ export function useMessageQueue(threadId: string) {
     );
   const reply = (text: string, expectedTurnId: string | null) =>
     action(async () => {
-      const signature = JSON.stringify({ threadId, text, attachments: [] });
+      const signature = JSON.stringify({ kind: "question-reply", threadId, text });
       if (pending.current?.signature !== signature)
-        pending.current = { signature, id: crypto.randomUUID() };
-      const item = await api<QueuedMessage>(`/threads/${threadId}/queue`, {
+        pending.current = { signature, id: crypto.randomUUID(), expectedTurnId };
+      await api(`/threads/${threadId}/question-reply`, {
         method: "POST",
-        body: { text, attachments: [], clientId: pending.current.id },
+        body: {
+          text,
+          expectedTurnId: pending.current.expectedTurnId ?? null,
+          clientId: pending.current.id,
+        },
       });
       pending.current = undefined;
-      if (state.canSteer && expectedTurnId) {
-        try {
-          await api(`/threads/${threadId}/queue/${encodeURIComponent(item.id)}`, {
-            method: "POST",
-            key: crypto.randomUUID(),
-            body: { revision: item.revision, action: "steer", expectedTurnId },
-          });
-        } catch {
-          // The answer was durably accepted by the queue. A lost Steer confirmation
-          // must not offer another send; the existing queue receipt owns recovery.
-        }
-      }
     }, true);
   return { state, error: error || loadError, busy, add, reply, change };
 }
@@ -190,7 +185,11 @@ export function MessageQueue({
           <span>
             Далее <b>{queue.state.items.length}</b>
           </span>
-          <small>После текущего ответа</small>
+          <small>
+            {queue.state.items.every((item) => item.state === "steered")
+              ? "Передано текущему ходу"
+              : "После текущего ответа"}
+          </small>
         </div>
       )}
       {queue.error && (
@@ -234,7 +233,7 @@ export function MessageQueue({
               </form>
             ) : (
               <>
-                <p className="queue-text">{item.text || "Вложения"}</p>
+                <p className="queue-text">{questionReplyDisplay(item.text) || "Вложения"}</p>
                 {!!item.attachments.length && (
                   <div className="queue-files">
                     {item.attachments.map((f) => (

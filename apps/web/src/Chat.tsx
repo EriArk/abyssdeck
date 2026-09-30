@@ -119,6 +119,20 @@ function endsTask(
       ["completed", "interrupted", "failed"].includes(status))
   );
 }
+function taskEndLabel(
+  turnId: string | null,
+  status: string,
+  last: boolean,
+  completion?: ThreadActivity,
+) {
+  const outcome =
+    completion?.completedTurnId === turnId ? completion?.completedStatus : last ? status : null;
+  return outcome === "failed"
+    ? "Ход завершился с ошибкой"
+    : outcome === "interrupted"
+      ? "Ход остановлен"
+      : "Конец задачи";
+}
 export function ApprovalCard({
   approval,
   busy,
@@ -835,8 +849,22 @@ export function Chat({
                         state.thread.status,
                       ) && (
                         <div className="task-boundary">
-                          <hr aria-label="Конец задачи" />
-                          <span aria-hidden="true">Конец задачи</span>
+                          <hr
+                            aria-label={taskEndLabel(
+                              message.turnId,
+                              state.thread.status,
+                              index === state.messages.length - 1,
+                              completion,
+                            )}
+                          />
+                          <span aria-hidden="true">
+                            {taskEndLabel(
+                              message.turnId,
+                              state.thread.status,
+                              index === state.messages.length - 1,
+                              completion,
+                            )}
+                          </span>
                           <div className="task-boundary-line" aria-hidden="true" />
                           {reviews
                             .filter((r) => r.turnId === message.turnId)

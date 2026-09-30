@@ -8,6 +8,15 @@ This introduction describes the current boundary. Some original v1 sections belo
 
 The current public service is a replaceable web/API gateway. The persistent engine owns native sessions, SQLite, authentication, queues, GPT orchestration and private PTYs over a private Unix socket. Gateway changes do not replace the execution engine. Windows execution goes through the logged-in local-only Companion, not an interactive SSH desktop session.
 
+### Companion application design (2026-09-30)
+
+The owner-approved [universal tray application](COMPANION_APP.md) is the next
+Windows implementation: account-derived rights, readiness/recovery and updates.
+Its UI remains independent of native execution workers. The [observed installation
+and migration contract](COMPANION_APP_MIGRATION.md) preserves the owner's LAN
+route and active work. This is a design, not an installed replacement; Hub
+administration stays in the web. Linux retains the same transport/privacy boundaries.
+
 ### Team composition
 
 Persistent AI role identity has a shared private-runtime [conversation binding registry](CONVERSATION_BINDINGS.md). Its first consumer is existing Project GPT; exact owner/provider/scope/role/native IDs, revision provenance and dispatch-time authorization checks replace that feature's ad-hoc binding fields. Other role integrations remain explicit subsequent work; ordinary native conversations and Current/Previous selection are not rediscovered or migrated by title.

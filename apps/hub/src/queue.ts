@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { HubError } from "@codex-web/shared";
+import { chatQuestionReplies, chatQuestions, HubError } from "@codex-web/shared";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { Sessions } from "./sessions.js";
@@ -138,57 +138,104 @@ export class QueueService {
     }
   }
   async add(id: string, text: string, attachmentIds: string[], clientId: string) {
-    return this.locked(id, async () => {
-      const t = this.sessions.thread(id),
-        rpc = await this.sessions.queueClient(id);
-      const queue = await this.native(id);
-      const existing = queue.find((q) => q.clientUserMessageId === clientId);
-      if (existing) return this.public(id, existing);
-      if (queue.length >= 50) throw new HubError(409, "QUEUE_LIMIT", "В очереди уже 50 сообщений");
-      const settings =
-        this.store.threadSettings(id) ?? (await this.sessions.capabilities(t.projectId)).defaults;
-      const model = (await this.sessions.capabilities(t.projectId)).models.find(
-        (m) => m.id === settings.model,
-      );
-      const prepared = await this.sessions.attachments.prepare(
-        { ...this.sessions.config, projects: this.sessions.catalog.projects() },
-        id,
-        attachmentIds,
-        model?.supportsImages ?? false,
-      );
-      const pending: Submission = {
-        id: clientId,
+    return this.locked(id, () => this.addLocked(id, text, attachmentIds, clientId));
+  }
+  private async addLocked(id: string, text: string, attachmentIds: string[], clientId: string) {
+    const t = this.sessions.thread(id),
+      rpc = await this.sessions.queueClient(id);
+    const queue = await this.native(id);
+    const existing = queue.find((q) => q.clientUserMessageId === clientId);
+    if (existing) return this.public(id, existing);
+    if (queue.length >= 50) throw new HubError(409, "QUEUE_LIMIT", "В очереди уже 50 сообщений");
+    const settings =
+      this.store.threadSettings(id) ?? (await this.sessions.capabilities(t.projectId)).defaults;
+    const model = (await this.sessions.capabilities(t.projectId)).models.find(
+      (m) => m.id === settings.model,
+    );
+    const prepared = await this.sessions.attachments.prepare(
+      { ...this.sessions.config, projects: this.sessions.catalog.projects() },
+      id,
+      attachmentIds,
+      model?.supportsImages ?? false,
+    );
+    const pending: Submission = {
+      id: clientId,
+      clientUserMessageId: clientId,
+      input: [{ type: "text", text }, ...prepared.input],
+    };
+    await this.sessions.syncQueueInstructions(id);
+    try {
+      this.sessions.assertWritable(t.projectId);
+      this.sessions.attachments.bind(id, clientId, prepared.files);
+      this.store.db
+        .prepare("INSERT INTO queue_transfers VALUES(?,?,?,'enqueue_pending')")
+        .run(id, clientId, JSON.stringify(pending));
+      const response = await rpc.request("thread/queue/add", {
+        threadId: t.codexThreadId,
         clientUserMessageId: clientId,
-        input: [{ type: "text", text }, ...prepared.input],
-      };
-      await this.sessions.syncQueueInstructions(id);
+        input: pending.input,
+      });
+      const q = obj(response.queuedSubmission) as unknown as Submission;
+      if (!q.id || q.clientUserMessageId !== clientId || !Array.isArray(q.input))
+        throw new HubError(502, "INVALID_QUEUE_RESPONSE", "Очередь не подтвердила сообщение");
+      this.store.db
+        .prepare("DELETE FROM queue_transfers WHERE threadId=? AND id=?")
+        .run(id, clientId);
+      this.changed(id);
+      return this.public(id, q);
+    } catch (error) {
+      this.store.db
+        .prepare("UPDATE queue_transfers SET state='enqueue_unknown' WHERE threadId=? AND id=?")
+        .run(id, clientId);
+      this.changed(id);
+      throw error;
+    } finally {
+      prepared.release();
+    }
+  }
+  /** A question answer and its Steer share one admission/queue lock. Browser polling
+   * is presentation state, never the authority for delivering an active answer. */
+  async reply(id: string, text: string, clientId: string, expectedTurnId: string | null) {
+    return this.locked(id, async () => {
+      const replies = chatQuestionReplies(text);
+      if (!replies)
+        throw new HubError(400, "QUESTION_ANSWERS_INVALID", "Непонятный ответ на вопрос.");
+      const turns = new Set<string>();
+      for (const reply of replies) {
+        const [, messageId, index] = JSON.parse(reply.questionItemId);
+        const row = this.store.db
+          .prepare(
+            "SELECT q.value,m.turnId FROM message_questions q JOIN messages m ON m.threadId=q.threadId AND m.id=q.messageId WHERE q.threadId=? AND q.messageId=? AND m.role='assistant'",
+          )
+          .get(id, messageId);
+        if (!row || chatQuestions(JSON.parse(String(row.value)))?.[index]?.title !== reply.question)
+          throw new HubError(409, "QUESTION_CHANGED", "Вопрос изменился. Обнови чат.");
+        if (row.turnId) turns.add(String(row.turnId));
+      }
+      const item = await this.addLocked(id, text, [], clientId);
+      const turnId = this.store.thread(id).activeTurnId;
+      if (
+        !turnId ||
+        (expectedTurnId && expectedTurnId !== turnId) ||
+        turns.size !== 1 ||
+        !turns.has(turnId) ||
+        !(await this.sessions.owns(id))
+      )
+        return { delivery: "queued" as const };
       try {
-        this.sessions.assertWritable(t.projectId);
-        this.sessions.attachments.bind(id, clientId, prepared.files);
-        this.store.db
-          .prepare("INSERT INTO queue_transfers VALUES(?,?,?,'enqueue_pending')")
-          .run(id, clientId, JSON.stringify(pending));
-        const response = await rpc.request("thread/queue/add", {
-          threadId: t.codexThreadId,
-          clientUserMessageId: clientId,
-          input: pending.input,
-        });
-        const q = obj(response.queuedSubmission) as unknown as Submission;
-        if (!q.id || q.clientUserMessageId !== clientId || !Array.isArray(q.input))
-          throw new HubError(502, "INVALID_QUEUE_RESPONSE", "Очередь не подтвердила сообщение");
-        this.store.db
-          .prepare("DELETE FROM queue_transfers WHERE threadId=? AND id=?")
-          .run(id, clientId);
-        this.changed(id);
-        return this.public(id, q);
+        await this.changeLocked(id, item.id, item.revision, "steer", undefined, turnId);
+        return { delivery: "steered" as const };
       } catch (error) {
-        this.store.db
-          .prepare("UPDATE queue_transfers SET state='enqueue_unknown' WHERE threadId=? AND id=?")
-          .run(id, clientId);
-        this.changed(id);
+        // Enqueue was confirmed. Do not invite another send after a lost Steer
+        // confirmation; the original queue transfer retains the exact receipt.
+        const held = this.held(id, item.id);
+        if (held) return { delivery: "uncertain" as const };
+        if (
+          error instanceof HubError &&
+          ["TURN_CHANGED", "THREAD_IN_USE", "QUEUE_CHANGED"].includes(error.code)
+        )
+          return { delivery: "queued" as const };
         throw error;
-      } finally {
-        prepared.release();
       }
     });
   }
@@ -200,122 +247,130 @@ export class QueueService {
     text?: string,
     expectedTurnId?: string,
   ) {
-    return this.locked(id, async () => {
-      const t = this.sessions.thread(id),
-        rpc = await this.sessions.queueClient(id);
-      const held = this.held(id, qid);
-      if (held?.state === "steered")
-        throw new HubError(409, "MESSAGE_ACCEPTED", "Codex уже принял сообщение.");
-      if (held && ["pending", "enqueue_pending"].includes(held.state))
-        throw new HubError(409, "QUEUE_BUSY", "Steer ещё передаётся");
-      const q = held?.submission ?? (await this.native(id)).find((v) => v.id === qid);
-      if (!q)
+    return this.locked(id, () =>
+      this.changeLocked(id, qid, revision, action, text, expectedTurnId),
+    );
+  }
+  private async changeLocked(
+    id: string,
+    qid: string,
+    revision: string,
+    action: "edit" | "delete" | "steer" | "restore",
+    text?: string,
+    expectedTurnId?: string,
+  ) {
+    const t = this.sessions.thread(id),
+      rpc = await this.sessions.queueClient(id);
+    const held = this.held(id, qid);
+    if (held?.state === "steered")
+      throw new HubError(409, "MESSAGE_ACCEPTED", "Codex уже принял сообщение.");
+    if (held && ["pending", "enqueue_pending"].includes(held.state))
+      throw new HubError(409, "QUEUE_BUSY", "Steer ещё передаётся");
+    const q = held?.submission ?? (await this.native(id)).find((v) => v.id === qid);
+    if (!q)
+      throw new HubError(
+        409,
+        "QUEUE_CHANGED",
+        "Сообщение уже отправлено или удалено. Очередь обновлена",
+      );
+    if (digest(q) !== revision)
+      throw new HubError(
+        409,
+        "QUEUE_CHANGED",
+        "Сообщение изменилось на другом устройстве. Проверь новую версию",
+      );
+    if (action === "edit") {
+      const input = q.input.map((v) => ({ ...v }));
+      const first = input.findIndex((v) => v.type === "text");
+      if (first < 0) input.unshift({ type: "text", text });
+      else input[first] = { ...input[first], text };
+      if (held)
+        this.store.db
+          .prepare("UPDATE queue_transfers SET value=? WHERE threadId=? AND id=?")
+          .run(JSON.stringify({ ...q, input }), id, qid);
+      else
+        await rpc.request("thread/queue/update", {
+          threadId: t.codexThreadId,
+          queuedSubmissionId: qid,
+          input,
+        });
+    } else if (action === "delete") {
+      if (held)
+        this.store.db.prepare("DELETE FROM queue_transfers WHERE threadId=? AND id=?").run(id, qid);
+      else {
+        const result = await rpc.request("thread/queue/delete", {
+          threadId: t.codexThreadId,
+          queuedSubmissionId: qid,
+        });
+        if (result.deleted !== true)
+          throw new HubError(409, "QUEUE_CHANGED", "Сообщение уже начало выполняться");
+      }
+    } else if (action === "restore") {
+      if (!held) throw new HubError(409, "QUEUE_CHANGED", "Сообщение уже в очереди");
+      await this.sessions.syncQueueInstructions(id);
+      await rpc.request("thread/queue/add", {
+        threadId: t.codexThreadId,
+        clientUserMessageId: q.clientUserMessageId,
+        input: q.input,
+      });
+      this.store.db.prepare("DELETE FROM queue_transfers WHERE threadId=? AND id=?").run(id, qid);
+    } else {
+      // Never attempt to steer a different process or a turn that finished while the UI was open.
+      if (!(await this.sessions.owns(id)))
         throw new HubError(
           409,
-          "QUEUE_CHANGED",
-          "Сообщение уже отправлено или удалено. Очередь обновлена",
+          "THREAD_IN_USE",
+          "Steer доступен для работы, запущенной через сайт. Очередь сохранена в Codex",
         );
-      if (digest(q) !== revision)
+      if (held || !expectedTurnId || this.store.thread(id).activeTurnId !== expectedTurnId)
         throw new HubError(
           409,
-          "QUEUE_CHANGED",
-          "Сообщение изменилось на другом устройстве. Проверь новую версию",
+          "TURN_CHANGED",
+          "Текущий ход изменился. Сообщение осталось в очереди",
         );
-      if (action === "edit") {
-        const input = q.input.map((v) => ({ ...v }));
-        const first = input.findIndex((v) => v.type === "text");
-        if (first < 0) input.unshift({ type: "text", text });
-        else input[first] = { ...input[first], text };
-        if (held)
-          this.store.db
-            .prepare("UPDATE queue_transfers SET value=? WHERE threadId=? AND id=?")
-            .run(JSON.stringify({ ...q, input }), id, qid);
-        else
-          await rpc.request("thread/queue/update", {
-            threadId: t.codexThreadId,
-            queuedSubmissionId: qid,
-            input,
-          });
-      } else if (action === "delete") {
-        if (held)
+      this.store.db
+        .prepare("INSERT INTO queue_transfers VALUES(?,?,?,'pending')")
+        .run(id, qid, JSON.stringify(q));
+      try {
+        const deleted = await rpc.request("thread/queue/delete", {
+          threadId: t.codexThreadId,
+          queuedSubmissionId: qid,
+        });
+        if (deleted.deleted !== true) {
           this.store.db
             .prepare("DELETE FROM queue_transfers WHERE threadId=? AND id=?")
             .run(id, qid);
-        else {
-          const result = await rpc.request("thread/queue/delete", {
-            threadId: t.codexThreadId,
-            queuedSubmissionId: qid,
-          });
-          if (result.deleted !== true)
-            throw new HubError(409, "QUEUE_CHANGED", "Сообщение уже начало выполняться");
+          throw new HubError(409, "QUEUE_CHANGED", "Сообщение уже начало выполняться");
         }
-      } else if (action === "restore") {
-        if (!held) throw new HubError(409, "QUEUE_CHANGED", "Сообщение уже в очереди");
-        await this.sessions.syncQueueInstructions(id);
-        await rpc.request("thread/queue/add", {
+        const steered = await rpc.request("turn/steer", {
           threadId: t.codexThreadId,
-          clientUserMessageId: q.clientUserMessageId,
+          expectedTurnId,
           input: q.input,
+          clientUserMessageId: q.clientUserMessageId,
         });
-        this.store.db.prepare("DELETE FROM queue_transfers WHERE threadId=? AND id=?").run(id, qid);
-      } else {
-        // Never attempt to steer a different process or a turn that finished while the UI was open.
-        if (!(await this.sessions.owns(id)))
+        if (steered.turnId !== expectedTurnId)
           throw new HubError(
-            409,
-            "THREAD_IN_USE",
-            "Steer доступен для работы, запущенной через сайт. Очередь сохранена в Codex",
+            502,
+            "INVALID_STEER_RESPONSE",
+            "Codex не подтвердил направление текущего хода",
           );
-        if (held || !expectedTurnId || this.store.thread(id).activeTurnId !== expectedTurnId)
-          throw new HubError(
-            409,
-            "TURN_CHANGED",
-            "Текущий ход изменился. Сообщение осталось в очереди",
-          );
+        // Keep accepted Steer visible until Codex emits the matching user message.
         this.store.db
-          .prepare("INSERT INTO queue_transfers VALUES(?,?,?,'pending')")
-          .run(id, qid, JSON.stringify(q));
-        try {
-          const deleted = await rpc.request("thread/queue/delete", {
-            threadId: t.codexThreadId,
-            queuedSubmissionId: qid,
-          });
-          if (deleted.deleted !== true) {
-            this.store.db
-              .prepare("DELETE FROM queue_transfers WHERE threadId=? AND id=?")
-              .run(id, qid);
-            throw new HubError(409, "QUEUE_CHANGED", "Сообщение уже начало выполняться");
-          }
-          const steered = await rpc.request("turn/steer", {
-            threadId: t.codexThreadId,
-            expectedTurnId,
-            input: q.input,
-            clientUserMessageId: q.clientUserMessageId,
-          });
-          if (steered.turnId !== expectedTurnId)
-            throw new HubError(
-              502,
-              "INVALID_STEER_RESPONSE",
-              "Codex не подтвердил направление текущего хода",
-            );
-          // Keep accepted Steer visible until Codex emits the matching user message.
-          this.store.db
-            .prepare("UPDATE queue_transfers SET state='steered' WHERE threadId=? AND id=?")
-            .run(id, qid);
-        } catch (error) {
-          this.store.db
-            .prepare("UPDATE queue_transfers SET state='unknown' WHERE threadId=? AND id=?")
-            .run(id, qid);
-          this.changed(id);
-          throw error;
-        }
+          .prepare("UPDATE queue_transfers SET state='steered' WHERE threadId=? AND id=?")
+          .run(id, qid);
+      } catch (error) {
+        this.store.db
+          .prepare("UPDATE queue_transfers SET state='unknown' WHERE threadId=? AND id=?")
+          .run(id, qid);
+        this.changed(id);
+        throw error;
       }
-      this.changed(id, {
-        clientMessageId: q.clientUserMessageId,
-        action: action === "delete" && held ? "dismissed" : action,
-      });
-      return { ok: true };
+    }
+    this.changed(id, {
+      clientMessageId: q.clientUserMessageId,
+      action: action === "delete" && held ? "dismissed" : action,
     });
+    return { ok: true };
   }
 }
 export function registerQueue(app: FastifyInstance, sessions: Sessions, store: Store) {
@@ -325,6 +380,20 @@ export function registerQueue(app: FastifyInstance, sessions: Sessions, store: S
       .object({ id: z.string().min(1).max(100), qid: z.string().min(1).max(100).optional() })
       .parse(v);
   app.get("/api/threads/:id/queue", async (req) => service.list(params(req.params).id));
+  app.post("/api/threads/:id/question-reply", async (req) => {
+    const { id } = params(req.params),
+      body = z
+        .object({
+          text: z.string().trim().min(1).max(32000),
+          clientId: z.string().uuid(),
+          expectedTurnId: z.string().min(1).max(100).nullable(),
+        })
+        .strict()
+        .parse(req.body);
+    return store.once("question-reply:" + id, body.clientId, body, () =>
+      service.reply(id, body.text, body.clientId, body.expectedTurnId),
+    );
+  });
   app.post("/api/threads/:id/queue", async (req) => {
     const { id } = params(req.params),
       body = z

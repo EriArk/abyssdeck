@@ -2,6 +2,20 @@
 
 This file records decisions that should be treated as fixed unless the owner explicitly changes them.
 
+## 2026-09-30 — Universal tray Companion, Windows first for the current transition
+
+The owner chose one application with features derived from Hub account rights,
+not separate owner/admin/member builds. Windows has immediate priority while the
+owner and friend remain on it; preserve future Linux portability. This changes
+the sequencing of the earlier Linux-first decision for this application.
+
+The application includes tray access, setup/readiness, bounded automatic recovery
+and auto-updates. Preserve the owner's current preconfigured LAN machine and
+native work; adopting the UI must not replace active execution workers. Hub user
+management/invitations remain in the web, explicitly confirmed by the owner.
+Before each next stage recommend a model and effort, then wait for continuation.
+See [design and stages](COMPANION_APP.md) and [observed installation/migration](COMPANION_APP_MIGRATION.md).
+
 ## 2026-09-30 — Independent Computer Use in the Windows Companion
 
 The owner explicitly approved ordinary app access through an independent GUI

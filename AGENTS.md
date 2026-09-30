@@ -1,5 +1,21 @@
 # AGENTS.md
 
+## Owner-approved universal Companion application (2026-09-30)
+
+- Build one Companion application with a tray, readiness checks, bounded automatic
+  recovery and automatic updates. Hub account permissions determine features;
+  do not create separate admin/member builds or grant rights through a local flag.
+- Windows is the immediate priority for the owner and friend. This supersedes
+  Linux-first sequencing for this application, while retaining the Linux direction.
+- Preserve and preconfigure the owner's existing PC, direct LAN SSH, native
+  accounts, projects, roots and receipts. Install the UI independently of active
+  workers; migrate execution only with verified idle admission and rollback.
+- Hub users/invitations/admin stay in the existing web interface. Companion shows
+  Hub state and opens authorized web administration; no duplicate admin console.
+- Before each substantial stage recommend both model and reasoning selector/protocol
+  value, then wait for the owner's continuation. See docs/COMPANION_APP.md and
+  docs/COMPANION_APP_MIGRATION.md; distinguish design, source, installation and acceptance.
+
 ## Owner-approved independent Windows Computer Use (2026-09-30)
 
 - The owner explicitly approved a Companion GUI adapter with ordinary access to

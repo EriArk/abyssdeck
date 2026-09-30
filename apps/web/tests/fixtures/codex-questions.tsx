@@ -2,9 +2,9 @@ import { chatQuestionReplies, questionReplyDisplay, questionReplyText } from "@c
 import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { AsyncQuestions } from "../../src/AsyncQuestions";
-import { MessageText } from "../../src/Chat";
+import { ApprovalCard, MessageText } from "../../src/Chat";
 import { ComposerOptions, useTurnSettings } from "../../src/ComposerOptions";
-import { useMessageQueue } from "../../src/MessageQueue";
+import { MessageQueue, useMessageQueue } from "../../src/MessageQueue";
 import "../../src/styles.css";
 import "../../src/workspace.css";
 import "../../src/compact.css";
@@ -29,7 +29,9 @@ const saved = { model: "gpt-6-astra", effort: "high" as const, mode: "default" a
 function Fixture() {
   const [id, setId] = useState("call_test"),
     [remount, setRemount] = useState(0),
-    [remote, setRemote] = useState(false);
+    [remote, setRemote] = useState(false),
+    [plan, setPlan] = useState(false),
+    [planResult, setPlanResult] = useState("");
   const options = useTurnSettings("p", "t", saved),
     queue = useMessageQueue("t");
   const reply = questionReplyText(id, questions, ["Да, Калькулятор виден"]);
@@ -62,6 +64,34 @@ function Fixture() {
         onReply={(text) => queue.reply(text, "turn_test")}
       />
       {remote && <MessageText text={questionReplyDisplay(reply)} />}
+      <MessageQueue queue={queue} turnId="turn_test" />
+      <button type="button" onClick={() => setPlan(true)}>
+        Вопрос для плана
+      </button>
+      {plan && (
+        <ApprovalCard
+          approval={{
+            id: "plan_request",
+            kind: "question",
+          description: "",
+            questions: [
+              {
+                id: "choice",
+                question: "Выбор для плана?",
+                options: [{ label: "A" }, { label: "B" }],
+              },
+              { id: "free", question: "Детали плана?", options: [] },
+            ],
+          }}
+          busy={false}
+          onDecision={() => {}}
+          onAnswer={(id, answers) => {
+            setPlan(false);
+            setPlanResult(JSON.stringify({ id, answers }));
+          }}
+        />
+      )}
+      {planResult && <output aria-label="Ответ режима плана">{planResult}</output>}
     </main>
   );
 }

@@ -94,19 +94,20 @@ try {
           return route.fulfill({ json: { ok: true } });
         }
         if (path.endsWith("/queue") && method === "GET")
-          return route.fulfill({ json: { available: true, canSteer: true, items: queue } });
-        if (path.endsWith("/queue") && method === "POST") {
+          return route.fulfill({ json: { available: true, canSteer: false, items: queue } });
+        if (path.endsWith("/question-reply") && method === "POST") {
           const body = route.request().postDataJSON();
           posts.push({ path, body });
           const item = {
             id: body.clientId,
             text: body.text,
             revision: "r",
-            state: "queued",
+            state: "steered",
             attachments: [],
+            otherInputs: 0,
           };
           queue.push(item);
-          return route.fulfill({ json: item });
+          return route.fulfill({ json: { delivery: "steered" } });
         }
         if (path.includes("/queue/") && method === "POST") {
           posts.push({ path, body: route.request().postDataJSON() });
@@ -151,11 +152,22 @@ try {
       releasePatch();
       await expect(page.getByRole("combobox", { name: "Модель Codex" })).toBeEnabled();
       await page.getByRole("button", { name: "Ответить", exact: true }).click();
-      await expect(page.getByRole("status")).toHaveText("Ответ передан");
-      const adds = posts.filter((p) => p.path.endsWith("/queue"));
+      await expect(page.locator(".async-questions [role=status]")).toHaveText("Ответ передан");
+      const adds = posts.filter((p) => p.path.endsWith("/question-reply"));
       assert.equal(adds.length, 1);
       assert(adds[0].body.text.includes("call_test"));
       assert(adds[0].body.text.includes("Вижу на основном экране"));
+      assert.equal(adds[0].body.expectedTurnId, "turn_test");
+      assert.equal(
+        posts.filter((p) => p.path.includes("/queue/")).length,
+        0,
+        "answer delivery is one Hub operation, without manual Steer",
+      );
+      await expect(page.locator(".queue-heading")).toContainText("Передано текущему ходу");
+      await expect(page.locator(".queue-text")).toContainText("Вижу на основном экране");
+      assert(
+        !(await page.locator("main").innerText()).includes("send_user_message_question_reply"),
+      );
       await page.getByRole("button", { name: "Переоткрыть", exact: true }).click();
       await expect(page.getByRole("button", { name: "Ответить", exact: true })).toHaveCount(0);
       await expect(page.getByRole("textbox", { name: "Черновик сообщения" })).toHaveValue(
@@ -168,7 +180,24 @@ try {
       assert(
         !(await page.locator("main").innerText()).includes("send_user_message_question_reply"),
       );
-      assert.equal(posts.filter((p) => p.path.endsWith("/queue")).length, 1);
+      assert.equal(posts.filter((p) => p.path.endsWith("/question-reply")).length, 1);
+      await page.getByRole("button", { name: "Вопрос для плана", exact: true }).click();
+      const plan = page.locator(".approval");
+      await expect(plan.getByRole("button", { name: "Ответить", exact: true })).toBeDisabled();
+      await plan.getByRole("radio", { name: "B", exact: true }).check();
+      await plan.getByRole("textbox", { name: "Свой ответ: Детали плана?" }).fill("Сначала проект");
+      await plan.getByRole("button", { name: "Ответить", exact: true }).click();
+      await expect(page.getByLabel("Ответ режима плана")).toHaveText(
+        JSON.stringify({
+          id: "plan_request",
+          answers: { choice: ["B"], free: ["Сначала проект"] },
+        }),
+      );
+      assert.equal(
+        posts.filter((p) => p.path.endsWith("/question-reply")).length,
+        1,
+        "plan answers use native request response, never async envelopes or queue",
+      );
       assert.deepEqual(errors, []);
       await page.screenshot({
         path: `.local/qa-codex-questions/${name}-answered.png`,

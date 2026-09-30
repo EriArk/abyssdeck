@@ -8,7 +8,7 @@ import test from "node:test";
 import { QueueService } from "../apps/hub/dist/queue.js";
 import { Sessions } from "../apps/hub/dist/sessions.js";
 import { Store } from "../apps/hub/dist/store.js";
-import { configSchema, HubError } from "../packages/shared/dist/index.js";
+import { configSchema, HubError, questionReplyText } from "../packages/shared/dist/index.js";
 import { capabilityReply } from "./fixtures.mjs";
 
 class Rpc extends EventEmitter {
@@ -93,6 +93,82 @@ async function setup(instructions = () => null) {
     },
   };
 }
+
+test("async question reply atomically steers its source turn without a browser ownership hint; exact receipt is single-use", async () => {
+  const f = await setup();
+  try {
+    const turn = f.store.thread(f.t.id).activeTurnId;
+    const questions = [{ title: "Choose?", options: ["A", "B"] }];
+    f.store.append(
+      f.t.id,
+      "assistant.completed",
+      { id: "call_question", text: "Choose?", questions },
+      turn,
+    );
+    const text = questionReplyText("call_question", questions, ["B"]),
+      clientId = randomUUID();
+    const body = { text, clientId, expectedTurnId: null };
+    const send = () =>
+      f.store.once("question-reply:" + f.t.id, clientId, body, () =>
+        f.queue.reply(f.t.id, text, clientId, null),
+      );
+    assert.deepEqual(await send(), { delivery: "steered" });
+    assert.deepEqual(await send(), { delivery: "steered" });
+    const steer = f.rpc.calls.filter((c) => c.method === "turn/steer");
+    assert.equal(steer.length, 1);
+    assert.equal(steer[0].p.expectedTurnId, turn);
+    assert.equal(steer[0].p.input[0].text, text);
+    assert.equal(f.rpc.queue.length, 0);
+    assert.equal((await f.queue.list(f.t.id)).items[0].state, "steered");
+    assert.equal(f.rpc.calls.filter((c) => c.method === "turn/start").length, 1);
+    await assert.rejects(
+      f.queue.reply(f.t.id, text.replace("Choose?", "Invented?"), randomUUID(), turn),
+      { code: "QUESTION_CHANGED" },
+    );
+    const other = f.store.createThread("p", "other-native", "Other");
+    await assert.rejects(f.queue.reply(other.id, text, randomUUID(), turn), {
+      code: "QUESTION_CHANGED",
+    });
+    assert.equal(f.rpc.calls.filter((c) => c.method === "thread/queue/add").length, 1);
+  } finally {
+    await f.close();
+  }
+});
+
+test("async reply preserves uncertain Steer and cannot steer another turn or an external writer", async () => {
+  const f = await setup();
+  try {
+    const turn = f.store.thread(f.t.id).activeTurnId,
+      questions = [{ title: "Choose?" }];
+    f.store.append(
+      f.t.id,
+      "assistant.completed",
+      { id: "call_question", text: "Choose?", questions },
+      turn,
+    );
+    const text = questionReplyText("call_question", questions, ["A"]);
+    f.rpc.loseSteer = true;
+    const clientId = randomUUID(),
+      body = { text, clientId, expectedTurnId: turn };
+    const send = () =>
+      f.store.once("question-reply:" + f.t.id, clientId, body, () =>
+        f.queue.reply(f.t.id, text, clientId, turn),
+      );
+    assert.deepEqual(await send(), { delivery: "uncertain" });
+    assert.deepEqual(await send(), { delivery: "uncertain" });
+    assert.equal((await f.queue.list(f.t.id)).items[0].state, "unknown");
+    assert.equal(f.rpc.calls.filter((c) => c.method === "turn/steer").length, 1);
+    f.rpc.loseSteer = false;
+    f.store.setStatus(f.t.id, "running", "new-turn");
+    assert.deepEqual(await f.queue.reply(f.t.id, text, randomUUID(), turn), { delivery: "queued" });
+    f.store.setStatus(f.t.id, "running", turn);
+    f.sessions.owns = async () => false;
+    assert.deepEqual(await f.queue.reply(f.t.id, text, randomUUID(), turn), { delivery: "queued" });
+    assert.equal(f.rpc.calls.filter((c) => c.method === "turn/steer").length, 1);
+  } finally {
+    await f.close();
+  }
+});
 
 test("collaboration instructions reach native turns and queue defaults without changing Steer", async () => {
   let context = "Shared repository: working branch and PR";

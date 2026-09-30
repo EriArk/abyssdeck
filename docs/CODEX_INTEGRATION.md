@@ -1,5 +1,22 @@
 # Codex Integration
 
+## Public questions and native planning answers (2026-09-30)
+
+Asynchronous public `agentMessage.questions` are distinct from a pending
+`item/tool/requestUserInput` RPC. Preserve exact native call/index/title in their
+reply envelope. `/api/threads/:id/question-reply` validates stored question metadata
+in the actor's thread, enqueues and steers the matching web-owned source turn
+under one queue/admission lock. One durable client ID covers the operation;
+lost confirmation retains the existing receipt without another send. A changed
+source turn or external writer leaves the answer queued instead of stealing it.
+Browser polling metadata does not authorize or suppress active reply delivery.
+
+Mandatory native questions, including Plan mode, continue through the existing
+single-use request-answer route with `{ answers: { questionId: { answers } } }`.
+They do not use async envelopes, queue insertion or a fresh `turn/start`.
+The planning regression verifies answered input is followed by the native plan.
+Queue display decodes complete envelopes for reading while keeping native bytes.
+
 ## Goal
 
 Use Codex App Server as the execution interface while keeping the frontend insulated from App Server protocol churn.
