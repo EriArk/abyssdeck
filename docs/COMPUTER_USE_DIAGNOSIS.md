@@ -1,5 +1,42 @@
 # Native Computer Use in Companion sessions (#166)
 
+## Owner-requested web-session and update-route check — 2026-09-30
+
+The owner confirmed this turn runs through the web client and offered to switch
+to desktop if recovery here fails. The normal in-turn `node_repl` / `@oai/sky`
+call still fails to connect its native pipe. There are zero Computer Use pipes
+and zero `ChatGPT.exe` processes. The persistent Companion's actual node_repl
+child uses the existing `cua_node/b63ee7ee40c23b77` executable. This check does
+not dismiss the owner's earlier successful repairs after executable relocation.
+
+Update-route findings:
+
+- Hub configuration read via SSH selects the installed persistent bridge and
+  the private `8e5b6932251c2c1c` CLI snapshot. Its version is 0.153.4; the current
+  desktop-relocated CLI is 0.158.0-alpha.2.1. Both Companion tasks have interactive
+  logon. No active runtime was replaced.
+- `Copy-CompanionRuntime.ps1` protects Codex plus its three execution helpers
+  from desktop cleanup. It does not snapshot/update node_repl or Computer Use.
+  Deployment documentation explicitly describes CLI upgrades as manual and
+  idle-only. Do not confuse that protection with complete plugin runtime updates.
+- Desktop logs show `cua_repl` discovery failing with missing path (OS error 3)
+  at 06:35:49/50 UTC, then ready at 06:36:15. This is a concrete additional
+  update/startup-path issue, distinct from the current `sky` missing-host error.
+- The installed desktop package is `26.924.2738.0`; its Store updater and the
+  current doctor report `26.928.2636.0` available. No update was installed here.
+- Doctor warns about absent `CODEX_WINDOWS_REGISTERED_CORE`. Do **not** fix this
+  by setting it blindly: the real desktop startup log also records the gated
+  registered-core mode as disabled and explicitly selects copied runtimes.
+  That warning does not establish a missing required Companion environment flag.
+- Doctor's desktop `running: true` is not a reliable live-process check in this
+  inspection: direct process and pipe enumeration found no desktop/host.
+
+No production configuration or executable was changed. Web recovery has not
+succeeded. Next compare actual Computer Use behavior after the owner's offered
+desktop switch, then evaluate the available desktop update without replacing or
+restarting an active writer. Companion redesign is explicitly deferred until
+Computer Use works. Do not begin another identical standalone/read-only probe.
+
 ## Standalone startup narrowed — 2026-09-30
 
 **Still not repaired or deployed.** A process-parent observation of the normal
