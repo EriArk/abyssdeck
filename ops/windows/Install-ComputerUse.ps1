@@ -60,7 +60,11 @@ Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'computer-use\Start-ComputerUse.
 $pointer = Join-Path $target 'current.json'
 $pointerNext = Join-Path $target 'current-next.json'
 [IO.File]::WriteAllText($pointerNext,(@{release=$sourceHash;clientSha256=$clientHash;serverSha256=$serverHash} | ConvertTo-Json),[Text.UTF8Encoding]::new($false))
-if (Test-Path -LiteralPath $pointer) { [IO.File]::Replace($pointerNext,$pointer,$null) } else { Move-Item -LiteralPath $pointerNext -Destination $pointer }
+if (Test-Path -LiteralPath $pointer) {
+    # Windows PowerShell binds $null to an empty string for this overload,
+    # which makes File.Replace reject a repeat installation. Use a real backup.
+    [IO.File]::Replace($pointerNext,$pointer,(Join-Path $backup 'current-replaced.json'))
+} else { Move-Item -LiteralPath $pointerNext -Destination $pointer }
 if (-not $SkipMcpRegistration) {
     $codexRoot = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $env:USERPROFILE '.codex' }
     $mcpConfig = Join-Path $codexRoot 'config.toml'

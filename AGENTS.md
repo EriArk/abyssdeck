@@ -26,7 +26,8 @@
   Use the same checklist and repair operations after setup.
 - Provide contextual login and terminal command buttons, usable input/password
   fields and explicit Paste/Submit. Passwords belong only in the actual terminal
-  prompt; never persist them or terminal input for replay. Do not automate sign-in.
+  prompt; never persist them or terminal input for replay. Requested ordinary app
+  sign-in may use Computer Use under the authorization rule below.
 - Supply an in-app first-use guide and a short distributable instruction for the
   friend. One universal package must contain no owner's credentials or private
   identity. Preserve the preconfigured owner PC and its direct LAN route.
@@ -43,11 +44,26 @@
   it does not require the desktop application's native Computer Use host.
 - Keep it same-user, local-only named-pipe IPC behind the existing SSH/Companion
   route. No network listener, another user's session, secure-desktop bypass,
-  credential transport, automatic uncertain-input replay or extra native writer.
+  credential harvesting/storage, automatic uncertain-input replay or extra native writer.
   Observe the selected window before each action and verify afterwards.
 - The stable MCP launcher and immutable local runtime releases must survive
   desktop updates. Retain old releases for active clients. Updating the optional
   GUI task must not restart either main Companion or an active chat.
+
+## Owner-approved Computer Use authorization (2026-09-30)
+
+- Allow ordinary sign-in/authorization in the user's applications when requested,
+  including login/password fields, Tab, Enter and the sign-in button. Do not
+  classify a normal login form as a prohibited security-settings operation.
+  This supersedes the earlier blanket authentication/password-input prohibition.
+- Use only credentials explicitly provided for the requested login. Never extract
+  credentials from another account, password managers, stores or files. Do not
+  reveal passwords or echo secrets in replies. The adapter does not log input,
+  but ordinary MCP arguments can enter conversation history; offer direct user
+  entry for private secrets rather than requesting passwords in chat.
+- Preserve observation/focus admission, same-user/session isolation, secure-desktop
+  boundaries and at-most-once input. This permission creates no credential vault,
+  extra login endpoint or account/permission changes in the Companion wizard.
 
 ## Current work tracking
 

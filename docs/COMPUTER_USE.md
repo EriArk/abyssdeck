@@ -17,9 +17,23 @@ The image covers the visible portion of the selected foreground window. Unlike
 the native capture implementation, this adapter does not capture an occluded
 window: select its covering dialog or uncover it first. Moving/minimizing the
 window, changing focus, locking Windows or switching to the secure desktop
-invalidates input. Do not automate passwords, authentication/security dialogs,
-terminals or the Codex interface through these GUI tools. Existing private
-Devices terminals remain the route for commands and password prompts.
+invalidates input. Ordinary app sign-in and authorization are allowed when the
+user requests them: login/password fields, Tab, Enter and sign-in buttons use
+the same fresh observation and focus checks as other input. The adapter does
+not reject a field merely because it masks its text. This owner-approved rule
+supersedes the original blanket authentication prohibition.
+
+Use only credentials explicitly supplied for the requested login; never extract
+them from password managers, stores, files or another account. Do not reveal a
+password or echo secrets in replies. The adapter does not log input, but ordinary
+MCP arguments can be retained in conversation history. Direct user entry remains
+available for private passwords without sending them through chat/MCP. This is
+not a new secret vault or a claim that MCP text is absent from conversation logs.
+
+Do not automate password managers, security/privacy settings, secure desktop,
+terminals or the Codex interface through these GUI tools. An ordinary sign-in
+form is not a security-settings operation. Existing private Devices terminals
+remain the route for commands and terminal password prompts.
 
 Do not repeat an input or app launch just because its response timed out. Read
 the current window again and determine what happened. A used screenshot cannot
@@ -93,3 +107,12 @@ screenshot. This is the same application whose native capture had timed out.
 This verifies the adapter and the installed web execution transport. A complete
 owner-driven switch back to the PWA after closing desktop Codex remains physical
 acceptance; do not label the vendor's `@oai/sky` capture bug fixed.
+
+On 2026-09-30, version **1.0.1** removed both the MCP instructions' blanket
+authentication prohibition and the runtime `ES_PASSWORD` rejection. The installed
+stable launcher returned the new authorization contract through the actual
+Hub/owner LAN SSH route. A local synthetic WinForms masked field accepted exact
+text, Enter and Tab through the installed host, verified in fresh images. No real
+account login was attempted. The fixture was closed; main workers, Companion UI,
+existing MCP clients and their old runtime files were preserved. Existing clients
+may retain old initialize instructions until their next normal MCP connection.

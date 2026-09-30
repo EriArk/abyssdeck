@@ -44,7 +44,10 @@ try {
     if ($registry.Count -ne 0) { throw 'Expired observations retained' }
     $schema = Invoke-Private 'Tools' @()
     if ($schema.Count -ne 4) { throw 'Expected four independent tools' }
-    Write-Output 'PASS: keys, bounded frames, cross-client isolation, single use, cross-client invalidation, expiration, MCP schema; no GUI input.'
+    $instructions = $type.GetField('Instructions',$flags).GetRawConstantValue()
+    if (-not $instructions.Contains('including ordinary sign-in and authorization') -or -not $instructions.Contains('masked password fields') -or $instructions.Contains('Codex, authentication,')) { throw 'MCP instructions incorrectly prohibit requested ordinary login' }
+    if (-not $instructions.Contains('conversation history') -or -not $instructions.Contains('never automatically replay')) { throw 'Login permission lost secret-history or uncertain-input guidance' }
+    Write-Output 'PASS: keys, bounded frames, cross-client isolation, single use, cross-client invalidation, expiration, MCP schema and requested login contract; no GUI input.'
 } finally {
     $resolved = [IO.Path]::GetFullPath($temporary)
     $expectedParent = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\')+'\'

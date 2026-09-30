@@ -1,5 +1,29 @@
 # Текущий остаток — 30 сентября 2026
 
+## Computer Use — обычная авторизация
+
+По запросу владельца снят blanket запрет на ordinary app sign-in: он находился
+в MCP initialize instructions и в runtime-проверке `ES_PASSWORD`, которая
+блокировала также Tab/Enter. Поля логина/пароля и кнопка входа теперь используют
+обычные observation/focus checks. Разрешение не даёт доступа к password stores
+или чужим аккаунтам. Adapter не пишет input в лог; обычные MCP arguments могут
+сохраняться в conversation history, поэтому прямой ввод личных секретов остаётся
+доступным. Исправлена повторная установка: `File.Replace` использует реальный
+backup path вместо `$null`, превращавшегося в пустую строку в Windows PowerShell.
+
+**1.0.1 установлен 30 сентября в 17:09 UTC**, runtime/source SHA-256
+`d6aac4001120b9277e9f160d32567a4c448942e59efe26b0d457cca04604da3b`.
+Проверены хеши обеих установленных программ, новый MCP initialize/tools/list и
+list_windows через **Hub → owner LAN SSH → stable launcher → установленный host**.
+Реальное локальное WinForms `UseSystemPasswordChar=true` поле приняло точный
+синтетический текст, Enter и Tab; результат проверен свежими снимками, тестовое
+окно закрыто. Настоящие аккаунты/пароли не использовались. Focused protocol checks
+проходят. Восемь остальных task definitions и PID/start time основного native
+Codex, Companion UI и трёх прежних MCP clients сохранились. Старый runtime оставлен.
+Новый контракт виден новым MCP подключениям; старые clients могут сохранять
+старое initialize description, активный чат ради этого не перезапускался.
+Private evidence: `.local/companion-build/computer-use-auth-{before,installed,hub,input}.json`.
+
 ## Companion — первый Windows UI/трей
 
 Согласован один Companion с правами по Hub account, трей, readiness/recovery и
