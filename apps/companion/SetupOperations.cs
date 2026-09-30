@@ -57,20 +57,33 @@ public sealed class SetupOperations(SettingsStore settings, HubConnection hub)
         } finally { Running = false; }
     }
     public static string PowerShell => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), @"WindowsPowerShell\v1.0\powershell.exe");
+    static readonly string[] StepLabels = ["Приватная сеть", "Рабочие папки", "Программы и личные входы", "Приватный SSH", "Отчёт Hub"];
+    public static string[] StepStates(int step, bool confirmed, bool running) => Enumerable.Range(1, 5)
+        .Select(i => confirmed || i < step ? "✓ Проверено" : i == step ? running ? "Выполняется…" : "Продолжить" : "Ожидает").ToArray();
+    public (string Title, string State)[] Checklist(bool confirmed)
+    {
+        if (string.IsNullOrEmpty(hub.Session?.EnrollmentId)) return [];
+        var states = StepStates(CurrentStep(), confirmed, Running);
+        return StepLabels.Select((title, index) => (title, states[index])).ToArray();
+    }
     public string Progress()
     {
+        var step = CurrentStep();
+        return step is >= 1 and <= 5 ? $"{step} из 5 · {StepLabels[step - 1]}" : State;
+    }
+    int CurrentStep()
+    {
         var id = hub.Session?.EnrollmentId;
-        if (string.IsNullOrEmpty(id)) return State;
+        if (string.IsNullOrEmpty(id)) return 0;
         try {
             var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CodexWeb", "enrollment", id, "setup-state.json");
-            SettingsStore.NoLinks(path); if (!File.Exists(path) || new FileInfo(path).Length > 8192) return State;
+            SettingsStore.NoLinks(path); if (!File.Exists(path) || new FileInfo(path).Length > 8192) return 0;
             using var doc = JsonDocument.Parse(File.ReadAllBytes(path)); var data = doc.RootElement;
             if (data.GetProperty("id").GetString() != id || data.GetProperty("sid").GetString() != settings.Sid
-                || data.GetProperty("machineGuid").GetString()?.ToLowerInvariant() != DeviceSessionStore.MachineGuid()) return State;
-            var labels = new[] { "Подготовка", "Приватная сеть", "Рабочие папки", "Программы и входы", "Приватный SSH", "Подтверждение Hub" };
+                || data.GetProperty("machineGuid").GetString()?.ToLowerInvariant() != DeviceSessionStore.MachineGuid()) return 0;
             var step = data.GetProperty("lastStep").GetInt32();
-            return step is >= 1 and <= 5 ? $"{step} из 5 · {labels[step]}" : State;
-        } catch { return State; }
+            return step is >= 1 and <= 5 ? step : 0;
+        } catch { return 0; }
     }
     async Task<string> RepairKit()
     {

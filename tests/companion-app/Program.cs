@@ -39,6 +39,10 @@ try
     await first;
     await coalesced.Refresh(profile);
     Check(calls == 2, "completed probe refreshes again instead of caching stale health forever");
+    Check(SetupOperations.StepStates(3, false, true).SequenceEqual(new[] { "✓ Проверено", "✓ Проверено", "Выполняется…", "Ожидает", "Ожидает" }),
+        "wizard checks only completed preceding steps, not the current installation");
+    Check(SetupOperations.StepStates(5, false, false)[4] == "Продолжить" && SetupOperations.StepStates(5, true, false).All(s => s == "✓ Проверено"),
+        "interrupted report stays incomplete until exact Hub confirmation");
     if (OperatingSystem.IsWindows()) {
         var deviceStore = new SettingsStore(Path.Combine(temporary, "protected-session"), SettingsStore.CurrentSid);
         var encrypted = new DeviceSessionStore(deviceStore);

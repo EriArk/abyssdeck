@@ -26,6 +26,9 @@ public sealed class MainWindow : Window, IDisposable
     StackPanel loginControls = new();
     TextBlock connectionState = new();
     Button connectButton = new(), setupButton = new(), adminButton = new(), logoutButton = new();
+    Button terminalButton = new();
+    Grid connectionActions = new();
+    StackPanel setupChecklist = new();
     readonly DispatcherTimer timer;
     Profile profile;
     Snapshot? snapshot;
@@ -236,9 +239,12 @@ public sealed class MainWindow : Window, IDisposable
         connectionState = Text("Проверяем подключение…");
         setupButton = Button("Продолжить настройку", () => _ = RunOperation(async () => { await setup.Start(); await Refresh(); }));
         adminButton = Button("Управление Hub", OpenWeb);
+        terminalButton = Button("Локальный терминал", () => OpenTerminal());
+        connectionActions = new Grid { ColumnSpacing = 12 };
+        setupChecklist = new StackPanel { Spacing = 8 };
         logoutButton = Button("Выйти из аккаунта Hub", () => _ = RunOperation(async () => { await hub.Logout(); account = null; accountReady = false; loginRequired = false; accountError = null; }));
         connectionCard = Section(Stack(Text("Подключение и настройка", 20, bold: true), loginControls, connectionState,
-            Row(setupButton, Button("Локальный терминал", () => OpenTerminal()), adminButton),
+            setupChecklist, connectionActions,
             logoutButton,
             new Expander { Header = "Первый запуск и помощь", Content = Stack(
                 Text("1. Войди в Hub. Companion получает доступ только к состоянию и подключению твоего ПК; роли проверяет сервер."),
@@ -327,6 +333,18 @@ public sealed class MainWindow : Window, IDisposable
         setupButton.IsVisible = hub.Session is not null && !loginRequired && profile.DeviceId.Length == 0;
         setupButton.IsEnabled = accountReady && !operating && !setup.Running;
         adminButton.IsVisible = accountReady && account?.GetProperty("user").GetProperty("role").GetString() == "admin";
+        connectionActions.Children.Clear();
+        var actions = new[] { setupButton, terminalButton, adminButton }.Where(b => b.IsVisible).ToArray();
+        connectionActions.ColumnDefinitions = new ColumnDefinitions(string.Join(",", actions.Select(_ => "*")));
+        for (var i = 0; i < actions.Length; i++) { Grid.SetColumn(actions[i], i); connectionActions.Children.Add(actions[i]); }
+        setupChecklist.Children.Clear();
+        var confirmed = accountReady && account?.GetProperty("enrollments").EnumerateArray().Any(e =>
+            e.GetProperty("id").GetString() == hub.Session?.EnrollmentId && e.GetProperty("state").GetString() is "reported" or "approved") == true;
+        foreach (var step in setup.Checklist(confirmed)) {
+            var row = new Grid { ColumnDefinitions = new("*,170"), ColumnSpacing = 12 };
+            row.Children.Add(Text(step.Title)); var state = Text(step.State, bold: true); Grid.SetColumn(state, 1); row.Children.Add(state); setupChecklist.Children.Add(row);
+        }
+        setupChecklist.IsVisible = setupChecklist.Children.Count > 0;
         connectionState.Text = operating || setup.Running ? (setup.Progress().Length > 0 ? setup.Progress() : "Подключаемся…")
             : accountReady && account is { } a ? "✓ Hub · " + a.GetProperty("user").GetProperty("name").GetString() + (profile.DeviceId.Length > 0 ? " · ПК привязан" : " · ожидаем подготовку/подтверждение ПК")
             : hub.Session is null || loginRequired ? "Ожидаем вход в Hub" : "Вход сохранён · проверяем связь с Hub";
