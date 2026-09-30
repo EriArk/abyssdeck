@@ -15,6 +15,7 @@ UI/трей описан в [руководстве сборки](COMPANION_APP_
 | Каталог моделей | `gpt-6.1-sol` подтверждена Hub → SSH → installed Companion, аккаунт совпал |
 | CLI activation receipt | `verification-e7e0be8/runtime-activation.json`: `installed`, 13:18:48 UTC |
 | Owner device | `main-windows`, прямой LAN SSH; private Devices Hub: `hub-host` |
+| Companion UI | **0.2.0**, установлен 16:30 UTC; self-contained win-x64, source `24c20ce`, immutable manifest `fdd9fb689a83d0326affd7b7a28b7a7da38f7a5927e448d47e7f600aecc5bd72` |
 | ОС | Windows 10 Home 22H2, build 19045, x64 |
 | .NET | SDK нет; runtimes 8.0.28/9.0.7 есть. Новый пользовательский пакет автономный |
 | Persistent roots | `D:\Projects\CodexWeb` в текущем config; не расширять молча |
@@ -28,6 +29,16 @@ Hub receipt также подтверждает сохранение прежн�
 Корневой `codex.command` Hub ещё содержит старый fallback 0.153.4, в отличие от
 активного persistent launcher. Это конкретный остаток для общего updater;
 в аудитном заходе live config не менялся.
+
+Первый UI теперь установлен отдельно и преднастроен: Hub origin, `main-windows`,
+LAN SSH, тема и собственный автозапуск. Проверка installed exe показывает Hub
+на связи и 9/9 компонентов. Task XML SHA-256 и оба worker config SHA-256 совпадают
+с сохранённым baseline; native PID 8248/14:55:17 UTC не менялся. Закрытие окна,
+повторное открытие того же UI процесса, выход из UI и повторная установка
+с сохранением профиля проверены. Работники и их receipts не переносились.
+Локальные evidence находятся в `.local/companion-build`; исходники и build/installer
+в `main`. Перезагрузка Windows и обычное использование меню трея владельцем
+ещё не являются принятой приёмкой; не перезагружать ПК ради неё во время работы.
 
 ## Девять задач текущего ПК
 

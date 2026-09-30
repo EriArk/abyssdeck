@@ -12,8 +12,22 @@ build SDK 10.0.401 локален, пользовательскому прило
 [Сборка, установка и доступное поведение](COMPANION_APP_BUILD.md).
 Compatibility spike на реальном Windows 10 Home/build 19045/125% DPI прошёл;
 9 целевых checks по SID, settings, roots, readiness и coalescing прошли.
-Установка UI и её точная приёмка завершаются в этом заходе. Workers/accounts/
-projects/roots и нынешние девять tasks не заменяются.
+UI **установлен на ПК владельца 30 сентября в 16:30 UTC**, исходники пакета
+`24c20ce`, manifest `fdd9fb689a83d0326affd7b7a28b7a7da38f7a5927e448d47e7f600aecc5bd72`.
+Преднастроены нынешний Hub, `main-windows`, прямой LAN SSH и автозапуск в трее.
+Настройки сохраняются при повторной установке. На установленном UI проверены
+светлые/тёмные темы, переходы, прокрутка, сохранение отчёта, закрытие/повторное
+открытие того же процесса и выход только из UI. Исправлены найденные реальные
+дефекты перестройки темы и DACL при повторной установке.
+Installed inventory: Hub на связи, **9/9** компонентов доступны, roots прежние.
+Хеши девяти task definitions и обоих worker configs совпадают с предыдущими;
+native PID **8248**, начало **14:55:17 UTC**, сохранились. Текущий ход
+`01a0f2e9-c89b-7050-a5d4-1226ab0c9c2f` не перезапускался при установке.
+Private evidence: `.local/companion-build/{before,installed-inventory,installed,hub-continuity,ui-report}.json`.
+Реальный Windows GUI проверен через установленный Hub → SSH → Computer Use;
+обычная приёмка владельцем, вход после перезагрузки Windows и действия меню трея
+остаются последующей проверкой при использовании. Workers/accounts/projects/
+roots не мигрированы. Pairing, lifecycle recovery и auto-update ещё не реализованы.
 
 Следующий заход: scoped Hub device pairing/roles, owner binding и resumable
 мастер участника (Windows/LAN/Tailnet). **GPT‑6.1 Sol, Высокое (`high`)**;

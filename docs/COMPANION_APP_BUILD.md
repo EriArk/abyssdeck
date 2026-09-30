@@ -70,6 +70,21 @@ named pipe принимает только `SHOW`, без shell/команд и 
 используют semantic web palettes и один layout. Настройки сохраняют тему,
 автозапуск и адрес Hub. «Сохранить отчёт» пишет локальный JSON без логов,
 credentials, содержимого чатов и полного worker config; отмена сохраняет окно.
+Диалог отчёта начинает выбор в «Документах», а не внутри immutable runtime.
+
+## Установка владельца — 30 сентября 2026
+
+UI 0.2.0 установлен в 16:30 UTC, source `24c20ce`, manifest
+`fdd9fb689a83d0326affd7b7a28b7a7da38f7a5927e448d47e7f600aecc5bd72`.
+Hub/`main-windows`/LAN SSH преднастроены; собственный автозапуск и ярлык созданы.
+9 focused checks и отрицательные package path/hash fixtures прошли. Реальная
+GUI-проверка выявила и устранила конфликт родителей при смене темы; повторная
+установка выявила и устранила лишний SACL privilege request (меняется только DACL).
+На установленном exe проверены Hub health, девять компонентов, собственные roots,
+settings, светлые/тёмные темы, scrolling, report JSON, hide/reopen same process
+и UI-only exit. Полный before/after task/config hash baseline и native process
+creation timestamp сохранены. Действия меню трея и вход после перезагрузки
+Windows — последующая обычная приёмка владельцем, без перезагрузки текущей работы.
 
 Первый native UI не означает завершения migration/auth/updater. Следующий этап —
 scoped Hub device pairing, подтверждённые роли, preconfigured owner binding и
