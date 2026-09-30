@@ -2,6 +2,27 @@
 
 This file records decisions that should be treated as fixed unless the owner explicitly changes them.
 
+## 2026-09-30 — Independent Computer Use in the Windows Companion
+
+The owner explicitly approved ordinary app access through an independent GUI
+adapter, superseding the earlier fixed-API-only Companion limitation for this
+module. Native Computer Use depends on a desktop-owned pipe that disappears at
+web handoff; the updated native capture also times out on an unlocked desktop.
+Do not weaken its sandbox or remove the native single-writer handoff guard.
+
+`CodexWebComputerUse` is a separate limited interactive Scheduled Task, using
+public Win32 capture/input APIs and a same-user local-only named pipe. Its MCP
+stdio client runs through the existing App Server/SSH route. There is no extra
+Windows listener or browser-supplied arbitrary command endpoint. The owner's
+own ordinary applications need no per-app allowlist. Secure desktop and other
+users' sessions remain outside the boundary. Observations expire and are consumed
+before input; input invalidates other clients' observations as well.
+
+The MCP entry point is a stable local launcher. Immutable source-versioned binaries
+remain available to already-running clients; a checked atomic pointer selects the
+new release. Desktop package updates cannot relocate or remove these files.
+See [operation and acceptance](COMPUTER_USE.md).
+
 ## 2026-09-28 — Linux becomes the primary direction
 
 The owner plans to move users to Linux. Managed Server Workspaces and later personal

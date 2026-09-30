@@ -1,5 +1,22 @@
 # Native Computer Use in Companion sessions (#166)
 
+## Independent replacement installed — 2026-09-30
+
+The owner updated successfully to desktop **26.928.2636.0**, CLI **0.159.2**,
+Computer Use package **26.928.21956**, and `@oai/sky` **0.7.5**. Current runtime
+paths exist. Native capture still times out on both Calculator and Notepad;
+the owner confirmed the Calculator is visible and the desktop is unlocked.
+The stock independent SDK transport still fails in nested App Server startup.
+These are not remaining missing-executable evidence.
+
+The owner then explicitly approved an independent same-user GUI adapter with
+broad ordinary app access. `codexweb_computer_use` now supplies capture and input
+through a separate local Companion task. Real screenshot/input/verification
+passed locally and through Hub → SSH → installed persistent Companion with
+CLI 0.153.4. See [implementation, installation and remaining acceptance](COMPUTER_USE.md).
+The native vendor issue remains unresolved; the web route no longer needs its
+pipe or update-sensitive runtime paths. Earlier sections below are historical.
+
 ## Owner-requested web-session and update-route check — 2026-09-30
 
 The owner confirmed this turn runs through the web client and offered to switch

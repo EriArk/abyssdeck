@@ -1,5 +1,20 @@
 # AGENTS.md
 
+## Owner-approved independent Windows Computer Use (2026-09-30)
+
+- The owner explicitly approved a Companion GUI adapter with ordinary access to
+  applications in their own interactive Windows session, without per-app allowlists.
+  This supersedes the earlier prohibition on general Companion GUI APIs for this
+  optional module. Prefer `codexweb_computer_use` for Windows UI work from CodexWeb;
+  it does not require the desktop application's native Computer Use host.
+- Keep it same-user, local-only named-pipe IPC behind the existing SSH/Companion
+  route. No network listener, another user's session, secure-desktop bypass,
+  credential transport, automatic uncertain-input replay or extra native writer.
+  Observe the selected window before each action and verify afterwards.
+- The stable MCP launcher and immutable local runtime releases must survive
+  desktop updates. Retain old releases for active clients. Updating the optional
+  GUI task must not restart either main Companion or an active chat.
+
 ## Current work tracking
 
 - Before proposing a stage, reconcile recent commits with `docs/CURRENT_STATUS.md` and actual installed versions. Historical next-stage proposals are not the active queue. Do not offer implemented work again; distinguish source completion, activation and acceptance.

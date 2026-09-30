@@ -104,6 +104,12 @@ Schema 4 stores observation baselines and only uncertain queue-to-Steer transfer
 
 ## Optional Windows desktop restart
 
+For independent GUI automation from web sessions, install the separate optional
+[Computer Use module](COMPUTER_USE.md). It has its own limited interactive task,
+stable MCP launcher and immutable versioned binaries. It does not require or
+restart desktop Codex or either main Companion. Its install/update/rollback
+procedure is distinct from the desktop restart control below.
+
 From Windows PowerShell 5.1 as the intended desktop user with administrator rights, run `ops/windows/Install-DesktopControl.ps1` (optionally supply `-NodeCommand` and `-CodexHome`). Node must support node:sqlite; the metadata check currently matches Codex 0.153.4. Installation creates the demand-only CodexWebDesktopRestart task and does not restart Codex or Companion. Set that machine's `codex.desktopControl` to the absolute installed path `%LOCALAPPDATA%/CodexWeb/desktop-control/CodexDesktopControl.ps1`, expanding the placeholder. Only configured Windows machines expose the Settings control.
 
 Use the installed script's `-Action Status` for a read-only check. `-Action Probe -RequestId <new UUID>` exercises the scheduled interactive action without closing or launching Codex. Actual restart is requested from Settings and waits for no active tasks; a Windows login must remain available. The latest operation survives Hub/browser restarts. Never automatically retry an uncertain restart. Keep private desktop-control configuration and task definition in Windows backups. Reinstall the helper after a script change; no Companion restart is needed.
