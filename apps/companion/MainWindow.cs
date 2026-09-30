@@ -293,7 +293,13 @@ public sealed class MainWindow : Window, IDisposable
         };
         try
         {
-            var file = await StorageProvider.SaveFilePickerAsync(new() { Title = "Сохранить отчёт Companion", SuggestedFileName = "companion-status.json", DefaultExtension = "json" });
+            var documents = await StorageProvider.TryGetFolderFromPathAsync(
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments));
+            var file = await StorageProvider.SaveFilePickerAsync(new()
+            {
+                Title = "Сохранить отчёт Companion", SuggestedFileName = "companion-status.json",
+                DefaultExtension = "json", SuggestedStartLocation = documents
+            });
             if (file is null) return;
             await using var stream = await file.OpenWriteAsync();
             stream.SetLength(0); await JsonSerializer.SerializeAsync(stream, report, SettingsStore.Json);
