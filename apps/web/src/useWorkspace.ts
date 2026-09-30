@@ -1,3 +1,4 @@
+import { chatQuestions } from "@codex-web/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { workspaceSocket } from "./accountStorage.ts";
 import { api, messageOf } from "./api";
@@ -151,6 +152,7 @@ export function useWorkspace(threadId: string) {
                   ? (prior?.text ?? "") + String(p.text ?? "")
                   : String(p.text ?? ""),
               attachments: (p.attachments as Attachment[] | undefined) ?? prior?.attachments,
+              questions: chatQuestions(p.questions) ?? prior?.questions,
               firstSeq: prior?.firstSeq ?? seq,
               lastSeq: seq,
               createdAt: prior?.createdAt ?? now,

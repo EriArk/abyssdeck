@@ -360,6 +360,15 @@ export const migrations: readonly Migration[] = [
       );
     },
   },
+  {
+    version: 30,
+    name: "public-async-questions",
+    up(db) {
+      db.exec(
+        "CREATE TABLE message_questions(threadId TEXT NOT NULL REFERENCES threads(id) ON DELETE CASCADE,messageId TEXT NOT NULL,value TEXT NOT NULL,PRIMARY KEY(threadId,messageId))",
+      );
+    },
+  },
 ];
 export const SCHEMA_VERSION = migrations.at(-1)?.version ?? 0;
 

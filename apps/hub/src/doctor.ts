@@ -339,7 +339,7 @@ export async function collectDiagnostics(
           executable.available ? "ok" : "error",
           executable.available ? "CODEX_EXECUTABLE_OK" : "CODEX_EXECUTABLE_UNAVAILABLE",
         );
-        if (version && version !== "0.153.4")
+        if (version && !["0.153.4", "0.159.2"].includes(version))
           add(boundary + "/tested-version", "warning", "CODEX_VERSION_NOT_RELEASE_TESTED");
         if (executable.available) {
           const rpc = dependencies.rpc

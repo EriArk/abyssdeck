@@ -1,5 +1,11 @@
 import type { IssueSource } from "@codex-web/shared";
-import { hasUnreadCompletion, type ResultCategory, type ThreadActivity } from "@codex-web/shared";
+import {
+  chatQuestionReplies,
+  hasUnreadCompletion,
+  questionReplyDisplay,
+  type ResultCategory,
+  type ThreadActivity,
+} from "@codex-web/shared";
 import {
   type FormEvent,
   Fragment,
@@ -14,6 +20,7 @@ import Markdown, { defaultUrlTransform } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { AccessPicker } from "./AccessPicker";
 import { type ArtifactRequest, artifactSource, useArtifactComponents } from "./ArtifactMarkdown";
+import { AsyncQuestions } from "./AsyncQuestions";
 import { AttachmentList, useAttachments } from "./AttachmentPicker";
 import { AutoTextarea } from "./AutoTextarea";
 import { accountSessionStorage as sessionStorage, workspaceMediaUrl } from "./accountStorage.ts";
@@ -392,6 +399,19 @@ export function Chat({
   const [draft, setDraft] = useState("");
   const active = ["running", "starting", "waiting_approval"].includes(state.thread.status);
   const external = state.thread.activitySource === "external";
+  const questionReplies = [
+    ...state.messages
+      .filter((m) => m.role === "user")
+      .flatMap((m) => chatQuestionReplies(m.text) ?? []),
+    ...queue.state.items.flatMap((m) => chatQuestionReplies(m.text) ?? []),
+  ];
+  const replyToQuestion = (text: string) =>
+    handoff.run((returned) => {
+      if (!options.selection || busy || queue.busy) return Promise.resolve(false);
+      return active && !returned
+        ? queue.reply(text, state.thread.activeTurnId)
+        : onSend(text, options.selection, []);
+    });
   useLayoutEffect(() => {
     try {
       setDraft(sessionStorage.getItem(`codex-draft-${threadId}`) ?? "");
@@ -643,49 +663,77 @@ export function Chat({
                                 <Icon name="file" size={17} />
                               </button>
                             )}
-                            <CopyButton text={message.text} />
+                            <CopyButton
+                              text={
+                                message.role === "user"
+                                  ? questionReplyDisplay(message.text)
+                                  : message.text
+                              }
+                            />
                           </span>
                         </div>
                         <div className="message-body">
-                          <MessageText
-                            text={message.text}
-                            complete={
-                              message.phase !== "commentary" &&
-                              message.turnId !== state.thread.activeTurnId
-                            }
-                            resolveImage={
-                              message.role === "assistant"
-                                ? async (source) =>
-                                    (
-                                      await api<Result>(
-                                        `/threads/${encodeURIComponent(threadId)}/results/reveal`,
-                                        {
-                                          method: "POST",
-                                          body: {
-                                            source,
-                                            messageId: message.id,
-                                            turnId: message.turnId,
+                          {message.role === "assistant" && message.questions?.length ? (
+                            <AsyncQuestions
+                              key={`${threadId}:${message.id}:${JSON.stringify(message.questions)}`}
+                              threadId={threadId}
+                              messageId={message.id}
+                              questions={message.questions}
+                              replies={questionReplies}
+                              disabled={
+                                busy ||
+                                sending ||
+                                queue.busy ||
+                                handoff.pending ||
+                                !options.selection
+                              }
+                              onReply={replyToQuestion}
+                            />
+                          ) : (
+                            <MessageText
+                              text={
+                                message.role === "user"
+                                  ? questionReplyDisplay(message.text)
+                                  : message.text
+                              }
+                              complete={
+                                message.phase !== "commentary" &&
+                                message.turnId !== state.thread.activeTurnId
+                              }
+                              resolveImage={
+                                message.role === "assistant"
+                                  ? async (source) =>
+                                      (
+                                        await api<Result>(
+                                          `/threads/${encodeURIComponent(threadId)}/results/reveal`,
+                                          {
+                                            method: "POST",
+                                            body: {
+                                              source,
+                                              messageId: message.id,
+                                              turnId: message.turnId,
+                                            },
                                           },
+                                        )
+                                      ).payload.url
+                                  : undefined
+                              }
+                              onArtifact={
+                                message.role === "assistant" && onArtifact
+                                  ? (source) =>
+                                      onArtifact({
+                                        scope: threadId,
+                                        endpoint: `/threads/${encodeURIComponent(threadId)}/results/reveal`,
+                                        reference: {
+                                          source,
+                                          messageId: message.id,
+                                          turnId: message.turnId,
                                         },
-                                      )
-                                    ).payload.url
-                                : undefined
-                            }
-                            onArtifact={
-                              message.role === "assistant" && onArtifact
-                                ? (source) =>
-                                    onArtifact({
-                                      scope: threadId,
-                                      endpoint: `/threads/${encodeURIComponent(threadId)}/results/reveal`,
-                                      reference: {
-                                        source,
-                                        messageId: message.id,
-                                        turnId: message.turnId,
-                                      },
-                                    })
-                                : undefined
-                            }
-                          />
+                                      })
+                                  : undefined
+                              }
+                            />
+                          )}
                           {!message.text && !message.attachments?.length && (
                             <span className="typing">•••</span>
                           )}

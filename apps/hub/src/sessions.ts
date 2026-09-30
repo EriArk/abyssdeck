@@ -871,7 +871,7 @@ export class Sessions extends EventEmitter {
     if (!models.length)
       throw new HubError(503, "MODELS_UNAVAILABLE", "Codex не вернул доступные модели");
     const warnings: string[] = [];
-    if (r.version !== "0.153.4")
+    if (!["0.153.4", "0.159.2"].includes(r.version ?? ""))
       warnings.push(
         `Codex ${r.version ?? "неизвестной версии"}: эта версия ещё не прошла проверку совместимости.`,
       );
@@ -1226,7 +1226,7 @@ export class Sessions extends EventEmitter {
                 this.emitEvent(
                   id,
                   "assistant.completed",
-                  { id: text(item.id), text: text(item.text), phase },
+                  { id: text(item.id), text: text(item.text), phase, questions: item.questions },
                   text(last.id),
                 );
             }
@@ -1898,7 +1898,12 @@ export class Sessions extends EventEmitter {
         this.emitEvent(
           t.id,
           "assistant.completed",
-          { id, text: text(item.text), phase: type === "plan" ? "plan" : text(item.phase) },
+          {
+            id,
+            text: text(item.text),
+            phase: type === "plan" ? "plan" : text(item.phase),
+            questions: item.questions,
+          },
           turnId,
         );
         if (type === "plan") {

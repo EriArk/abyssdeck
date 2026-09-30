@@ -147,7 +147,30 @@ export function useMessageQueue(threadId: string) {
         body: { revision: item.revision, action: kind, text, expectedTurnId },
       }),
     );
-  return { state, error: error || loadError, busy, add, change };
+  const reply = (text: string, expectedTurnId: string | null) =>
+    action(async () => {
+      const signature = JSON.stringify({ threadId, text, attachments: [] });
+      if (pending.current?.signature !== signature)
+        pending.current = { signature, id: crypto.randomUUID() };
+      const item = await api<QueuedMessage>(`/threads/${threadId}/queue`, {
+        method: "POST",
+        body: { text, attachments: [], clientId: pending.current.id },
+      });
+      pending.current = undefined;
+      if (state.canSteer && expectedTurnId) {
+        try {
+          await api(`/threads/${threadId}/queue/${encodeURIComponent(item.id)}`, {
+            method: "POST",
+            key: crypto.randomUUID(),
+            body: { revision: item.revision, action: "steer", expectedTurnId },
+          });
+        } catch {
+          // The answer was durably accepted by the queue. A lost Steer confirmation
+          // must not offer another send; the existing queue receipt owns recovery.
+        }
+      }
+    }, true);
+  return { state, error: error || loadError, busy, add, reply, change };
 }
 export function MessageQueue({
   queue,

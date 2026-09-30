@@ -3,6 +3,7 @@ import { join, posix, win32 } from "node:path";
 import type { CodexClient } from "@codex-web/codex";
 import { assertProjectRoot, projectPathAllowed, verifyProjectRoot } from "@codex-web/machines";
 import {
+  chatQuestions,
   type HubConfig,
   HubError,
   type MachineConfig,
@@ -692,6 +693,9 @@ export class Catalog {
     return {
       threadId: thread.id,
       id: messageId,
+      ...(type === "agentMessage" && chatQuestions(item.questions)
+        ? { questions: chatQuestions(item.questions) }
+        : {}),
       ...(images.length ? { images } : {}),
       turnId: turnId || null,
       role: type === "userMessage" ? "user" : "assistant",

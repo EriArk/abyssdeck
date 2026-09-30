@@ -5,6 +5,8 @@ import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import {
   type Attachment,
+  type ChatQuestion,
+  chatQuestions,
   compareThreadActivity,
   emptyResultCounts,
   HubError,
@@ -45,6 +47,7 @@ export interface ThreadRecord {
   updatedAt: string;
 }
 export interface MessageRecord {
+  questions?: ChatQuestion[];
   threadId: string;
   id: string;
   turnId: string | null;
@@ -130,6 +133,15 @@ export class Store {
   }
   withAttachments(messages: MessageRecord[]): MessageRecord[] {
     return messages.map((message) => {
+      const questionRow =
+        message.role === "assistant"
+          ? this.db
+              .prepare("SELECT value FROM message_questions WHERE threadId=? AND messageId=?")
+              .get(message.threadId, message.id)
+          : undefined;
+      const questions =
+        message.questions ??
+        (questionRow ? chatQuestions(JSON.parse(String(questionRow.value))) : undefined);
       const attachments = this.db
         .prepare("SELECT * FROM attachments WHERE threadId=? AND messageId=? ORDER BY createdAt")
         .all(message.threadId, message.id)
@@ -165,6 +177,7 @@ export class Store {
         }));
       return {
         ...message,
+        ...(questions ? { questions } : {}),
         attachments,
         images: images.filter((image) => !duplicates.has(image.id)),
       };
@@ -261,6 +274,13 @@ export class Store {
         const role = type === "user.message" ? "user" : "assistant",
           id = String(payload.id),
           value = String(payload.text ?? "").slice(0, 200000);
+        const questions = role === "assistant" ? chatQuestions(payload.questions) : undefined;
+        if (questions)
+          this.db
+            .prepare(
+              "INSERT INTO message_questions(threadId,messageId,value) VALUES(?,?,?) ON CONFLICT(threadId,messageId) DO UPDATE SET value=excluded.value",
+            )
+            .run(threadId, id, JSON.stringify(questions));
         this.db
           .prepare(
             "INSERT INTO messages VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(threadId,id) DO NOTHING",

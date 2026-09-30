@@ -50,6 +50,7 @@ export interface Thread {
   sourceUpdatedAt?: number;
 }
 export interface Message {
+  questions?: import("@codex-web/shared").ChatQuestion[];
   id: string;
   turnId: string | null;
   role: string;

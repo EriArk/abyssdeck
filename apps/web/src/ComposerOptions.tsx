@@ -13,6 +13,36 @@ const efforts: Record<string, string> = {
   ultra: "Ультра",
 };
 const cache = new Map<string, Capabilities>();
+const reads = new Map<string, Promise<Capabilities>>();
+let generation = 0;
+if (typeof window !== "undefined")
+  window.addEventListener("private-session-ended", () => {
+    generation++;
+    cache.clear();
+    reads.clear();
+  });
+function readCapabilities(projectId: string) {
+  const existing = reads.get(projectId);
+  if (existing) return existing;
+  const session = generation;
+  const read = api<Capabilities>(`/projects/${projectId}/capabilities`)
+    .then((value) => {
+      if (session === generation) {
+        cache.delete(projectId);
+        cache.set(projectId, value);
+        while (cache.size > 64) {
+          const oldest = cache.keys().next().value;
+          if (oldest) cache.delete(oldest);
+        }
+      }
+      return value;
+    })
+    .finally(() => {
+      if (reads.get(projectId) === read) reads.delete(projectId);
+    });
+  reads.set(projectId, read);
+  return read;
+}
 export function useTurnSettings(projectId: string, threadId: string, saved?: TurnSettings) {
   const [caps, setCaps] = useState<Capabilities | undefined>(cache.get(projectId));
   const [selection, setSelection] = useState<TurnSettings | undefined>(saved);
@@ -22,38 +52,57 @@ export function useTurnSettings(projectId: string, threadId: string, saved?: Tur
   const current = useRef(threadId);
   current.current = threadId;
   const [revision, setRevision] = useState(0);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Explicit retry restarts the reader.
   useEffect(() => {
     if (!projectId) return;
     let disposed = false;
-    setLoading(true);
     setError("");
     const stored = cache.get(projectId);
     setCaps(stored);
-    void (
-      stored && revision === 0
-        ? Promise.resolve(stored)
-        : api<Capabilities>(`/projects/${projectId}/capabilities`)
-    )
-      .then((value) => {
-        if (disposed) return;
-        cache.set(projectId, value);
-        setCaps(value);
-      })
-      .catch((e) => {
-        if (!disposed) setError(messageOf(e));
-      })
-      .finally(() => {
-        if (!disposed) setLoading(false);
-      });
+    let checking = false;
+    const session = generation;
+    const refresh = () => {
+      if (disposed || checking || session !== generation || document.visibilityState === "hidden")
+        return;
+      checking = true;
+      setLoading(true);
+      void readCapabilities(projectId)
+        .then((value) => {
+          if (disposed || session !== generation) return;
+          setCaps(value);
+          setError("");
+        })
+        .catch((e) => {
+          if (!disposed) setError(messageOf(e));
+        })
+        .finally(() => {
+          checking = false;
+          if (!disposed) setLoading(false);
+        });
+    };
+    refresh();
+    const timer = setInterval(refresh, 60000);
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("pageshow", refresh);
+    window.addEventListener("online", refresh);
+    window.addEventListener("focus", refresh);
     return () => {
       disposed = true;
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("pageshow", refresh);
+      window.removeEventListener("online", refresh);
+      window.removeEventListener("focus", refresh);
     };
   }, [projectId, revision]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: A thread switch must reset an unsaved local selection.
   useEffect(() => {
-    setSelection(saved ?? caps?.defaults);
+    setSelection(saved);
     setSaving(false);
-  }, [threadId, saved, caps]);
+  }, [threadId, saved]);
+  useEffect(() => {
+    if (caps && !selection) setSelection(caps.defaults);
+  }, [caps, selection]);
   const change = async (value: TurnSettings) => {
     if (!threadId || saving) return;
     const id = threadId;

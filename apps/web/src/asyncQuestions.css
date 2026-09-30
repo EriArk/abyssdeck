@@ -1,0 +1,49 @@
+.async-questions {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.async-questions fieldset {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.async-questions legend {
+  max-width: 100%;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 0 4px;
+}
+.async-questions .question-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  cursor: pointer;
+}
+.async-questions input[type="radio"] {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--accent);
+}
+.async-questions .question-option span,
+.async-questions .question-answer {
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.async-questions textarea {
+  width: 100%;
+  min-width: 0;
+}
+.async-questions > button {
+  justify-self: stretch;
+  min-height: 44px;
+}

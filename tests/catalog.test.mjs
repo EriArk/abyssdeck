@@ -95,6 +95,27 @@ function fixture() {
     addProject: (p) => projects.push(p),
   };
 }
+test("native async questions retain structured choices when imported from desktop history", async () => {
+  const f = fixture();
+  try {
+    const question = f.entries.find((e) => e.item.type === "agentMessage");
+    question.item.questions = [{ title: "Экран виден?", options: ["Да", "Нет"] }];
+    question.item.delivery = "async";
+    await f.catalog.refresh();
+    await f.catalog.syncThreads("pc");
+    const page = await f.catalog.history(f.store.threadByCodex("real-thread"));
+    assert.deepEqual(
+      page.messages.find((m) => m.id === question.item.id).questions,
+      question.item.questions,
+    );
+    assert.equal(
+      f.calls.some((c) => c.method === "thread/resume" || c.method === "turn/start"),
+      false,
+    );
+  } finally {
+    f.store.close();
+  }
+});
 test("native catalog reuses configured roots, imports metadata only, tracks additions and deletions", async () => {
   const f = fixture();
   try {
