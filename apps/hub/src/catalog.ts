@@ -654,12 +654,14 @@ export class Catalog {
       str(item.id, 200);
     if (type === "userMessage")
       observeScheduleReceipt(this.store.db, messageId, thread.codexThreadId, turnId);
+    // Reopening may recover the canonical user item without its live event.
+    // Its client ID confirms consumption of an acknowledged queue submission.
     if (type === "userMessage")
       this.store.db
         .prepare(
-          "DELETE FROM queue_transfers WHERE threadId=? AND id=? AND state IN ('enqueue_pending','enqueue_unknown')",
+          "DELETE FROM queue_transfers WHERE threadId=? AND ((id=? AND state IN ('enqueue_pending','enqueue_unknown')) OR (state IN ('queued','steered') AND json_extract(value, '$.clientUserMessageId')=?))",
         )
-        .run(thread.id, messageId);
+        .run(thread.id, messageId, messageId);
     const images =
       type === "userMessage"
         ? inputs.flatMap((c) => {

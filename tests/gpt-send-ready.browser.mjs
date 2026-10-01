@@ -202,7 +202,7 @@ try {
       job.status = "unknown";
       job.updatedAt += 10000;
       await page.clock.fastForward(1500);
-      await expect(progress).toContainText("Ожидаем ответ GPT");
+      await expect(progress).toContainText("Подтверждаем отправку");
       await expect(progress.locator(".spinner")).toBeVisible();
       job.status = "running";
       job.updatedAt += 10000;

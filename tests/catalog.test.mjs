@@ -95,6 +95,48 @@ function fixture() {
     addProject: (p) => projects.push(p),
   };
 }
+test("canonical history retires confirmed queue cards after a missed user event", async () => {
+  const f = fixture();
+  try {
+    await f.catalog.refresh();
+    await f.catalog.syncThreads("pc");
+    const thread = f.store.threadByCodex("real-thread");
+    const entry = f.entries.find((e) => e.item.type === "userMessage");
+    entry.item.clientId = "queued-client";
+    const other = f.store.createThread(thread.projectId, "other-native", "Other");
+    const pending = f.entries.filter((e) => e.item.type === "userMessage")[1];
+    pending.item.clientId = "unconfirmed-client";
+    const values = [
+      [thread.id, "native-queue-id", "queued", "queued-client"],
+      [thread.id, "native-steer-id", "steered", "queued-client"],
+      [thread.id, "other-message", "queued", "not-in-history"],
+      [thread.id, "unconfirmed-client", "enqueue_unknown", "unconfirmed-client"],
+      [thread.id, "uncertain-change", "unknown", "queued-client"],
+      [other.id, "foreign-queue-id", "queued", "queued-client"],
+    ];
+    for (const [id, qid, state, clientId] of values)
+      f.store.db
+        .prepare("INSERT INTO queue_transfers VALUES(?,?,?,?)")
+        .run(id, qid, JSON.stringify({ id: qid, clientUserMessageId: clientId, input: [] }), state);
+    // No item/started event, no queue listing, no resume or send: only canonical history.
+    const page = await f.catalog.history(thread);
+    assert.ok(page.messages.some((m) => m.id === "queued-client"));
+    assert.deepEqual(
+      f.store.db
+        .prepare("SELECT id FROM queue_transfers ORDER BY id")
+        .all()
+        .map((r) => r.id),
+      ["foreign-queue-id", "other-message", "uncertain-change"],
+    );
+    assert.equal(
+      f.calls.some((c) => /queue\/|turn\/start|turn\/steer|thread\/resume/.test(c.method)),
+      false,
+    );
+  } finally {
+    f.store.close();
+  }
+});
+
 test("native async questions retain structured choices when imported from desktop history", async () => {
   const f = fixture();
   try {

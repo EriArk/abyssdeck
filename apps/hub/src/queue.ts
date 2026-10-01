@@ -209,8 +209,8 @@ export class QueueService {
       clientUserMessageId: clientId,
       input: [{ type: "text", text }, ...prepared.input],
     };
-    await this.sessions.syncQueueInstructions(id);
     try {
+      await this.sessions.syncQueueInstructions(id);
       this.sessions.assertWritable(t.projectId);
       this.sessions.attachments.bind(id, clientId, prepared.files);
       this.store.db

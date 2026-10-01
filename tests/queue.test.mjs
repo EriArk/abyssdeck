@@ -132,6 +132,81 @@ async function setup(instructions = () => null) {
   };
 }
 
+test("background work retires consumed queue entries without any browser queue read", async () => {
+  const f = await setup();
+  try {
+    const clientId = randomUUID();
+    await f.queue.add(f.t.id, "Queued work", [], clientId);
+    let sends = 0;
+    const send = async () => ++sends;
+    await assert.rejects(f.queue.whenEmpty(f.t.id, send), { code: "QUEUE_BUSY" });
+    f.rpc.queue = [];
+    await assert.rejects(f.queue.whenEmpty(f.t.id, send), { code: "QUEUE_BUSY" });
+    const other = f.store.createThread("p", "other-native", "Other");
+    f.store.append(other.id, "user.message", { id: clientId, text: "Other thread" });
+    await assert.rejects(f.queue.whenEmpty(f.t.id, send), { code: "QUEUE_BUSY" });
+    f.rpc.emit("notification", "item/started", {
+      threadId: f.t.codexThreadId,
+      turnId: f.store.thread(f.t.id).activeTurnId,
+      item: {
+        id: randomUUID(),
+        clientId,
+        type: "userMessage",
+        content: [{ type: "text", text: "Queued work" }],
+      },
+    });
+    const reopened = new QueueService(f.sessions, f.store);
+    assert.equal(await reopened.whenEmpty(f.t.id, send), 1);
+    assert.equal(sends, 1);
+    assert.equal(f.store.history(f.t.id).messages.filter((m) => m.id === clientId).length, 1);
+    assert.equal(f.rpc.calls.filter((c) => c.method === "thread/queue/add").length, 1);
+    // Unknown mutations remain receipts even when a matching message is present.
+    for (const state of ["unknown", "enqueue_unknown"]) {
+      f.store.db
+        .prepare("INSERT INTO queue_transfers VALUES(?,?,?,?)")
+        .run(
+          f.t.id,
+          randomUUID(),
+          JSON.stringify({ id: randomUUID(), clientUserMessageId: clientId, input: [] }),
+          state,
+        );
+    }
+    await assert.rejects(reopened.whenEmpty(f.t.id, send), { code: "QUEUE_BUSY" });
+    assert.equal(sends, 1);
+    assert.equal(
+      f.store.db.prepare("SELECT count(*) n FROM queue_transfers WHERE threadId=?").get(f.t.id).n,
+      2,
+    );
+  } finally {
+    await f.close();
+  }
+});
+
+test("queue instruction failure releases prepared attachments before dispatch", async () => {
+  const f = await setup();
+  try {
+    const file = await f.sessions.attachments.put(
+      f.t.id,
+      "draft.txt",
+      Buffer.from("Keep this draft"),
+    );
+    f.sessions.syncQueueInstructions = async () => {
+      throw new Error("settings unavailable");
+    };
+    await assert.rejects(
+      f.queue.add(f.t.id, "Not sent", [file.id], randomUUID()),
+      /settings unavailable/,
+    );
+    assert.equal(f.sessions.attachments.get(file.id).messageId, null);
+    // A pre-dispatch failure must not leave the user's unsent file locked.
+    await f.sessions.attachments.remove(file.id);
+    assert.equal(f.rpc.calls.filter((c) => c.method === "thread/queue/add").length, 0);
+    assert.equal(f.store.db.prepare("SELECT count(*) n FROM queue_transfers").get().n, 0);
+  } finally {
+    await f.close();
+  }
+});
+
 test("legacy confirmed Steer becomes a historical message after upgrade, not a permanent queue card", async () => {
   const f = await setup();
   try {
