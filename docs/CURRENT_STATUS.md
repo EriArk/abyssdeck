@@ -20,8 +20,21 @@ upstream rate limit нельзя задним числом однозначно 
 installed.json, installed-screen.png, tests.log, tests-final.log; exact send proof
 в приватном results. Перед переключением сохранён pre-update-profile.tar и
 остановленный предыдущий контейнер. Владелец сохранил профиль и авторизацию.
-Hub пока на 3b431d3; расширение build admission для нового enrollment подготовлено
-в исходниках. Member runtime пока прежний и не привязан к личному аккаунту GPT.
+Hub, engine и web обновлены обычным updater до `ba02bd4` в 15:04 UTC;
+deployment receipt healthy, резервная копия проверена. После переключения повторно
+проверены обе истории через реальный API; canRead/canSend=true, activeJobs=0,
+unknownJobs=2 (старые receipts). Текущий Codex turn продолжился; второй прежний
+persistent-чат имеет completed/activeTurnId=null. Доказательства —
+`verification-ba02bd4/{receipt,continuity-after,threads-after}.json` и
+`native-update-26.928.31416/final-web-accept.json`.
+
+Окончательный native image — `codex-web-gpt-native:26.928.31416-ba02bd4`, запущен
+в 15:00 UTC; все 34 модуля побайтно совпадают с committed source, включая новый
+check-compatibility CLI. `final-image-proof.json` содержит точные SHA-256.
+Пройдены 45 renderer/transport/compatibility проверок, Linux provider/library и
+admission проверки, TypeScript, repository checks, проверки upgrade/rollback и
+вход в кандидатный Hub через Chromium/WebKit. Member runtime пока прежний и не
+привязан к личному аккаунту GPT; его provisioning image этим owner-update не менялся.
 
 Bridge Doctor фактически оставался read-only диагностикой. Текущий ремонт выполнен
 в этом авторизованном ходе; автоматический ремонт самим Doctor пока не реализован.
