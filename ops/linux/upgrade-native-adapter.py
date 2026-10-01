@@ -75,10 +75,28 @@ def clone_args(old, image, profile, proof):
     return args
 
 
+def assert_native_idle(name, completed_turn=None):
+    activity = request(name, 'workspace', action='activity')
+    if not activity['ready']: raise RuntimeError('NATIVE_NOT_IDLE')
+    if not activity['generating']: return
+    if not completed_turn: raise RuntimeError('NATIVE_NOT_IDLE')
+    # Host operator has identified the selected conversation. A stale Stop button
+    # cannot override the exact canonical final, but a newer node invalidates proof.
+    conversation, node = completed_turn
+    graph = request(name, 'readConversationGraph', conversationId=conversation)
+    message = graph.get('mapping', {}).get(node, {}).get('message') or {}
+    if (graph.get('current_node') != node or message.get('author', {}).get('role') != 'assistant'
+            or message.get('channel') != 'final' or message.get('status') != 'finished_successfully'
+            or message.get('end_turn') is not True):
+        raise RuntimeError('NATIVE_TURN_NOT_COMPLETE')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for key in ['name', 'expected', 'image', 'profile', 'state', 'revision']:
         parser.add_argument('--' + key, required=True)
+    parser.add_argument('--completed-turn', nargs=2, metavar=('CONVERSATION', 'NODE'),
+                        help='Exact canonical final for the operator-observed selected chat with a stale Stop indicator')
     args = parser.parse_args()
     with ExitStack() as locks:
         return replace(args, locks)
@@ -87,6 +105,8 @@ def main():
 def replace(args, locks):
     assert re.fullmatch(r'codex-web-gpt-(?:native-lab|[a-f0-9-]{36})', args.name)
     assert re.fullmatch(r'[a-f0-9]{7,40}', args.revision)
+    if args.completed_turn:
+        for value in args.completed_turn: assert str(uuid.UUID(value)) == value
     assert all(re.fullmatch(r'codex-web-gpt-native:[\w.-]+', v) for v in [args.expected, args.image])
     state, profile = Path(args.state).resolve(strict=True), Path(args.profile).resolve(strict=True)
     assert str(profile) == args.profile and str(state) == args.state
@@ -116,8 +136,7 @@ def replace(args, locks):
     if before['manual']: raise RuntimeError('EXISTING_MANUAL_OWNER')
     assert_idle(user_id)
     if enrolled:
-        activity = request(args.name, 'workspace', action='activity')
-        if not activity['ready'] or activity['generating']: raise RuntimeError('NATIVE_NOT_IDLE')
+        assert_native_idle(args.name, args.completed_turn)
     elif before['writesEnabled']:
         raise RuntimeError('UNBOUND_PROFILE_HAS_WRITER')
     lease = str(uuid.uuid4())

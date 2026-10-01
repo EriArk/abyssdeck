@@ -17,6 +17,12 @@ An interrupted attempt retains its private lease/inspection journal under the
 release verification directory and requires inspection before rerunning; never
 clear a lease belonging to another manual recovery session.
 
+An unactivated enrollment profile can be updated while its writer is disabled;
+this neither signs in nor activates it. When the operator has observed the selected
+chat and its Stop indicator is stale, `--completed-turn CONVERSATION NODE` accepts
+only that exact canonical assistant final with `finished_successfully` and
+`end_turn=true`. A changed current node or unfinished response refuses replacement.
+
 After existing members are updated, change the host service's `--native-image`
 to the tested member image and reload the user systemd manager. Do not delete
 profiles or bypass `GPT_CONTAINER_IDENTITY_CHANGED`: that check is not an updater.

@@ -61,5 +61,20 @@ class Upgrade(unittest.TestCase):
         calls,_=self.scenario(enrolled=False)
         self.assertTrue(any(c[:2]==['docker','create'] for c in calls))
 
+    def test_stale_stop_requires_exact_successful_end_turn(self):
+        graph={'current_node':'final','mapping':{'final':{'message':{'author':{'role':'assistant'},'channel':'final','status':'finished_successfully','end_turn':True}}}}
+        def request(name,operation,**fields):
+            if operation=='workspace':return {'ready':True,'generating':True}
+            self.assertEqual(fields,{'conversationId':'chat'})
+            return graph
+        with patch.object(upgrade,'request',side_effect=request):
+            upgrade.assert_native_idle('container',['chat','final'])
+            with self.assertRaises(RuntimeError):upgrade.assert_native_idle('container')
+            graph['mapping']['final']['message']['end_turn']=False
+            with self.assertRaises(RuntimeError):upgrade.assert_native_idle('container',['chat','final'])
+            graph['mapping']['final']['message']['end_turn']=True
+            graph['current_node']='new-user'
+            with self.assertRaises(RuntimeError):upgrade.assert_native_idle('container',['chat','final'])
+
 
 if __name__=='__main__':unittest.main()
