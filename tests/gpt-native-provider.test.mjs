@@ -104,7 +104,8 @@ test("a paused chat and unrelated uncertain mutation leave another send usable",
     f.store.db.prepare("UPDATE gpt_native_read_health SET nextAt=0").run();
     await service.pump();
   }
-  assert.match(service.job(stuck).error, /остановлены/);
+  assert.match(service.job(stuck).error, /Сообщение доставлено/);
+  assert.equal(service.job(stuck).status, "unknown");
   let reads = 0;
   const other = nativeWorkspaceFixture();
   f.workspace.conversations.add(other.conversationId);

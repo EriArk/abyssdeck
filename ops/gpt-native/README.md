@@ -1,4 +1,9 @@
-> Current owner-integration admission is documented in [GPT_NATIVE_LINUX.md](../../docs/GPT_NATIVE_LINUX.md#owner-workspace-admission-and-dictation-2026-09-19). Earlier lab-only steps below retain their historical scope. The current runtime requires the [sandbox seccomp profile](SECCOMP.md); never restore `--no-sandbox` for an owner release.
+> Current (2026-10-01): the owner's production native provider is on official
+> 26.928.31416. Build export mappings are centralized in `compatibility.mjs`;
+> `check-compatibility.mjs` supports candidate checks on a private profile copy.
+> See [current compatibility maintenance](../../docs/GPT_NATIVE_LINUX.md#compatibility-maintenance--2026-10-01).
+> Dated lab-only and old-debugger instructions below are historical, not the current launch procedure.
+> The current runtime requires the [sandbox seccomp profile](SECCOMP.md).
 
 # Isolated Linux ChatGPT evaluation
 

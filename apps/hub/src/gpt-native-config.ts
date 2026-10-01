@@ -28,7 +28,7 @@ export function configuredNativeGpt(
     }
     const bound = JSON.parse(readFileSync(path, "utf8"));
     if (
-      bound.build !== "26.915.31945" ||
+      !["26.915.31945", "26.928.31416"].includes(bound.build) ||
       bound.userId !== selected.userId ||
       bound.accountFingerprint !== selected.accountFingerprint
     )

@@ -1,7 +1,8 @@
+import {nativeModule} from './compatibility.mjs';
 // Pinned native consumer-Chat send canary. No credentials, HTTP bodies or raw events leave the renderer.
 export async function nativeDispatch(request, read, control,
- load = () => import('app://-/assets/app-initial-430deae5a13a.js'), runtime = globalThis,
- loadActions = () => import('app://-/assets/register-app-actions-a2e5974b9821.js'), activity = () => null) {
+ load = () => nativeModule(), runtime = globalThis,
+ loadActions = () => nativeModule('actions'), activity = () => null) {
  const fail = code => { throw Error(`NATIVE_${code}`); };
  const uuid = x => typeof x === 'string' && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(x);
  if (!['prepareDispatch','dispatchText','inspectDispatch','resolveCreation'].includes(request.operation) ||

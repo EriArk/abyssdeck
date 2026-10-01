@@ -1,6 +1,7 @@
+import {nativeModule} from './compatibility.mjs';
 // Explicit disposable-chat laboratory operations, never a production send API.
 // Keep self-contained for execution inside the pinned renderer.
-export async function nativeComposer(request, read, load = () => import('app://-/assets/app-initial-430deae5a13a.js'), runtime = globalThis) {
+export async function nativeComposer(request, read, load = () => nativeModule(), runtime = globalThis) {
  const fail=code=>{throw Error(`NATIVE_${code}`);};
  const uuid=s=>typeof s==='string'&&/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(s);
  const operations=['prepareNewChat','inspectDraft','stageText','stageFiles','submitDraft','inspectCreatedChat','confirmCreatedChat'];

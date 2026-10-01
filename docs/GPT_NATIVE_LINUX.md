@@ -1,5 +1,31 @@
 # Linux ChatGPT evaluation — #193
 
+> Current owner runtime (2026-10-01): official **26.928.31416**, verified on the
+> server with both previously failing conversations and a completed disposable
+> send (one exact native user message). See [current status](CURRENT_STATUS.md).
+> Older installation/version statements below are dated evidence.
+
+## Compatibility maintenance — 2026-10-01
+
+The pinned official amd64 package SHA-256 is
+`c463727f1ed5dced78338c8e2a65d889bd153276ff373fd77698ccb9af32d181`.
+`compatibility.mjs` resolves the supported build's native account, HTTP, completion,
+actions and state exports. Build 26.928 splits the previous monolith into three
+modules; renderer operations retain their existing identity and receipt contracts.
+26.915 remains mapped for rollback. Unknown builds require an actual mapping repair,
+not a global version-check bypass. Bridge Doctor's existing automatic mode is still
+diagnostic-only; this update was repaired in the owner's explicitly authorized turn.
+
+For future updates: acquire the normal idle maintenance lease, retain the stopped
+profile and prior image, and test the candidate against a private profile copy.
+With X/DBus ready and no ordinary runtime on that copy, run
+`node /opt/native/adapter/check-compatibility.mjs [conversation-uuid ...]`.
+It verifies the bound account, action/completion structure, model reads and at most
+three exact histories without sending. Inspect history errors as well as the
+structural compatibility flag. Activate only the evaluated package/adapter, retain
+the old image/profile, then verify fresh histories through the real web API.
+Never run old and new applications concurrently against the same profile.
+
 > Follow-up, 2026-09-27: [#220 native read isolation](GPT_READ_ISOLATION_2026-09-27.md)
 > is implemented and verified in controlled tests. Runtime installation is tracked
 > separately; P1 mutation admission remains open.

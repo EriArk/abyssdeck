@@ -1,6 +1,7 @@
+import {nativeModule} from './compatibility.mjs';
 // Fixed native authenticated entry/processing. The private supervisor streams the
 // signed storage capability; it is never returned to the Hub/browser or logged.
-export async function nativeStoredUpload(request,read,load=()=>import('app://-/assets/app-initial-430deae5a13a.js'),runtime=globalThis){
+export async function nativeStoredUpload(request,read,load=()=>nativeModule(),runtime=globalThis){
  const fail=c=>{throw Error(`NATIVE_${c}`);},f=request.file,rProject=request.projectId;
  if(rProject!=null&&!/^g-p-[a-zA-Z0-9-]{1,80}$/.test(rProject))fail('INVALID_PROJECT');
  if(!['prepareStoredUpload','finishStoredUpload'].includes(request.operation)||!f||typeof f.name!=='string'||!f.name||f.name.length>255||/[\\/\x00-\x1f]/.test(f.name)||!Number.isSafeInteger(f.bytes)||f.bytes<1||f.bytes>512*1024**2||!/^[-a-z0-9.+]+\/[-a-z0-9.+]+$/i.test(f.mime)||(f.mime.startsWith('image/')&&(!rProject||f.bytes>20*1024**2)))fail('INVALID_UPLOAD');

@@ -1,6 +1,7 @@
+import {nativeModule} from './compatibility.mjs';
 // Pinned native Chat picker, lab-only. Native preset IDs are not slider positions
 // or Codex reasoning values. Catalog and accessible controls must agree exactly.
-export async function nativeSettings(request, read, control, load = () => import('app://-/assets/app-initial-430deae5a13a.js'), runtime = globalThis) {
+export async function nativeSettings(request, read, control, load = () => nativeModule(), runtime = globalThis) {
  const fail = code => { throw Error(`NATIVE_${code}`); };
  if (!['inspectSettings','selectSettings'].includes(request?.operation)) fail('UNSUPPORTED_CONTROL');
  if (request.operation === 'selectSettings' && (typeof request.versionId !== 'string' || request.versionId.length > 128 || !Number.isSafeInteger(request.presetId))) fail('INVALID_REQUEST');

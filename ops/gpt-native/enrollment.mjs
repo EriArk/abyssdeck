@@ -28,7 +28,7 @@ export class NativeEnrollment {
    this.activating=true;
    try {
     const account=await this.reader.inspectAccount();
-    if(account.build!=='26.915.31945'||!/^[a-f0-9]{64}$/.test(account.accountFingerprint))throw Error('NATIVE_INVALID_BINDING');
+    if(!['26.915.31945','26.928.31416'].includes(account.build)||!/^[a-f0-9]{64}$/.test(account.accountFingerprint))throw Error('NATIVE_INVALID_BINDING');
     const binding={build:account.build,userId:this.userId,accountFingerprint:account.accountFingerprint};
     if(this.binding&&this.binding.accountFingerprint!==binding.accountFingerprint)throw Error('NATIVE_ACCOUNT_MISMATCH');
     if(this.service) {

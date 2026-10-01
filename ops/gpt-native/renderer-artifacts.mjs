@@ -1,6 +1,7 @@
+import {nativeModule} from './compatibility.mjs';
 // Native public sandbox results only. Signed URLs and native account data never
 // leave this renderer function. Generated image-service pointers remain separate.
-export async function nativeArtifacts(request, read, load = () => import('app://-/assets/app-initial-430deae5a13a.js'), runtime = globalThis) {
+export async function nativeArtifacts(request, read, load = () => nativeModule(), runtime = globalThis) {
  const fail=code=>{throw Error(`NATIVE_${code}`);};
  if(!['listArtifacts','readArtifact'].includes(request?.operation))fail('UNSUPPORTED_CONTROL');
  if(request.operation==='readArtifact'&&(!/^sandbox-[a-f0-9]{64}$/.test(request.artifactId??'')||typeof request.messageId!=='string'))fail('INVALID_REQUEST');

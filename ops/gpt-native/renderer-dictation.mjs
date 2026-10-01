@@ -1,5 +1,6 @@
+import {nativeModule} from './compatibility.mjs';
 // Uses the pinned native client's /transcribe transport, without chat or model mutations.
-export async function nativeDictation(r,read,load=()=>import('app://-/assets/app-initial-430deae5a13a.js'),runtime=globalThis){
+export async function nativeDictation(r,read,load=()=>nativeModule(),runtime=globalThis){
  const fail=c=>{throw Error('NATIVE_'+c);},types={'audio/wav':'wav','audio/webm':'webm','audio/mp4':'m4a','audio/ogg':'ogg'};
  if(!Object.hasOwn(types,r.mime)||!Number.isSafeInteger(r.bytes)||r.bytes<1||r.bytes>6*1024**2)fail('INVALID_AUDIO');
  const key=Symbol.for('codex-web.native-upload-bytes'),state=runtime[key];

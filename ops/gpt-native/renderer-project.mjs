@@ -1,5 +1,6 @@
+import {nativeModule} from './compatibility.mjs';
 // Fixed project content adapter for the pinned native build; no generic URL/action.
-export async function nativeProject(r,read,load=()=>import('app://-/assets/app-initial-430deae5a13a.js'),runtime=globalThis){
+export async function nativeProject(r,read,load=()=>nativeModule(),runtime=globalThis){
  const fail=c=>{throw Error(`NATIVE_${c}`);};
  if(!['inspectProject','mutateProject','createProject'].includes(r.operation)||(r.operation!=='createProject'&&!/^g-p-[a-zA-Z0-9-]{1,80}$/.test(r.projectId??'')))fail('INVALID_PROJECT');
  if((await read({operation:'inspectAccount'},load,runtime)).accountFingerprint!==r.accountFingerprint)fail('ACCOUNT_MISMATCH');

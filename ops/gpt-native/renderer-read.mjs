@@ -1,7 +1,8 @@
+import {nativeModule} from './compatibility.mjs';
 // Version-specific, private research adapter. No sends, navigation or generic RPC.
 // Keep this function self-contained: it also runs inside the native renderer.
 import {nativeRequestGate} from './request-gate.mjs';
-export async function nativeRead(request, load = () => import('app://-/assets/app-initial-430deae5a13a.js'), runtime = globalThis, activity = () => null) {
+export async function nativeRead(request, load = () => nativeModule(), runtime = globalThis, activity = () => null) {
  const fail = code => { throw Error(`NATIVE_${code}`); };
  const projectId = value => typeof value==='string'&&/^g-p-[a-zA-Z0-9-]{1,80}$/.test(value);
  const uuid = value => typeof value === 'string' && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(value);
@@ -17,7 +18,8 @@ export async function nativeRead(request, load = () => import('app://-/assets/ap
      !/^[a-f0-9]{64}$/.test(request.accountFingerprint ?? '') ||
      (request.before != null && !uuid(request.before)) ||
      (request.messageId != null && (typeof request.messageId !== 'string' || !/^[a-zA-Z0-9_-]{1,128}$/.test(request.messageId) || request.before != null)))) fail('INVALID_REQUEST');
- if (runtime.electronBridge?.getSentryInitOptions?.().appVersion !== '26.915.31945') fail('UNSUPPORTED_BUILD');
+ const build = runtime.electronBridge?.getSentryInitOptions?.().appVersion;
+ if (!['26.915.31945','26.928.31416'].includes(build)) fail('UNSUPPORTED_BUILD');
  if(['readProject','readProjectConversations'].includes(request.operation)&&!projectId(request.projectId))fail('INVALID_PROJECT');
  if(request.cursor!=null&&(typeof request.cursor!=='string'||request.cursor.length>4000))fail('INVALID_CURSOR');
  if(request.projectId!=null&&!projectId(request.projectId))fail('INVALID_PROJECT');
@@ -41,7 +43,7 @@ export async function nativeRead(request, load = () => import('app://-/assets/ap
  };
  const before = await account();
  // Inspection proposes a binding; the caller must explicitly persist/approve it.
- if (request.operation === 'inspectAccount') return {build:'26.915.31945', accountFingerprint:before.fingerprint, writesEnabled:false};
+ if (request.operation === 'inspectAccount') return {build, accountFingerprint:before.fingerprint, writesEnabled:false};
  if (before.fingerprint !== request.accountFingerprint) fail('ACCOUNT_MISMATCH');
  const gate=nativeRequestGate(before.fingerprint,runtime);
  const get=async(route,options)=>{

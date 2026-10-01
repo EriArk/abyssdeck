@@ -1,6 +1,7 @@
+import {nativeModule} from './compatibility.mjs';
 // Pinned lab controls. No arbitrary action, selector, code, URL or prompt input.
-export async function nativeControl(request, read, load = () => import('app://-/assets/app-initial-430deae5a13a.js'), runtime = globalThis,
- loadActions = () => import('app://-/assets/register-app-actions-a2e5974b9821.js')) {
+export async function nativeControl(request, read, load = () => nativeModule(), runtime = globalThis,
+ loadActions = () => nativeModule('actions')) {
  const fail = code => { throw Error(`NATIVE_${code}`); };
  if (!['selectConversation','inspectConversation','stopResponse'].includes(request?.operation)) fail('UNSUPPORTED_CONTROL');
  if (request.operation === 'stopResponse' && (typeof request.userMessageId !== 'string' || !request.userMessageId || request.userMessageId.length > 128)) fail('INVALID_REQUEST');

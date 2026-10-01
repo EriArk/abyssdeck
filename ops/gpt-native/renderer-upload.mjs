@@ -1,5 +1,6 @@
+import {nativeModule} from './compatibility.mjs';
 // Fixed native upload contract. Bytes enter the app; auth and signed URLs never leave it.
-export async function nativeUpload(request, read, load = () => import('app://-/assets/app-initial-430deae5a13a.js'), runtime = globalThis) {
+export async function nativeUpload(request, read, load = () => nativeModule(), runtime = globalThis) {
  const fail=code=>{throw Error(`NATIVE_${code}`);};
  const signal=AbortSignal.timeout(60000);
  const f=request.file;

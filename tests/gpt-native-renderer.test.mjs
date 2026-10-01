@@ -6,6 +6,17 @@ import { nativeRead } from "../ops/gpt-native/renderer-read.mjs";
 
 const conversationId = "10000000-0000-4000-8000-000000000001";
 const id = (n) => `20000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
+
+test("updated native build retains account binding and reports its actual version", async () => {
+  const f = fixture();
+  const before = await f.binding();
+  f.runtime.electronBridge.getSentryInitOptions = () => ({ appVersion: "26.928.31416" });
+  const account = await f.read({ operation: "inspectAccount" });
+  assert.equal(account.build, "26.928.31416");
+  assert.equal(account.accountFingerprint, before);
+  const result = await f.read({ operation: "readConversation", conversationId, accountFingerprint: before });
+  assert.equal(result.conversationId, conversationId);
+});
 test("identical full upstream responses reuse projection while old edits invalidate it", async () => {
   const f = fixture(),
     accountFingerprint = await f.binding();

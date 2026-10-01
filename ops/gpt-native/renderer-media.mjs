@@ -1,6 +1,7 @@
+import {nativeModule} from './compatibility.mjs';
 // Account-bound streamed downloads. Only native file identities cross the pipe;
 // upstream URLs, authentication and response streams remain inside the renderer.
-export async function nativeMedia(r, read, artifacts, load=()=>import('app://-/assets/app-initial-430deae5a13a.js'), runtime=globalThis) {
+export async function nativeMedia(r, read, artifacts, load=()=>nativeModule(), runtime=globalThis) {
  const fail=c=>{throw Error('NATIVE_'+c);};
  const uuid=x=>typeof x==='string'&&/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(x);
  const fileId=x=>typeof x==='string'&&/^file[-_][a-zA-Z0-9_-]{1,150}$/.test(x);

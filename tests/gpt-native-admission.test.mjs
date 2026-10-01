@@ -24,6 +24,13 @@ test("host native binding is lazy, fail-closed and does not prevent Codex startu
     { mode: 0o600 },
   );
   await assert.rejects(w.client.status(), /BINDING_MISMATCH/);
+  for (const build of ["26.915.31945", "26.928.31416"]) {
+    writeFileSync(join(root, "binding.json"), JSON.stringify({ userId, accountFingerprint, build }));
+    // Both verified builds reach the transport; this fixture deliberately has no socket.
+    await assert.rejects(w.client.status(), /ENOENT/);
+    writeFileSync(join(root, "binding.json"), JSON.stringify({ userId, accountFingerprint: "b".repeat(64), build }));
+    await assert.rejects(w.client.status(), /BINDING_MISMATCH/);
+  }
   assert.equal(
     configuredNativeGpt({}, () => {}),
     undefined,

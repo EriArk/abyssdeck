@@ -157,7 +157,7 @@ export class TeamGpt {
       throw Error("NATIVE_INVALID_BINDING");
     const binding = z
       .object({
-        build: z.literal("26.915.31945"),
+        build: z.enum(["26.915.31945", "26.928.31416"]),
         userId: z.literal(userId),
         accountFingerprint: z.string().regex(/^[a-f0-9]{64}$/),
       })

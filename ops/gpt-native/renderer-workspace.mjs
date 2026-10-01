@@ -1,5 +1,6 @@
+import {nativeModule} from './compatibility.mjs';
 // Fixed consumer workspace contracts through the signed-in native transport.
-export async function nativeWorkspace(r,read,load=()=>import('app://-/assets/app-initial-430deae5a13a.js'),runtime=globalThis){
+export async function nativeWorkspace(r,read,load=()=>nativeModule(),runtime=globalThis){
  const fail=c=>{throw Error('NATIVE_'+c);};
  const id=x=>{if(typeof x!=='string'||!/^[a-zA-Z0-9_-]{1,100}$/.test(x))fail('INVALID_REQUEST');return x;};
  const text=(x,n)=>{if(typeof x!=='string'||x.length>n)fail('INVALID_WORKSPACE');return x;};

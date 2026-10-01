@@ -14,7 +14,7 @@ process.umask(0o077);
 const root = '/data/native-adapter';
 privatePath(root, 'isDirectory');
 function createService(binding,reader) {
-if (binding.build !== '26.915.31945') throw Error('NATIVE_UNSUPPORTED_BUILD');
+if (!['26.915.31945','26.928.31416'].includes(binding.build)) throw Error('NATIVE_UNSUPPORTED_BUILD');
 if (Object.keys(binding).some(k => !['build', 'userId', 'accountFingerprint'].includes(k))) throw Error('NATIVE_INVALID_BINDING');
 const service = new NativeReadService({ reader, ...binding, statePath: `${root}/manual.json` });
 // Host-provisioned admission; absent by default. Public APIs cannot change this binding.

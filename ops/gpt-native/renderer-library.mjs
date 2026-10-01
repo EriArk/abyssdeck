@@ -1,6 +1,7 @@
+import {nativeModule} from './compatibility.mjs';
 // Fixed library operations in the pinned consumer client. No caller URLs or generic RPC.
 import {nativeRequestGate} from './request-gate.mjs';
-export async function nativeLibrary(r, read, load=()=>import('app://-/assets/app-initial-430deae5a13a.js'), runtime=globalThis) {
+export async function nativeLibrary(r, read, load=()=>nativeModule(), runtime=globalThis) {
  const fail=c=>{throw Error(`NATIVE_${c}`);};
  const uuid=x=>typeof x==='string'&&/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(x);
  if(!['readLibrary','mutateLibrary'].includes(r.operation)||!['thread','project'].includes(r.kind)||

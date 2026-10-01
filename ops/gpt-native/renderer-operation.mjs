@@ -1,5 +1,6 @@
+import {nativeModule} from './compatibility.mjs';
 // Native reply actions over the pinned application's own completion service.
-export async function nativeOperation(r,read,control,load=()=>import('app://-/assets/app-initial-430deae5a13a.js'),runtime=globalThis,loadActions=()=>import('app://-/assets/register-app-actions-a2e5974b9821.js')){
+export async function nativeOperation(r,read,control,load=()=>nativeModule(),runtime=globalThis,loadActions=()=>nativeModule('actions')){
  const fail=c=>{throw Error('NATIVE_'+c);};
  if(!['edit','regenerate','fork'].includes(r.action)||!r.intentPersisted)fail('INVALID_REQUEST');
  const bound={conversationId:r.conversationId,accountFingerprint:r.accountFingerprint};
