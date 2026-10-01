@@ -2,7 +2,15 @@ import type { NativeInventory as Inventory } from "@codex-web/shared";
 import { useEffect, useRef, useState } from "react";
 import { api, messageOf } from "./api";
 
-export function NativeInventory({ projectId, visible }: { projectId: string; visible: boolean }) {
+export function NativeInventory({
+  projectId,
+  threadId,
+  visible,
+}: {
+  projectId: string;
+  threadId?: string;
+  visible: boolean;
+}) {
   const refreshRequested = useRef(false);
   const [open, setOpen] = useState(false),
     [value, setValue] = useState<Inventory | null>(null),
@@ -17,7 +25,7 @@ export function NativeInventory({ projectId, visible }: { projectId: string; vis
     const refresh = refreshRequested.current;
     refreshRequested.current = false;
     void api<Inventory>(
-      `/projects/${encodeURIComponent(projectId)}/native-inventory${refresh ? "/refresh" : ""}`,
+      `/projects/${encodeURIComponent(projectId)}/native-inventory${refresh ? "/refresh" : ""}${threadId ? "?threadId=" + encodeURIComponent(threadId) : ""}`,
       {
         method: refresh ? "POST" : "GET",
         signal: controller.signal,
@@ -31,7 +39,7 @@ export function NativeInventory({ projectId, visible }: { projectId: string; vis
         if (!controller.signal.aborted) setError(messageOf(e));
       });
     return () => controller.abort();
-  }, [projectId, open, visible, retry]);
+  }, [projectId, threadId, open, visible, retry]);
   if (!projectId) return null;
   return (
     <details className="native-inventory" onToggle={(e) => setOpen(e.currentTarget.open)}>

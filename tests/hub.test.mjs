@@ -359,6 +359,8 @@ test("model, effort and native planning mode are validated and persist across th
     const params = rpc.calls.findLast((call) => call.method === "turn/start").params;
     assert.equal(params.model, "qa-model");
     assert.equal(params.effort, "low");
+    assert.equal(params.additionalContext["codexweb/tool-routing"].kind, "application");
+    assert.match(params.additionalContext["codexweb/tool-routing"].value, /codexweb_browser/);
     assert.deepEqual(params.collaborationMode, {
       mode: "plan",
       settings: { model: "qa-model", reasoning_effort: "low", developer_instructions: null },
@@ -399,46 +401,31 @@ test("model, effort and native planning mode are validated and persist across th
   }
 });
 
-test("resume reconciles the last interrupted message without replaying a prompt", async () => {
+test("Check reads terminal status without resuming the writer or replaying a prompt", async () => {
   const store = new Store(":memory:"),
     rpc = new FakeRpc();
   const t = store.createThread("project", randomUUID(), "Recovery");
   store.append(t.id, "user.message", { id: "u", text: "original request" }, "turn-1");
-  store.append(t.id, "assistant.delta", { id: "a", text: "Partial" }, "turn-1");
   store.setStatus(t.id, "unknown", "turn-1");
   const request = rpc.request.bind(rpc);
-  rpc.request = async (method, params) =>
-    method === "thread/resume"
-      ? {
-          thread: {
-            turns: [
-              {
-                id: "turn-1",
-                status: "completed",
-                items: [
-                  { type: "userMessage", content: [{ type: "text", text: "original request" }] },
-                  {
-                    type: "agentMessage",
-                    id: "a",
-                    text: "Completed answer",
-                    phase: "final_answer",
-                  },
-                ],
-              },
-            ],
-          },
-        }
-      : request(method, params);
+  rpc.request = async (method, params) => {
+    if (method === "thread/turns/list") {
+      assert.equal(params.limit, 1);
+      assert.equal(params.itemsView, "summary");
+      return { data: [{ id: "turn-1", status: "completed" }], nextCursor: null };
+    }
+    assert.notEqual(method, "thread/resume");
+    assert.notEqual(method, "turn/start");
+    return request(method, params);
+  };
   const sessions = new Sessions(config, store, () => rpc);
   try {
-    await sessions.resume(t.id);
-    const history = store.history(t.id);
-    assert.equal(history.messages.length, 2);
-    assert.equal(history.messages[1].text, "Completed answer");
-    assert.equal(
-      rpc.calls.some((call) => call.method === "turn/start"),
-      false,
-    );
+    const result = await sessions.resume(t.id);
+    assert.equal(result.status, "completed");
+    assert.equal(result.activeTurnId, null);
+    assert.equal(store.history(t.id).messages.length, 1);
+    assert.equal(rpc.closed, false);
+    // Canonical completed item import has its own persistent-recovery coverage.
   } finally {
     await sessions.close();
     store.close();

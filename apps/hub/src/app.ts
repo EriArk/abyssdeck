@@ -633,10 +633,14 @@ export async function createApp(
     sessions.thread(id);
     return { usage: sessions.nativeWork.snapshot(id).usage };
   });
-  app.get("/api/projects/:id/native-inventory", async (req) => sessions.inventory(paramId(req)));
-  app.post("/api/projects/:id/native-inventory/refresh", async (req) =>
-    sessions.inventory(paramId(req), true),
-  );
+  app.get("/api/projects/:id/native-inventory", async (req) => {
+    const query = z.object({ threadId: idSchema.optional() }).strict().parse(req.query);
+    return sessions.inventory(paramId(req), false, query.threadId);
+  });
+  app.post("/api/projects/:id/native-inventory/refresh", async (req) => {
+    const query = z.object({ threadId: idSchema.optional() }).strict().parse(req.query);
+    return sessions.inventory(paramId(req), true, query.threadId);
+  });
   app.get("/api/threads/:id/activity", async (req) => {
     const id = paramId(req);
     sessions.thread(id);

@@ -180,7 +180,11 @@ export function WorkspaceSettings({
                   </h4>
                   <UsageLimits machines={machines} open={visible} />
                   {project && <p className="small muted">Проект Codex: {project.name}</p>}
-                  <NativeInventory projectId={project?.id ?? ""} visible={visible} />
+                  <NativeInventory
+                    projectId={project?.id ?? ""}
+                    threadId={threadId}
+                    visible={visible}
+                  />
                   <DesktopControl
                     machines={machines}
                     open={visible}

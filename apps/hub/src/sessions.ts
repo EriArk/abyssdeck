@@ -23,6 +23,7 @@ import {
 import { accessCapabilities, requireAccess, threadAccess, turnAccess } from "./access.js";
 import { Attachments } from "./attachments.js";
 import { Catalog, type CatalogProject } from "./catalog.js";
+import { clientToolContext } from "./client-tool-context.js";
 import { codexRuntimeBinding, confirmCodexRuntime, type RuntimeBinding } from "./codex-runtime.js";
 import { observeScheduleReceipt } from "./codex-schedules.js";
 import { elicitationResponse, parseElicitation } from "./elicitation.js";
@@ -1106,7 +1107,10 @@ export class Sessions extends EventEmitter {
       throw new HubError(503, "LIMITS_UNAVAILABLE", "Лимиты сейчас недоступны.");
     }
   }
-  async inventory(projectId: string, refresh = false) {
+  async inventory(projectId: string, refresh = false, threadId?: string) {
+    const thread = threadId ? this.thread(threadId) : undefined;
+    if (thread && thread.projectId !== projectId)
+      throw new HubError(404, "THREAD_NOT_FOUND", "Диалог не найден в этом проекте.");
     const project = this.project(projectId),
       r = await this.runtime(projectId);
     r.touched = Date.now();
@@ -1123,6 +1127,7 @@ export class Sessions extends EventEmitter {
     const groups = await readNativeInventory(
       (method, params) => r.rpc.request(method, params),
       project.workingDirectory,
+      thread?.codexThreadId,
     );
     const unsupportedTools = this.store.db
       .prepare(
@@ -1720,6 +1725,7 @@ export class Sessions extends EventEmitter {
             threadId: t.codexThreadId,
             input: [...(prompt ? [{ type: "text", text: prompt }] : []), ...prepared.input],
             clientUserMessageId: messageId,
+            ...(!diagnostic ? { additionalContext: clientToolContext } : {}),
             ...(internal?.outputSchema ? { outputSchema: internal.outputSchema } : {}),
             ...(diagnostic
               ? { sandboxPolicy: { type: "readOnly" }, approvalPolicy: "never" }

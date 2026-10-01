@@ -165,6 +165,39 @@ test("explicit MCP refresh coalesces on the existing runtime without touching a 
   assert.equal(f.rpc.closed, false);
 });
 
+test("MCP inventory checks the selected thread, not just global configuration", async (t) => {
+  const f = await recoveryFixture(t);
+  const calls = [];
+  f.rpc.request = async (method, params) => {
+    calls.push({ method, params });
+    assert(["skills/list", "plugin/list", "mcpServerStatus/list"].includes(method));
+    return method === "mcpServerStatus/list"
+      ? {
+          data: [
+            {
+              name: "codexweb_browser",
+              runtimeStatus: "connected",
+              tools: { open: {}, tabs: {}, observe: {}, act: {} },
+            },
+          ],
+        }
+      : { data: [], marketplaces: [] };
+  };
+  const result = await f.sessions.inventory(f.thread.projectId, false, f.thread.id);
+  assert.equal(
+    calls.find((c) => c.method === "mcpServerStatus/list").params.threadId,
+    f.thread.codexThreadId,
+  );
+  assert.equal(result.groups.find((g) => g.kind === "mcp").items[0].state, "Подключён");
+  assert.equal(f.store.thread(f.thread.id).activeTurnId, "offline-turn");
+  const before = calls.length;
+  await assert.rejects(f.sessions.inventory("other-project", true, f.thread.id), {
+    code: "THREAD_NOT_FOUND",
+  });
+  assert.equal(calls.length, before);
+  assert.equal(f.rpc.closed, false);
+});
+
 test("Check observes external work without acquiring its writer; terminal checks use a bounded summary", async (t) => {
   const f = await recoveryFixture(t);
   f.runtime.machineId = "pc";

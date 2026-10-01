@@ -11,11 +11,16 @@ const directory = (v: unknown) => {
 export async function readNativeInventory(
   request: (method: string, params: Record<string, unknown>) => Promise<unknown>,
   cwd: string,
+  threadId?: string,
 ): Promise<NativeInventory["groups"]> {
   const responses = await Promise.allSettled([
     request("skills/list", { cwds: [cwd], forceReload: false }),
     request("plugin/list", { cwds: [cwd], forceRefetch: false }),
-    request("mcpServerStatus/list", { limit: 100, detail: "toolsAndAuthOnly" }),
+    request("mcpServerStatus/list", {
+      limit: 100,
+      detail: "toolsAndAuthOnly",
+      ...(threadId ? { threadId } : {}),
+    }),
   ]);
   return responses.map((result, index) => {
     const kind = (["skills", "plugins", "mcp"] as const)[index]!;
