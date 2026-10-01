@@ -117,9 +117,11 @@ test("native workspace binds requests to the account, rejects stale forms and di
   };
   let status = 200,
     posts = 0,
-    changed = false;
+    changed = false,
+    now = 0;
   const runtime = {
     crypto: webcrypto,
+    Date: { now: () => now },
     document: { querySelector: () => ({}), querySelectorAll: () => [] },
   };
   const read = async () => ({ accountFingerprint: changed ? "other" : "bound" });
@@ -161,6 +163,9 @@ test("native workspace binds requests to the account, rejects stale forms and di
   status = 429;
   assert.equal((await run({ operation: "workspaceMutation", input })).dispatched, false);
   status = 503;
+  await assert.rejects(run({ operation: "workspaceMutation", input }), /RATE_LIMITED/);
+  assert.equal(posts, 1, "the rejected request's cooldown must not issue another POST");
+  now += 60_000;
   await assert.rejects(run({ operation: "workspaceMutation", input }), /WORKSPACE_UNAVAILABLE/);
   assert.equal(posts, 2);
   changed = true;
