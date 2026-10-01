@@ -9,7 +9,7 @@ $env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'
 $env:DOTNET_GENERATE_ASPNET_CERTIFICATE = 'false'
 $sdkVersion = (& $Dotnet --version).Trim()
 if ($LASTEXITCODE -ne 0 -or $sdkVersion -ne '10.0.401') { throw 'Companion requires the pinned .NET SDK 10.0.401.' }
-& $Dotnet publish (Join-Path $repository 'apps/companion/CodexWeb.Companion.csproj') -t:Rebuild -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -p:RestoreLockedMode=true -o $OutputDirectory --nologo
+& $Dotnet publish (Join-Path $repository 'apps/companion/CodexWeb.Companion.csproj') -c Release -r win-x64 --self-contained true -p:SelfContained=true -p:PublishSelfContained=true -p:PublishSingleFile=false -p:RestoreLockedMode=true -o $OutputDirectory --nologo
 if ($LASTEXITCODE -ne 0) { throw 'Companion publish failed.' }
 $probe=[Diagnostics.ProcessStartInfo]::new((Join-Path $OutputDirectory 'CodexWeb.Companion.exe'),'--version')
 $probe.UseShellExecute=$false;$probe.CreateNoWindow=$true;$probe.RedirectStandardOutput=$true;$probe.RedirectStandardError=$true
