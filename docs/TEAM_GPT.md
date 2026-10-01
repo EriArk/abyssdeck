@@ -1,5 +1,29 @@
 # Private ChatGPT profiles
 
+## Adapter release inventory (2026-10-02)
+
+A shared adapter contract release must cover the owner's runtime, every existing
+member runtime, and the `--native-image` in the installed provisioning service.
+An owner image upgrade alone is not a member upgrade. Record each actual image
+and adapter hash; retain an explicit pending item if its profile is busy.
+
+For an adapter-only release, build each target from its existing application
+image and replace `/opt/native/adapter/*.mjs`. This preserves the verified app
+version and private profile. `ops/linux/upgrade-native-adapter.py` takes the exact
+container, expected image, target image, profile, Hub state and source revision.
+It checks Hub work and native activity, holds a local manual lease, preserves
+container isolation/resources, and retains the stopped old container for rollback.
+An interrupted attempt retains its private lease/inspection journal under the
+release verification directory and requires inspection before rerunning; never
+clear a lease belonging to another manual recovery session.
+
+After existing members are updated, change the host service's `--native-image`
+to the tested member image and reload the user systemd manager. Do not delete
+profiles or bypass `GPT_CONTAINER_IDENTITY_CHANGED`: that check is not an updater.
+Validate the provisioning contract with isolated fixtures, then check the actual
+service configuration and current runtime hashes. No test message or account
+copy is required for this adapter-only update.
+
 ## Login gateway host configuration (2026-09-21)
 
 The systemd login gateway requires both `HUB_ENGINE_SOCKET` (the host-side engine socket) and `GPT_TEAM_ROOT` (the host-side Team directory). For the current installation these are `/home/abysscloud/services/codex-web/engine/engine.sock` and `/home/abysscloud/services/codex-web/data/team`. Set both in the persistent service environment, including when a native-owner drop-in replaces `ExecStart`.

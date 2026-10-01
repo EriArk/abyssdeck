@@ -9,7 +9,9 @@ export class NativeOperationReceipts{
   const hash=createHash('sha256').update(JSON.stringify({...r,review:undefined})).digest('hex');let row=this.db.prepare('SELECT * FROM operation_receipts WHERE key=?').get(r.key);
   if(row&&row.hash!==hash)fail('KEY_CONFLICT');
   if(!row){
-   if(check)fail('RECEIPT_MISSING');await this.dispatch.assertDispatch(r,reader);
+   if(check)fail('RECEIPT_MISSING');
+   try {
+   await this.dispatch.assertDispatch(r,reader);
    const graph=await reader.readConversationGraph(r),nodes=chain(graph),index=nodes.findIndex(n=>n.message?.id===r.messageId),source=nodes[index];
    if(graph.current_node!==r.currentNode||!source||source.message.author.role!==(r.action==='edit'?'user':'assistant'))fail('BRANCH_CHANGED');
    const prompt=nodes.slice(0,index+1).reverse().find(n=>n.message?.author?.role==='user');if(!prompt)fail('INVALID_REQUEST');
@@ -21,6 +23,13 @@ export class NativeOperationReceipts{
    const payload={...r,createdAt:Date.now(),parentId:r.action==='fork'?r.targetMessageId:source.parent,projectId:graph.gizmo_id??null,fork:r.action==='fork',userMessageId:randomUUID(),promptId:prompt.id,nativeModel:preset.model,nativeEffort:preset.effort,intentPersisted:true};
    this.db.prepare("INSERT INTO operation_receipts VALUES(?,?,?,?,NULL,'unknown')").run(r.key,hash,JSON.stringify(payload),JSON.stringify({ids:Object.keys(graph.mapping),parent:source.parent,prompt:prompt.id}));
    try{const result=await reader.mutateOperation(payload);if(result.dispatched===false)this.db.prepare("UPDATE operation_receipts SET state='rejected' WHERE key=?").run(r.key);if(uuid(result.nativeId))this.db.prepare('UPDATE operation_receipts SET resultId=? WHERE key=?').run(result.nativeId,r.key);}catch{}
+   } catch(error) {
+    // Only absence of the admission receipt proves that no message mutation began.
+    // Persist rejection too: a lost response is reconciled by this exact key,
+    // without re-running preparation or relying on an ambiguous error-code list.
+    if(this.db.prepare('SELECT 1 FROM operation_receipts WHERE key=?').get(r.key))throw error;
+    this.db.prepare("INSERT INTO operation_receipts VALUES(?,?,?,'{}',NULL,'rejected')").run(r.key,hash,JSON.stringify(r));
+   }
    row=this.db.prepare('SELECT * FROM operation_receipts WHERE key=?').get(r.key);
   }
   const saved=JSON.parse(row.payload),baseline=JSON.parse(row.baseline);

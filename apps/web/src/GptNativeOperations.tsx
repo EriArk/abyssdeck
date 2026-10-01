@@ -290,15 +290,25 @@ export function useGptNativeOperations(
         (!latest || pending(latest))
       ) {
         try {
-          await api(`/gpt/native-operations/${encodeURIComponent(stored.id)}`);
+          const receipt = await api<{ state: GptOperation["state"] }>(
+            `/gpt/native-operations/${encodeURIComponent(stored.id)}`,
+          );
+          // A late rejected receipt must restore an editable draft even before
+          // the operation list has caught up. The next action reads a new branch.
+          if (receipt.state === "failed") {
+            stored.submitted = false;
+            stored.attempted = false;
+          }
         } catch (e) {
           if (!(e instanceof ApiError) || e.code !== "GPT_OPERATION_MISSING") throw e;
           stored.submitted = false;
           stored.attempted = true;
           localStorage.setItem(key(scope, message.id), JSON.stringify(stored));
         }
-        if (alive.current && version.current === generation) setDraft(stored);
-        return;
+        if (stored.submitted || stored.attempted) {
+          if (alive.current && version.current === generation) setDraft(stored);
+          return;
+        }
       }
       const preview = await api<{ currentNode: string; message: GptMessage }>(
         `/gpt/conversations/${encodeURIComponent(scope)}/messages/${encodeURIComponent(message.id)}/action`,

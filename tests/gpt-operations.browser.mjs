@@ -23,6 +23,21 @@ for (const [engine, type] of [
     await context.addInitScript(() => {
       localStorage.setItem("codex-client", "gpt");
       localStorage.setItem("gpt-conversation", "chat");
+      localStorage.setItem(
+        "gpt-edit:chat:u",
+        JSON.stringify({
+          id: "rejected-reopen",
+          nativeId: "chat",
+          messageId: "u",
+          currentNode: "old-branch",
+          action: "edit",
+          text: "Сохранённый текст после отказа",
+          model: "Latest",
+          effort: "2",
+          submitted: true,
+          attempted: true,
+        }),
+      );
     });
     const page = await context.newPage(),
       errors = [];
@@ -32,6 +47,16 @@ for (const [engine, type] of [
         { id: "a", role: "assistant", text: "Исходный ответ", files: [], createdAt: 2 },
       ],
       ops = [
+        {
+          id: "rejected-reopen",
+          nativeId: "chat",
+          messageId: "u",
+          state: "failed",
+          action: "edit",
+          text: "Сохранённый текст после отказа",
+          createdAt: 0,
+          updatedAt: 0,
+        },
         {
           id: "older-completion",
           nativeId: "chat",
@@ -132,7 +157,12 @@ for (const [engine, type] of [
             id || url.searchParams.get("newChat") === "1",
             "operation reads must name the selected scope",
           );
-          const items = id ? ops.filter((o) => o.nativeId === id || o.resultNativeId === id) : [];
+          // Deliberately stale list: only the exact receipt GET knows this refusal.
+          const items = id
+            ? ops.filter(
+                (o) => o.id !== "rejected-reopen" && (o.nativeId === id || o.resultNativeId === id),
+              )
+            : [];
           if (holdNext) {
             holdNext = false;
             held.resolve();
@@ -206,6 +236,9 @@ for (const [engine, type] of [
     await page.getByRole("button", { name: "Изменить сообщение GPT", exact: true }).click();
     const modal = page.getByRole("dialog", { name: "Изменить сообщение GPT" }),
       editor = modal.getByRole("textbox", { name: "Изменённое сообщение" });
+    await expect(editor).toBeEnabled();
+    await expect(editor).toHaveValue("Сохранённый текст после отказа");
+    assert.equal(requests.length, 0);
     await editor.fill("Исправленное сообщение\nВторая строка");
     await modal.getByRole("button", { name: "Сохранить и отправить", exact: true }).click();
     await expect(modal.getByRole("alert")).toContainText("Busy before acceptance");

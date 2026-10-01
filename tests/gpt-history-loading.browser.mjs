@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, readdir, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { chromium, expect, webkit } from "@playwright/test";
@@ -45,11 +45,15 @@ try {
       const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true });
       page.on("pageerror", (error) => console.error(error));
       await page.clock.install();
+      await page.clock.pauseAt(new Date(Date.now() + 1000));
       await page.addInitScript(() => localStorage.setItem("gpt-conversation", "history-chat"));
       let release,
         reads = 0,
         writes = 0,
         fail = false;
+      let modelReads = 0,
+        modelFailure = true;
+      const modelGate = Promise.withResolvers();
       let hold = new Promise((resolve) => {
         release = resolve;
       });
@@ -85,8 +89,16 @@ try {
         let data = { items: [], conversations: [], nextOffset: null };
         if (path === "/api/gpt/status")
           data = { configured: true, canSend: true, state: "healthy" };
-        if (path === "/api/gpt/models")
+        if (path === "/api/gpt/models") {
+          modelReads++;
+          await modelGate.promise;
+          if (modelFailure)
+            return route.fulfill({
+              status: 503,
+              json: { error: { code: "GPT_BUSY", message: "Busy" } },
+            });
           data = { models: [{ id: "latest", label: "Latest" }], efforts: [] };
+        }
         if (path === "/api/gpt/conversations")
           data = {
             items: [{ id: "history-chat", title: "Сбор резюме и поиск работы", updatedAt: 1 }],
@@ -144,6 +156,30 @@ try {
         });
       const indicator = page.getByRole("status", { name: "Загрузка истории GPT", exact: true });
       await expect(indicator).toBeVisible();
+      await expect.poll(() => modelReads).toBe(1);
+      const modelResponse = page.waitForResponse((r) => r.url().endsWith("/api/gpt/models"));
+      modelGate.resolve();
+      await modelResponse;
+      await page.waitForTimeout(100);
+      await page.clock.fastForward(5100);
+      await expect.poll(() => modelReads).toBe(2);
+      await page.clock.fastForward(5100);
+      assert.equal(modelReads, 2, "failed model reads back off beyond five seconds");
+      await page.clock.fastForward(5100);
+      await expect.poll(() => modelReads).toBe(3);
+      await page.evaluate(() => {
+        Object.defineProperty(document, "hidden", { configurable: true, value: true });
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+      await page.clock.fastForward(120000);
+      assert.equal(modelReads, 3, "hidden viewers do not retry model reads");
+      modelFailure = false;
+      await page.evaluate(() => {
+        Object.defineProperty(document, "hidden", { configurable: true, value: false });
+        document.dispatchEvent(new Event("visibilitychange"));
+        window.dispatchEvent(new Event("online"));
+      });
+      await expect.poll(() => modelReads).toBe(4);
       await page.clock.fastForward(12000);
       await expect(indicator).toBeVisible();
       const textarea = page.locator(".gpt-input-row textarea");

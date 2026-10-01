@@ -42,6 +42,7 @@ import {
   gptProjects,
 } from "./gpt-history.js";
 import { GptHistoryDisk } from "./gpt-history-disk.js";
+import { GptHistoryWatch } from "./gpt-history-watch.js";
 import { gptLinkedText } from "./gpt-links.js";
 import { gptMutationBlocked } from "./gpt-mutation-admission.js";
 import { NativeGptJobs } from "./gpt-native-jobs.js";
@@ -111,13 +112,10 @@ export class GptService {
   private readonly historyReads = new Map<string, Promise<Json>>();
   readonly historyCache: GptHistoryCache;
   readonly attention: GptAttention;
-  private watchedHistory = new Map<string, number>();
+  readonly watchedHistory = new GptHistoryWatch();
   private historyWatchTimer = setInterval(() => {
     if (this.stopped || this.libraryBusy) return;
-    const now = Date.now();
-    for (const [id, at] of [...this.watchedHistory].sort((a, b) => a[1] - b[1]).slice(0, 2)) {
-      if (now - at < 30000) continue;
-      this.watchedHistory.set(id, now);
+    for (const id of this.watchedHistory.due()) {
       this.historyCache.warm(id);
     }
   }, 15000).unref();
@@ -470,8 +468,9 @@ export class GptService {
       Math.min(128 * 1024 * 1024, config.hub.storage.artifactBytes),
     );
     this.attention = new GptAttention(store);
-    for (const id of this.attention.pendingIds())
-      if (!this.library.get("thread", id)?.deleted) this.watchedHistory.set(id, 0);
+    for (const { id, changedAt } of this.attention.pendingWatches())
+      if (!this.library.get("thread", id)?.deleted)
+        this.watchedHistory.observe(id, true, changedAt);
     this.historyCache = new GptHistoryCache(
       async (id) => {
         const messages = this.historyNormalizer.normalize(
@@ -480,11 +479,8 @@ export class GptService {
             : await this.readConversation(id),
           id,
         );
-        if (this.attention.observe(id, messages).pending) {
-          this.watchedHistory.set(id, Date.now());
-          while (this.watchedHistory.size > 32)
-            this.watchedHistory.delete(this.watchedHistory.keys().next().value!);
-        } else this.watchedHistory.delete(id);
+        const attention = this.attention.observe(id, messages);
+        this.watchedHistory.observe(id, attention.pending, attention.changedAt);
         return messages;
       },
       Date.now,
@@ -1492,9 +1488,10 @@ export class GptService {
     }
     this.observedHistory = undefined;
     if (job.nativeId) {
-      if (refresh && ["running", "idle", "completed", "cancelled"].includes(job.status))
+      if (refresh && ["running", "idle", "completed", "cancelled"].includes(job.status)) {
+        this.watchedHistory.active(job.nativeId);
         this.historyCache.warm(job.nativeId, job.status !== "running");
-      else this.historyCache.invalidate(job.nativeId);
+      } else this.historyCache.invalidate(job.nativeId);
     }
   }
   async pump() {
@@ -2114,6 +2111,7 @@ export function registerGpt(
       )
       .get(p.id);
     service.library.assertExists("thread", p.id);
+    if (q.cached === "1" || !q.known) service.watchedHistory.active(p.id);
     const page = await service.historyCache.page(
       p.id,
       q,

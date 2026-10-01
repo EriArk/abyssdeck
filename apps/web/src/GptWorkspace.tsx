@@ -715,10 +715,17 @@ export function GptWorkspace({
     let retry: ReturnType<typeof setTimeout>;
     // Choices are independent of history, navigation and the slower connection probe.
     // Refresh saved choices quietly without replacing a still-valid user selection.
-    const load = () =>
+    let attempts = 0,
+      loading = false,
+      needsRetry = true;
+    const load = () => {
+      if (disposed || document.hidden || loading || !needsRetry) return;
+      clearTimeout(retry);
+      loading = true;
       void api<GptModels>("/gpt/models")
         .then((next) => {
           if (disposed) return;
+          needsRetry = false;
           setModels(next);
           gptCache.models = next;
           setModel((old) =>
@@ -733,12 +740,28 @@ export function GptWorkspace({
           );
         })
         .catch(() => {
-          if (!disposed) retry = setTimeout(load, 5000);
+          attempts++;
+          if (!disposed && !document.hidden)
+            retry = setTimeout(load, Math.min(60000, 5000 * 2 ** Math.min(attempts - 1, 4)));
+        })
+        .finally(() => {
+          loading = false;
         });
+    };
+    const resume = () => {
+      clearTimeout(retry);
+      if (!document.hidden) load();
+    };
     load();
+    window.addEventListener("online", resume);
+    window.addEventListener("pageshow", resume);
+    document.addEventListener("visibilitychange", resume);
     return () => {
       disposed = true;
       clearTimeout(retry);
+      window.removeEventListener("online", resume);
+      window.removeEventListener("pageshow", resume);
+      document.removeEventListener("visibilitychange", resume);
     };
   }, []);
   const currentJobs = jobs

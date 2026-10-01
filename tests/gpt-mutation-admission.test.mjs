@@ -193,7 +193,7 @@ test("uncertain native send survives restart while unrelated edit, library, proj
         assert.equal((await ops.run(r, f.reader)).state, "unknown");
         await ops.run(r, f.reader);
         assert.equal(f.writes.length, 2);
-        await assert.rejects(ops.run({ ...r, key: randomUUID() }, f.reader), /PENDING_DISPATCH/);
+        assert.equal((await ops.run({ ...r, key: randomUUID() }, f.reader)).state, "rejected");
       } else if (kind === "library") {
         const ops = new NativeLibraryReceipts(f.dispatch),
           r = { key, kind: "thread", id: f.b, action: "rename", name: "After" };
