@@ -412,6 +412,18 @@ export function Chat({
   }, [threadId]);
   const [draft, setDraft] = useState("");
   const active = ["running", "starting", "waiting_approval"].includes(state.thread.status);
+  const lastMessage = state.messages.at(-1);
+  const unconfirmed = state.thread.status === "unknown" && !!state.thread.activeTurnId;
+  const unfinished =
+    state.thread.status === "idle" &&
+    !state.loading &&
+    !state.contextTurn &&
+    !state.hasNewer &&
+    lastMessage?.role === "assistant" &&
+    lastMessage.phase === "commentary" &&
+    !!lastMessage.turnId;
+  const showStatus = sending || queue.busy || active || unconfirmed || unfinished;
+  const detailsTurn = state.thread.activeTurnId ?? (unfinished ? lastMessage?.turnId : null);
   const external = state.thread.activitySource === "external";
   const questionReplies = [
     ...state.messages
@@ -658,7 +670,11 @@ export function Chat({
                           <time>{time(message.createdAt)}</time>
                           {message.phase === "plan" && <span className="badge">План</span>}
                           {message.phase === "commentary" && (
-                            <span className="small muted">В работе</span>
+                            <span className="small muted">
+                              {active && message.turnId === state.thread.activeTurnId
+                                ? "В работе"
+                                : "Ход работы"}
+                            </span>
                           )}
                           <span className="message-actions">
                             {message.role === "assistant" && (
@@ -905,7 +921,7 @@ export function Chat({
           />
         )}
         <div className="chat-status-row">
-          {(sending || queue.busy || active) && (
+          {showStatus && (
             <div
               className={`turn-status ${state.approvals.length ? "needs-answer" : ""}`}
               role="status"
@@ -920,9 +936,23 @@ export function Chat({
                 onClick={() => setDetailsOpen((v) => !v)}
               >
                 <span
-                  className={state.approvals.length ? "status-dot attention" : "spinner"}
+                  className={
+                    state.approvals.length
+                      ? "status-dot attention"
+                      : active || sending || queue.busy
+                        ? "spinner"
+                        : "status-dot"
+                  }
                   role="img"
-                  aria-label={state.approvals.length ? "Нужен ответ" : "Codex работает"}
+                  aria-label={
+                    state.approvals.length
+                      ? "Нужен ответ"
+                      : active || sending || queue.busy
+                        ? "Codex работает"
+                        : unconfirmed
+                          ? "Состояние работы не подтверждено"
+                          : "Codex сейчас не работает"
+                  }
                 />
                 <span>
                   {queue.busy
@@ -933,9 +963,13 @@ export function Chat({
                         : "Отправляем сообщение…"
                       : state.approvals.length
                         ? "Codex ждёт твоего ответа"
-                        : state.thread.activitySource === "external"
-                          ? "Codex работает в другом клиенте"
-                          : state.progress || statusLabel(state.thread.status)}
+                        : unconfirmed
+                          ? "Состояние работы не подтверждено"
+                          : unfinished
+                            ? "Codex сейчас не работает"
+                            : state.thread.activitySource === "external"
+                              ? "Codex работает в другом клиенте"
+                              : state.progress || statusLabel(state.thread.status)}
                 </span>
                 <span className="details-chevron">
                   <Icon name="chevron" size={14} />
@@ -983,8 +1017,8 @@ export function Chat({
             }}
           />
         </div>
-        {detailsOpen && (sending || queue.busy || active) && (
-          <TurnDetails threadId={threadId} turnId={state.thread.activeTurnId} />
+        {detailsOpen && showStatus && (
+          <TurnDetails threadId={threadId} turnId={detailsTurn ?? null} />
         )}
         {handoff.panel}
         <ContextUsage key={`context:${threadId}`} threadId={threadId} active={active} />

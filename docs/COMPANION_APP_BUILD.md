@@ -179,5 +179,11 @@ SID/MachineGuid-проверку и ограниченный DPAPI grant; native
 проверен пятью fixtures без намеренной поломки исправной установки владельца.
 Полный первый мастер на другом физическом ПК ещё не принят: peer друга offline.
 Пакет `CodexWeb-Companion-0.3.0-win-x64.zip` содержит Install.cmd/README; старые
-immutable releases сохранены. Перенос workers остаются
-следующими отдельно согласованными этапами. Актуальная приёмка — CURRENT_STATUS.md.
+immutable releases сохранены. Перенос workers остаётся следующим отдельно
+согласованным этапом. Подписанные обновления UI и bounded auxiliary recovery
+реализованы в 0.4.1. UI владельца обновлён штатным updater 1 октября в 03:54 UTC,
+source `3d7a57c`, manifest
+`0530121b3b5bd6a390bc355a8bd24892202c5153491fd24a9eb6db2ad8020f5c`.
+267 файлов проверены, новая UI подтвердила запуск; профиль, девять task/config
+snapshots и native PID через переключение UI сохранены. Старые releases доступны
+для rollback и действующих клиентов. Актуальная приёмка — CURRENT_STATUS.md.

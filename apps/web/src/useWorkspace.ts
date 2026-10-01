@@ -199,10 +199,20 @@ export function useWorkspace(threadId: string) {
             thread = { ...thread, status: approvals.length ? "waiting_approval" : "running" };
           }
           const error =
-            event.type === "error" ||
-            (["session.state", "session.notice"].includes(event.type) && p.message)
-              ? String(p.message ?? "Ошибка Codex")
-              : s.error;
+            event.type === "session.state" &&
+            [
+              "starting",
+              "running",
+              "waiting_approval",
+              "idle",
+              "completed",
+              "interrupted",
+            ].includes(String(p.status))
+              ? ""
+              : event.type === "error" ||
+                  (["session.state", "session.notice"].includes(event.type) && p.message)
+                ? String(p.message ?? "Ошибка Codex")
+                : s.error;
           return {
             ...s,
             messages,
