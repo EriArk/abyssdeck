@@ -546,12 +546,14 @@ export function BookReader({ document: book }: { document: ReadingDocument }) {
           </button>
         </div>
       )}
-      {state.error && <small role="status">{state.error}</small>}
-      {state.voice === "loading" && (
-        <small role="status">
-          <span className="spinner" /> Подготовка озвучки…
-        </small>
-      )}
+      <small className="reader-voice-status" role="status">
+        {state.error ||
+          (state.voice === "loading" && (
+            <>
+              <span className="spinner" /> Подготовка озвучки…
+            </>
+          ))}
+      </small>
       <div ref={viewport} className="reader-scroll" aria-busy={state.busy}>
         <article ref={article} />
       </div>

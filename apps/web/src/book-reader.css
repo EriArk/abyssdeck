@@ -21,6 +21,14 @@
   min-width: 0;
   width: 100%;
 }
+/* Status changes must not reflow pages and cancel the audio being prepared. */
+.reader-voice-status {
+  flex: none;
+  height: 2.8em;
+  line-height: 1.4;
+  overflow: auto;
+  padding-inline: 6px;
+}
 .book-reader select {
   color: inherit;
   background: var(--surface);

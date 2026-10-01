@@ -96,7 +96,7 @@ try {
             setTimeout(() => {
               this.onloadedmetadata?.();
               this.onplaying?.();
-            }, 0);
+            }, 1000);
             return Promise.resolve();
           }
           pause() {
@@ -258,12 +258,36 @@ try {
       await reader.getByRole("combobox", { name: "Голос читалки" }).selectOption("server");
       await reader.getByRole("button", { name: "Настройки чтения" }).click();
       await expect(reader.locator(".reader-bottom")).toContainText(/Стр\./);
+      const beforeVoiceHeight = await reader
+        .locator(".reader-scroll:not(.reader-measure)")
+        .evaluate((pane) => pane.clientHeight);
+      const deletedBeforeVoice = deletes.length;
       await reader.getByRole("button", { name: "Озвучить страницу" }).click();
       await expect.poll(() => posts.length).toBeGreaterThan(0);
+      await expect(reader.locator(".reader-voice-status")).toContainText("Подготовка озвучки");
+      assert.equal(
+        await reader
+          .locator(".reader-scroll:not(.reader-measure)")
+          .evaluate((pane) => pane.clientHeight),
+        beforeVoiceHeight,
+        "loading does not change page geometry or cancel synthesis",
+      );
       assert.ok(posts[0].text.length < 30000);
       await expect.poll(() => page.evaluate(() => audioMock.length)).toBe(1);
       const beforeAudioPage = await reader.locator(".reader-bottom").innerText();
       await expect.poll(() => posts.length).toBe(2);
+      await expect(reader.locator(".reader-voice-status")).toBeEmpty();
+      assert.equal(
+        deletes.length,
+        deletedBeforeVoice,
+        "starting playback preserves the registered page and lookahead",
+      );
+      assert.equal(
+        await reader
+          .locator(".reader-scroll:not(.reader-measure)")
+          .evaluate((pane) => pane.clientHeight),
+        beforeVoiceHeight,
+      );
       await page.evaluate(() => {
         const audio = audioMock[0];
         audio.currentTime = 1;
