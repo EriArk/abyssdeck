@@ -18,6 +18,7 @@ import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import engine_checkpoint
+import checkpoint_retention
 import workspace_activation
 
 
@@ -315,6 +316,8 @@ def main():
                     run(['docker', 'start', 'codex-web-hub'])
                 status('rolled_back', code='ENGINE_MAINTENANCE_FAILED')
             raise
+        if checkpoint:
+            print(json.dumps({'checkpointRetention': checkpoint_retention.after_upgrade(state)}))
 
 
 if __name__ == '__main__':

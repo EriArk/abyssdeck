@@ -1,0 +1,10 @@
+[Unit]
+Description=Codex Web keep three completed engine checkpoints
+[Service]
+Type=oneshot
+EnvironmentFile=%h/.config/codex-web/backup.env
+UMask=0077
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=15min
+ExecStart=/usr/bin/python3 %h/.local/lib/codex-web/checkpoint_retention.py --state ${CODEX_WEB_STATE} --apply

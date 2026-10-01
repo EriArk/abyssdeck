@@ -79,6 +79,36 @@ systemctl --user list-timers codex-web-backup.timer
 
 The timer runs daily at 03:30 in the server timezone with up to 10 minutes jitter and catches up after downtime. Ensure the service account's user manager is available at boot (for example systemd linger). On each deployment, update the pinned image/revision in backup.env and run one manual service check.
 
+The owner-selected retention is **three completed copies per backup stream**.
+The daily service passes `--keep 3`. The engine updater separately prunes its
+`backups/before-team-engine-*` checkpoints after a healthy release is installed.
+It uses recorded verification and admission metadata for this exact installation;
+ordinary daily snapshots, special archives and unfinished checkpoints are separate.
+Cleanup failures are recorded in `checkpoint-retention.json` and never roll back
+the working Hub. Creation still verifies backup contents before admitting a release.
+
+For installations using older updater checkouts, install the fallback timer:
+
+```bash
+mkdir -p ~/.local/lib/codex-web ~/.config/systemd/user
+install -m 600 ops/linux/checkpoint_retention.py ~/.local/lib/codex-web/
+install -m 644 ops/linux/codex-web-checkpoint-retention.{service,timer} ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now codex-web-checkpoint-retention.timer
+```
+
+The fallback runs after boot and hourly. It shares the deployment lock and defers
+quietly while an update is using it. Inspect its exact deletion candidates without
+changing files using `python3 ops/linux/checkpoint_retention.py --state /srv/codex-web`;
+`--apply` enables deletion. Only the fixed direct checkpoint children are eligible.
+
+On 2026-10-01, the owner's installation had 86 pre-upgrade checkpoints and 441 GiB
+in `backups` overall. The approved initial cleanup selects 81 old admitted copies
+(387 GiB), retaining the latest three whose full checksums and databases were
+verified again. Old migration backups and test directories inside `data` also
+inflate each new checkpoint; correcting their lifecycle is separate from deleting
+these approved obsolete copies.
+
 ## Doctor
 
 ```bash

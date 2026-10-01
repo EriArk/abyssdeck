@@ -1,5 +1,13 @@
 # AGENTS.md
 
+## Owner-requested backup retention (2026-10-01)
+
+- Keep the latest three completed backups per automatic backup stream: pre-upgrade
+  engine checkpoints and daily snapshots. Enforce retention automatically; do not
+  accumulate a full checkpoint for every release indefinitely.
+- Prune after the new backup/release is verified. Retention does not stop the Hub
+  or roll back a healthy deployment when cleanup fails.
+
 ## Owner-requested Bridge Doctor repairs (2026-10-01)
 
 - Bridge Doctor restores compatibility after native updates. The account's explicit
