@@ -1,5 +1,21 @@
 # AGENTS.md
 
+## Owner-requested Bridge Doctor repairs (2026-10-01)
+
+- Bridge Doctor restores compatibility after native updates. The account's explicit
+  repair mode authorizes investigation, code changes, focused tests and ordinary
+  deployment for its incident; do not force it into read-only diagnosis or ask for
+  the same repair permission again. Diagnosis-only remains a separate setting.
+- Run maintenance in its dedicated associated thread alongside ordinary project
+  work. Prepare code in an isolated worktree; activation follows normal maintenance
+  admission and rollback. Do not wait for every project chat before investigating.
+- Use the native provider's health contract. Do not validate native health against
+  the retired browser-extension version/capability schema. Recover stale Doctor
+  associations from exact completed creation receipts without sending again.
+- Preserve account bindings, active native writers and uncertain operation receipts.
+  No replay of uncertain input, forced update or restart of unfinished provider work.
+  Authentication and upstream cooldown are not compatibility defects to code around.
+
 ## Owner-requested full reader and fixed document pages (2026-10-01)
 
 - Read complete text files in the universal viewer, not a 64 KiB excerpt. Reuse

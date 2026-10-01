@@ -53,6 +53,51 @@ export class NativeGptProvider {
   private verified?: { instance: string; until: number };
   private checking?: { instance: string; task: Promise<void> };
   constructor(readonly workspace: NativeGptWorkspace) {}
+  async doctorReport() {
+    try {
+      const connection = await this.connection();
+      return {
+        ...connection,
+        provider: "native",
+        doctorObstruction: connection.state === "attention" ? "owner" : "clear",
+      };
+    } catch (error) {
+      const code =
+        error instanceof Error &&
+        [
+          "NATIVE_UNSUPPORTED_BUILD",
+          "NATIVE_INCOMPATIBLE",
+          "NATIVE_ACCOUNT_MISMATCH",
+          "NATIVE_BINDING_MISMATCH",
+          "NATIVE_LOGIN_REQUIRED",
+          "NATIVE_RATE_LIMITED",
+          "NATIVE_BUSY",
+          "NATIVE_ACCOUNT_UNAVAILABLE",
+        ].includes(error.message)
+          ? error.message
+          : "NATIVE_UNAVAILABLE";
+      const state = ["NATIVE_UNSUPPORTED_BUILD", "NATIVE_INCOMPATIBLE"].includes(code)
+        ? "incompatible"
+        : ["NATIVE_RATE_LIMITED", "NATIVE_BUSY"].includes(code)
+          ? "busy"
+          : [
+                "NATIVE_ACCOUNT_MISMATCH",
+                "NATIVE_BINDING_MISMATCH",
+                "NATIVE_LOGIN_REQUIRED",
+                "NATIVE_ACCOUNT_UNAVAILABLE",
+              ].includes(code)
+            ? "login_required"
+            : "unavailable";
+      return {
+        provider: "native",
+        state,
+        doctorCode: code,
+        canRead: false,
+        canSend: false,
+        doctorObstruction: "clear",
+      };
+    }
+  }
   assertSubmission(id: string, nativeId: string | null) {
     if (
       !(nativeId === null

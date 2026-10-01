@@ -692,7 +692,7 @@ export class GptService {
     ).json();
   }
   async doctorReport() {
-    if (this.native) return { ...(await this.connection(true)), provider: "native" };
+    if (this.native) return this.native.doctorReport();
     const raw = await this.json("/status");
     if (this.nativeCounts().active) return { ...raw, state: "busy" };
     return this.compatibilityFailure && raw.state === "healthy"

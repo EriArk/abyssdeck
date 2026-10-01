@@ -120,11 +120,20 @@ for (const [engine, type] of [
     page.on("pageerror", (e) => errors.push(e.message));
     await page.goto(origin);
     await page.getByRole("textbox", { name: "Сообщение Codex" }).fill("Сохранить мой черновик");
+    await page.getByRole("button", { name: "Открыть проекты", exact: true }).click();
     await page.getByRole("button", { name: "Настройки", exact: true }).click();
     await page.locator('.settings-browser[open] [data-category="maintenance"]').click();
     const doctor = page.locator(".bridge-doctor-panel");
     await doctor.locator(":scope > summary").click();
     await expect(doctor.getByLabel("Проект Bridge Doctor")).toHaveValue("project");
+    await expect(doctor.getByLabel("Режим Bridge Doctor")).toHaveValue("diagnose");
+    await doctor.getByLabel("Режим Bridge Doctor").selectOption("repair");
+    await expect(doctor.getByLabel("Режим Bridge Doctor")).toBeEnabled();
+    assert.equal(
+      JSON.parse(f.store.db.prepare("SELECT value FROM bridge_doctor_config").get().value).mode,
+      "repair",
+    );
+    await expect(doctor.getByText(/Doctor может исправлять код/)).toBeVisible();
     assert(
       (await doctor.getByLabel("Автодиагностика GPT").locator("..").boundingBox()).height >= 44,
     );
@@ -142,6 +151,25 @@ for (const [engine, type] of [
       animations: "disabled",
     });
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    for (const theme of ["organizer", "crt-green", "hitech-2000s", "classic-dark"]) {
+      for (const [width, height] of [
+        [390, 844],
+        [390, 500],
+        [768, 1024],
+        [1366, 1024],
+      ]) {
+        await page.setViewportSize({ width, height });
+        await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme);
+        await doctor.getByLabel("Режим Bridge Doctor").scrollIntoViewIfNeeded();
+        const box = await doctor.getByLabel("Режим Bridge Doctor").boundingBox();
+        assert(box.x >= 0 && box.x + box.width <= width + 1);
+        await page.screenshot({
+          path: `.local/qa-doctor/${engine}-${theme}-${width}-${height}.png`,
+          animations: "disabled",
+        });
+      }
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
     await doctor.getByRole("button", { name: "Скрыть", exact: true }).click();
     await expect(doctor.locator(".doctor-incident > summary")).toContainText("Скрыт");
     assert.equal(
@@ -150,6 +178,8 @@ for (const [engine, type] of [
       "skipped",
     );
     await page.getByRole("button", { name: "Закрыть настройки" }).click();
+    const drawer = page.getByRole("dialog", { name: "Проекты и диалоги" });
+    if (await drawer.isVisible()) await page.keyboard.press("Escape");
     await expect(page.getByRole("textbox", { name: "Сообщение Codex" })).toHaveValue(
       "Сохранить мой черновик",
     );

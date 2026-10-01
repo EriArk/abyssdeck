@@ -71,14 +71,16 @@ test("explicit per-thread full access is applied natively, retained on resume, a
     assert.equal(call.p.approvalPolicy, "never");
     assert.equal(call.p.sandboxPolicy, undefined);
     assert.notEqual(store.threadSettings(other.id)?.access, "full");
+    store.db.prepare("UPDATE threads SET sourceUpdatedAt=? WHERE id=?").run(Date.now(), t.id);
     await sessions.close();
     const next = new Rpc();
     sessions = new Sessions(config, store, () => next);
     await sessions.resume(t.id);
+    assert.equal(next.calls.filter((c) => c.method === "thread/resume").length, 0);
+    await sessions.startTurn(t.id, "A harmless check");
     call = next.calls.find((c) => c.method === "thread/resume");
     assert.equal(call.p.permissions, ":danger-full-access");
     assert.equal(call.p.approvalPolicy, "never");
-    await sessions.startTurn(t.id, "A harmless check");
     call = next.calls.findLast((c) => c.method === "turn/start");
     assert.equal(call.p.permissions, ":danger-full-access");
     await sessions.setSettings(t.id, { ...settings, access: "workspace" });
@@ -166,11 +168,12 @@ test("manual desktop handoff persists, closes loaded writers and never reacquire
   let sessions = new Sessions(config, store, factory);
   try {
     const t = await sessions.create("p", "Handoff");
+    store.db.prepare("UPDATE threads SET sourceUpdatedAt=? WHERE id=?").run(Date.now(), t.id);
     await sessions.setMachineClient("pc", "desktop");
     assert.equal(clients[0].closed, true);
     assert.equal(sessions.machineClient("pc"), "desktop");
     await sessions.capabilities("p");
-    await assert.rejects(sessions.resume(t.id), { code: "MACHINE_RELEASED" });
+    await sessions.resume(t.id);
     await assert.rejects(sessions.startTurn(t.id, "No surprise ownership"), {
       code: "MACHINE_RELEASED",
     });
@@ -185,8 +188,9 @@ test("manual desktop handoff persists, closes loaded writers and never reacquire
     assert.equal(sessions.machineClient("pc"), "desktop");
     await sessions.setMachineClient("pc", "web");
     await sessions.resume(t.id);
-    assert.equal(clients.at(-1).calls.filter((c) => c.method === "thread/resume").length, 1);
+    assert.equal(clients.at(-1).calls.filter((c) => c.method === "thread/resume").length, 0);
     await sessions.startTurn(t.id, "Active");
+    assert.equal(clients.at(-1).calls.filter((c) => c.method === "thread/resume").length, 1);
     await assert.rejects(sessions.setMachineClient("pc", "desktop"), { code: "DESKTOP_BUSY" });
     await sessions.setMachineClient("pc", "desktop", true);
     assert.equal(clients.at(-1).closed, true);

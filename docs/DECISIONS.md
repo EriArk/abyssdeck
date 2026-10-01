@@ -604,3 +604,21 @@ The owner-approved #38 preview uses a separate fixed `CodexWebGuiPreview` intera
 ## 2026-09-21 — Codex file links outside the checkout
 
 Explicit file links observed in authenticated native assistant messages may name exports outside the project directory on that same execution machine. Capture those exact paths through the existing private transport and bind snapshots to thread, turn and message. The browser cannot request arbitrary machine paths. Project Files keeps its existing root boundary. Import file links while reading historical native messages as well as live completion events; preserve existing snapshots and avoid duplicates. Files without extensions are supported as explicit links too.
+
+## 2026-10-01 — Authorized Bridge Doctor repair
+
+The owner's explicit repair-mode choice supersedes the September 10 read-only
+Doctor restriction. Retain diagnosis-only as a separate per-account mode. Repair
+uses the associated private diagnostic thread and the existing full-access native
+profile, normal client tools, an instructed isolated worktree and ordinary release
+admission/rollback. It may investigate and prepare alongside ordinary project
+chats; owner work also remains available while maintenance runs. Do not equate
+project-wide activity with an exclusive native conversation writer.
+
+Native health uses the native contract, not the legacy extension schema. Recover
+an unknown Doctor association from its exact completed creation receipt; do not
+recreate or resend an uncertain operation. A definite pre-send missing-thread
+refusal may replace the maintenance destination while retaining history. Healthy
+observations immediately suppress obsolete pending incident dispatch. Login,
+account binding and upstream cooldown do not authorize speculative code changes.
+See [audit and verification](BRIDGE_DOCTOR_REPAIR_2026-10-01.md).

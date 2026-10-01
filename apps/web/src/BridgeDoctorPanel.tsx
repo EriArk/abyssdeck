@@ -11,6 +11,7 @@ type Data = {
     threadId: string | null;
     state: string;
     enabled: boolean;
+    mode?: "diagnose" | "repair";
     revision: number;
   };
   projects: { id: string; name: string }[];
@@ -28,6 +29,7 @@ type Data = {
     message?: string;
     diagnostics: {
       code: string;
+      provider?: "native" | "browser";
       state: string;
       revision: string;
       bridgeVersion: string;
@@ -93,7 +95,11 @@ export function BridgeDoctorPanel({
   };
   if (!data) return error ? <p className="form-error">{error}</p> : null;
   const count = data.incidents.filter((i) => i.state === "open").length;
-  const configure = (patch: { enabled?: boolean; projectId?: string }) =>
+  const configure = (patch: {
+    enabled?: boolean;
+    projectId?: string;
+    mode?: "diagnose" | "repair";
+  }) =>
     action(() =>
       api("/gpt/doctor/settings", {
         method: "POST",
@@ -101,6 +107,7 @@ export function BridgeDoctorPanel({
           enabled: data.association.enabled,
           projectId: data.association.projectId,
           revision: data.association.revision,
+          mode: data.association.mode ?? "diagnose",
           ...patch,
         },
       }),
@@ -148,7 +155,23 @@ export function BridgeDoctorPanel({
             ))}
           </select>
         </label>
-        <small>Только анализ. Исправления и перезапуски — по твоему запросу.</small>
+        <label>
+          Действие при сбое
+          <select
+            aria-label="Режим Bridge Doctor"
+            value={data.association.mode ?? "diagnose"}
+            disabled={busy}
+            onChange={(e) => void configure({ mode: e.target.value as "diagnose" | "repair" })}
+          >
+            <option value="diagnose">Диагностика</option>
+            <option value="repair">Диагностика и ремонт</option>
+          </select>
+        </label>
+        <small>
+          {data.association.mode === "repair"
+            ? "Doctor может исправлять код, запускать проверки и устанавливать проверенные исправления с полным доступом к машине проекта. Работа идёт в отдельном чате; обновления сохраняют активные задачи."
+            : "Doctor изучает сбой и сообщает причину. Выбери ремонт, чтобы разрешить исправления и их проверку."}
+        </small>
         {data.association.state === "unknown" && (
           <div className="form-error">
             <p>Создание чата не подтверждено. Выбери уже созданный отдельный чат.</p>
@@ -200,9 +223,11 @@ export function BridgeDoctorPanel({
             <p className="muted">{status[i.delivery]}</p>
             {i.message && <p>{i.message}</p>}
             <dl>
-              <dt>Bridge</dt>
+              <dt>Подключение</dt>
               <dd>
-                {i.diagnostics.bridgeVersion} · protocol {i.diagnostics.protocol ?? "?"}
+                {i.diagnostics.provider === "native"
+                  ? "Приложение ChatGPT"
+                  : `${i.diagnostics.bridgeVersion} · protocol ${i.diagnostics.protocol ?? "?"}`}
               </dd>
               <dt>Версия сайта</dt>
               <dd>{i.diagnostics.revision}</dd>

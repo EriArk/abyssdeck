@@ -26,6 +26,18 @@
 .doctor-controls select {
   max-width: 62%;
   min-width: 0;
+  min-height: 44px;
+}
+@media (max-width: 600px) {
+  .doctor-controls label:has(select) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+  .doctor-controls select {
+    width: 100%;
+    max-width: none;
+  }
 }
 .doctor-controls small {
   color: var(--muted);

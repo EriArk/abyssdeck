@@ -2,8 +2,9 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { BridgeDoctor, doctorState } from "../apps/hub/dist/bridge-doctor.js";
+import { NativeGptProvider } from "../apps/hub/dist/gpt-native-provider.js";
 import { ProjectContext } from "../apps/hub/dist/project-context.js";
-import { GPT_BRIDGE_REVISION } from "../packages/shared/dist/index.js";
+import { GPT_BRIDGE_REVISION, HubError, NotSubmittedError } from "../packages/shared/dist/index.js";
 import { handoffFixture } from "./handoff-fixture.mjs";
 
 const report = (state = "healthy", extra = {}) => ({
@@ -137,12 +138,12 @@ test("Doctor creates one dedicated read-only native chat and send without changi
   assert.deepEqual(send[0].params.sandboxPolicy, { type: "readOnly" });
   assert.equal(send[0].params.approvalPolicy, "never");
   assert.equal(send[0].params.clientUserMessageId, incident.id);
-  assert.match(send[0].params.input[0].text, /Запрещено менять файлы/);
+  assert.match(send[0].params.input[0].text, /диагностики без изменений/);
   await doctor.dispatch();
   assert.equal(f.calls.filter((c) => c.method === "turn/start").length, 1);
 });
 test("lost Doctor creation/send acknowledgements cannot create or submit a second native operation", async (t) => {
-  const { f, doctor, gpt, fault, now } = await fixture(t);
+  const { f, doctor, gpt, fault, now, advance } = await fixture(t);
   await f.release();
   fault();
   let creates = 0;
@@ -161,12 +162,138 @@ test("lost Doctor creation/send acknowledgements cannot create or submit a secon
   assert.throws(() => afterRestart.bind(f.thread.id), /отдельный/);
   const recovered = f.store.createThread("project", randomUUID(), "Bridge Doctor");
   afterRestart.bind(recovered.id);
+  advance(60001);
+  afterRestart.observe(report("degraded"));
   f.loseAck();
   await afterRestart.dispatch();
   assert.equal(afterRestart.list()[0].delivery, "unknown");
   assert.equal(f.calls.filter((c) => c.method === "turn/start").length, 1);
   await afterRestart.dispatch();
   assert.equal(f.calls.filter((c) => c.method === "turn/start").length, 1);
+});
+
+test("native health is not validated as the retired browser extension contract", async (t) => {
+  const { doctor, gpt, advance } = await fixture(t);
+  gpt.doctorReport = async () => ({
+    provider: "native",
+    state: "healthy",
+    canRead: true,
+    canSend: true,
+  });
+  for (let i = 0; i < 8; i++) {
+    advance(20000);
+    await doctor.pulse();
+  }
+  assert.equal(doctor.list().length, 0);
+  const state = doctorState(await gpt.doctorReport(), "abcdef123");
+  assert.equal(state.state, "healthy");
+  assert.equal(state.provider, "native");
+  assert.deepEqual(state.capabilities, { read: true, send: true });
+  assert.equal(
+    doctorState(
+      { provider: "native", state: "incompatible", doctorCode: "NATIVE_UNSUPPORTED_BUILD" },
+      "abcdef123",
+    ).code,
+    "NATIVE_UNSUPPORTED_BUILD",
+  );
+});
+
+test("native Doctor distinguishes compatibility from cooldown and authentication without exporting raw errors", async () => {
+  for (const [code, state] of [
+    ["NATIVE_UNSUPPORTED_BUILD", "incompatible"],
+    ["NATIVE_RATE_LIMITED", "busy"],
+    ["NATIVE_ACCOUNT_MISMATCH", "login_required"],
+    ["private token https://secret", "unavailable"],
+  ]) {
+    const provider = new NativeGptProvider({
+      client: {
+        status: async () => ({ instanceId: "one", manual: false }),
+        models: async () => {
+          throw Error(code);
+        },
+      },
+    });
+    const raw = await provider.doctorReport();
+    assert.equal(doctorState(raw, "abcdef123").state, state);
+    assert(!JSON.stringify(raw).includes("secret"));
+  }
+});
+
+test("healthy observation suppresses stale queued incidents immediately and exact creation receipt restores association", async (t) => {
+  const { f, doctor, fault, advance } = await fixture(t);
+  await f.release();
+  const a = doctor.association();
+  const thread = f.store.createThread("project", randomUUID(), "Bridge Doctor");
+  f.store.db.prepare("UPDATE threads SET diagnostic=1 WHERE id=?").run(thread.id);
+  await f.store.once(
+    "bridge-doctor-create:project",
+    a.operationId,
+    { projectId: "project" },
+    async () => thread,
+  );
+  f.store.db
+    .prepare("UPDATE bridge_doctor_config SET value=? WHERE id=1")
+    .run(JSON.stringify({ ...a, threadId: thread.id, state: "unknown" }));
+  fault();
+  doctor.observe({ provider: "native", state: "healthy", canRead: true, canSend: true });
+  await doctor.dispatch();
+  assert.equal(doctor.association().state, "ready");
+  assert.equal(doctor.association().threadId, thread.id);
+  assert.equal(
+    f.calls.filter((x) => x.method === "turn/start" || x.method === "thread/start").length,
+    0,
+  );
+  advance(30001);
+  doctor.observe({ provider: "native", state: "healthy", canRead: true, canSend: true });
+  assert.equal(doctor.list()[0].state, "recovered");
+  assert.equal(doctor.list()[0].delivery, "skipped");
+});
+
+test("authorized repair has normal full tools and runs beside owner work without changing Current or replaying", async (t) => {
+  const { f, doctor, fault } = await fixture(t);
+  await f.release();
+  const base = f.rpc.request.bind(f.rpc);
+  f.rpc.request = async (method, params) => {
+    if (method === "permissionProfile/list")
+      return { data: [{ id: ":danger-full-access", allowed: true }] };
+    if (method === "configRequirements/read") return { requirements: null };
+    return base(method, params);
+  };
+  const a = doctor.association();
+  doctor.configure(true, a.projectId, a.revision, "repair");
+  new ProjectContext(f.sessions, {}).adopt(
+    { client: "codex", projectId: "project", name: "Project" },
+    f.thread.id,
+  );
+  const thread = f.store.createThread("project", randomUUID(), "Bridge Doctor");
+  doctor.bind(thread.id);
+  const ownerSettings = { model: "qa-model", effort: "high", mode: "default", access: "workspace" };
+  await f.sessions.startTurn(f.thread.id, "owner work", ownerSettings);
+  const preferences = f.store.preferences();
+  fault();
+  await doctor.dispatch();
+  assert.equal(doctor.list()[0].delivery, "sent");
+  const send = f.calls.filter((x) => x.method === "turn/start").at(-1).params;
+  assert.equal(send.threadId, thread.codexThreadId);
+  assert.equal(send.permissions, ":danger-full-access");
+  assert.equal(send.approvalPolicy, "never");
+  assert.equal(send.sandboxPolicy, undefined);
+  assert.match(send.collaborationMode.settings.developer_instructions, /isolated Git worktree/);
+  assert.match(send.input[0].text, /восстанови работу/);
+  assert.deepEqual(f.store.preferences(), preferences);
+  f.finishTurn();
+  await f.sessions.startTurn(f.thread.id, "owner continues", ownerSettings);
+  assert.equal(f.calls.filter((x) => x.method === "turn/start").length, 3);
+  await doctor.dispatch();
+  assert.equal(f.calls.filter((x) => x.method === "turn/start").length, 3);
+  const unrelated = f.store.createThread("project", randomUUID(), "Other utility");
+  f.store.db.prepare("UPDATE threads SET diagnostic=1 WHERE id=?").run(unrelated.id);
+  await assert.rejects(
+    f.sessions.startTurn(unrelated.id, "not authorized", ownerSettings, [], randomUUID(), true, {
+      maintenance: "bridge-repair",
+    }),
+    /Doctor/,
+  );
 });
 
 test("disabling Doctor during native creation is durable and blocks its pending diagnostic send", async (t) => {
@@ -199,4 +326,65 @@ test("disabling Doctor during native creation is durable and blocks its pending 
   const old = doctor.association();
   assert.throws(() => doctor.configure(true, "", old.revision), /Привязка сохранена/);
   assert.equal(doctor.association().threadId, old.threadId);
+});
+
+test("only definite missing destinations rotate Doctor identity; uncertain sends retain exact destination", async (t) => {
+  for (const definite of [true, false]) {
+    await t.test(String(definite), async (t) => {
+      const { f, doctor, fault } = await fixture(t);
+      await f.release();
+      new ProjectContext(f.sessions, {}).adopt(
+        { client: "codex", projectId: "project", name: "Project" },
+        f.thread.id,
+      );
+      const thread = f.store.createThread("project", randomUUID(), "Bridge Doctor");
+      doctor.bind(thread.id);
+      const before = doctor.association();
+      fault();
+      let attempts = 0;
+      f.sessions.startTurn = async () => {
+        attempts++;
+        const error = new HubError(404, "THREAD_NOT_FOUND", "Missing native thread");
+        throw definite ? new NotSubmittedError(error) : error;
+      };
+      await doctor.dispatch();
+      assert.equal(attempts, 1);
+      assert.equal(doctor.list()[0].delivery, definite ? "pending" : "unknown");
+      assert.equal(doctor.association().threadId, definite ? null : thread.id);
+      assert.equal(doctor.association().operationId === before.operationId, !definite);
+      assert(f.store.thread(thread.id));
+      if (!definite) {
+        await doctor.dispatch();
+        assert.equal(attempts, 1);
+      }
+    });
+  }
+});
+
+test("repair changed to diagnosis while preparing cannot submit a full-access turn", async (t) => {
+  const { f, doctor, fault } = await fixture(t);
+  await f.release();
+  const a = doctor.association();
+  doctor.configure(true, a.projectId, a.revision, "repair");
+  new ProjectContext(f.sessions, {}).adopt(
+    { client: "codex", projectId: "project", name: "Project" },
+    f.thread.id,
+  );
+  const thread = f.store.createThread("project", randomUUID(), "Bridge Doctor");
+  doctor.bind(thread.id);
+  const base = f.rpc.request.bind(f.rpc);
+  f.rpc.request = async (method, params) => {
+    if (method === "permissionProfile/list")
+      return { data: [{ id: ":danger-full-access", allowed: true }] };
+    if (method === "configRequirements/read") return { requirements: null };
+    if (method === "thread/resume") {
+      const current = doctor.association();
+      doctor.configure(true, current.projectId, current.revision, "diagnose");
+    }
+    return base(method, params);
+  };
+  fault();
+  await doctor.dispatch();
+  assert.equal(doctor.list()[0].delivery, "pending");
+  assert.equal(f.calls.filter((x) => x.method === "turn/start").length, 0);
 });

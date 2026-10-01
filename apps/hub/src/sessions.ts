@@ -22,6 +22,7 @@ import {
 } from "@codex-web/shared";
 import { accessCapabilities, requireAccess, threadAccess, turnAccess } from "./access.js";
 import { Attachments } from "./attachments.js";
+import { doctorThread } from "./bridge-doctor-policy.js";
 import { Catalog, type CatalogProject } from "./catalog.js";
 import { clientToolContext } from "./client-tool-context.js";
 import { codexRuntimeBinding, confirmCodexRuntime, type RuntimeBinding } from "./codex-runtime.js";
@@ -838,8 +839,8 @@ export class Sessions extends EventEmitter {
   }
 
   /** Status checks never resume, unload or acquire a native thread writer. */
-  async inspect(id: string): Promise<ThreadRecord> {
-    this.assertWorkThread(id);
+  async inspect(id: string, maintenance = false): Promise<ThreadRecord> {
+    if (!maintenance || !doctorThread(this.store, id)) this.assertWorkThread(id);
     await this.verifyThreadRoot(this.thread(id));
     const t = this.thread(id);
     if (t.archived) throw new HubError(409, "THREAD_ARCHIVED", "Сначала разархивируй диалог.");
@@ -1599,10 +1600,19 @@ export class Sessions extends EventEmitter {
       beforeCommit?: () => void;
       beforeSubmit?: (rpc: CodexClient) => Promise<void>;
       outputSchema?: Record<string, unknown>;
+      maintenance?: "bridge-diagnosis" | "bridge-repair";
     },
   ): Promise<Record<string, unknown>> {
     let committing = false;
     try {
+      const maintenance = diagnostic && !!internal?.maintenance && doctorThread(this.store, id);
+      const repair = maintenance && internal?.maintenance === "bridge-repair";
+      if (
+        internal?.maintenance &&
+        (!maintenance || (repair && !doctorThread(this.store, id, true)))
+      )
+        throw new HubError(409, "DOCTOR_CHANGED", "Режим Doctor изменился до отправки.");
+      const readOnly = diagnostic && !repair;
       if (!diagnostic) this.assertWorkThread(id);
       let t = this.thread(id);
       await this.verifyThreadRoot(t);
@@ -1618,7 +1628,12 @@ export class Sessions extends EventEmitter {
       return await this.locked(t.projectId, async () => {
         const r = await this.runtime(t.projectId);
         if (
-          [...r.active].some((activeId) => this.store.thread(activeId).projectId === t.projectId) ||
+          (!maintenance &&
+            [...r.active].some(
+              (activeId) =>
+                this.store.thread(activeId).projectId === t.projectId &&
+                !doctorThread(this.store, activeId),
+            )) ||
           ["unknown", "starting", "running", "waiting_approval"].includes(
             this.store.thread(id).status,
           )
@@ -1650,7 +1665,7 @@ export class Sessions extends EventEmitter {
               ? { projectId: this.project(t.projectId).sourceId }
               : {}),
             historyMode: "paginated",
-            ...(diagnostic
+            ...(readOnly
               ? { sandbox: "read-only", approvalPolicy: "never" }
               : threadAccess(selection.access)),
           });
@@ -1666,7 +1681,7 @@ export class Sessions extends EventEmitter {
             threadId: t.codexThreadId,
             cwd: t.workingDirectory || this.project(t.projectId).workingDirectory,
             excludeTurns: true,
-            ...(diagnostic
+            ...(readOnly
               ? { sandbox: "read-only", approvalPolicy: "never" }
               : threadAccess(selection.access)),
           });
@@ -1726,9 +1741,9 @@ export class Sessions extends EventEmitter {
             threadId: t.codexThreadId,
             input: [...(prompt ? [{ type: "text", text: prompt }] : []), ...prepared.input],
             clientUserMessageId: messageId,
-            ...(!diagnostic ? { additionalContext: clientToolContext } : {}),
+            ...(!readOnly ? { additionalContext: clientToolContext } : {}),
             ...(internal?.outputSchema ? { outputSchema: internal.outputSchema } : {}),
-            ...(diagnostic
+            ...(readOnly
               ? { sandboxPolicy: { type: "readOnly" }, approvalPolicy: "never" }
               : turnAccess(selection.access)),
             model: selection.model,
@@ -1789,7 +1804,12 @@ export class Sessions extends EventEmitter {
     if (!a || a.rpc.closed)
       throw new HubError(409, "APPROVAL_EXPIRED", "Запрос подтверждения уже недействителен");
     this.thread(a.threadId);
-    if (this.store.thread(a.threadId).diagnostic && decision === "accept") decision = "decline";
+    if (
+      this.store.thread(a.threadId).diagnostic &&
+      !doctorThread(this.store, a.threadId, true) &&
+      decision === "accept"
+    )
+      decision = "decline";
     if (a.kind === "question" || a.kind === "elicitation")
       throw new HubError(400, "ANSWER_REQUIRED", "Нужен ответ на запрос");
     this.approvals.delete(id);
@@ -1841,7 +1861,12 @@ export class Sessions extends EventEmitter {
     let response: ReturnType<typeof elicitationResponse>;
     try {
       this.thread(a.threadId);
-      if (this.store.thread(a.threadId).diagnostic && action === "accept") action = "decline";
+      if (
+        this.store.thread(a.threadId).diagnostic &&
+        !doctorThread(this.store, a.threadId, true) &&
+        action === "accept"
+      )
+        action = "decline";
       response = elicitationResponse(a.elicitation, action, content);
     } catch (e) {
       throw new NotSubmittedError(e);
