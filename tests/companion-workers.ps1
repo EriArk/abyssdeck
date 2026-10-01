@@ -16,7 +16,7 @@ function Get-ScheduledTask {param($TaskName,$ErrorAction)
 }
 function Export-ScheduledTask {param($TaskName,$ErrorAction) $script:xml}
 function Disable-ScheduledTask {param($TaskName)
- [xml]$data=$script:xml;$data.Task.Settings.Enabled='false';$script:xml=$data.OuterXml;$script:effects++
+ if($script:xml -notmatch '<Enabled>'){$script:xml=$script:xml.Replace('<Settings>','<Settings><Enabled>false</Enabled>')}else{[xml]$data=$script:xml;$data.Task.Settings.Enabled='false';$script:xml=$data.OuterXml};$script:effects++
 }
 function Enable-ScheduledTask {param($TaskName)
  [xml]$data=$script:xml;$data.Task.Settings.Enabled='true';$script:xml=$data.OuterXml;$script:effects++
@@ -39,12 +39,12 @@ try {
  New-Item -ItemType Directory -Path $releaseDirectory -Force|Out-Null
  [IO.File]::WriteAllText((Join-Path $releaseDirectory 'worker.json'),$manifest,[Text.UTF8Encoding]::new($false))
  [IO.File]::WriteAllText((Join-Path $releaseDirectory 'Start-ManagedWorker.ps1'),$bytes,[Text.UTF8Encoding]::new($false))
- $script:xml='<Task xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task"><RegistrationInfo><Description>keep fixture description</Description></RegistrationInfo><Settings><Enabled>true</Enabled><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy></Settings><Actions><Exec><Command>fixture.exe</Command><Arguments>original</Arguments><WorkingDirectory>fixture</WorkingDirectory></Exec></Actions></Task>'
+ $script:xml='<Task xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task"><RegistrationInfo><Description>keep fixture description</Description></RegistrationInfo><Settings><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy></Settings><Actions><Exec><Command>fixture.exe</Command><Arguments>original</Arguments><WorkingDirectory>fixture</WorkingDirectory></Exec></Actions></Task>'
  $original=$script:xml;$expectedTaskDigest=Digest $script:xml
  $reply=(& ([scriptblock]::Create($code)))|ConvertFrom-Json
  if($reply.state -ne 'installed' -or $script:effects -ne 2){throw 'Migration did not switch exactly once'}
  if($script:xml -notmatch 'keep fixture description' -or $script:xml -notmatch 'IgnoreNew'){throw 'Unrelated task settings changed'}
- 'PASS demand worker admission and action switch preserve task policy and state'
+ 'PASS demand worker admission handles omitted default Enabled and preserves task policy and state'
  $expectedTaskDigest=Digest $script:xml
  & ([scriptblock]::Create($code))|Out-Null
  if($script:effects -ne 2){throw 'Accepted switch replayed'}

@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 
 namespace CodexWeb.Companion;
 
-public static class CompanionVersion { public const string Current = "0.5.0"; }
+public static class CompanionVersion { public const string Current = "0.5.1"; }
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record SignedUpdate(int Format, string Payload, string Signature);
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]

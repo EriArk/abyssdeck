@@ -12,6 +12,19 @@ function No-Link([string]$name){
  while($cursor){if((Test-Path -LiteralPath $cursor) -and ((Get-Item -LiteralPath $cursor -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'WORKER_LINK'};$cursor=[IO.Path]::GetDirectoryName($cursor)}
 }
 function Hash-Text([string]$value){$sha=[Security.Cryptography.SHA256]::Create();try {return ([BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($value)))).Replace('-','').ToLowerInvariant()}finally{$sha.Dispose()}}
+function Set-Enabled([xml]$document,[string]$value){
+ $settings=$document.SelectSingleNode("/*[local-name()='Task']/*[local-name()='Settings']")
+ if(-not $settings){throw 'WORKER_TASK_CHANGED'}
+ $node=$settings.SelectSingleNode("*[local-name()='Enabled']")
+ if(-not $node){$node=$document.CreateElement('Enabled',$settings.NamespaceURI);$settings.AppendChild($node)|Out-Null}
+ $node.InnerText=$value
+}
+function Admission-Xml([string]$value){
+ [xml]$document=$value
+ $node=$document.SelectSingleNode("/*[local-name()='Task']/*[local-name()='Settings']/*[local-name()='Enabled']")
+ if($node){$node.ParentNode.RemoveChild($node)|Out-Null}
+ return $document.OuterXml
+}
 function Task-Xml {return Export-ScheduledTask -TaskName $componentId -ErrorAction Stop}
 function Own-Task {
  $task=Get-ScheduledTask -TaskName $componentId -ErrorAction Stop
@@ -97,8 +110,7 @@ try {
   if($journal.state -in @('disabling','switching')){
    # Restore an interrupted admission change only if the entire XML still matches.
    $current=Task-Xml
-   [xml]$knownDisabled=$journal.originalXml;[xml]$knownCurrent=$current;$knownDisabled.Task.Settings.Enabled=$knownCurrent.Task.Settings.Enabled
-   if($knownCurrent.OuterXml -ceq $knownDisabled.OuterXml -and $task.State -eq 'Disabled'){
+   if((Admission-Xml $current) -ceq (Admission-Xml $journal.originalXml) -and $task.State -eq 'Disabled'){
     Register-ScheduledTask -TaskName $componentId -Xml $journal.originalXml -Force|Out-Null
     if($native){Start-ScheduledTask -TaskName $componentId}
     $journal.state='rolledBack';Save-Journal;Reply 'rolledBack';return
@@ -113,15 +125,13 @@ try {
  $previousExecutable=if($native -and $journal -and $journal.state -eq 'installed'){Join-Path $releaseRoot ($journal.release+'\CodexWebCompanion.exe')}else{$task.Actions[0].Execute}
  $journal=[ordered]@{format=1;sid=$expectedSid;componentId=$componentId;release=$releaseDigest;configHash=$expectedConfigHash;state='disabling';originalXml=$original;disabledDigest='';taskDigest='';previousExecutable=$previousExecutable;nativeLease=$nativeLease}
  # Save the exact expected disabled XML BEFORE changing admission (crash-safe).
- [xml]$disabled=$original;$disabled.Task.Settings.Enabled='false'
+ [xml]$disabled=$original;Set-Enabled $disabled 'false'
  # Exported XML serialization is normalized below after Disable. An interruption
  # between these operations must reconcile the known Enabled-only change.
  $journal.disabledDigest=Hash-Text $disabled.OuterXml;Save-Journal
  Disable-ScheduledTask -TaskName $componentId|Out-Null
  $task=Own-Task
- [xml]$actual=Task-Xml
- [xml]$compare=$original;$compare.Task.Settings.Enabled=$actual.Task.Settings.Enabled
- if($actual.OuterXml -cne $compare.OuterXml){throw 'WORKER_TASK_CHANGED'}
+ if((Admission-Xml (Task-Xml)) -cne (Admission-Xml $original)){throw 'WORKER_TASK_CHANGED'}
  $journal.disabledDigest=Hash-Text (Task-Xml);Save-Journal
  if($task.State -eq 'Running'){
   if($native -and (Native-Idle)){
