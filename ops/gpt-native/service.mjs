@@ -171,9 +171,11 @@ export async function listenNative(service, socketPath) {
       if (req.method !== 'POST' || req.url !== '/v1' || req.headers['content-type'] !== 'application/json') fail('INVALID_REQUEST');
       const chunks = []; let bytes = 0;
       for await (const chunk of req) { bytes += chunk.length; if (bytes > (service.canary ? 35000000 : 4096)) fail('REQUEST_TOO_LARGE'); chunks.push(chunk); }
-      const result = await service.request(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+      const input = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+      const result = await service.request(input);
       const body = JSON.stringify({ ok: true, result });
-      if (Buffer.byteLength(body) > 2 * 1024 * 1024) fail('RESPONSE_TOO_LARGE');
+      const limit = ['readHistoryUpdate','readConversationGraph'].includes(input.operation) ? 20 * 1024 ** 2 : 2 * 1024 ** 2;
+      if (Buffer.byteLength(body) > limit) fail('RESPONSE_TOO_LARGE');
       res.end(body);
     } catch (error) {
       res.statusCode = 503;
