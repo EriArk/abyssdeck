@@ -41,13 +41,6 @@ foreach($entry in $manifest.files.PSObject.Properties){
     if($entry.Name -notmatch '^[A-Za-z0-9_.-]+$' -or (Get-FileHash -LiteralPath (Join-Path $package $entry.Name)).Hash -ne $entry.Value){throw 'Browser package integrity failure.'}
 }
 foreach($name in @('CodexWebBrowser.exe','CodexWebBrowserHost.exe','Start-Browser.ps1','WebView2Loader.dll','Microsoft.Web.WebView2.Core.dll','Microsoft.Web.WebView2.WinForms.dll')){if($name -notin @($manifest.files.PSObject.Properties.Name)){throw 'BROWSER_PACKAGE_INCOMPLETE'}}
-$runtimeVersion='';try{$runtimeVersion=& (Join-Path $package 'CodexWebBrowser.exe') --runtime 2>$null}catch{}
-if(-not $runtimeVersion){
- $winget=Get-Command winget.exe -ErrorAction SilentlyContinue
- if($winget){try{& $winget.Source install --id Microsoft.EdgeWebView2Runtime --exact --silent --accept-source-agreements --accept-package-agreements | Out-Null}catch{}}
- $runtimeVersion='';try{$runtimeVersion=& (Join-Path $package 'CodexWebBrowser.exe') --runtime 2>$null}catch{}
- if(-not $runtimeVersion){Reply 'needsRuntime';return}
-}
 $target=Join-Path $env:LOCALAPPDATA 'CodexWeb/browser'
 No-Link $target
 $sourceRelease=$manifest.release
@@ -60,6 +53,13 @@ if($task){
  if($principal -cne $sid -or $task.Principal.LogonType -ne 'Interactive' -or $task.Principal.RunLevel -ne 'Limited' -or $task.Actions.Count -ne 1 -or -not $task.Actions[0].Execute.StartsWith($target.TrimEnd('\')+'\',[StringComparison]::OrdinalIgnoreCase)){throw 'BROWSER_TASK_CHANGED'}
  if($ExpectedTaskDigest -and (Task-Digest) -cne $ExpectedTaskDigest){throw 'BROWSER_TASK_CHANGED'}
 } elseif($ExpectedTaskDigest){throw 'BROWSER_TASK_DISAPPEARED'}
+$runtimeVersion='';try{$runtimeVersion=& (Join-Path $package 'CodexWebBrowser.exe') --runtime 2>$null}catch{}
+if(-not $runtimeVersion){
+ $winget=Get-Command winget.exe -ErrorAction SilentlyContinue
+ if($winget){try{& $winget.Source install --id Microsoft.EdgeWebView2Runtime --exact --silent --accept-source-agreements --accept-package-agreements | Out-Null}catch{}}
+ $runtimeVersion='';try{$runtimeVersion=& (Join-Path $package 'CodexWebBrowser.exe') --runtime 2>$null}catch{}
+ if(-not $runtimeVersion){Reply 'needsRuntime';return}
+}
 if($task -and $task.State -eq 'Running'){
  $current=$null;try{$current=Get-Content -LiteralPath (Join-Path $target 'current.json') -Raw|ConvertFrom-Json}catch{}
  $same=$current -and $current.release -ceq $manifest.release -and $task.Actions[0].Execute -ceq (Join-Path $target ('runtime/'+$manifest.release+'/CodexWebBrowserHost.exe'))
@@ -113,6 +113,8 @@ if(Test-Path -LiteralPath (Join-Path $target 'current.json')){[IO.File]::Replace
   $now=Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
   if($now -and $now.Actions[0].Execute -ceq (Join-Path $runtime 'CodexWebBrowserHost.exe')){
    if($now.State -eq 'Running'){try{$closed=Browser-Call 'shutdown_idle';if(-not $closed.stopped){throw 'BROWSER_ROLLBACK_WAITING'}}catch{throw 'BROWSER_ROLLBACK_WAITING'}}
+   for($attempt=0;$attempt -lt 20;$attempt++){$now=Get-ScheduledTask -TaskName $taskName;if($now.State -ne 'Running'){break};Start-Sleep -Milliseconds 250}
+   if($now.State -eq 'Running'){throw 'BROWSER_ROLLBACK_WAITING'}
    Register-ScheduledTask -TaskName $taskName -Xml (Get-Content -LiteralPath (Join-Path $backup 'task.xml') -Raw) -Force|Out-Null
    foreach($name in @('current.json','Start-Browser.ps1')){if(Test-Path -LiteralPath (Join-Path $backup $name)){Copy-Item -LiteralPath (Join-Path $backup $name) -Destination (Join-Path $target $name) -Force}}
    Start-ScheduledTask -TaskName $taskName
