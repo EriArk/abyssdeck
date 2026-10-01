@@ -105,3 +105,18 @@ continuity preserved. Three verified checkpoints remain.
 window release after verified idle, cancellation on reconnect, and single-Enter
 normalization of pasted commands. The old unknown state is not retroactively
 attributed to the independently reproduced duplicate-newline defect.
+
+`bb4cc01` installed through ordinary admission at 2026-10-01 23:33:49 UTC.
+Production Chromium opened an actual `hub-host` SSH terminal, submitted a
+five-second sleep with a pasted trailing newline and closed Devices. The terminal
+remained open while the command ran, then closed automatically after completion.
+At 23:36 UTC the root and both personal engines returned busy=0, unknown=0;
+GPT returned healthy, canRead/canSend true, zero active jobs. The exact temporary
+verification session was revoked in both stores. Three verified checkpoints remain.
+
+Candidate verification: 22 focused production-image checks, a real Linux no-echo
+PTY check in the same build stage with Python, 25 checkpoint/rollback/admission
+fixtures, and Chromium/WebKit image login and DOCX pipeline checks. Local browser
+regressions cover explicit close, active work, reconnect, network disconnect and
+single-Enter input. Evidence: `verification-bb4cc01` on the Hub and ignored local
+`.local/server-audit-20261002/`. This does not claim physical iPhone acceptance.
