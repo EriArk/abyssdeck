@@ -71,7 +71,7 @@ export class NativeGptProvider {
     } else if (this.verified?.instance !== status.instanceId || this.verified.until <= Date.now()) {
       if (this.checking?.instance !== status.instanceId) {
         const task = this.workspace.client.models().then(() => {
-          if (this.checking?.instance === status.instanceId)
+          if (this.checking?.task === task)
             this.verified = { instance: status.instanceId, until: Date.now() + 60000 };
         });
         this.checking = { instance: status.instanceId, task };
@@ -81,12 +81,16 @@ export class NativeGptProvider {
         await check.task;
       } catch (error) {
         if (!(error instanceof Error) || error.message !== "NATIVE_BUSY") throw error;
-        // Admission contention is not a broken connection. Do not grant send
-        // readiness until the native account/model check actually succeeds.
-        waiting = true;
+        // A busy catalog refresh does not revoke a previously verified account.
+        // Cold/new instances still require their own successful check; actual
+        // dispatch independently validates account, model and native readiness.
+        waiting = this.verified?.instance !== status.instanceId;
+        if (!waiting && this.verified) this.verified.until = Date.now() + 5000;
       } finally {
         if (this.checking === check) this.checking = undefined;
       }
+      // A concurrent manual/account transition invalidates an earlier probe.
+      waiting = this.verified?.instance !== status.instanceId;
     }
     const state = status.manual ? "attention" : waiting ? "busy" : "healthy";
     return {

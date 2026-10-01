@@ -889,7 +889,7 @@ export function GptWorkspace({
       sending.current ||
       uploading ||
       !sendReady ||
-      nativeOperations.blocked ||
+      nativeOperations.sendBlocked ||
       (!value.trim() && !files.length)
     )
       return;
@@ -2309,7 +2309,7 @@ export function GptWorkspace({
                     type="submit"
                     className="send-button"
                     disabled={
-                      nativeOperations.blocked ||
+                      nativeOperations.sendBlocked ||
                       dictation.locked ||
                       busy ||
                       uploading ||

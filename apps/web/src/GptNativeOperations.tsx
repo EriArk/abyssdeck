@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AutoTextarea } from "./AutoTextarea";
 import { accountLocalStorage as localStorage } from "./accountStorage.ts";
-import { api, messageOf } from "./api";
+import { ApiError, api, messageOf } from "./api";
 import { GptVersions } from "./GptVersions";
 import { Icon } from "./icons";
 import "./quick-capture.css";
@@ -19,6 +19,7 @@ type Draft = {
   model: string;
   effort: string;
   submitted: boolean;
+  attempted?: boolean;
 };
 const key = (nativeId: string, messageId: string, targetMessageId?: string) =>
   `gpt-edit:${nativeId}:${messageId}${targetMessageId ? ":fork:" + targetMessageId : ""}`;
@@ -65,16 +66,39 @@ function Editor({
     sending.current = true;
     setBusy(true);
     setError("");
-    const next = { ...draft, submitted: true };
+    const checking = draft.submitted;
+    const next = { ...draft, submitted: true, attempted: true };
     save(next);
     try {
-      const { id, submitted: _submitted, ...body } = next;
-      await api("/gpt/native-operations", { method: "POST", key: id, body });
+      const { id, submitted: _submitted, attempted: _attempted, ...body } = next;
+      if (checking) await api(`/gpt/native-operations/${encodeURIComponent(id)}`);
+      else await api("/gpt/native-operations", { method: "POST", key: id, body });
       if (alive.current) {
         onSent();
         onClose();
       }
     } catch (e) {
+      // These application refusals precede durable acceptance. Transport errors,
+      // provider/idempotency conflicts and an absent receipt after a timeout do not.
+      if (
+        !checking &&
+        e instanceof ApiError &&
+        [
+          "GPT_BUSY",
+          "INVALID_REQUEST",
+          "ENTITY_DELETED",
+          "CSRF",
+          "UNAUTHORIZED",
+          "RATE_LIMITED",
+        ].includes(e.code)
+      ) {
+        save({ ...draft, submitted: false, attempted: false });
+      }
+      // Keep the SAME id and branch baseline: a late original POST and the
+      // user's next explicit submission cannot create two accepted operations.
+      if (checking && e instanceof ApiError && e.code === "GPT_OPERATION_MISSING") {
+        save({ ...draft, submitted: false, attempted: true });
+      }
       if (alive.current) setError(messageOf(e));
     } finally {
       sending.current = false;
@@ -136,8 +160,8 @@ function Editor({
         )}
         {draft.submitted && (
           <p>
-            Действие сохранено. Повторная проверка использует тот же номер и не создаёт вторую
-            отправку.
+            Ожидаем подтверждение действия. Проверка только читает его состояние и не отправляет
+            запрос повторно.
           </p>
         )}
         {error && <p role="alert">{error}</p>}
@@ -178,11 +202,13 @@ export function useGptNativeOperations(
       nativeId: string;
       ops: GptOperation[];
       blocked: boolean;
-    }>({ nativeId, ops: [], blocked: false }),
+      sendBlocked: boolean;
+    }>({ nativeId, ops: [], blocked: false, sendBlocked: false }),
     [draft, setDraft] = useState<Draft | null>(null),
     [error, setError] = useState("");
   const ops = snapshot.nativeId === nativeId ? snapshot.ops : [];
   const blocked = snapshot.nativeId === nativeId && snapshot.blocked;
+  const sendBlocked = snapshot.nativeId === nativeId && snapshot.sendBlocked;
   const scope = useRef(nativeId);
   scope.current = nativeId;
   const [hidden, setHidden] = useState<Set<string>>(new Set());
@@ -202,11 +228,16 @@ export function useGptNativeOperations(
   const refresh = useCallback(async () => {
     const generation = version.current;
     const query = nativeId ? "?nativeId=" + encodeURIComponent(nativeId) : "?newChat=1";
-    const data = await api<{ items: GptOperation[]; blocked: boolean }>(
+    const data = await api<{ items: GptOperation[]; blocked: boolean; sendBlocked?: boolean }>(
       "/gpt/native-operations" + query,
     );
     if (!alive.current || scope.current !== nativeId || version.current !== generation) return;
-    setSnapshot({ nativeId, ops: data.items, blocked: data.blocked });
+    setSnapshot({
+      nativeId,
+      ops: data.items,
+      blocked: data.blocked,
+      sendBlocked: data.sendBlocked ?? data.blocked,
+    });
     for (const op of data.items) {
       const before = previous.current.get(op.id);
       if ((before !== undefined && before !== op.state) || op.state === "running")
@@ -214,7 +245,10 @@ export function useGptNativeOperations(
       previous.current.set(op.id, op.state);
       if (op.state === "completed") {
         try {
-          localStorage.removeItem(key(op.nativeId, op.messageId, op.targetMessageId));
+          const draftKey = key(op.nativeId, op.messageId, op.targetMessageId);
+          const saved = JSON.parse(localStorage.getItem(draftKey) ?? "null");
+          if (saved?.id === op.id && saved.submitted && saved.text === op.text)
+            localStorage.removeItem(draftKey);
         } catch {}
       }
     }
@@ -248,14 +282,22 @@ export function useGptNativeOperations(
       try {
         stored = JSON.parse(localStorage.getItem(key(scope, message.id)) ?? "null");
       } catch {}
-      const latest = ops.find((op) => op.nativeId === scope && op.messageId === message.id);
+      const latest = ops.find((op) => op.id === stored?.id);
       if (
-        stored?.submitted &&
+        (stored?.submitted || stored?.attempted) &&
         stored.nativeId === scope &&
         stored.messageId === message.id &&
         (!latest || pending(latest))
       ) {
-        setDraft(stored);
+        try {
+          await api(`/gpt/native-operations/${encodeURIComponent(stored.id)}`);
+        } catch (e) {
+          if (!(e instanceof ApiError) || e.code !== "GPT_OPERATION_MISSING") throw e;
+          stored.submitted = false;
+          stored.attempted = true;
+          localStorage.setItem(key(scope, message.id), JSON.stringify(stored));
+        }
+        if (alive.current && version.current === generation) setDraft(stored);
         return;
       }
       const preview = await api<{ currentNode: string; message: GptMessage }>(
@@ -336,6 +378,7 @@ export function useGptNativeOperations(
   );
   return {
     blocked,
+    sendBlocked,
     button: (message: GptMessage, busy: boolean) => (
       <button
         type="button"
@@ -442,7 +485,7 @@ export function useGptNativeOperations(
             onClose={() => setDraft(null)}
             onSent={() => {
               if (scope.current !== nativeId) return;
-              setSnapshot({ nativeId, ops, blocked: true });
+              setSnapshot({ nativeId, ops, blocked: true, sendBlocked: true });
               void refresh().catch(() => {});
             }}
           />
@@ -462,7 +505,10 @@ export function useGptNativeOperations(
                 );
               } catch {}
               setDraft(
-                stored?.submitted
+                (stored?.submitted || stored?.attempted) &&
+                  stored.nativeId === versions.nativeId &&
+                  stored.messageId === versions.messageId &&
+                  stored.targetMessageId === targetMessageId
                   ? stored
                   : {
                       ...versions,

@@ -556,3 +556,104 @@ test("new manual send continues the same paused chat without releasing or replay
   service.enqueue(next, { ...f.input, text: "Continue from the current response" });
   assert.equal(f.state.sends, 2, "lost new enqueue acknowledgement cannot send twice");
 });
+
+test("busy catalog refresh preserves verified instance; cold, restarted and manual accounts stay unverified", async () => {
+  const { NativeGptProvider } = await import("../apps/hub/dist/gpt-native-provider.js");
+  let instance = "one",
+    manual = false,
+    busy = false,
+    reads = 0;
+  const provider = new NativeGptProvider({
+    client: {
+      status: async () => ({ instanceId: instance, manual }),
+      models: async () => {
+        reads++;
+        if (busy) throw Error("NATIVE_BUSY");
+        return {};
+      },
+    },
+  });
+  assert.equal((await provider.connection()).canSend, true);
+  provider.verified.until = 0;
+  busy = true;
+  assert.equal((await provider.connection()).canSend, true);
+  const checked = reads;
+  await provider.connection();
+  assert.equal(reads, checked, "back off a busy refresh");
+  instance = "two";
+  assert.equal((await provider.connection()).canSend, false);
+  busy = false;
+  assert.equal((await provider.connection()).canSend, true);
+  manual = true;
+  assert.equal((await provider.connection()).canSend, false);
+  manual = false;
+  busy = true;
+  assert.equal((await provider.connection()).canSend, false);
+});
+
+test("fresh send is independent of an uncertain same-chat rename while preserving its exact receipt", async (t) => {
+  const f = setup(t),
+    service = f.open(),
+    key = randomUUID();
+  f.store.db
+    .prepare("INSERT INTO gpt_native_library VALUES(?,'thread',?,?,'unknown')")
+    .run(key, f.conversationId, JSON.stringify({ action: "rename", name: "Pending" }));
+  const before = f.store.db.prepare("SELECT * FROM gpt_native_library WHERE key=?").get(key);
+  const job = randomUUID();
+  service.enqueue(job, f.input);
+  await until(() => f.state.sends === 1);
+  assert.deepEqual(
+    f.store.db.prepare("SELECT * FROM gpt_native_library WHERE key=?").get(key),
+    before,
+  );
+});
+
+test("manual transition invalidates an in-flight account readiness probe", async () => {
+  const { NativeGptProvider } = await import("../apps/hub/dist/gpt-native-provider.js");
+  const entered = Promise.withResolvers(),
+    result = Promise.withResolvers();
+  let manual = false;
+  const provider = new NativeGptProvider({
+    client: {
+      status: async () => ({ instanceId: "one", manual }),
+      models: async () => {
+        entered.resolve();
+        return result.promise;
+      },
+    },
+  });
+  const earlier = provider.connection();
+  await entered.promise;
+  manual = true;
+  assert.equal((await provider.connection()).canSend, false);
+  result.resolve({});
+  assert.equal((await earlier).canSend, false);
+});
+
+test("operation acknowledgement lookup is authenticated, exact and read-only", async (t) => {
+  const native = nativeWorkspaceFixture();
+  const f = await handoffFixture(undefined, undefined, { nativeGpt: native.workspace });
+  t.after(() => f.close());
+  const id = randomUUID();
+  const path = `/api/gpt/native-operations/${id}`;
+  assert.equal((await f.app.inject({ url: path })).statusCode, 401);
+  assert.equal((await f.app.inject({ url: path, headers: f.headers })).statusCode, 404);
+  f.gpt.operations.start(id, {
+    nativeId: native.conversationId,
+    messageId: "missing",
+    currentNode: "missing",
+    action: "edit",
+    text: "Preserved",
+    model: "latest",
+    effort: "1",
+  });
+  await f.gpt.operations.close();
+  const before = { ...f.gpt.operations.get(id) };
+  for (let i = 0; i < 2; i++) {
+    const r = await f.app.inject({ url: path, headers: f.headers });
+    assert.equal(r.statusCode, 200, r.body);
+    assert.deepEqual(r.json(), { id, state: "failed", nativeId: native.conversationId });
+  }
+  assert.deepEqual({ ...f.gpt.operations.get(id) }, before);
+  assert.equal(native.state.sends, 0);
+});

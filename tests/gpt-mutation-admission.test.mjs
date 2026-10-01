@@ -579,3 +579,42 @@ test("a busy confirmation after accepted edit stays uncertain, never becomes an 
   assert.equal(service.list("chat").blocked, true);
   assert.equal(service.list().blocked, true, "maintenance still sees uncertainty");
 });
+
+test("native fresh sends read the current branch independently of old edits and cosmetic receipts", async (t) => {
+  const f = ledger(t);
+  for (const kind of ["thread", "project"])
+    for (const action of ["rename", "archive", "unarchive", "pin", "unpin"]) {
+      const key = randomUUID();
+      f.dispatch.db
+        .prepare("INSERT INTO library_receipts VALUES(?,?,?,?, 'unknown')")
+        .run(
+          key,
+          "hash",
+          JSON.stringify({ kind, id: kind === "thread" ? f.a : "g-p-busy", action }),
+          JSON.stringify({ projectId: "g-p-busy" }),
+        );
+    }
+  const before = f.dispatch.db.prepare("SELECT * FROM library_receipts").all();
+  await f.dispatch.assertDispatch({ conversationId: f.a, projectId: "g-p-busy" }, f.reader, true);
+  assert.equal(
+    f.dispatch.blocksDispatch(f.a, "g-p-busy"),
+    true,
+    "other mutations retain their admission",
+  );
+  assert.deepEqual(f.dispatch.db.prepare("SELECT * FROM library_receipts").all(), before);
+  f.dispatch.db
+    .prepare("INSERT INTO library_receipts VALUES(?,?,?,?, 'unknown')")
+    .run(randomUUID(), "hash", JSON.stringify({ kind: "thread", id: f.a, action: "delete" }), "{}");
+  await assert.rejects(
+    f.dispatch.assertDispatch({ conversationId: f.a }, f.reader, true),
+    /PENDING_DISPATCH/,
+  );
+  f.dispatch.db
+    .prepare("INSERT INTO operation_receipts VALUES(?,?,?,?,?, 'unknown')")
+    .run(randomUUID(), "hash", JSON.stringify({ conversationId: f.b, action: "edit" }), "{}", null);
+  await f.dispatch.assertDispatch({ conversationId: f.b }, f.reader, true);
+  await assert.rejects(
+    f.dispatch.assertDispatch({ conversationId: f.b }, f.reader),
+    /PENDING_DISPATCH/,
+  );
+});

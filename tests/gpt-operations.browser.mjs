@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium, expect, webkit } from "@playwright/test";
+import { gptOperationInput } from "../apps/hub/dist/gpt-operations.js";
 import { handoffFixture } from "./handoff-fixture.mjs";
 
 for (const [engine, type] of [
@@ -32,6 +33,16 @@ for (const [engine, type] of [
       ],
       ops = [
         {
+          id: "older-completion",
+          nativeId: "chat",
+          messageId: "u",
+          state: "completed",
+          action: "edit",
+          text: "Old draft",
+          createdAt: 0,
+          updatedAt: 0,
+        },
+        {
           id: "unrelated",
           nativeId: "other-chat",
           messageId: "old",
@@ -46,7 +57,10 @@ for (const [engine, type] of [
       requests = [],
       revision = 1,
       failAck = true;
-    let holdNext = false;
+    let holdNext = false,
+      refuseNext = true,
+      loseBeforeAcceptance = true;
+    const attempts = [];
     const held = Promise.withResolvers(),
       release = Promise.withResolvers();
     await page.route("**/api/gpt/**", async (route) => {
@@ -128,10 +142,26 @@ for (const [engine, type] of [
           return json({
             items,
             blocked: items.some((o) => ["unknown", "running"].includes(o.state)),
+            sendBlocked: items.some((o) => o.state === "running"),
           });
+        }
+        attempts.push(request.headers()["idempotency-key"]);
+        if (refuseNext) {
+          refuseNext = false;
+          return route.fulfill({
+            status: 409,
+            json: { error: { code: "GPT_BUSY", message: "Busy before acceptance" } },
+          });
+        }
+        if (loseBeforeAcceptance) {
+          loseBeforeAcceptance = false;
+          return route.abort("failed");
         }
         const input = request.postDataJSON(),
           id = request.headers()["idempotency-key"];
+        gptOperationInput.parse(input);
+        assert.equal(input.attempted, undefined);
+        assert.equal(input.submitted, undefined);
         requests.push({ id, input });
         if (!ops.some((op) => op.id === id))
           ops.unshift({
@@ -147,6 +177,15 @@ for (const [engine, type] of [
           return route.abort("failed");
         }
         return json({ id });
+      }
+      if (/\/native-operations\/[^/]+$/.test(path) && request.method() === "GET") {
+        const op = ops.find((op) => op.id === path.split("/").at(-1));
+        return op
+          ? json({ id: op.id, nativeId: op.nativeId, state: op.state })
+          : route.fulfill({
+              status: 404,
+              json: { error: { code: "GPT_OPERATION_MISSING", message: "No accepted receipt" } },
+            });
       }
       if (path.endsWith("/check")) {
         ops[0].state = "completed";
@@ -168,6 +207,21 @@ for (const [engine, type] of [
     const modal = page.getByRole("dialog", { name: "Изменить сообщение GPT" }),
       editor = modal.getByRole("textbox", { name: "Изменённое сообщение" });
     await editor.fill("Исправленное сообщение\nВторая строка");
+    await modal.getByRole("button", { name: "Сохранить и отправить", exact: true }).click();
+    await expect(modal.getByRole("alert")).toContainText("Busy before acceptance");
+    await expect(editor).toBeEnabled();
+    await modal.getByRole("button", { name: "Закрыть", exact: true }).first().click();
+    await page.getByRole("button", { name: "Изменить сообщение GPT", exact: true }).click();
+    await expect(editor).toHaveValue("Исправленное сообщение\nВторая строка");
+    await modal.getByRole("button", { name: "Сохранить и отправить", exact: true }).click();
+    await expect(editor).toBeDisabled();
+    await expect(
+      modal.getByRole("button", { name: "Проверить отправку", exact: true }),
+    ).toBeEnabled();
+    await modal.getByRole("button", { name: "Закрыть", exact: true }).first().click();
+    await page.getByRole("button", { name: "Изменить сообщение GPT", exact: true }).click();
+    await expect(editor).toBeEnabled();
+    await expect(editor).toHaveValue("Исправленное сообщение\nВторая строка");
     await mkdir(`.local/qa-gpt-operations/${engine}`, { recursive: true });
     for (const theme of ["classic-dark", "organizer", "crt-green", "hitech-2000s"]) {
       await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme);
@@ -183,23 +237,29 @@ for (const [engine, type] of [
     await expect(editor).toBeDisabled();
     await modal.getByRole("button", { name: "Проверить отправку", exact: true }).click();
     await expect(modal).not.toBeVisible();
-    assert.equal(requests.length, 2);
-    assert.equal(requests[0].id, requests[1].id);
-    assert.deepEqual(requests[0].input, requests[1].input);
-    await expect(page.getByRole("button", { name: "Отправить GPT", exact: true })).toBeDisabled();
+    assert.equal(requests.length, 1);
+    assert.equal(
+      attempts.at(-1),
+      attempts.at(-2),
+      "lost pre-acceptance attempt retains id across reopening",
+    );
+    await expect(page.getByRole("button", { name: "Отправить GPT", exact: true })).toBeEnabled();
+    await expect(
+      page.getByRole("button", { name: "Изменить сообщение GPT", exact: true }),
+    ).toBeDisabled();
     await expect(page.getByRole("textbox", { name: "Сообщение GPT" })).toHaveValue(
       "Отдельный черновик",
     );
     await page.getByRole("button", { name: "Проверить историю", exact: true }).click();
     await expect(page.locator('[data-message="u2"]')).toContainText("Исправленное сообщение");
     await expect(page.getByRole("button", { name: "Отправить GPT", exact: true })).toBeEnabled();
-    assert.equal(requests.length, 2);
+    assert.equal(requests.length, 1);
     await page.getByRole("button", { name: "Изменить сообщение GPT", exact: true }).click();
     await page.getByRole("button", { name: "Версии сообщения", exact: true }).click();
     const versions = page.getByRole("dialog", { name: "Версии сообщения", exact: true });
     await versions.getByRole("button", { name: /Версия 2/ }).click();
     await expect(versions.getByLabel("Просмотр версии")).toContainText("Исходный ответ");
-    assert.equal(requests.length, 2);
+    assert.equal(requests.length, 1);
     await versions.getByRole("button", { name: "Продолжить в новом чате" }).click();
     const fork = page.getByRole("dialog", { name: "Продолжить версию GPT" });
     await fork
@@ -211,9 +271,9 @@ for (const [engine, type] of [
     await expect
       .poll(() => page.evaluate(() => localStorage.getItem("gpt-conversation")))
       .toBe("new-branch");
-    assert.equal(requests.length, 3);
-    assert.equal(requests[2].input.action, "fork");
-    assert.equal(requests[2].input.targetMessageId, "u");
+    assert.equal(requests.length, 2);
+    assert.equal(requests[1].input.action, "fork");
+    assert.equal(requests[1].input.targetMessageId, "u");
     holdNext = true;
     await held.promise;
     await page
@@ -227,7 +287,7 @@ for (const [engine, type] of [
       "Черновик нового чата",
     );
     await expect(page.getByText("Unrelated uncertainty", { exact: true })).toHaveCount(0);
-    assert.equal(requests.length, 3);
+    assert.equal(requests.length, 2);
     assert.deepEqual(errors, []);
     console.log(
       engine +

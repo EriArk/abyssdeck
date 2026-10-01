@@ -55,18 +55,22 @@ test("manual branch recovery cannot release the writer before the native call re
     () => true,
     () => {},
     controller.signal,
+    true,
   );
   const id = randomUUID();
   try {
     service.start(id, input);
     await entered.promise;
     assert.equal(service.list().items[0].state, "running");
+    assert.equal(service.list("chat").sendBlocked, true);
     assert.equal(await service.confirm(id), false);
     await assert.rejects(service.checked(id), /ещё выполняется/);
     assert.throws(() => service.start(randomUUID(), input), /Сначала/);
     response.reject(Error("lost acknowledgement"));
     await service.close();
     assert.equal(service.list().items[0].state, "unknown");
+    assert.equal(service.list("chat").sendBlocked, false);
+    assert.equal(service.list("chat").blocked, true, "old receipt still gates repeat edits");
     await service.checked(id);
     assert.equal(service.blocked(), false);
   } finally {

@@ -163,7 +163,12 @@ export class GptService {
   }
   private nativeChatBlocked(nativeId: string | null, projectId?: string) {
     if (!this.native) return this.nativeBlocked();
-    return gptMutationBlocked(this.store, { conversationId: nativeId, projectId });
+    if (nativeId && this.operations.sendingBlocked(nativeId)) return true;
+    return gptMutationBlocked(
+      this.store,
+      { conversationId: nativeId, projectId },
+      { freshSend: true },
+    );
   }
   nativeCounts() {
     const a = this.operations.counts(),
@@ -1887,6 +1892,10 @@ export function registerGpt(
       .object({ nativeId: id.optional(), newChat: z.literal("1").optional() })
       .parse(req.query);
     return service.operations.list(q.nativeId, !q.nativeId && q.newChat === "1");
+  });
+  app.get("/api/gpt/native-operations/:id", async (req) => {
+    const operation = service.operations.get(z.object({ id: uuid }).parse(req.params).id);
+    return { id: operation.id, state: operation.state, nativeId: operation.nativeId };
   });
   app.get("/api/gpt/conversations/:id/messages/:messageId/action", async (req) => {
     const p = z.object({ id, messageId: id }).parse(req.params);

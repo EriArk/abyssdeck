@@ -1,5 +1,19 @@
 # AGENTS.md
 
+## Owner-requested GPT continuation without stale locks (2026-10-01)
+
+- A new explicit manual send may continue from the freshly verified canonical
+  branch despite an older uncertain send/edit/regenerate/fork receipt. Preserve
+  that receipt and never replay its input or restart the provider's unfinished work.
+  This supersedes the old blanket same-chat uncertainty gate for fresh sends.
+- Unknown rename/archive/pin operations do not gate fresh sends. Keep actual
+  in-flight writes, account binding, deletion and project-context admission intact.
+- A definite rejection before acceptance unlocks the editor and retains its text.
+  Lost acknowledgements are checked by reading the exact receipt, never by another
+  POST. Keep the same operation identity across reopening an unconfirmed attempt.
+- Busy model-catalog refresh retains readiness of the same verified native instance;
+  cold/restarted instances and manual account transitions require verification.
+
 ## Owner-approved universal Companion application (2026-09-30)
 
 - Build one Companion application with a tray, readiness checks, bounded automatic

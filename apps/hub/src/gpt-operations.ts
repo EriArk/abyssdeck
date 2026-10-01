@@ -190,6 +190,14 @@ export class GptOperations {
       .get()!;
     return { active: Number(row.active), unknown: Number(row.unknown) };
   }
+  sendingBlocked(nativeId?: string) {
+    return this.store.db
+      .prepare(
+        "SELECT id,state FROM gpt_native_operations WHERE state IN ('preparing','running','unknown') AND (? IS NULL OR nativeId=? OR resultNativeId=?)",
+      )
+      .all(nativeId ?? null, nativeId ?? null, nativeId ?? null)
+      .some((row) => row.state !== "unknown" || this.runningId.has(String(row.id)));
+  }
   list(nativeId?: string, newChat = false) {
     const items = this.store.db
       .prepare(
@@ -203,6 +211,7 @@ export class GptOperations {
           : item,
       ),
       blocked: this.native && newChat ? false : this.blocked(this.native ? nativeId : undefined),
+      sendBlocked: this.native ? !newChat && this.sendingBlocked(nativeId) : this.blocked(),
     };
   }
   get(operationId: string) {

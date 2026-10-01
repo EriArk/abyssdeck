@@ -11,7 +11,7 @@ export type GptMutationScope = {
 export function gptMutationBlocked(
   store: Store,
   scope: GptMutationScope,
-  options: { jobs?: boolean; libraryKey?: string } = {},
+  options: { jobs?: boolean; libraryKey?: string; freshSend?: boolean } = {},
 ) {
   const db = store.db;
   const projectOf = (id: string | null | undefined): string | undefined => {
@@ -30,9 +30,10 @@ export function gptMutationBlocked(
   const projectMatches = (id: string | null | undefined) => !!id && id === projectId;
   for (const row of db
     .prepare(
-      "SELECT nativeId,resultNativeId FROM gpt_native_operations WHERE state IN ('preparing','running','unknown')",
+      "SELECT nativeId,resultNativeId,state FROM gpt_native_operations WHERE state IN ('preparing','running','unknown')",
     )
     .all()) {
+    if (options.freshSend && row.state === "unknown") continue;
     if (chatMatches(row.nativeId as string) || chatMatches(row.resultNativeId as string))
       return true;
   }
@@ -42,9 +43,16 @@ export function gptMutationBlocked(
     if (projectMatches(row.projectId as string)) return true;
   }
   for (const row of db
-    .prepare("SELECT key,kind,id FROM gpt_native_library WHERE state='unknown'")
+    .prepare("SELECT key,kind,id,input FROM gpt_native_library WHERE state='unknown'")
     .all()) {
     if (row.key === options.libraryKey) continue;
+    if (
+      options.freshSend &&
+      ["rename", "archive", "unarchive", "pin", "unpin"].includes(
+        JSON.parse(String(row.input)).action,
+      )
+    )
+      continue;
     if (row.kind === "thread" ? chatMatches(row.id as string) : projectMatches(row.id as string))
       return true;
   }

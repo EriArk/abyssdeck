@@ -39,9 +39,9 @@ export class NativeDispatchReceipts {
    const p=JSON.parse(row.payload),creation=p.conversationId===null?this.db.prepare('SELECT candidate,confirmed FROM creations WHERE key=?').get(row.key):null;
    scopes.push({conversationIds:[p.conversationId,creation?.candidate,creation?.confirmed].filter(Boolean),projectId:p.projectId});
   }
-  for(const row of rows('operation_receipts')){const p=JSON.parse(row.payload);scopes.push({conversationIds:[p.conversationId,row.resultId].filter(Boolean),projectId:p.projectId});}
+  for(const row of sends?[]:rows('operation_receipts')){const p=JSON.parse(row.payload);scopes.push({conversationIds:[p.conversationId,row.resultId].filter(Boolean),projectId:p.projectId});}
   for(const row of rows('project_receipts')){const p=JSON.parse(row.payload);scopes.push({conversationIds:[],projectId:p.projectId,projectWide:true});}
-  for(const row of rows('library_receipts')){const p=JSON.parse(row.payload),b=JSON.parse(row.baseline);scopes.push({conversationIds:p.kind==='thread'?[p.id]:[],projectId:p.kind==='project'?p.id:b.projectId,projectWide:p.kind==='project'});}
+  for(const row of rows('library_receipts')){const p=JSON.parse(row.payload),b=JSON.parse(row.baseline);if(sends&&['rename','archive','unarchive','pin','unpin'].includes(p.action))continue;scopes.push({conversationIds:p.kind==='thread'?[p.id]:[],projectId:p.kind==='project'?p.id:b.projectId,projectWide:p.kind==='project'});}
   for(const row of rows('workspace_receipts')){const p=JSON.parse(row.payload).input;scopes.push({conversationIds:p.kind==='canvas'?[p.conversationId]:[],workspaceKind:p.kind,workspaceId:p.id});}
   return scopes;
  }
@@ -52,7 +52,7 @@ export class NativeDispatchReceipts {
  }
  async assertDispatch(r,reader,freshSend=false){
   if(this.blocksDispatch(r.conversationId,r.projectId,freshSend))fail('PENDING_DISPATCH');
-  if(r.conversationId&&this.pendingScopes().some(s=>s.projectWide)){
+  if(r.conversationId&&this.pendingScopes({sends:freshSend}).some(s=>s.projectWide)){
    const history=await reader.readConversation(r);
    if(history.conversationId!==r.conversationId)fail('CONVERSATION_MISMATCH');
    if(this.blocksDispatch(r.conversationId,history.projectId,freshSend))fail('PENDING_DISPATCH');
