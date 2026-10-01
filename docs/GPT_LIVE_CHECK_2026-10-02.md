@@ -78,4 +78,22 @@ has not yet crossed that boundary in this audit; actual boundary billing is not
 claimed verified, and no balance was deliberately exhausted to manufacture it.
 
 Local ignored evidence: `.local/live-gpt-audit/`, `.local/qa-theme-variants/`.
-Temporary audit authentication is revoked after installed verification.
+Temporary audit authentication was revoked in both session stores at the end of
+the audit. The last installed status check returned healthy, canRead/canSend true,
+zero active jobs; two pre-existing uncertain receipts were preserved.
+
+## Candidate verification and activation
+
+`d8ec99e` is committed/pushed to main. The production image passed Linux focused
+Companion/Team socket/auth and credit-continuation checks, checkpoint/rollback/
+upgrade fixtures, and Chromium/WebKit login plus real authenticated DOCX rendering.
+Evidence lives at `verification-d8ec99e` under the Hub service directory.
+
+The ordinary updater is waiting to replace `ed44e8d` with `d8ec99e`. At
+2026-10-01 23:05 UTC the owner personal engine returned one unknown Devices
+terminal, zero busy terminals; the member engine returned zero for both. Read-only
+host inspection found the existing SSH bash foreground process without visible
+child commands, which does not prove that its editable input buffer is empty.
+No terminal was closed and no input was injected. Investigation is tracked in
+[#233](https://github.com/EriArk/codex-web-interface/issues/233); the cause is not
+yet established. Source/candidate checks do not imply installed acceptance.
