@@ -15,6 +15,7 @@ import { isGptChatMessage, projectContextEnd, projectContextStart } from "@codex
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Markdown, { defaultUrlTransform } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { ActivityBadge } from "./ActivityBadge";
 import { type ArtifactRequest, artifactSource, useArtifactComponents } from "./ArtifactMarkdown";
 import { AutoTextarea } from "./AutoTextarea";
 import {
@@ -61,6 +62,7 @@ import { clearAcknowledgedSend, completePendingSend, pendingSendKey } from "./pe
 import { ResultFeed } from "./ResultFeed";
 import { uploadFile } from "./uploadFile";
 import { useCompletionPosition } from "./useCompletionPosition";
+import { useGptAttention } from "./useGptAttention";
 import { useGptHistory } from "./useGptHistory";
 import { useProjectDrawer } from "./useProjectDrawer";
 import { useProjectSwipe } from "./useProjectSwipe";
@@ -75,6 +77,7 @@ const titles: Record<GptJob["status"], string> = {
   queued: "В очереди",
   preparing: "Подготовка сообщения",
   running: "GPT работает",
+  idle: "Сообщение доставлено",
   completed: "Готово",
   failed: "Не отправлено",
   unknown: "Нужна проверка",
@@ -761,6 +764,7 @@ export function GptWorkspace({
           job,
           messages,
           !historyReady || historyStale || !!historyNotice || !!contextMessage || !!hasNewer,
+          currentJobs,
         ),
       )
       .map((job) => job.id),
@@ -1404,6 +1408,20 @@ export function GptWorkspace({
       beginGptHistory(row.id);
     }
   }, [items, projects, selected]);
+  const unreadChats = useGptAttention(
+    selected,
+    messages.at(-1)?.id ?? "",
+    view === "chat" &&
+      !overviewProject &&
+      !drawer &&
+      !settings &&
+      !overlayOpen &&
+      !notebookOpen &&
+      !contextMessage &&
+      !hasNewer &&
+      !loading,
+    scroll,
+  );
   const navThread = (item: GptConversation) => {
     const running = jobs.some((job) => job.nativeId === item.id && isActive(job));
     return (
@@ -1415,7 +1433,7 @@ export function GptWorkspace({
         >
           <Icon name={item.pinned ? "pin" : "chat"} size={17} />
           <span>{item.title}</span>
-          {running && <span className="spinner" />}
+          <ActivityBadge active={Number(running)} unread={Number(unreadChats.has(item.id))} />
         </button>
         <EntityMenu
           client="gpt"

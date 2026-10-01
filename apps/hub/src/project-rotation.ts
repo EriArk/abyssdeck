@@ -232,7 +232,8 @@ export class ProjectRotations {
       void this.gpt.verifyProjectJob(value.id).catch(() => {});
       value = {
         ...value,
-        state: job.status === "preparing" ? "queued" : job.status,
+        state:
+          job.status === "preparing" ? "queued" : job.status === "idle" ? "unknown" : job.status,
         nativeId: job.nativeId ?? undefined,
         error: job.error || undefined,
       };

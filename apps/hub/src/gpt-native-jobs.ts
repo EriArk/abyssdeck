@@ -5,6 +5,7 @@ import type { GptFile } from "@codex-web/shared";
 import { gptFileLimit } from "@codex-web/shared";
 import { z } from "zod";
 import type { NativeGptReadClient, NativeUploadedFile } from "./gpt-native.js";
+import { nativeResponseIdle } from "./gpt-response-state.js";
 import type { Store } from "./store.js";
 
 type NativeJobsClient = Pick<
@@ -16,7 +17,8 @@ type NativeJobsClient = Pick<
   | "reviewDispatch"
   | "uploadFile"
   | "uploadFilePath"
->;
+> &
+  Partial<Pick<NativeGptReadClient, "liveDispatch" | "workspace">>;
 function fail(code: string): never {
   throw Error(`NATIVE_${code}`);
 }
@@ -43,6 +45,19 @@ export class NativeGptJobs {
         .some((r) => r.name === "uncertainSince")
     )
       store.db.exec("ALTER TABLE gpt_native_receipts ADD COLUMN uncertainSince INTEGER");
+    if (
+      !store.db
+        .prepare("PRAGMA table_info(gpt_native_receipts)")
+        .all()
+        .some((r) => r.name === "deliveredAt")
+    ) {
+      store.db.exec("ALTER TABLE gpt_native_receipts ADD COLUMN deliveredAt INTEGER");
+      // Only terminal canonical completion proves delivery in legacy rows.
+      // A legacy running row could still be awaiting its first acknowledgement.
+      store.db.exec(
+        "UPDATE gpt_native_receipts SET deliveredAt=(SELECT updatedAt FROM gpt_jobs WHERE id=jobId) WHERE jobId IN (SELECT id FROM gpt_jobs WHERE status='completed')",
+      );
+    }
     store.db.exec(
       "CREATE TABLE IF NOT EXISTS gpt_job_continuations(jobId TEXT NOT NULL REFERENCES gpt_jobs(id),previousJobId TEXT NOT NULL REFERENCES gpt_jobs(id),PRIMARY KEY(jobId,previousJobId))",
     );
@@ -393,7 +408,7 @@ export class NativeGptJobs {
   private async readReceipt(id: string) {
     const row = this.row(id);
     const saved = this.store.db
-      .prepare("SELECT payload,messages FROM gpt_native_receipts WHERE jobId=?")
+      .prepare("SELECT payload,messages,deliveredAt FROM gpt_native_receipts WHERE jobId=?")
       .get(id);
     if (!saved) fail("RECEIPT_MISSING");
     const payload = JSON.parse(String(saved.payload));
@@ -425,6 +440,11 @@ export class NativeGptJobs {
       this.authorize();
       if (result.userMessageId !== payload.userMessageId) fail("SUBMISSION_MISMATCH");
       if (
+        result.state === "running" &&
+        (await nativeResponseIdle(this.client, id, payload.conversationId))
+      )
+        result = { ...result, state: "idle" };
+      if (
         payload.conversationId === null &&
         result.state !== "unknown" &&
         (!result.conversationId || (created && created.conversationId !== result.conversationId))
@@ -435,7 +455,7 @@ export class NativeGptJobs {
       // Delivery was already proved. A temporary history outage does not undo
       // that proof or turn an ongoing long task into an uncertain submission.
       if (
-        row.status === "running" &&
+        saved.deliveredAt != null &&
         error instanceof Error &&
         /^(NATIVE_RATE_LIMITED|NATIVE_READ_UNAVAILABLE|NATIVE_TIMEOUT|NATIVE_HISTORY_HEADERS_TIMEOUT|NATIVE_HISTORY_BODY_TIMEOUT|NATIVE_BUSY|NATIVE_QUEUE_FULL|NATIVE_MANUAL_RECOVERY|NATIVE_DISCONNECTED|NATIVE_UNAVAILABLE|NATIVE_WINDOW_CHANGED|NATIVE_WINDOW_AMBIGUOUS)$/.test(
           error.message,
@@ -455,9 +475,15 @@ export class NativeGptJobs {
     // A temporary missing page must not erase already observed public output.
     if (result.state !== "unknown") {
       this.store.db.prepare("DELETE FROM gpt_native_read_health WHERE jobId=?").run(id);
+      if (result.state === "idle")
+        this.store.db
+          .prepare("INSERT INTO gpt_native_read_health(jobId,nextAt) VALUES(?,?)")
+          .run(id, Date.now() + 30000);
       this.store.db
-        .prepare("UPDATE gpt_native_receipts SET uncertainSince=NULL WHERE jobId=?")
-        .run(id);
+        .prepare(
+          "UPDATE gpt_native_receipts SET uncertainSince=NULL,deliveredAt=COALESCE(deliveredAt,?) WHERE jobId=?",
+        )
+        .run(Date.now(), id);
       this.store.db.exec("BEGIN IMMEDIATE");
       try {
         if (payload.conversationId === null) {

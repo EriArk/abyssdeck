@@ -650,7 +650,8 @@ export class ProjectActions {
       const row = this.db.prepare("SELECT id FROM gpt_jobs WHERE id=?").get(value.id);
       if (row) {
         const job = this.gpt.job(value.id);
-        state = job.status === "preparing" ? "queued" : job.status;
+        state =
+          job.status === "preparing" ? "queued" : job.status === "idle" ? "unknown" : job.status;
         value.nativeId = job.nativeId ?? undefined;
         body = job.answer;
         const final = job.nativeId

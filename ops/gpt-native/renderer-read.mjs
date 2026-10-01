@@ -9,9 +9,9 @@ export async function nativeRead(request, load = () => import('app://-/assets/ap
  if(request.archived!=null&&typeof request.archived!=='boolean')fail('INVALID_REQUEST');
  if(request.operation==='readCatalog'&&(!/^[a-f0-9]{64}$/.test(request.accountFingerprint??'')||!Number.isSafeInteger(request.offset??0)||(request.offset??0)<0||(request.offset??0)>10000))fail('INVALID_REQUEST');
  if(request.operation==='findCreation'&&(!uuid(request.userMessageId)||!uuid(request.parentId)||typeof request.text!=='string'||
-   new TextEncoder().encode(request.text).length>32768||!Number.isSafeInteger(request.createdAfter)||request.createdAfter<0||!/^[a-f0-9]{64}$/.test(request.accountFingerprint??'')))fail('INVALID_REQUEST');
+   request.text.length>100000||!Number.isSafeInteger(request.createdAfter)||request.createdAfter<0||!/^[a-f0-9]{64}$/.test(request.accountFingerprint??'')))fail('INVALID_REQUEST');
  if(request.operation==='readSubmission'&&(!uuid(request.conversationId)||!uuid(request.userMessageId)||!uuid(request.parentId)||
-    typeof request.text!=='string'||new TextEncoder().encode(request.text).length>32768||!/^[a-f0-9]{64}$/.test(request.accountFingerprint??'')))fail('INVALID_REQUEST');
+    typeof request.text!=='string'||request.text.length>100000||!/^[a-f0-9]{64}$/.test(request.accountFingerprint??'')))fail('INVALID_REQUEST');
  if (request.operation === 'readModels' && !/^[a-f0-9]{64}$/.test(request.accountFingerprint ?? '')) fail('INVALID_REQUEST');
  if (['readConversation','readConversationGraph','readHistoryUpdate'].includes(request.operation) && (!uuid(request.conversationId) ||
      !/^[a-f0-9]{64}$/.test(request.accountFingerprint ?? '') ||
@@ -402,33 +402,7 @@ function gptLinkedText(body, metadata) {
   });
 }
 
- const messages = [];
- let hasMore = false, bytes = 0;
- const selected=request.messageId == null ? chain.slice(start) : chain.filter(n=>n.message?.id===request.messageId);
- if(request.messageId != null && selected.length!==1)fail('MESSAGE_NOT_ON_BRANCH');
- for (const node of selected) {
-  const message = node.message, role = message?.author?.role;
-  if (!['user','assistant'].includes(role) || message.metadata?.is_visually_hidden_from_conversation === true ||
-      (message.channel != null && !['final','commentary'].includes(message.channel)) ||
-      (message.recipient != null && message.recipient !== 'all')) continue;
-  const content = message.content;
-  if (typeof message.id !== 'string' || !content || !Array.isArray(content.parts)) continue;
-  // Unknown structured content is not stringified. Media resolution is a later gate.
-  const parts = ['text','multimodal_text'].includes(content.content_type) ? content.parts.filter(p => typeof p === 'string') : [];
-  const text = role === 'assistant' ? gptLinkedText(parts.join('\n'), message.metadata) : parts.join('\n');
-  const hasAttachments = content.parts.some(p => typeof p !== 'string') || !!message.metadata?.attachments?.length;
-  if (!text && !hasAttachments) continue;
-  if (messages.length === 20) { hasMore = true; break; }
-  bytes += new TextEncoder().encode(text).length;
-  if (bytes > 1024 * 1024) fail('HISTORY_TOO_LARGE');
-  messages.push({nodeId:node.id, id:message.id, role, channel:message.channel ?? 'final', text, hasAttachments,
-   createdAt:typeof message.create_time==='number'&&Number.isFinite(message.create_time)&&message.create_time>=0 ? message.create_time : 0,
-   model:typeof message.metadata?.model_slug === 'string' && message.metadata.model_slug.length <= 128 ? message.metadata.model_slug : null,
-   effort:typeof message.metadata?.thinking_effort === 'string' && message.metadata.thinking_effort.length <= 128 ? message.metadata.thinking_effort : null,
-   complete:message.status === 'finished_successfully'});
- }
- const page={conversationId:request.conversationId, currentNode:conversation.current_node,
-  ...(conversation.gizmo_id?{projectId:conversation.gizmo_id}:{}),messages:messages.reverse(), before:hasMore ? messages[0].nodeId : null, mediaResolved:false};
+ let submission;
  if(request.operation==='readSubmission'){
   const index=chain.findIndex(n=>n.message?.id===request.userMessageId);
   const node=chain[index];
@@ -453,6 +427,37 @@ function gptLinkedText(body, metadata) {
   // A later user turn does not undo the exact delivery proof above. Reconcile
   // only this submission's descendants, never borrow a subsequent answer.
   const later=descendants.slice(nextUser+1);
+  submission={later,nextUser};
+ }
+ const messages = [];
+ let hasMore = false, bytes = 0;
+ const selected=submission ? submission.later : request.messageId == null ? chain.slice(start) : chain.filter(n=>n.message?.id===request.messageId);
+ if(request.messageId != null && selected.length!==1)fail('MESSAGE_NOT_ON_BRANCH');
+ for (const node of selected) {
+  const message = node.message, role = message?.author?.role;
+  if (!['user','assistant'].includes(role) || message.metadata?.is_visually_hidden_from_conversation === true ||
+      (message.channel != null && !['final','commentary'].includes(message.channel)) ||
+      (message.recipient != null && message.recipient !== 'all')) continue;
+  const content = message.content;
+  if (typeof message.id !== 'string' || !content || !Array.isArray(content.parts)) continue;
+  // Unknown structured content is not stringified. Media resolution is a later gate.
+  const parts = ['text','multimodal_text'].includes(content.content_type) ? content.parts.filter(p => typeof p === 'string') : [];
+  const text = role === 'assistant' ? gptLinkedText(parts.join('\n'), message.metadata) : parts.join('\n');
+  const hasAttachments = content.parts.some(p => typeof p !== 'string') || !!message.metadata?.attachments?.length;
+  if (!text && !hasAttachments) continue;
+  if (messages.length === 20) { hasMore = true; break; }
+  bytes += new TextEncoder().encode(text).length;
+  if (bytes > 16 * 1024 * 1024) fail('HISTORY_TOO_LARGE');
+  messages.push({nodeId:node.id, id:message.id, role, channel:message.channel ?? 'final', text, hasAttachments,
+   createdAt:typeof message.create_time==='number'&&Number.isFinite(message.create_time)&&message.create_time>=0 ? message.create_time : 0,
+   model:typeof message.metadata?.model_slug === 'string' && message.metadata.model_slug.length <= 128 ? message.metadata.model_slug : null,
+   effort:typeof message.metadata?.thinking_effort === 'string' && message.metadata.thinking_effort.length <= 128 ? message.metadata.thinking_effort : null,
+   complete:message.status === 'finished_successfully'});
+ }
+ const page={conversationId:request.conversationId, currentNode:conversation.current_node,
+  ...(conversation.gizmo_id?{projectId:conversation.gizmo_id}:{}),messages:messages.reverse(), before:hasMore ? messages[0].nodeId : null, mediaResolved:false};
+ if(request.operation==='readSubmission'){
+  const {later,nextUser}=submission;
   const ids=new Set(later.map(n=>n.message?.id));
   const visible=page.messages.filter(m=>ids.has(m.id)&&m.role==='assistant');
   const latest=visible.at(-1);

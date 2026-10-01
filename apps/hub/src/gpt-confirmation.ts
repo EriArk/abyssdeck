@@ -7,8 +7,22 @@ export const confirmationWaitMs = 120000;
 export const confirmationWarning =
   "Не удалось подтвердить доставку сообщения. Проверь историю перед новой отправкой.";
 
+export function gptDeliveryConfirmed(store: Pick<Store, "db">, id: string): boolean {
+  // Compatibility with legacy browser stores and migration/isolated fixtures.
+  if (
+    !store.db
+      .prepare("PRAGMA table_info(gpt_native_receipts)")
+      .all()
+      .some((r) => r.name === "deliveredAt")
+  )
+    return false;
+  return !!store.db.prepare("SELECT deliveredAt FROM gpt_native_receipts WHERE jobId=?").get(id)
+    ?.deliveredAt;
+}
+
 export function gptConfirmationState(store: Pick<Store, "db">, id: string, now = Date.now()) {
   const db = store.db;
+  if (gptDeliveryConfirmed(store, id)) return undefined;
   if (
     Number(
       db

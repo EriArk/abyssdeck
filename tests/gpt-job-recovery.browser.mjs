@@ -223,7 +223,7 @@ try {
           phase: "commentary",
           complete: false,
           text: "New public progress from the native app",
-          createdAt: 3,
+          createdAt: await page.evaluate(() => Date.now() / 1000),
           files: [],
         },
       ];

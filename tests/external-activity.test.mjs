@@ -10,6 +10,43 @@ import { ExternalActivity } from "../apps/hub/dist/externalActivity.js";
 import { Store } from "../apps/hub/dist/store.js";
 import { activityReader } from "../packages/machines/dist/activity.js";
 
+test("closing the last browser watcher does not stop background observation", async (t) => {
+  t.mock.timers.enable({ apis: ["setInterval", "Date"], now: 100000 });
+  const store = new Store(":memory:");
+  let reads = 0;
+  const observer = new ExternalActivity(
+    { machines: [{ id: "pc", name: "PC", codex: { activityNode: "node" } }] },
+    store,
+    {
+      projects: () => [{ id: "p", machineId: "pc" }],
+      syncThreads: async () => {},
+      invalidate: () => {},
+    },
+    async () => "/own",
+    async () => false,
+    () => {},
+    async () => {
+      reads++;
+      return [];
+    },
+  );
+  try {
+    const unwatch = observer.watch();
+    await observer.refresh();
+    assert.equal(reads, 1);
+    unwatch();
+    t.mock.timers.tick(32000);
+    await observer.refresh();
+    assert.equal(reads, 2);
+    await observer.close();
+    t.mock.timers.tick(64000);
+    assert.equal(reads, 2);
+  } finally {
+    await observer.close();
+    store.close();
+  }
+});
+
 test("external observation detects active and unread work; initial history is read and stale records are unknown", async () => {
   const store = new Store(":memory:"),
     events = [];

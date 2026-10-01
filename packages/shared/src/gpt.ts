@@ -50,6 +50,7 @@ export interface GptModels {
   currentEffort: string;
 }
 export interface GptJob {
+  deliveryConfirmed?: boolean;
   /** Exact native user node of this receipt, including a node outside the current branch. */
   userMessageId?: string;
   dismissed?: boolean;
@@ -59,7 +60,15 @@ export interface GptJob {
   files: GptFile[];
   model: string;
   effort: string;
-  status: "queued" | "preparing" | "running" | "completed" | "failed" | "unknown" | "cancelled";
+  status:
+    | "queued"
+    | "preparing"
+    | "running"
+    | "idle"
+    | "completed"
+    | "failed"
+    | "unknown"
+    | "cancelled";
   answer: string;
   progress?: GptProgress[];
   summaryOnly?: boolean;

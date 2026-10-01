@@ -63,7 +63,7 @@ const historySchema = z
             id: identity,
             role: z.enum(["user", "assistant"]),
             channel: z.enum(["commentary", "final"]),
-            text: z.string().max(1024 * 1024),
+            text: z.string().max(16 * 1024 * 1024),
             hasAttachments: z.boolean(),
             createdAt: z.number().finite().nonnegative(),
             model: z.string().max(128).nullable(),
@@ -260,9 +260,13 @@ export class NativeGptReadClient {
           let count = 0;
           res.on("data", (chunk: Buffer) => {
             count += chunk.length;
-            const limit = ["readHistoryUpdate", "readConversationGraph"].includes(
-              String(input.operation),
-            )
+            const limit = [
+              "readHistoryUpdate",
+              "readConversationGraph",
+              "readConversation",
+              "reconcileDispatch",
+              "readSubmission",
+            ].includes(String(input.operation))
               ? 20 * 1024 ** 2
               : 2 * 1024 ** 2;
             if (count > limit) {
@@ -771,7 +775,7 @@ export class NativeGptReadClient {
     uuid.nullable().parse(conversationId);
     return z
       .object({
-        state: z.enum(["unknown", "running", "completed", "cancelled"]),
+        state: z.enum(["unknown", "running", "idle", "completed", "cancelled"]),
         userMessageId: uuid,
         messages: historySchema.shape.messages,
         conversationId: uuid.nullable().optional(),
@@ -800,7 +804,7 @@ export class NativeGptReadClient {
     if (
       native.conversationId !== conversationId ||
       new Set(native.messages.map((m) => m.id)).size !== native.messages.length ||
-      native.messages.reduce((n, m) => n + Buffer.byteLength(m.text), 0) > 1024 * 1024
+      native.messages.reduce((n, m) => n + Buffer.byteLength(m.text), 0) > 16 * 1024 * 1024
     )
       fail("INVALID_HISTORY");
     const items: GptMessage[] = native.messages.map((m) => {
@@ -1070,10 +1074,7 @@ const nativeDispatchInput = z
     conversationId: uuid.nullable(),
     userMessageId: uuid,
     projectId: projectId.optional(),
-    text: z
-      .string()
-      .max(32768)
-      .refine((value) => Buffer.byteLength(value) <= 32768),
+    text: z.string().max(100000),
     versionId: z.string().min(1).max(128),
     presetId: z.number().int().nonnegative(),
   })

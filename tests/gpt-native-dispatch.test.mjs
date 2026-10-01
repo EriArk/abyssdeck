@@ -527,6 +527,63 @@ test("existing Hub queue commits intent before dispatch and reconciles after res
     "Public progress\n\nFinal answer",
   );
 });
+
+test("an exact native idle observation clears false running without claiming completion or replaying", async (t) => {
+  const f = receipts(t),
+    ledger = f.open();
+  t.after(() => ledger.close());
+  const input = { ...fixture().input, versionId: "latest", presetId: 1 };
+  delete input.operation;
+  let sends = 0,
+    nativeState = "running";
+  const reader = {
+    dispatchText: async () => {
+      sends++;
+    },
+    readSubmission: async () => ({ state: "running", messages: [] }),
+    inspectConversation: async () => ({
+      selected: true,
+      composerReady: true,
+      stopAvailable: false,
+      nativeState,
+    }),
+  };
+  await ledger.dispatch(input, reader);
+  assert.equal(
+    (await ledger.reconcile(input, reader)).state,
+    "running",
+    "absence of Stop alone proves nothing",
+  );
+  nativeState = "idle";
+  assert.equal((await ledger.reconcile(input, reader)).state, "idle");
+  assert.equal(ledger.pending(), false);
+  await ledger.dispatch(input, reader);
+  assert.equal(sends, 1);
+  reader.readSubmission = async () => ({ state: "completed", messages: [] });
+  assert.equal((await ledger.reconcile(input, reader)).state, "completed");
+});
+
+test("three failed completion reads retain durable delivery proof across restart", async (t) => {
+  const f = queue(t),
+    worker = f.open();
+  await worker.run(f.id);
+  const delivered = f.db
+    .prepare("SELECT deliveredAt FROM gpt_native_receipts WHERE jobId=?")
+    .get(f.id).deliveredAt;
+  assert.ok(delivered);
+  f.client.reconcileDispatch = async () => {
+    throw Error("NATIVE_READ_UNAVAILABLE");
+  };
+  for (let i = 0; i < 3; i++)
+    await assert.rejects(worker.reconcile(f.id), /NATIVE_READ_UNAVAILABLE/);
+  assert.equal(worker.canPoll(f.id), false);
+  f.open();
+  assert.equal(
+    f.db.prepare("SELECT deliveredAt FROM gpt_native_receipts WHERE jobId=?").get(f.id).deliveredAt,
+    delivered,
+  );
+  assert.equal(f.state.sends, 1);
+});
 test("Hub worker refuses files, unknown other jobs and revoked owners without dispatch", async (t) => {
   const f = queue(t),
     worker = f.open();

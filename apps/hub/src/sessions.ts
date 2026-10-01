@@ -1132,12 +1132,12 @@ export class Sessions extends EventEmitter {
     );
     const unsupportedTools = this.store.db
       .prepare(
-        "SELECT json_extract(r.payload,'$.tool') AS name,count(*) AS n FROM results r JOIN threads t ON t.id=r.threadId WHERE t.projectId=? AND r.type='error' AND r.sourceKey LIKE 'client-tool:%' GROUP BY name ORDER BY n DESC LIMIT 40",
+        "SELECT json_extract(r.payload,'$.tool') AS name,count(*) AS n,max(r.createdAt) AS lastAt FROM results r JOIN threads t ON t.id=r.threadId WHERE t.projectId=? AND r.type='error' AND r.sourceKey LIKE 'client-tool:%' GROUP BY name ORDER BY n DESC LIMIT 40",
       )
       .all(projectId)
       .flatMap((row) =>
         typeof row.name === "string" && /^[a-zA-Z0-9_./-]{1,100}$/.test(row.name)
-          ? [{ name: row.name, count: Number(row.n) }]
+          ? [{ name: row.name, count: Number(row.n), lastAt: String(row.lastAt) }]
           : [],
       );
     return { groups, unsupportedTools };
@@ -2129,7 +2129,7 @@ export class Sessions extends EventEmitter {
       observeScheduleReceipt(this.store.db, messageId, t.codexThreadId, turnId || "");
       this.store.db
         .prepare(
-          "DELETE FROM queue_transfers WHERE threadId=? AND ((id=? AND state IN ('enqueue_pending','enqueue_unknown')) OR (state IN ('pending','steered','unknown') AND json_extract(value, '$.clientUserMessageId')=?))",
+          "DELETE FROM queue_transfers WHERE threadId=? AND ((id=? AND state IN ('enqueue_pending','enqueue_unknown')) OR (state IN ('queued','pending','steered','unknown') AND json_extract(value, '$.clientUserMessageId')=?))",
         )
         .run(t.id, messageId, messageId);
       this.emitEvent(t.id, "queue.changed", {});

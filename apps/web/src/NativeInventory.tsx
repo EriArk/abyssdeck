@@ -80,11 +80,18 @@ export function NativeInventory({
           ))}
           {!!value.unsupportedTools.length && (
             <section>
-              <h3>Запрошены, но не подключены к веб-клиенту</h3>
+              <h3>История ошибок инструментов</h3>
+              <p className="muted">Прошлые ошибки в проекте. Текущее подключение показано выше.</p>
               <ul>
                 {value.unsupportedTools.map((tool) => (
                   <li key={tool.name}>
                     {tool.name} · {tool.count}
+                    {tool.lastAt && (
+                      <time dateTime={tool.lastAt}>
+                        {" "}
+                        · {new Date(tool.lastAt).toLocaleString()}
+                      </time>
+                    )}
                   </li>
                 ))}
               </ul>

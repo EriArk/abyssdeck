@@ -23,5 +23,5 @@ export interface NativeInventory {
     more: boolean;
     items: { name: string; description: string; state: string }[];
   }[];
-  unsupportedTools: { name: string; count: number }[];
+  unsupportedTools: { name: string; count: number; lastAt?: string }[];
 }

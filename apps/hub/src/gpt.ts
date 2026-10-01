@@ -24,11 +24,13 @@ import {
 import type { FastifyInstance } from "fastify";
 import sharp from "sharp";
 import { z } from "zod";
+import { GptAttention } from "./gpt-attention.js";
 import { GptHistoryCache, type GptHistorySnapshot } from "./gpt-cache.js";
 import {
   confirmationWarning,
   gptConfirmationPending,
   gptConfirmationState,
+  gptDeliveryConfirmed,
 } from "./gpt-confirmation.js";
 import { GptDeletions } from "./gpt-deletions.js";
 import {
@@ -108,6 +110,17 @@ export class GptService {
   private readonly historyBackoff = new GptReadBackoff();
   private readonly historyReads = new Map<string, Promise<Json>>();
   readonly historyCache: GptHistoryCache;
+  readonly attention: GptAttention;
+  private watchedHistory = new Map<string, number>();
+  private historyWatchTimer = setInterval(() => {
+    if (this.stopped || this.libraryBusy) return;
+    const now = Date.now();
+    for (const [id, at] of [...this.watchedHistory].sort((a, b) => a[1] - b[1]).slice(0, 2)) {
+      if (now - at < 30000) continue;
+      this.watchedHistory.set(id, now);
+      this.historyCache.warm(id);
+    }
+  }, 15000).unref();
   private readonly historyNormalizer = new GptHistoryNormalizer();
   resultIndex(id: string, snapshot: GptHistorySnapshot) {
     snapshot.results ??= new GptResultIndex(
@@ -456,14 +469,24 @@ export class GptService {
       store,
       Math.min(128 * 1024 * 1024, config.hub.storage.artifactBytes),
     );
+    this.attention = new GptAttention(store);
+    for (const id of this.attention.pendingIds())
+      if (!this.library.get("thread", id)?.deleted) this.watchedHistory.set(id, 0);
     this.historyCache = new GptHistoryCache(
-      async (id) =>
-        this.historyNormalizer.normalize(
+      async (id) => {
+        const messages = this.historyNormalizer.normalize(
           this.native
             ? await this.json("/conversation?display=1&id=" + encodeURIComponent(id))
             : await this.readConversation(id),
           id,
-        ),
+        );
+        if (this.attention.observe(id, messages).pending) {
+          this.watchedHistory.set(id, Date.now());
+          while (this.watchedHistory.size > 32)
+            this.watchedHistory.delete(this.watchedHistory.keys().next().value!);
+        } else this.watchedHistory.delete(id);
+        return messages;
+      },
       Date.now,
       new GptHistoryDisk(join(this.root, this.native ? "native-history" : "history")),
     );
@@ -1012,6 +1035,7 @@ export class GptService {
   }
   private publicJob(row: Json): GptJob {
     const confirmation = gptConfirmationState(this.store, String(row.id));
+    const delivered = gptDeliveryConfirmed(this.store, String(row.id));
     return {
       id: row.id,
       ...(typeof row.requestId === "string" &&
@@ -1027,6 +1051,7 @@ export class GptService {
       model: row.model,
       effort: row.effort,
       status: row.status,
+      deliveryConfirmed: delivered,
       answer: row.answer,
       progress: JSON.parse(
         String(
@@ -1038,21 +1063,23 @@ export class GptService {
       createdAt: Number(row.createdAt),
       updatedAt: Number(row.updatedAt),
       error:
-        confirmation === "waiting"
-          ? ""
-          : row.error === "NATIVE_CHAT_PAUSED"
-            ? "Проверки этого чата остановлены после повторных ошибок. Сообщение могло быть отправлено; автоматического повтора не будет. Другие чаты доступны."
-            : confirmation === "review"
-              ? confirmationWarning
-              : row.error === "NATIVE_CHAT_PAUSED_UNSENT"
-                ? "Отправка остановлена из-за сбоя этого чата. Сообщение не отправлялось; его можно вернуть в черновик."
-                : row.error === "NATIVE_DRAFT_PRESENT"
-                  ? "В этом чате GPT уже есть нативный черновик. Сохрани или убери его через подключение к GPT; другие чаты доступны."
-                  : typeof row.error === "string" && row.error.startsWith("NATIVE_")
-                    ? row.status === "unknown"
-                      ? ""
-                      : "Отправка не подготовлена. Текст и файлы сохранены."
-                    : row.error,
+        delivered && row.status === "unknown"
+          ? "Сообщение доставлено. Не удалось обновить состояние ответа."
+          : confirmation === "waiting"
+            ? ""
+            : row.error === "NATIVE_CHAT_PAUSED"
+              ? "Проверки этого чата остановлены после повторных ошибок. Сообщение могло быть отправлено; автоматического повтора не будет. Другие чаты доступны."
+              : confirmation === "review"
+                ? confirmationWarning
+                : row.error === "NATIVE_CHAT_PAUSED_UNSENT"
+                  ? "Отправка остановлена из-за сбоя этого чата. Сообщение не отправлялось; его можно вернуть в черновик."
+                  : row.error === "NATIVE_DRAFT_PRESENT"
+                    ? "В этом чате GPT уже есть нативный черновик. Сохрани или убери его через подключение к GPT; другие чаты доступны."
+                    : typeof row.error === "string" && row.error.startsWith("NATIVE_")
+                      ? row.status === "unknown"
+                        ? ""
+                        : "Отправка не подготовлена. Текст и файлы сохранены."
+                      : row.error,
     };
   }
   job(jobId: string) {
@@ -1201,11 +1228,6 @@ export class GptService {
     if (!this.available())
       throw error("GPT_NOT_CONFIGURED", "Подключение GPT ещё не настроено.", 503);
     this.native?.assertSubmission(jobId, value.nativeId);
-    if (this.native && Buffer.byteLength(value.text) > 32768)
-      throw error(
-        "GPT_NATIVE_INPUT",
-        "Сообщение превышает текущий предел нового подключения (32 КБ). Черновик сохранён.",
-      );
     if (this.nativeChatBlocked(value.nativeId, value.projectId))
       throw error(
         "GPT_NATIVE_BUSY",
@@ -1376,7 +1398,7 @@ export class GptService {
       retry = !!this.store.db.prepare("SELECT 1 FROM gpt_jobs WHERE status='queued' LIMIT 1").get();
       const pendingAll = this.store.db
         .prepare(
-          "SELECT j.id FROM gpt_jobs j JOIN gpt_job_providers p ON p.jobId=j.id JOIN gpt_native_receipts r ON r.jobId=j.id LEFT JOIN gpt_native_read_health h ON h.jobId=j.id WHERE p.provider='native' AND j.status IN ('running','unknown') AND COALESCE(h.paused,0)=0 ORDER BY j.updatedAt LIMIT 20",
+          "SELECT j.id FROM gpt_jobs j JOIN gpt_job_providers p ON p.jobId=j.id JOIN gpt_native_receipts r ON r.jobId=j.id LEFT JOIN gpt_native_read_health h ON h.jobId=j.id WHERE p.provider='native' AND j.status IN ('running','unknown','idle') AND COALESCE(h.paused,0)=0 ORDER BY j.updatedAt LIMIT 20",
         )
         .all();
       const pending = pendingAll
@@ -1463,14 +1485,14 @@ export class GptService {
   }
   private invalidateNativeJob(id: string, refresh = false) {
     const job = this.job(id);
-    if (job.status === "unknown") {
+    if (job.status === "unknown" && !gptDeliveryConfirmed(this.store, id)) {
       this.store.db
         .prepare("UPDATE gpt_jobs SET error=? WHERE id=? AND error!='NATIVE_CHAT_PAUSED'")
         .run(gptConfirmationPending(this.store, id) ? "" : confirmationWarning, id);
     }
     this.observedHistory = undefined;
     if (job.nativeId) {
-      if (refresh && ["running", "completed", "cancelled"].includes(job.status))
+      if (refresh && ["running", "idle", "completed", "cancelled"].includes(job.status))
         this.historyCache.warm(job.nativeId, job.status !== "running");
       else this.historyCache.invalidate(job.nativeId);
     }
@@ -1769,6 +1791,7 @@ export class GptService {
     clearTimeout(this.recoveryTimer);
     clearInterval(this.storageTimer);
     clearInterval(this.deletionTimer);
+    clearInterval(this.historyWatchTimer);
     this.lifetime.abort();
     await this.completion;
     await this.deletionWork;
@@ -2039,6 +2062,22 @@ export function registerGpt(
   app.get("/api/gpt/status", async () => service.connection());
   app.post("/api/gpt/reconnect", async () => service.reconnect());
   app.get("/api/gpt/models", async () => service.models());
+  app.get("/api/gpt/attention", async () => {
+    service.authorize();
+    return {
+      items: service.attention
+        .list()
+        .filter((r) => !service.library.get("thread", r.conversationId)?.deleted),
+    };
+  });
+  app.post("/api/gpt/conversations/:id/seen", async (req) => {
+    service.authorize();
+    const p = z.object({ id }).parse(req.params);
+    const body = z.object({ completedId: id }).strict().parse(req.body);
+    service.library.assertExists("thread", p.id);
+    service.attention.seen(p.id, body.completedId);
+    return { ok: true };
+  });
   app.get("/api/gpt/conversations", async (req) => {
     const q = z
       .object({ offset: z.coerce.number().int().min(0).max(100000).default(0) })

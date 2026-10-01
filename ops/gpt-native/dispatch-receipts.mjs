@@ -30,12 +30,12 @@ export class NativeDispatchReceipts {
  }
  hash(x){return createHash('sha256').update(JSON.stringify(x)).digest('hex');}
  close(){this.db.close();}
- pending(){return !!this.db.prepare("SELECT 1 FROM operation_receipts WHERE state='unknown' LIMIT 1").get() || !!this.db.prepare("SELECT 1 FROM workspace_receipts WHERE state='unknown' LIMIT 1").get() || !!this.db.prepare("SELECT 1 FROM project_creations WHERE projectId IS NULL AND state='unknown' LIMIT 1").get() || !!this.db.prepare("SELECT 1 FROM project_receipts WHERE state='unknown' LIMIT 1").get() || !!this.db.prepare("SELECT 1 FROM library_receipts WHERE state='unknown' LIMIT 1").get() || !!this.db.prepare("SELECT 1 FROM receipts WHERE state NOT IN ('completed','cancelled','checked') LIMIT 1").get();}
+ pending(){return !!this.db.prepare("SELECT 1 FROM operation_receipts WHERE state='unknown' LIMIT 1").get() || !!this.db.prepare("SELECT 1 FROM workspace_receipts WHERE state='unknown' LIMIT 1").get() || !!this.db.prepare("SELECT 1 FROM project_creations WHERE projectId IS NULL AND state='unknown' LIMIT 1").get() || !!this.db.prepare("SELECT 1 FROM project_receipts WHERE state='unknown' LIMIT 1").get() || !!this.db.prepare("SELECT 1 FROM library_receipts WHERE state='unknown' LIMIT 1").get() || !!this.db.prepare("SELECT 1 FROM receipts WHERE state NOT IN ('completed','cancelled','checked','idle') LIMIT 1").get();}
  // These are conflict identities only. Reading them never reconciles or releases a receipt.
  pendingScopes({sends=false}={}){
   const rows=(table,where="state='unknown'")=>this.db.prepare('SELECT * FROM '+table+' WHERE '+where).all();
   const scopes=[];
-  for(const row of sends?[]:rows('receipts',"state NOT IN ('completed','cancelled','checked')")){
+  for(const row of sends?[]:rows('receipts',"state NOT IN ('completed','cancelled','checked','idle')")){
    const p=JSON.parse(row.payload),creation=p.conversationId===null?this.db.prepare('SELECT candidate,confirmed FROM creations WHERE key=?').get(row.key):null;
    scopes.push({conversationIds:[p.conversationId,creation?.candidate,creation?.confirmed].filter(Boolean),projectId:p.projectId});
   }
@@ -76,7 +76,7 @@ export class NativeDispatchReceipts {
  }
  validate(r){
   if(r.projectId!=null&&!/^g-p-[a-zA-Z0-9-]{1,80}$/.test(r.projectId))fail('INVALID_PROJECT');
-  if(!(r.conversationId===null?this.creationKeys.has(r.key):this.allowed.has(r.conversationId))||!uuid(r.key)||!uuid(r.userMessageId)||typeof r.text!=='string'||Buffer.byteLength(r.text)>32768||
+  if(!(r.conversationId===null?this.creationKeys.has(r.key):this.allowed.has(r.conversationId))||!uuid(r.key)||!uuid(r.userMessageId)||typeof r.text!=='string'||r.text.length>100000||
      typeof r.versionId!=='string'||r.versionId.length>128||!Number.isSafeInteger(r.presetId))fail('INVALID_CANARY');
  }
  admitUpload(r){if(!(r.conversationId===null?this.creationKeys.has(r.key):this.allowed.has(r.conversationId))||!uuid(r.key)||!uuid(r.file?.id))fail('INVALID_CANARY');}
@@ -177,6 +177,21 @@ export class NativeDispatchReceipts {
    if(candidate==null)return {state:'unknown',messages:[],userMessageId:payload.userMessageId,conversationId:null};
   }
   const result=await reader.readSubmission({...payload,conversationId:candidate,...(conversationId===null?{newChat:true}:{})});
+  if(result.state==='running'&&typeof reader.inspectConversation==='function'&&!this.db.prepare('SELECT 1 FROM stops WHERE key=?').get(key)){
+   // Missing final text is not proof of active generation. Observe only the
+   // already selected exact conversation; never navigate, stop or resume it.
+   try {
+    const binding={...payload,conversationId:candidate};
+    const first=await reader.inspectConversation(binding);
+    if(first.selected&&first.nativeState==='idle'&&first.composerReady&&!first.stopAvailable){
+     const checked=await reader.readSubmission({...binding,...(conversationId===null?{newChat:true}:{})});
+     const last=await reader.inspectConversation(binding);
+     if(checked.state==='running'&&last.selected&&last.nativeState==='idle'&&last.composerReady&&!last.stopAvailable)
+      result.state='idle';
+     else if(checked.state!=='running'){result.state=checked.state;result.messages=checked.messages;}
+    }
+   } catch {/* Another selected chat or an unavailable UI proves no idle state. */}
+  }
   if(result.state==='running'&&this.db.prepare('SELECT 1 FROM stops WHERE key=?').get(key)){
    const ui=await reader.inspectConversation({...payload,conversationId:candidate});
    if(ui.selected&&ui.composerReady&&!ui.stopAvailable&&!ui.hasDraft){
@@ -187,7 +202,7 @@ export class NativeDispatchReceipts {
    }
   }
   if(conversationId===null&&result.state!=='unknown')this.db.prepare('UPDATE creations SET confirmed=? WHERE key=?').run(candidate,key);
-  if(['running','completed','cancelled'].includes(result.state))this.db.prepare("UPDATE receipts SET state=? WHERE key=?").run(result.state,key);
+  if(['running','idle','completed','cancelled'].includes(result.state))this.db.prepare("UPDATE receipts SET state=? WHERE key=?").run(result.state,key);
   return {...result,userMessageId:payload.userMessageId,...(conversationId===null?{conversationId:result.state==='unknown'?null:candidate}: {})};
  }
  async review(r,reader){

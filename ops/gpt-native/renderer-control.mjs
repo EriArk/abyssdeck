@@ -1,5 +1,6 @@
 // Pinned lab controls. No arbitrary action, selector, code, URL or prompt input.
-export async function nativeControl(request, read, load = () => import('app://-/assets/app-initial-430deae5a13a.js'), runtime = globalThis) {
+export async function nativeControl(request, read, load = () => import('app://-/assets/app-initial-430deae5a13a.js'), runtime = globalThis,
+ loadActions = () => import('app://-/assets/register-app-actions-a2e5974b9821.js')) {
  const fail = code => { throw Error(`NATIVE_${code}`); };
  if (!['selectConversation','inspectConversation','stopResponse'].includes(request?.operation)) fail('UNSUPPORTED_CONTROL');
  if (request.operation === 'stopResponse' && (typeof request.userMessageId !== 'string' || !request.userMessageId || request.userMessageId.length > 128)) fail('INVALID_REQUEST');
@@ -77,8 +78,24 @@ export async function nativeControl(request, read, load = () => import('app://-/
   return {conversationId:request.conversationId,userMessageId:request.userMessageId,stopIssued:true,confirmed:false};
  }
  const ui = controls();
+ let nativeState;
+ if(request.operation==='inspectConversation'&&request.conversationId!==null&&m.Nzt&&m.eWt){
+  // The same pinned atom used by dispatch admission, never inferred from text
+  // age or an absent button. Only inspect the already selected native route.
+  const registry=(await loadActions()).appActionRegistry;
+  const original=registry?.get('app.get_summary');
+  if(typeof original!=='function')fail('INCOMPATIBLE');
+  let scope;
+  const capture=(input,context)=>{scope=context?.scope;return original(input,context);};
+  registry.set('app.get_summary',capture);
+  try { if(!matches(await summary()))fail('SELECTED_CHAT_MISMATCH'); }
+  finally {if(registry.get('app.get_summary')===capture)registry.set('app.get_summary',original);}
+  if(!scope?.get||!m.Nzt||!m.eWt)fail('INCOMPATIBLE');
+  nativeState=scope.get(m.Nzt,m.eWt(request.conversationId));
+  if(typeof nativeState!=='string'||nativeState.length>100)fail('INCOMPATIBLE');
+ }
  if(request.operation==='selectConversation'&&(ui.editors.some(e=>e.textContent?.trim())||ui.attachments.length))fail('DRAFT_PRESENT');
- return {conversationId:request.conversationId,selected:true,composerReady:ui.editors.length === 1,
+ return {conversationId:request.conversationId,selected:true,...(nativeState?{nativeState}:{}),composerReady:ui.editors.length === 1,
   hasDraft:ui.editors.some(e=>!!e.textContent?.trim())||ui.attachments.length>0,attachmentCount:ui.attachments.length,stopAvailable:ui.stop.length === 1,
   sendAvailable:ui.send.length === 1};
 }

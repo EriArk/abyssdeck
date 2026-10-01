@@ -3,14 +3,14 @@ import type { GptCachedChat } from "./gptCache";
 
 export function gptJobUser(job: GptJob, messages: GptMessage[]): number {
   const matches = messages.flatMap((message, index) =>
-    (
-      message.role === "user" &&
-      (job.userMessageId
-        ? message.id === job.userMessageId
-        : message.text === job.text &&
-          message.createdAt * 1000 >= job.createdAt - 30000 &&
-          message.createdAt * 1000 <= job.updatedAt)
-    ) ? [index] : [],
+    message.role === "user" &&
+    (job.userMessageId
+      ? message.id === job.userMessageId
+      : message.text === job.text &&
+        message.createdAt * 1000 >= job.createdAt - 30000 &&
+        message.createdAt * 1000 <= job.updatedAt)
+      ? [index]
+      : [],
   );
   return matches.length === 1 ? matches[0]! : -1;
 }
@@ -21,8 +21,22 @@ export function historicalGptJob(
   job: GptJob,
   messages: GptMessage[],
   historyUnavailable: boolean,
+  jobs: GptJob[] = [],
 ): boolean {
-  if (historyUnavailable || job.status !== "unknown" || !job.error) return false;
+  if (job.status !== "unknown" || !job.error) return false;
+  // A newer canonical completion remains chronology evidence during a slow
+  // history refresh. It does not resolve or discard this older receipt.
+  if (
+    jobs.some(
+      (next) =>
+        next.nativeId === job.nativeId &&
+        next.id !== job.id &&
+        next.status === "completed" &&
+        next.createdAt > job.createdAt,
+    )
+  )
+    return true;
+  if (historyUnavailable) return false;
   const user = gptJobUser(job, messages);
   return user >= 0
     ? messages.slice(user + 1).some((message) => message.role === "user")
@@ -51,6 +65,13 @@ export function gptTurnProgress(messages: GptMessage[], job?: GptJob) {
     pending:
       user >= 0 &&
       next < 0 &&
+      // An old unfinished public node is not live activity. Recent output is
+      // a bounded display hint only; expiry never completes or cancels a turn.
+      (!external ||
+        turn.some(
+          (message) =>
+            message.role === "assistant" && message.createdAt * 1000 >= Date.now() - 60000,
+        )) &&
       !answers.some((message) => message.phase !== "commentary" && message.complete !== false),
     items: answers.map((message) => ({
       id: message.id,
@@ -161,7 +182,7 @@ export function mergeGptJobs(previous: GptJob[], incoming: GptJob[]): GptJob[] {
               updatedAt: job.updatedAt,
               // Summary payloads omit errors. Only a confirmed healthy status
               // supersedes the old failure; unknown/failed still need full details.
-              error: ["queued", "preparing", "running", "completed"].includes(job.status)
+              error: ["queued", "preparing", "running", "idle", "completed"].includes(job.status)
                 ? ""
                 : old.error,
             }

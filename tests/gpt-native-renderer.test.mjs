@@ -614,7 +614,7 @@ test("wrong conversation, cycles, missing parents and oversized text fail closed
   await assert.rejects(f.read(request), /INVALID_HISTORY/);
   f.conversation.mapping[id(1)].parent = id(99);
   await assert.rejects(f.read(request), /INVALID_HISTORY/);
-  f.node(1, "a".repeat(1024 * 1024 + 1));
+  f.node(1, "a".repeat(16 * 1024 * 1024 + 1));
   await assert.rejects(f.read(request), /HISTORY_TOO_LARGE/);
 });
 
@@ -979,4 +979,28 @@ test("history sync transfers exact changed public nodes and no hidden payload", 
   };
   assert.ok(stats.unchangedBytes < 250 && stats.appendBytes < 3000);
   console.log("history IPC benchmark", JSON.stringify(stats));
+});
+
+test("receipt proof ignores unrelated large turns and retains a large exact final", async () => {
+  const f = fixture(),
+    accountFingerprint = await f.binding();
+  f.node(1, "older ".repeat(200000));
+  f.node(2, "???".repeat(25000), { id: id(2), author: { role: "user" }, end_turn: false });
+  f.node(3, "answer ".repeat(180000), { id: id(3), end_turn: true });
+  f.node(4, "Other question", { id: id(4), author: { role: "user" } });
+  f.node(5, "unrelated ".repeat(150000), { id: id(5), end_turn: true });
+  const result = await f.read({
+    operation: "readSubmission",
+    conversationId,
+    accountFingerprint,
+    userMessageId: id(2),
+    parentId: id(1),
+    text: "???".repeat(25000),
+  });
+  assert.equal(result.state, "completed");
+  assert.deepEqual(
+    result.messages.map((m) => m.id),
+    [id(3)],
+  );
+  assert.equal(result.messages[0].text, "answer ".repeat(180000));
 });

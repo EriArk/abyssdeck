@@ -7,6 +7,7 @@ export class ExternalActivity {
   readonly errors = new Map<string, string>();
   private pending?: Promise<void>;
   private watchers = 0;
+  private lastPoll = 0;
   private timer: NodeJS.Timeout;
   private stopped = false;
   constructor(
@@ -23,7 +24,10 @@ export class ExternalActivity {
     ) => Promise<NativeActivity[]> = readNativeActivity,
   ) {
     this.timer = setInterval(() => {
-      if (this.watchers) void this.refresh();
+      // Browser connections control display latency, never server monitoring.
+      // Keep a bounded background cadence so completion/notifications survive
+      // PWA suspension, including work started in the desktop client.
+      if (this.watchers || Date.now() - this.lastPoll >= 30000) void this.refresh();
     }, 4000);
     this.timer.unref();
   }
@@ -48,6 +52,7 @@ export class ExternalActivity {
     return this.pending;
   }
   private async poll() {
+    this.lastPoll = Date.now();
     for (const machine of this.config.machines.filter((m) => m.codex.activityNode)) {
       const projects = this.catalog.projects().filter((p) => p.machineId === machine.id);
       if (!projects.length) continue;

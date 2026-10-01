@@ -61,6 +61,44 @@ class Rpc extends EventEmitter {
     this.closed = true;
   }
 }
+
+test("accepted queue messages remain visible across consumption and reopening until the exact user event", async () => {
+  const f = await setup();
+  try {
+    const clientId = randomUUID();
+    const item = await f.queue.add(f.t.id, "Second instruction", [], clientId);
+    f.rpc.queue = [];
+    const reopened = new QueueService(f.sessions, f.store);
+    assert.equal((await reopened.list(f.t.id)).items[0].state, "accepted");
+    assert.equal((await reopened.list(f.t.id)).items[0].text, "Second instruction");
+    await assert.rejects(
+      reopened.change(
+        f.t.id,
+        item.id,
+        item.revision,
+        "steer",
+        undefined,
+        f.store.thread(f.t.id).activeTurnId,
+      ),
+      { code: "QUEUE_CHANGED" },
+    );
+    f.rpc.emit("notification", "item/started", {
+      threadId: f.t.codexThreadId,
+      turnId: f.store.thread(f.t.id).activeTurnId,
+      item: {
+        id: randomUUID(),
+        clientId,
+        type: "userMessage",
+        content: [{ type: "text", text: "Second instruction" }],
+      },
+    });
+    assert.equal((await reopened.list(f.t.id)).items.length, 0);
+    assert.equal(f.store.history(f.t.id).messages.filter((m) => m.id === clientId).length, 1);
+    assert.equal(f.rpc.calls.filter((c) => c.method === "thread/queue/add").length, 1);
+  } finally {
+    await f.close();
+  }
+});
 async function setup(instructions = () => null) {
   const root = mkdtempSync(join(tmpdir(), "codex-queue-"));
   const config = configSchema.parse({
@@ -120,10 +158,7 @@ test("async question reply atomically steers its source turn without a browser o
     assert.equal(steer[0].p.input[0].text, text);
     assert.equal(f.rpc.queue.length, 0);
     assert.equal((await f.queue.list(f.t.id)).items.length, 0);
-    assert.equal(
-      f.store.db.prepare("SELECT state FROM queue_transfers WHERE threadId=?").get(f.t.id).state,
-      "steered",
-    );
+    assert.ok(f.store.history(f.t.id).messages.some((m) => m.id === clientId));
     assert.equal(await f.queue.whenEmpty(f.t.id, async () => "ready"), "ready");
     assert.equal(f.rpc.calls.filter((c) => c.method === "turn/start").length, 1);
     await assert.rejects(
@@ -256,7 +291,7 @@ test("native queue edits preserve images, survives service recreation and steers
     assert.equal(steer.p.input[1].type, "localImage");
     assert.equal((await queue.list(t.id)).items.length, 0);
     await assert.rejects(queue.change(t.id, q.id, q.revision, "delete"), {
-      code: "MESSAGE_ACCEPTED",
+      code: "QUEUE_CHANGED",
     });
     const clientId = rpc.calls.find((c) => c.method === "turn/steer").p.clientUserMessageId;
     rpc.emit("notification", "item/completed", {
@@ -365,7 +400,7 @@ test("queue attachment metadata exists before native auto-start; a lost enqueue 
     assert.equal(list.items.length, 1);
     assert.equal(list.items[0].state, "queued");
     assert.equal(list.items[0].attachments[0].id, file.id);
-    assert.equal(f.store.db.prepare("SELECT count(*) AS n FROM queue_transfers").get().n, 0);
+    assert.equal(f.store.db.prepare("SELECT count(*) AS n FROM queue_transfers").get().n, 1);
     assert.equal(f.rpc.calls.filter((c) => c.method === "thread/queue/add").length, 1);
   } finally {
     await f.close();

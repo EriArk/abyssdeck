@@ -44,7 +44,7 @@ export function useMessageQueue(threadId: string) {
         signal: controller.signal,
       });
       if (current.current === threadId && seq === request.current) {
-        setState({ ...value, items: value.items.filter((item) => item.state !== "steered") });
+        setState(value);
         readFailures.current = 0;
         setLoadError("");
       }
@@ -131,10 +131,18 @@ export function useMessageQueue(threadId: string) {
       const signature = JSON.stringify({ threadId, text, attachments });
       if (pending.current?.signature !== signature)
         pending.current = { signature, id: crypto.randomUUID() };
-      await api(`/threads/${threadId}/queue`, {
+      const accepted = await api<QueuedMessage>(`/threads/${threadId}/queue`, {
         method: "POST",
         body: { text, attachments, clientId: pending.current.id },
       });
+      if (current.current === threadId) {
+        ++request.current; // Discard reads started before this acknowledgement.
+        setState((old) => ({
+          ...old,
+          available: true,
+          items: [...old.items.filter((item) => item.id !== accepted.id), accepted],
+        }));
+      }
       pending.current = undefined;
     }, true);
   const change = (
@@ -183,12 +191,14 @@ export function MessageQueue({
       {!!queue.state.items.length && (
         <div className="queue-heading">
           <span>
-            Далее <b>{queue.state.items.length}</b>
+            Сообщения <b>{queue.state.items.length}</b>
           </span>
           <small>
             {queue.state.items.every((item) => item.state === "steered")
               ? "Передано текущему ходу"
-              : "После текущего ответа"}
+              : queue.state.items.every((item) => item.state === "accepted")
+                ? "Принято Codex"
+                : "После текущего ответа"}
           </small>
         </div>
       )}
@@ -253,9 +263,10 @@ export function MessageQueue({
                     постановкой в очередь.
                   </p>
                 )}
-                {item.state === "steered" ? (
+                {["steered", "accepted"].includes(item.state) ? (
                   <span className="small muted" role="status">
-                    <Icon name="check" size={14} /> Принято
+                    <Icon name="check" size={14} />{" "}
+                    {item.state === "steered" ? "Передано текущему ходу" : "Принято Codex"}
                   </span>
                 ) : (
                   <div className="queue-actions">

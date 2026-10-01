@@ -5,7 +5,7 @@ import type { FastifyInstance } from "fastify";
 import webpush, { type PushSubscription } from "web-push";
 import { z } from "zod";
 import type { Auth } from "./auth.js";
-import { gptConfirmationPending } from "./gpt-confirmation.js";
+import { gptConfirmationPending, gptDeliveryConfirmed } from "./gpt-confirmation.js";
 import { type Notice, noticeDisplay } from "./push-content.js";
 import type { Store } from "./store.js";
 
@@ -257,7 +257,15 @@ export class PushService {
         );
         continue;
       }
-      if (row.kind !== "test" && (!JSON.parse(sub.categories)[row.category] || visible || stale)) {
+      if (
+        row.kind !== "test" &&
+        (!JSON.parse(sub.categories)[row.category] ||
+          visible ||
+          stale ||
+          (row.client === "gpt" &&
+            row.kind === "unknown" &&
+            gptDeliveryConfirmed(this.store, row.target)))
+      ) {
         db.prepare(
           "UPDATE push_deliveries SET state='skipped' WHERE notice=? AND subscription=?",
         ).run(row.id, row.subscription);

@@ -38,7 +38,8 @@ test("External native turns remain independent of off-branch receipts and repeat
   assert.equal(job.status, "unknown");
   const progress = gptTurnProgress(current);
   assert.equal(progress.external, true);
-  assert.equal(progress.pending, true);
+  assert.equal(progress.pending, false, "old unfinished output is not current activity");
+  assert.equal(gptTurnProgress([user, { ...step, createdAt: Date.now() / 1000 }]).pending, true);
   assert.equal(progress.userId, user.id);
   assert.deepEqual(
     progress.items.map((item) => item.id),
@@ -331,4 +332,13 @@ test("saved GPT message sources use bounded native-branch context and explicit r
     cache.page("chat", { messageId: "gone" }),
     (e) => e.code === "GPT_MESSAGE_MISSING",
   );
+});
+
+test("older uncertain receipts stay historical while canonical history refresh is unavailable", () => {
+  const old = { id: "old", nativeId: "chat", status: "unknown", error: "paused", createdAt: 1000 };
+  const complete = { id: "new", nativeId: "chat", status: "completed", createdAt: 5000 };
+  assert.equal(historicalGptJob(old, [], true, [old, complete]), true);
+  assert.equal(historicalGptJob(old, [], true, [old, { ...complete, nativeId: "other" }]), false);
+  assert.equal(historicalGptJob(old, [], true, [old, { ...complete, status: "running" }]), false);
+  assert.equal(old.status, "unknown");
 });

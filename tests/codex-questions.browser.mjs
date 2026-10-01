@@ -98,15 +98,8 @@ try {
         if (path.endsWith("/question-reply") && method === "POST") {
           const body = route.request().postDataJSON();
           posts.push({ path, body });
-          const item = {
-            id: body.clientId,
-            text: body.text,
-            revision: "r",
-            state: "steered",
-            attachments: [],
-            otherInputs: 0,
-          };
-          queue.push(item);
+          // Native Steer ACK is materialized as a user message by Hub.
+          // The subsequent queue GET no longer contains that accepted item.
           return route.fulfill({ json: { delivery: "steered" } });
         }
         if (path.includes("/queue/") && method === "POST") {

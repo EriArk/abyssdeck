@@ -266,7 +266,9 @@ test("a foreign native draft survives navigation and does not block the target c
             if (action.type === "windows.show_thread") {
               f.state.window.thread.id = action.threadId;
               f.state.window.route.threadId = action.threadId;
-              f.elements['[data-composer-body] [role="textbox"][contenteditable="true"]'] = [targetEditor];
+              f.elements['[data-composer-body] [role="textbox"][contenteditable="true"]'] = [
+                targetEditor,
+              ];
             }
             return f.state;
           },
@@ -286,11 +288,11 @@ test("a foreign native draft survives navigation and does not block the target c
   }
 });
 
-
 test("editable answer documents do not become a draft or break next-message admission", async () => {
   const f = fixture();
   const documents = Array.from({ length: 3 }, () => ({
-    getClientRects: () => [1], textContent: "An editable completed resume",
+    getClientRects: () => [1],
+    textContent: "An editable completed resume",
   }));
   f.elements['[role="textbox"][contenteditable="true"]'] = [...documents, f.editor];
   f.elements['button[aria-label="Stop"]'] = [];
@@ -303,5 +305,33 @@ test("editable answer documents do not become a draft or break next-message admi
   await assert.rejects(f.run({ operation: "selectConversation" }), /DRAFT_PRESENT/);
   assert.equal(documents[0].textContent, "An editable completed resume");
   assert.equal(f.editor.textContent, "Real unsent message");
+  assert.equal(f.clicks(), 0);
+});
+
+test("native idle inspection reads the exact state atom and restores the shared handler", async () => {
+  const f = fixture(),
+    original = () => f.state,
+    registry = new Map([["app.get_summary", original]]);
+  const scope = {
+    get: (token, key) => {
+      assert.equal(token, "state");
+      assert.equal(key, "chat");
+      return "idle";
+    },
+  };
+  const load = async () => ({
+    Nzt: "state",
+    eWt: (id) => id,
+    M9: {
+      appActions: {
+        runInPrimaryWindow: async () => registry.get("app.get_summary")({}, { scope }),
+      },
+    },
+  });
+  const result = await nativeControl(f.request, f.read, load, f.runtime, async () => ({
+    appActionRegistry: registry,
+  }));
+  assert.equal(result.nativeState, "idle");
+  assert.equal(registry.get("app.get_summary"), original);
   assert.equal(f.clicks(), 0);
 });

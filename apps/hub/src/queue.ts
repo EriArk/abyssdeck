@@ -109,15 +109,15 @@ export class QueueService {
       const native = await this.native(id);
       this.store.db
         .prepare(
-          "DELETE FROM queue_transfers WHERE threadId=? AND state='steered' AND EXISTS (SELECT 1 FROM messages WHERE messages.threadId=queue_transfers.threadId AND messages.id=json_extract(queue_transfers.value, '$.clientUserMessageId'))",
+          "DELETE FROM queue_transfers WHERE threadId=? AND state IN ('queued','steered') AND EXISTS (SELECT 1 FROM messages WHERE messages.threadId=queue_transfers.threadId AND messages.id=json_extract(queue_transfers.value, '$.clientUserMessageId'))",
         )
         .run(id);
       for (const q of native)
         this.store.db
           .prepare(
-            "DELETE FROM queue_transfers WHERE threadId=? AND id=? AND state='enqueue_unknown'",
+            "UPDATE queue_transfers SET id=?,value=?,state='queued' WHERE threadId=? AND id=? AND state='enqueue_unknown'",
           )
-          .run(id, q.clientUserMessageId);
+          .run(q.id, JSON.stringify(q), id, q.clientUserMessageId);
       const held = this.store.db
         .prepare("SELECT value,state FROM queue_transfers WHERE threadId=?")
         .all(id);
@@ -129,11 +129,17 @@ export class QueueService {
               (q) => !held.some((v) => (JSON.parse(String(v.value)) as Submission).id === q.id),
             )
             .map((q) => this.public(id, q)),
-          // A positive Steer acknowledgement is a delivered receipt, not pending
-          // work. Keep it durable for reconciliation, but never show it in Next.
-          ...held
-            .filter((v) => v.state !== "steered")
-            .map((v) => this.public(id, JSON.parse(String(v.value)), String(v.state))),
+          // Queue consumption and the matching user event are independent.
+          // Keep the acknowledgement visible throughout that gap, including Steer.
+          ...held.map((v) => {
+            const saved = JSON.parse(String(v.value)) as Submission;
+            const current = native.find((q) => q.id === saved.id);
+            return this.public(
+              id,
+              current ?? saved,
+              v.state === "queued" && !current ? "accepted" : String(v.state),
+            );
+          }),
         ],
         canSteer: await this.sessions.owns(id),
       };
@@ -185,8 +191,8 @@ export class QueueService {
       if (!q.id || q.clientUserMessageId !== clientId || !Array.isArray(q.input))
         throw new HubError(502, "INVALID_QUEUE_RESPONSE", "Очередь не подтвердила сообщение");
       this.store.db
-        .prepare("DELETE FROM queue_transfers WHERE threadId=? AND id=?")
-        .run(id, clientId);
+        .prepare("UPDATE queue_transfers SET id=?,value=?,state='queued' WHERE threadId=? AND id=?")
+        .run(q.id, JSON.stringify(q), id, clientId);
       this.changed(id);
       return this.public(id, q);
     } catch (error) {
@@ -235,7 +241,7 @@ export class QueueService {
         // Enqueue was confirmed. Do not invite another send after a lost Steer
         // confirmation; the original queue transfer retains the exact receipt.
         const held = this.held(id, item.id);
-        if (held) return { delivery: "uncertain" as const };
+        if (held && held.state !== "queued") return { delivery: "uncertain" as const };
         if (
           error instanceof HubError &&
           ["TURN_CHANGED", "THREAD_IN_USE", "QUEUE_CHANGED"].includes(error.code)
@@ -267,7 +273,10 @@ export class QueueService {
   ) {
     const t = this.sessions.thread(id),
       rpc = await this.sessions.queueClient(id);
-    const held = this.held(id, qid);
+    const receipt = this.held(id, qid);
+    // A queued receipt mirrors native state; it is not a locally held transfer.
+    // Re-read before mutations so consumption can never replay accepted input.
+    const held = receipt?.state === "queued" ? undefined : receipt;
     if (held?.state === "steered")
       throw new HubError(409, "MESSAGE_ACCEPTED", "Codex уже принял сообщение.");
     if (held && ["pending", "enqueue_pending"].includes(held.state))
@@ -294,12 +303,18 @@ export class QueueService {
         this.store.db
           .prepare("UPDATE queue_transfers SET value=? WHERE threadId=? AND id=?")
           .run(JSON.stringify({ ...q, input }), id, qid);
-      else
+      else {
         await rpc.request("thread/queue/update", {
           threadId: t.codexThreadId,
           queuedSubmissionId: qid,
           input,
         });
+        this.store.db
+          .prepare(
+            "UPDATE queue_transfers SET value=? WHERE threadId=? AND id=? AND state='queued'",
+          )
+          .run(JSON.stringify({ ...q, input }), id, qid);
+      }
     } else if (action === "delete") {
       if (held)
         this.store.db.prepare("DELETE FROM queue_transfers WHERE threadId=? AND id=?").run(id, qid);
@@ -335,7 +350,9 @@ export class QueueService {
           "Текущий ход изменился. Сообщение осталось в очереди",
         );
       this.store.db
-        .prepare("INSERT INTO queue_transfers VALUES(?,?,?,'pending')")
+        .prepare(
+          "INSERT INTO queue_transfers VALUES(?,?,?,'pending') ON CONFLICT(threadId,id) DO UPDATE SET value=excluded.value,state='pending'",
+        )
         .run(id, qid, JSON.stringify(q));
       try {
         const deleted = await rpc.request("thread/queue/delete", {
@@ -364,6 +381,29 @@ export class QueueService {
         this.store.db
           .prepare("UPDATE queue_transfers SET state='steered' WHERE threadId=? AND id=?")
           .run(id, qid);
+        // Steer ACK already proves delivery to this exact turn. Native can delay
+        // or omit its user event; publish the accepted message now under the same
+        // client identity so the later event deduplicates rather than hiding it.
+        if (
+          !this.store.db
+            .prepare("SELECT 1 FROM messages WHERE threadId=? AND id=?")
+            .get(id, q.clientUserMessageId)
+        ) {
+          const accepted = this.public(id, q, "steered");
+          this.sessions.emit(
+            "event",
+            this.store.append(
+              id,
+              "user.message",
+              {
+                id: q.clientUserMessageId,
+                text: accepted.text,
+                attachments: accepted.attachments,
+              },
+              expectedTurnId,
+            ),
+          );
+        }
       } catch (error) {
         this.store.db
           .prepare("UPDATE queue_transfers SET state='unknown' WHERE threadId=? AND id=?")
@@ -372,6 +412,8 @@ export class QueueService {
         throw error;
       }
     }
+    if (action === "delete" && !held)
+      this.store.db.prepare("DELETE FROM queue_transfers WHERE threadId=? AND id=?").run(id, qid);
     this.changed(id, {
       clientMessageId: q.clientUserMessageId,
       action: action === "delete" && held ? "dismissed" : action,

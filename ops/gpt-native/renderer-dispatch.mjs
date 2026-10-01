@@ -6,7 +6,7 @@ export async function nativeDispatch(request, read, control,
  const uuid = x => typeof x === 'string' && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(x);
  if (!['prepareDispatch','dispatchText','inspectDispatch','resolveCreation'].includes(request.operation) ||
      (request.conversationId!==null&&!uuid(request.conversationId)) || !uuid(request.key) || !uuid(request.userMessageId) ||
-     typeof request.text !== 'string' || new TextEncoder().encode(request.text).length > 32768 ||
+     typeof request.text !== 'string' || request.text.length > 100000 ||
      typeof request.model !== 'string' || request.model.length > 128 ||
      (request.effort !== null && (typeof request.effort !== 'string' || request.effort.length > 128))) fail('INVALID_REQUEST');
  if(request.projectId!=null&&!/^g-p-[a-zA-Z0-9-]{1,80}$/.test(request.projectId))fail('INVALID_PROJECT');

@@ -174,7 +174,7 @@ export async function listenNative(service, socketPath) {
       const input = JSON.parse(Buffer.concat(chunks).toString('utf8'));
       const result = await service.request(input);
       const body = JSON.stringify({ ok: true, result });
-      const limit = ['readHistoryUpdate','readConversationGraph'].includes(input.operation) ? 20 * 1024 ** 2 : 2 * 1024 ** 2;
+      const limit = ['readHistoryUpdate','readConversationGraph','readConversation','reconcileDispatch','readSubmission'].includes(input.operation) ? 20 * 1024 ** 2 : 2 * 1024 ** 2;
       if (Buffer.byteLength(body) > limit) fail('RESPONSE_TOO_LARGE');
       res.end(body);
     } catch (error) {
