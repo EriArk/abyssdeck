@@ -5,6 +5,7 @@ import { AutoTextarea } from "./AutoTextarea";
 import { workspaceSocket } from "./accountStorage.ts";
 import { ApiError, api } from "./api";
 import { Icon } from "./icons";
+import { terminalFormInput } from "./terminalInput";
 import "@xterm/xterm/css/xterm.css";
 
 export function DeviceTerminal({ id, onExit }: { id: string; onExit: () => void }) {
@@ -352,7 +353,7 @@ export function DeviceTerminal({ id, onExit }: { id: string; onExit: () => void 
             if (secretRef.current) secretRef.current.value = "";
             setCommand("");
             setEntry(null);
-            input(value.replace(/\r\n|\n/g, "\r") + "\r");
+            input(terminalFormInput(value));
           }}
         >
           {entry === "password" ? (

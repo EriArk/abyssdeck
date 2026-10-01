@@ -7,6 +7,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { shellTracking, TerminalActivity } from "../apps/hub/dist/terminal-activity.js";
 import { terminalProbeScript } from "../apps/hub/dist/terminal-probe.js";
+import { terminalFormInput } from "../apps/web/src/terminalInput.ts";
 
 const require = createRequire(new URL("../apps/hub/package.json", import.meta.url));
 test("real Linux PTY classifies child password entry without treating ordinary typeahead as a response", {
@@ -46,7 +47,7 @@ test("real Linux PTY classifies child password entry without treating ordinary t
   try {
     await wait(() => a.candidate());
     assert.equal(probe(true), "unknown");
-    const cmd = `python3 -c 'import sys,termios; old=termios.tcgetattr(0); mode=termios.tcgetattr(0); mode[3]&=~termios.ECHO; termios.tcsetattr(0,termios.TCSANOW,mode); print("PASSWORD_READY",flush=True); input(); termios.tcsetattr(0,termios.TCSANOW,old)'\r`;
+    const cmd = terminalFormInput(`python3 -c 'import sys,termios; old=termios.tcgetattr(0); mode=termios.tcgetattr(0); mode[3]&=~termios.ECHO; termios.tcsetattr(0,termios.TCSANOW,mode); print("PASSWORD_READY",flush=True); input(); termios.tcsetattr(0,termios.TCSANOW,old)'\n`);
     a.input(cmd);
     p.write(cmd);
     await wait(() => a.executing && output.includes("PASSWORD_READY\r\n"));

@@ -1,5 +1,15 @@
 # AGENTS.md
 
+## Owner-requested terminal close and update continuity (2026-10-02)
+
+- Explicitly closing Devices releases its visited terminals once the last viewer
+  leaves and actual idle state is verified. Preserve running commands until they
+  finish; reconnecting cancels the pending release. Network loss or hiding the
+  browser alone does not request terminal closure. This supersedes indefinite
+  idle-session retention on the window close button below.
+- Terminal form submission adds exactly one Enter after pasted text; a trailing
+  clipboard newline must not become a second submission or a password attempt.
+
 ## Reading current and historical rules (2026-10-02 reconciliation)
 
 - Dated owner updates below record an evolving product. A superseded paragraph

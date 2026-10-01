@@ -89,11 +89,19 @@ Companion/Team socket/auth and credit-continuation checks, checkpoint/rollback/
 upgrade fixtures, and Chromium/WebKit login plus real authenticated DOCX rendering.
 Evidence lives at `verification-d8ec99e` under the Hub service directory.
 
-The ordinary updater is waiting to replace `ed44e8d` with `d8ec99e`. At
+The ordinary updater initially waited to replace `ed44e8d` with `d8ec99e`. At
 2026-10-01 23:05 UTC the owner personal engine returned one unknown Devices
 terminal, zero busy terminals; the member engine returned zero for both. Read-only
 host inspection found the existing SSH bash foreground process without visible
 child commands, which does not prove that its editable input buffer is empty.
-No terminal was closed and no input was injected. Investigation is tracked in
-[#233](https://github.com/EriArk/codex-web-interface/issues/233); the cause is not
-yet established. Source/candidate checks do not imply installed acceptance.
+At that point no terminal was closed and no input was injected. The owner then
+confirmed this was the finished terminal and explicitly requested fixing window
+closure and installing the update. After checking the exact shell again, only
+that idle shell was closed. The ordinary updater installed `d8ec99e` at
+2026-10-01 23:11:33 UTC; both containers are healthy, schema 30, active Codex
+continuity preserved. Three verified checkpoints remain.
+
+[#233](https://github.com/EriArk/codex-web-interface/issues/233) adds explicit
+window release after verified idle, cancellation on reconnect, and single-Enter
+normalization of pasted commands. The old unknown state is not retroactively
+attributed to the independently reproduced duplicate-newline defect.

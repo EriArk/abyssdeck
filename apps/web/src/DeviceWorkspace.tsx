@@ -53,6 +53,25 @@ export default function DeviceWorkspace({
     [credentials, setCredentials] = useState(true);
   const pending = useRef<{ key: string; device: string; action: DeviceAction } | null>(null);
   const automatic = useRef("");
+  const visitedTerminals = useRef(new Set<string>());
+  if (terminal) visitedTerminals.current.add(terminal);
+  const [closing, setClosing] = useState(false);
+  const closeWindow = async () => {
+    if (closing || busy) return;
+    setClosing(true);
+    setError("");
+    try {
+      await Promise.all(
+        [...visitedTerminals.current].map((id) =>
+          api(`/device-terminals/${id}/release`, { method: "POST", timeoutMs: 10000 }),
+        ),
+      );
+      onClose();
+    } catch (e) {
+      setError((e as Error).message);
+      setClosing(false);
+    }
+  };
   const [loadedDevice, setLoadedDevice] = useState("");
   const selection = useRef(selected);
   selection.current = selected;
@@ -155,7 +174,7 @@ export default function DeviceWorkspace({
   }, [refresh, selected]);
   const create = useCallback(
     async (value: DeviceAction) => {
-      if (!current || busy) return;
+      if (!current || busy || closing) return;
       const id = current.id;
       if (
         !pending.current ||
@@ -185,10 +204,10 @@ export default function DeviceWorkspace({
         setBusy(false);
       }
     },
-    [current, busy],
+    [current, busy, closing],
   );
   const end = async () => {
-    if (!terminal || busy) return;
+    if (!terminal || busy || closing) return;
     setBusy(true);
     setError("");
     try {
@@ -221,7 +240,7 @@ export default function DeviceWorkspace({
       aria-label="Устройства"
       onCancel={(e) => {
         e.preventDefault();
-        onClose();
+        void closeWindow();
       }}
     >
       <header className="devices-heading">
@@ -231,7 +250,8 @@ export default function DeviceWorkspace({
           type="button"
           className="icon-button"
           aria-label="Закрыть устройства"
-          onClick={onClose}
+          onClick={() => void closeWindow()}
+          disabled={closing || busy}
         >
           <Icon name="close" />
         </button>

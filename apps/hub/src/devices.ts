@@ -38,6 +38,8 @@ type LiveTerminal = {
   activity: TerminalActivity;
   inputs?: Promise<void>;
   pendingInputs?: number;
+  releaseWhenIdle?: boolean;
+  releasing?: boolean;
 };
 const params = (req: FastifyRequest) =>
   z.object({ id: z.string().min(1).max(100) }).parse(req.params).id;
@@ -137,6 +139,37 @@ export function registerDevices(
     } catch {}
     finish(terminal, null);
   };
+  const releaseIdle = async (terminal: LiveTerminal) => {
+    if (
+      !terminal.releaseWhenIdle ||
+      terminal.releasing ||
+      terminal.clients.size ||
+      terminal.pendingInputs ||
+      terminal.info.state !== "open" ||
+      !terminal.activity.candidate()
+    )
+      return;
+    terminal.releasing = true;
+    const revision = terminal.activity.revision;
+    try {
+      const d = device(terminal.info.deviceId);
+      const state = await (deps.terminalProbe
+        ? deps.terminalProbe(d, terminal.activity.identity!)
+        : probeTerminal(d, terminal.activity.identity!, workspaceDevice(config, d)));
+      if (
+        state === "idle" &&
+        terminal.releaseWhenIdle &&
+        !terminal.clients.size &&
+        !terminal.pendingInputs &&
+        terminal.info.state === "open" &&
+        revision === terminal.activity.revision &&
+        terminal.activity.candidate()
+      )
+        close(terminal);
+    } finally {
+      terminal.releasing = false;
+    }
+  };
   const sweep = () => {
     for (const [key, ticket] of tickets) if (ticket.expires < Date.now()) tickets.delete(key);
     for (const terminal of live.values()) {
@@ -148,6 +181,7 @@ export function registerDevices(
         for (const socket of terminal.clients) socket.close(1008, "Session ended");
         live.delete(terminal.info.id);
       } else if (terminal.created + 24 * 3600000 < Date.now()) close(terminal);
+      else void releaseIdle(terminal).catch(() => {});
     }
   };
   const interval = setInterval(sweep, 10000);
@@ -276,6 +310,7 @@ export function registerDevices(
         const visible = terminal.activity.output(data);
         terminal.buffer = (terminal.buffer + visible).slice(-BUFFER);
         for (const s of terminal.clients) if (visible) output(s, visible);
+        void releaseIdle(terminal).catch(() => {});
       });
       pty.onExit(({ exitCode }) => finish(terminal, exitCode));
       return info;
@@ -285,6 +320,17 @@ export function registerDevices(
     const info = record(params(req), auth.session(req).tokenHash),
       t = live.get(info.id);
     if (t) close(t);
+    return { ok: true };
+  });
+  // Closing the window is distinct from a network disconnect or an explicit Stop.
+  // The exact session is released after its last viewer leaves and work finishes.
+  app.post("/api/device-terminals/:id/release", async (req) => {
+    const info = record(params(req), auth.session(req).tokenHash);
+    const t = live.get(info.id);
+    if (t?.info.state === "open") {
+      t.releaseWhenIdle = true;
+      void releaseIdle(t).catch(() => {});
+    }
     return { ok: true };
   });
   app.post("/api/device-terminals/:id/ticket", async (req) => {
@@ -336,6 +382,7 @@ export function registerDevices(
           const t = live.get(ticket.id);
           if (!t || t.clients.size >= 3) throw new Error("No terminal");
           attached = t;
+          t.releaseWhenIdle = false;
           t.clients.add(socket);
           flow.set(socket, { queue: "", outstanding: 0 });
           clearTimeout(timer);
@@ -407,6 +454,7 @@ export function registerDevices(
     socket.on("close", () => {
       clearTimeout(timer);
       attached?.clients.delete(socket);
+      if (attached) void releaseIdle(attached).catch(() => {});
       flow.delete(socket);
     });
     socket.on("error", () => {});
