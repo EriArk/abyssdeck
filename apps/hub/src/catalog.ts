@@ -75,15 +75,20 @@ export class Catalog {
       if (!project) throw new HubError(404, "PROJECT_NOT_FOUND", "Проект не найден");
       return this.machine(project.machineId);
     });
-    this.previews = new Previews(join(config.hub.resultsPath, "previews"), store, (threadId) => {
-      const thread = store.thread(threadId);
-      const project = this.projects().find((p) => p.id === thread.projectId);
-      if (!project) throw new HubError(404, "PROJECT_NOT_FOUND", "Проект не найден");
-      return {
-        machine: this.machine(project.machineId),
-        root: thread.workingDirectory || project.workingDirectory,
-      };
-    });
+    this.previews = new Previews(
+      join(config.hub.resultsPath, "previews"),
+      store,
+      (threadId) => {
+        const thread = store.thread(threadId);
+        const project = this.projects().find((p) => p.id === thread.projectId);
+        if (!project) throw new HubError(404, "PROJECT_NOT_FOUND", "Проект не найден");
+        return {
+          machine: this.machine(project.machineId),
+          root: thread.workingDirectory || project.workingDirectory,
+        };
+      },
+      (id) => this.artifacts.preview(id),
+    );
     this.artifacts = new GeneratedArtifacts(
       store,
       new Artifacts(config.hub.resultsPath, store, config.hub.storage.artifactBytes),

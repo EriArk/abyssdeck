@@ -7,6 +7,7 @@ import test from "node:test";
 import { Artifacts } from "../apps/hub/dist/artifacts.js";
 import { artifactSources, GeneratedArtifacts } from "../apps/hub/dist/generatedArtifacts.js";
 import { createSnapshot, verifySnapshot } from "../apps/hub/dist/maintenance.js";
+import { Previews } from "../apps/hub/dist/previews.js";
 import { resolveResultReference } from "../apps/hub/dist/result-references.js";
 import { storageReport } from "../apps/hub/dist/storage.js";
 import { Store } from "../apps/hub/dist/store.js";
@@ -15,10 +16,68 @@ import {
   projectFilePath,
   readProjectFile,
 } from "../packages/machines/dist/projectFile.js";
-import { configSchema } from "../packages/shared/dist/index.js";
+import { configSchema, visualizationReferences } from "../packages/shared/dist/index.js";
 import { handoffFixture } from "./handoff-fixture.mjs";
 
 const machine = { id: "local", type: "local-linux" };
+test("visualize exports outside checkout open exact captured HTML and sibling assets", async () => {
+  const f = await fixture();
+  try {
+    const directory = join(f.root, "outside-demo");
+    await mkdir(directory);
+    const path = join(directory, "demo.html");
+    await writeFile(
+      path,
+      '<link rel="stylesheet" href="style.css"><button onclick="this.textContent=\'Done\'">Go</button>',
+    );
+    await writeFile(join(directory, "style.css"), "button{color:red}");
+    const marker = "\uE200visualize\uE202" + JSON.stringify({ path, mode: "wide" }) + "\uE201";
+    assert.equal(visualizationReferences(marker).length, 1);
+    assert.equal(visualizationReferences("```text\n" + marker + "\n```").length, 0);
+    assert.equal(
+      visualizationReferences(
+        "\uE200visualize\uE202" +
+          JSON.stringify({ path: "https://outside.invalid/x.html" }) +
+          "\uE201",
+      ).length,
+      0,
+    );
+    const item = { id: "visual-answer", type: "agentMessage", text: marker };
+    assert.deepEqual(artifactSources(item), [path]);
+    assert.deepEqual(artifactSources({ ...item, type: "userMessage" }), []);
+    f.generated.observe(f.thread, "turn", item);
+    await f.generated.close();
+    await writeFile(path, "<p>Later version must not replace the captured HTML</p>");
+    const previews = new Previews(
+      join(f.root, "previews"),
+      f.store,
+      () => ({ machine, root: f.source }),
+      (id) => f.generated.preview(id),
+    );
+    assert.equal(previews.observe(f.thread, "turn", item).length, 1);
+    const ref = { source: path, messageId: item.id, turnId: "turn" };
+    const result = resolveResultReference(f.store, f.thread, machine, f.source, ref);
+    assert.equal(result.type, "preview");
+    const html = await previews.document(result.payload.url.split("/").at(-1));
+    assert.match(html, /Go<\/button>/);
+    const css = /data:text\/css;base64,([^"]+)/.exec(html);
+    assert.equal(Buffer.from(css[1], "base64").toString(), "button{color:red}");
+    assert.doesNotMatch(html, /Later version/);
+    assert.throws(() =>
+      resolveResultReference(f.store, f.thread, machine, f.source, { ...ref, messageId: "other" }),
+    );
+    assert.equal(
+      previews.observe(f.thread, "turn", {
+        id: "unsafe",
+        type: "fileChange",
+        changes: [{ path, kind: { type: "update" } }],
+      }).length,
+      0,
+    );
+  } finally {
+    await f.close();
+  }
+});
 test("Codex exports long blocks once, keeps short blocks inline and binds exact source bytes", async () => {
   const f = await fixture();
   try {

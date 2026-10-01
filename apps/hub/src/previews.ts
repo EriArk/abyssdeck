@@ -1,13 +1,16 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rename, rm, unlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join, posix, win32 } from "node:path";
 import {
+  codexArtifactPath,
+  copyCodexArtifact,
   PREVIEW_LIMIT,
   previewPath,
   readMachinePreview,
   readMachinePreviewAsset,
 } from "@codex-web/machines";
-import { HubError, type MachineConfig } from "@codex-web/shared";
+import { HubError, type MachineConfig, visualizationReferences } from "@codex-web/shared";
 import { bundlePreview } from "./preview-bundle.js";
 import { previewControls } from "./previewControls.js";
 import type { Store, ThreadRecord } from "./store.js";
@@ -30,7 +33,7 @@ export function previewMarkup(html: string): string {
     html
   );
 }
-type Source = { title: string; path?: string; html?: string };
+type Source = { title: string; path?: string; html?: string; captureId?: string };
 const obj = (value: unknown): Record<string, unknown> =>
   value && typeof value === "object" ? (value as Record<string, unknown>) : {};
 const text = (value: unknown) => (typeof value === "string" ? value : "");
@@ -59,6 +62,8 @@ export function previewSources(item: Record<string, unknown>): Source[] {
   }
   if (item.type === "agentMessage") {
     const body = text(item.text);
+    for (const reference of visualizationReferences(body))
+      sources.push({ title: reference.path.split(/[\\/]/).at(-1) || "Демо", path: reference.path });
     for (const match of body.matchAll(
       /(?:^|\n)(?:\x60{3}|~{3})html[ \t]*\r?\n([\s\S]*?)\r?\n(?:\x60{3}|~{3})(?=\s|$)/gi,
     ))
@@ -79,6 +84,7 @@ export class Previews {
     readonly root: string,
     readonly store: Store,
     private target: (threadId: string) => { machine: MachineConfig; root: string },
+    private captured?: (id: string) => Promise<Buffer>,
   ) {}
   inline(scope: string, itemId: string, html: string): string | undefined {
     if (!html || Buffer.byteLength(html) > PREVIEW_LIMIT) return;
@@ -103,7 +109,12 @@ export class Previews {
       try {
         if (source.path) {
           const target = this.target(thread.id);
-          source.path = previewPath(target.machine, target.root, source.path);
+          if (item.type === "agentMessage" && this.captured) {
+            source.path = codexArtifactPath(target.machine, target.root, source.path);
+            source.captureId = createHash("sha256")
+              .update(JSON.stringify([thread.id, turnId, item.id, source.path]))
+              .digest("hex");
+          } else source.path = previewPath(target.machine, target.root, source.path);
         }
       } catch {
         continue;
@@ -152,22 +163,51 @@ export class Previews {
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
         const source = JSON.parse(String(row.source)) as Source;
-        const bytes = source.html
-          ? Buffer.from(source.html)
-          : await (async () => {
-              const target = this.target(String(row.threadId));
-              return readMachinePreview(target.machine, target.root, source.path ?? "");
-            })();
+        const bytes =
+          source.captureId && this.captured
+            ? await this.captured(source.captureId)
+            : source.html
+              ? Buffer.from(source.html)
+              : await (async () => {
+                  const target = this.target(String(row.threadId));
+                  return readMachinePreview(target.machine, target.root, source.path ?? "");
+                })();
         if (bytes.length > PREVIEW_LIMIT)
           throw new HubError(413, "PREVIEW_TOO_LARGE", "Демо больше 2 МБ.");
         html = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
         if (source.path) {
           const target = this.target(String(row.threadId));
           const paths = target.machine.type !== "ssh-windows" ? posix : win32;
-          const entry = paths.relative(target.root, source.path);
-          html = await bundlePreview(html, entry, (path) =>
-            readMachinePreviewAsset(target.machine, target.root, path),
-          );
+          if (source.captureId) {
+            // Explicit exports use the captured HTML. Related static assets are
+            // resolved beside that exact export, on the same authorized machine.
+            const directory = paths.dirname(source.path);
+            html = await bundlePreview(html, paths.basename(source.path), async (asset) => {
+              const path = paths.resolve(directory, asset),
+                relative = paths.relative(directory, path);
+              if (!relative || relative.startsWith("..") || paths.isAbsolute(relative))
+                throw new HubError(400, "INVALID_PREVIEW_PATH", "Неверный путь ресурса демо.");
+              const temporary = await mkdtemp(join(tmpdir(), "codex-preview-"));
+              try {
+                const destination = join(temporary, "asset");
+                await copyCodexArtifact(
+                  target.machine,
+                  target.root,
+                  path,
+                  destination,
+                  PREVIEW_LIMIT,
+                );
+                return await readFile(destination);
+              } finally {
+                await rm(temporary, { recursive: true, force: true });
+              }
+            });
+          } else {
+            const entry = paths.relative(target.root, source.path);
+            html = await bundlePreview(html, entry, (path) =>
+              readMachinePreviewAsset(target.machine, target.root, path),
+            );
+          }
         }
         await mkdir(this.root, { recursive: true, mode: 0o700 });
         const temp = file + ".pending";

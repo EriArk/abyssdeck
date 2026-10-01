@@ -52,6 +52,7 @@ const unavailable = () =>
 export class NativeGptProvider {
   private verified?: { instance: string; until: number };
   private checking?: { instance: string; task: Promise<void> };
+  private rateLimited = false;
   constructor(readonly workspace: NativeGptWorkspace) {}
   async doctorReport() {
     try {
@@ -113,11 +114,14 @@ export class NativeGptProvider {
     if (status.manual) {
       this.verified = undefined;
       this.checking = undefined;
+      this.rateLimited = false;
     } else if (this.verified?.instance !== status.instanceId || this.verified.until <= Date.now()) {
       if (this.checking?.instance !== status.instanceId) {
         const task = this.workspace.client.models().then(() => {
-          if (this.checking?.task === task)
+          if (this.checking?.task === task) {
             this.verified = { instance: status.instanceId, until: Date.now() + 60000 };
+            this.rateLimited = false;
+          }
         });
         this.checking = { instance: status.instanceId, task };
       }
@@ -125,7 +129,12 @@ export class NativeGptProvider {
       try {
         await check.task;
       } catch (error) {
-        if (!(error instanceof Error) || error.message !== "NATIVE_BUSY") throw error;
+        if (
+          !(error instanceof Error) ||
+          !["NATIVE_BUSY", "NATIVE_RATE_LIMITED"].includes(error.message)
+        )
+          throw error;
+        this.rateLimited = error.message === "NATIVE_RATE_LIMITED";
         // A busy catalog refresh does not revoke a previously verified account.
         // Cold/new instances still require their own successful check; actual
         // dispatch independently validates account, model and native readiness.
@@ -137,7 +146,7 @@ export class NativeGptProvider {
       // A concurrent manual/account transition invalidates an earlier probe.
       waiting = this.verified?.instance !== status.instanceId;
     }
-    const state = status.manual ? "attention" : waiting ? "busy" : "healthy";
+    const state = status.manual ? "attention" : waiting || this.rateLimited ? "busy" : "healthy";
     return {
       configured: true,
       state,

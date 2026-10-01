@@ -596,6 +596,35 @@ test("busy catalog refresh preserves verified instance; cold, restarted and manu
   assert.equal((await provider.connection()).canSend, false);
 });
 
+test("upstream cooldown does not become disconnected or erase verified account readiness", async () => {
+  const { NativeGptProvider } = await import("../apps/hub/dist/gpt-native-provider.js");
+  let limited = false,
+    instance = "one";
+  const provider = new NativeGptProvider({
+    client: {
+      status: async () => ({ instanceId: instance, manual: false }),
+      models: async () => {
+        if (limited) throw Error("NATIVE_RATE_LIMITED");
+        return {};
+      },
+    },
+  });
+  assert.equal((await provider.connection()).canSend, true);
+  provider.verified.until = 0;
+  limited = true;
+  const warm = await provider.connection();
+  assert.equal(warm.state, "busy");
+  assert.equal(warm.canRead, true);
+  assert.equal(warm.canSend, true);
+  assert.equal((await provider.connection()).state, "busy");
+  instance = "two";
+  const cold = await provider.connection();
+  assert.equal(cold.state, "busy");
+  assert.equal(cold.canSend, false);
+  limited = false;
+  assert.equal((await provider.connection()).state, "healthy");
+});
+
 test("fresh send is independent of an uncertain same-chat rename while preserving its exact receipt", async (t) => {
   const f = setup(t),
     service = f.open(),

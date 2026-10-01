@@ -1,6 +1,12 @@
 ﻿import { createHash } from "node:crypto";
 import { codexArtifactPath, copyCodexArtifact, type readProjectFile } from "@codex-web/machines";
-import { CHAT_BLOCK_LINES, HubError, type MachineConfig, textBlockLines } from "@codex-web/shared";
+import {
+  CHAT_BLOCK_LINES,
+  HubError,
+  type MachineConfig,
+  textBlockLines,
+  visualizationReferences,
+} from "@codex-web/shared";
 import type { Artifacts } from "./artifacts.js";
 import { gptResultContent } from "./gpt-result-content.js";
 import type { Store, ThreadRecord } from "./store.js";
@@ -34,6 +40,7 @@ const obj = (v: unknown): Record<string, unknown> =>
 export function artifactSources(item: Record<string, unknown>): string[] {
   const paths: string[] = [];
   if (item.type === "agentMessage") {
+    paths.push(...visualizationReferences(text(item.text)).map((reference) => reference.path));
     // Explicit assistant file links. Embedded images already use the native image pipeline.
     for (const match of text(item.text).matchAll(
       /(?<!!)\[[^\]\n]{1,200}\]\((?:<([^>\n]+)>|([^\s)]+))\)/g,
@@ -214,6 +221,28 @@ export class GeneratedArtifacts {
     const row = this.store.db.prepare("SELECT * FROM artifact_captures WHERE id=?").get(id);
     if (!row) throw new HubError(404, "ARTIFACT_NOT_FOUND", "Файл не найден.");
     return row as unknown as Capture;
+  }
+  async preview(id: string) {
+    await this.capture(id);
+    const capture = this.get(id);
+    if (!capture.artifactId) throw new HubError(404, "PREVIEW_NOT_FOUND", "Демо ещё не сохранено.");
+    const target = this.target(capture.threadId);
+    const binding = this.store.db
+      .prepare("SELECT * FROM artifact_source_bindings WHERE id=?")
+      .get(capture.artifactId);
+    if (
+      !binding ||
+      binding.root !== target.root ||
+      binding.machineBinding !==
+        createHash("sha256").update(JSON.stringify(target.machine)).digest("hex")
+    )
+      throw new HubError(409, "PREVIEW_SOURCE_CHANGED", "Подключение файла изменилось.");
+    const row = this.store.db
+      .prepare("SELECT bytes FROM artifacts WHERE id=?")
+      .get(capture.artifactId);
+    if (!row || Number(row.bytes) > 2 * 1024 ** 2)
+      throw new HubError(413, "PREVIEW_TOO_LARGE", "Демо больше 2 МБ.");
+    return this.artifacts.get(capture.artifactId).data;
   }
   capture(id: string): Promise<void> {
     const c = this.get(id);

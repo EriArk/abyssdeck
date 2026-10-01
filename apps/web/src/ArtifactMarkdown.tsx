@@ -3,9 +3,17 @@ import {
   parseGitHubReference,
   type ResultItem,
   textBlockLines,
+  visualizationReferences,
 } from "@codex-web/shared";
-import type { ReactNode } from "react";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  Children,
+  type ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { Components } from "react-markdown";
 import { pageWorkspace, workspaceMediaUrl } from "./accountStorage";
 import { CollapsibleCode, textOf } from "./CollapsibleCode";
@@ -200,6 +208,33 @@ export function artifactComponents(
   resolveImage?: (source: string) => Promise<string | undefined>,
 ): Components {
   return {
+    p: ({ children }) => (
+      <p>
+        {Children.map(children, (child) => {
+          if (!onOpen || typeof child !== "string") return child;
+          const references = visualizationReferences(child);
+          if (!references.length) return child;
+          const parts: ReactNode[] = [];
+          let offset = 0;
+          for (const reference of references) {
+            parts.push(child.slice(offset, reference.start));
+            parts.push(
+              <button
+                key={reference.start}
+                type="button"
+                className="download-text"
+                onClick={() => onOpen(reference.path)}
+              >
+                <Icon name="file" size={16} /> {reference.path.split(/[\\/]/).at(-1)}
+              </button>,
+            );
+            offset = reference.end;
+          }
+          parts.push(child.slice(offset));
+          return parts;
+        })}
+      </p>
+    ),
     a: ({ node, ...props }) => {
       const href = String(props.href ?? "");
       const device = terminalDevice(String(node?.properties.href ?? props.href ?? ""));

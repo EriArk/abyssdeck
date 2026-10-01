@@ -69,9 +69,21 @@ export function resolveResultReference(
     const captureId = createHash("sha256")
       .update(JSON.stringify([thread.id, ref.turnId ?? null, ref.messageId, path]))
       .digest("hex");
-    row = store.db
-      .prepare("SELECT id FROM results WHERE threadId=? AND sourceKey=?")
-      .get(thread.id, "artifact:" + captureId);
+    if (/\.html?$/i.test(path)) {
+      const preview = store.db
+        .prepare(
+          "SELECT id FROM html_previews WHERE threadId=? AND json_extract(source,'$.captureId')=?",
+        )
+        .get(thread.id, captureId);
+      if (preview)
+        row = store.db
+          .prepare("SELECT id FROM results WHERE threadId=? AND sourceKey=?")
+          .get(thread.id, "html:" + preview.id);
+    }
+    if (!row)
+      row = store.db
+        .prepare("SELECT id FROM results WHERE threadId=? AND sourceKey=?")
+        .get(thread.id, "artifact:" + captureId);
   }
   if (!row) throw missing();
   return store.resultById(thread.id, String(row.id));

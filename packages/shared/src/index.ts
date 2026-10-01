@@ -445,5 +445,6 @@ export * from "./project-gpt.js";
 export * from "./project-preparation.js";
 export * from "./questions.js";
 export * from "./result-search.js";
+export * from "./visualization-reference.js";
 export * from "./workspace-commands.js";
 export * from "./workspace-notices.js";

@@ -26,16 +26,34 @@ for (const [engine, type] of [
       theme: "crt-green",
       machineClients: { pc: "web" },
     });
+    const marker =
+      "\uE200visualize\uE202" +
+      JSON.stringify({ path: "C:/Outside/demo.html", mode: "wide" }) +
+      "\uE201";
     const text =
-      "[Первая версия](C:/Users/Test/AppData/Local/.cache/report.md)\n\n![Точное изображение](C:/Project/exact.png)\n\n[Нет файла](missing.md)\n\n[Архив](C:/Project/.cache/case.zip)\n\n[Внешний сайт](https://example.com/file.zip)";
+      "[Первая версия](C:/Users/Test/AppData/Local/.cache/report.md)\n\n![Точное изображение](C:/Project/exact.png)\n\n[Нет файла](missing.md)\n\n[Архив](C:/Project/.cache/case.zip)\n\n[Внешний сайт](https://example.com/file.zip)\n\n" +
+      marker;
     f.store.append(f.thread.id, "assistant.completed", { id: "answer", text }, "turn");
     const captures = f.sessions.catalog.artifacts;
     captures.read = async (_m, _root, path) =>
-      Buffer.from(path.endsWith("zip") ? "PK fixture" : "# Original snapshot\n");
+      Buffer.from(
+        path.endsWith("html")
+          ? "<button onclick=\"this.textContent='Done'\">Run demo</button>"
+          : path.endsWith("zip")
+            ? "PK fixture"
+            : "# Original snapshot\n",
+      );
     captures.observe(f.thread, "turn", {
       id: "answer",
       type: "agentMessage",
-      text: "[First](C:/Users/Test/AppData/Local/.cache/report.md) [Archive](C:/Project/.cache/case.zip)",
+      text:
+        "[First](C:/Users/Test/AppData/Local/.cache/report.md) [Archive](C:/Project/.cache/case.zip)\n\n" +
+        marker,
+    });
+    f.sessions.catalog.previews.observe(f.thread, "turn", {
+      id: "answer",
+      type: "agentMessage",
+      text: marker,
     });
     await captures.close();
     const archive = f.store.db
@@ -145,6 +163,12 @@ for (const [engine, type] of [
       { width: 1920, height: 1080 },
     ]) {
       await page.setViewportSize(viewport);
+      if (viewport.width === 390) await chat();
+      await page.getByRole("button", { name: "demo.html", exact: true }).click();
+      const demo = page.frameLocator(".preview-viewer iframe");
+      await demo.getByRole("button", { name: "Run demo" }).click();
+      await expect(demo.getByRole("button", { name: "Done", exact: true })).toBeVisible();
+      await page.getByRole("button", { name: "Закрыть демо" }).click();
       if (viewport.width === 390) await chat();
       await page.getByRole("button", { name: "Первая версия", exact: true }).click();
       await expect(page.locator(".file-viewer-dialog")).toContainText("Original snapshot");
