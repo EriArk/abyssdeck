@@ -19,6 +19,7 @@ public static class Program
     public static int Main(string[] args)
     {
         Arguments = args;
+        if(args.Length==1 && args[0]=="--version") { Console.WriteLine(CompanionVersion.Current); return 0; }
         if(args.Length==2 && args[0]=="--apply-update") {
             var result=UpdateActivationWorker.Run(args[1]);
             if(result!=0)try {var restart=new ProcessStartInfo(Environment.ProcessPath!){UseShellExecute=false,CreateNoWindow=true};restart.ArgumentList.Add("--tray");Process.Start(restart);}catch { }
