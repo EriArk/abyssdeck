@@ -13,6 +13,7 @@ import {
 import { HubError, type MachineConfig, visualizationReferences } from "@codex-web/shared";
 import { bundlePreview } from "./preview-bundle.js";
 import { previewControls } from "./previewControls.js";
+import { previewIcons } from "./previewIcons.js";
 import type { Store, ThreadRecord } from "./store.js";
 
 export const previewFrameSources = (origin: string) => [
@@ -27,10 +28,13 @@ export function assertPreviewFrame(headers: Record<string, unknown>) {
 export const previewCsp =
   "default-src 'none'; script-src 'unsafe-inline' data:; style-src 'unsafe-inline' data:; img-src data: blob:; font-src data:; media-src data: blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; sandbox allow-scripts";
 export function previewMarkup(html: string): string {
+  const icons = previewIcons(html);
   return (
     '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;min-height:100%;}body{padding:12px;box-sizing:border-box;background:#fff;color:#202624}</style>' +
     previewControls +
-    html
+    icons.before +
+    html +
+    icons.after
   );
 }
 type Source = { title: string; path?: string; html?: string; captureId?: string };

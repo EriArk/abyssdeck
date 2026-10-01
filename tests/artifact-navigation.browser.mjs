@@ -38,7 +38,7 @@ for (const [engine, type] of [
     captures.read = async (_m, _root, path) =>
       Buffer.from(
         path.endsWith("html")
-          ? "<button onclick=\"this.textContent='Done'\">Run demo</button>"
+          ? "<button onclick=\"this.textContent='Done'\"><i data-lucide='arrow-left'></i>Run demo</button>"
           : path.endsWith("zip")
             ? "PK fixture"
             : "# Original snapshot\n",
@@ -166,6 +166,7 @@ for (const [engine, type] of [
       if (viewport.width === 390) await chat();
       await page.getByRole("button", { name: "demo.html", exact: true }).click();
       const demo = page.frameLocator(".preview-viewer iframe");
+      await expect(demo.locator("button svg.lucide-arrow-left")).toBeVisible();
       await demo.getByRole("button", { name: "Run demo" }).click();
       await expect(demo.getByRole("button", { name: "Done", exact: true })).toBeVisible();
       await page.getByRole("button", { name: "Закрыть демо" }).click();
