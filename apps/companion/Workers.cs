@@ -26,6 +26,18 @@ public sealed class WorkerManager(SettingsStore settings, HubConnection? hub = n
         && component.Known && component.Installed && component.Owned && component.TaskDigest.Length == 64
         && component.State is "Ready" or "Running";
     readonly Dictionary<string,DateTimeOffset> attempts = [];
+    public static string MigrationCommand(string appDirectory, string script, string prefix) {
+        var bytes=Encoding.UTF8.GetBytes(script);var hash=Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bytes));
+        var directory=Path.Combine(appDirectory,"workers","migration-scripts");SettingsStore.NoLinks(directory);Directory.CreateDirectory(directory);
+        var path=Path.Combine(directory,hash+".ps1");SettingsStore.NoLinks(path);
+        if(!File.Exists(path))ReleaseVerifier.Atomic(path,bytes);
+        if(ReleaseVerifier.HashFile(path)!=hash)throw new IOException("Сценарий переключения повреждён.");
+        var escaped=path.Replace("'","''");
+        var command=prefix+"$source=[IO.File]::ReadAllBytes('"+escaped+"');$sha=[Security.Cryptography.SHA256]::Create();try{$digest=([BitConverter]::ToString($sha.ComputeHash($source))).Replace('-','').ToLowerInvariant()}finally{$sha.Dispose()};if($digest -cne '"+hash+"'){throw 'WORKER_SCRIPT_CHANGED'};& ([ScriptBlock]::Create([Text.Encoding]::UTF8.GetString($source)))";
+        var encoded=Convert.ToBase64String(Encoding.Unicode.GetBytes(command));
+        if(encoded.Length>16000)throw new IOException("Команда переключения слишком длинная.");
+        return encoded;
+    }
     public string Description(Component component) {
         try {
             var path=Path.Combine(settings.Directory,"workers","state",component.Id+".json"); SettingsStore.NoLinks(path);
@@ -129,7 +141,7 @@ public sealed class WorkerManager(SettingsStore settings, HubConnection? hub = n
             var start=new ProcessStartInfo(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),@"WindowsPowerShell\v1.0\powershell.exe")) {
                 UseShellExecute=false,CreateNoWindow=true,RedirectStandardOutput=true,RedirectStandardError=true,StandardOutputEncoding=Encoding.UTF8
             };
-            foreach(var argument in new[]{"-NoLogo","-NoProfile","-NonInteractive","-EncodedCommand",Convert.ToBase64String(Encoding.Unicode.GetBytes(prefix+script))})start.ArgumentList.Add(argument);
+            foreach(var argument in new[]{"-NoLogo","-NoProfile","-NonInteractive","-EncodedCommand",MigrationCommand(settings.Directory,script,prefix)})start.ArgumentList.Add(argument);
             using var process=Process.Start(start)??throw new IOException("Переключение не запустилось.");
             var output=process.StandardOutput.ReadToEndAsync();var error=process.StandardError.ReadToEndAsync();
             // Do not kill an uncertain installer or replay it after a timeout.

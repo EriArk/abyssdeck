@@ -36,6 +36,13 @@ try
     var kit=Path.Combine(temporary,"reviewed-kit");Directory.CreateDirectory(kit);
     foreach(var name in WorkerManager.Files["CodexWebDelivery"].Append("Start-ManagedWorker.ps1"))File.WriteAllText(Path.Combine(kit,name),"reviewed-"+name);
     var managed=WorkerManager.Prepare(store.Directory,kit,"CodexWebDelivery");
+    var migrationCommand=WorkerManager.MigrationCommand(store.Directory,new string('#',18000)+"\nWrite-Output $fixtureValue","$fixtureValue=42;");
+    var migrationStart=new System.Diagnostics.ProcessStartInfo(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),@"WindowsPowerShell\v1.0\powershell.exe")){UseShellExecute=false,CreateNoWindow=true,RedirectStandardOutput=true,RedirectStandardError=true};
+    foreach(var argument in new[]{"-NoProfile","-NonInteractive","-EncodedCommand",migrationCommand})migrationStart.ArgumentList.Add(argument);
+    using(var migrationProcess=System.Diagnostics.Process.Start(migrationStart)!) {
+        var migrationOutput=await migrationProcess.StandardOutput.ReadToEndAsync();await migrationProcess.WaitForExitAsync();
+        Check(migrationCommand.Length<16000 && migrationProcess.ExitCode==0 && migrationOutput.Trim()=="42","actual Windows migration launch supports large verified scripts within command limits");
+    }
     var repeat=WorkerManager.Prepare(store.Directory,kit,"CodexWebDelivery");
     Check(managed==repeat && ReleaseVerifier.HashFile(Path.Combine(managed.Directory,"worker.json"))==managed.Digest,
         "reviewed workers stage one immutable release separately from private state");
