@@ -7,9 +7,9 @@ import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import { NativeGptJobs } from "../apps/hub/dist/gpt-native-jobs.js";
 import { NativeDispatchReceipts } from "../ops/gpt-native/dispatch-receipts.mjs";
+import { nativeActivity } from "../ops/gpt-native/public-activity.mjs";
 import { nativeDispatch } from "../ops/gpt-native/renderer-dispatch.mjs";
 import { nativeLive } from "../ops/gpt-native/renderer-live.mjs";
-import { nativeActivity } from "../ops/gpt-native/public-activity.mjs";
 import { NativeReadService } from "../ops/gpt-native/service.mjs";
 
 const conversationId = randomUUID(),
@@ -381,10 +381,20 @@ test("unknown dispatch survives restart without replay while manual recovery rem
   await ledger.dispatch(input, reader);
   assert.equal(sends, 1);
   await assert.rejects(ledger.dispatch({ ...input, text: "changed" }, reader), /KEY_CONFLICT/);
-  await assert.rejects(
-    ledger.dispatch({ ...input, key: randomUUID() }, reader),
-    /PENDING_DISPATCH/,
+  const oldReceipt = ledger.db.prepare("SELECT * FROM receipts WHERE key=?").get(input.key);
+  const next = {
+    ...input,
+    key: randomUUID(),
+    userMessageId: randomUUID(),
+    text: "New explicit message",
+  };
+  await ledger.dispatch(next, reader);
+  assert.equal(sends, 2, "a new Send does not replay the uncertain receipt");
+  assert.deepEqual(
+    ledger.db.prepare("SELECT * FROM receipts WHERE key=?").get(input.key),
+    oldReceipt,
   );
+  await ledger.reconcile(next, reader);
   const service = new NativeReadService({
     reader,
     userId,
@@ -395,7 +405,7 @@ test("unknown dispatch survives restart without replay while manual recovery rem
   const leaseId = randomUUID();
   assert.equal((await service.request({ operation: "beginManual", userId, leaseId })).manual, true);
   assert.equal(ledger.pending(), true);
-  assert.equal(sends, 1);
+  assert.equal(sends, 2);
   await assert.rejects(service.request({ operation: "readModels", userId }), /MANUAL_RECOVERY/);
   await service.request({ operation: "endManual", userId, leaseId });
   assert.equal(ledger.pending(), true);
@@ -833,4 +843,51 @@ test("an unresolved new-chat receipt does not cancel other new-chat drafts", asy
     f.db.prepare("SELECT status FROM gpt_jobs WHERE id=?").get(waiting).status,
     "queued",
   );
+});
+
+test("fresh explicit continuation passes an unknown Hub receipt while old queued followers remain blocked", async (t) => {
+  const f = queue(t),
+    worker = f.open();
+  await worker.run(f.id);
+  f.db.prepare("UPDATE gpt_jobs SET status='unknown' WHERE id=?").run(f.id);
+  const receipt = f.db.prepare("SELECT * FROM gpt_native_receipts WHERE jobId=?").get(f.id);
+  const follower = randomUUID(),
+    fresh = randomUUID();
+  for (const id of [follower, fresh])
+    f.db
+      .prepare(
+        "INSERT INTO gpt_jobs SELECT ?,fingerprint,nativeId,'New manual text',files,model,effort,'queued','',assets,createdAt,updatedAt,'',NULL,0 FROM gpt_jobs WHERE id=?",
+      )
+      .run(id, f.id);
+  await assert.rejects(worker.run(follower), /PENDING_DISPATCH/);
+  f.db.prepare("INSERT INTO gpt_job_continuations VALUES(?,?)").run(fresh, f.id);
+  let sent;
+  f.client.dispatchText = async (r) => {
+    sent = r;
+    return { state: "unknown" };
+  };
+  f.client.reconcileDispatch = async () => ({
+    state: "completed",
+    userMessageId: sent.userMessageId,
+    messages: [],
+  });
+  assert.equal((await worker.run(fresh)).status, "completed");
+  assert.equal(sent.key, fresh);
+  assert.deepEqual(
+    f.db.prepare("SELECT * FROM gpt_native_receipts WHERE jobId=?").get(f.id),
+    receipt,
+  );
+  assert.equal(f.db.prepare("SELECT status FROM gpt_jobs WHERE id=?").get(f.id).status, "unknown");
+});
+
+test("stale local dispatch progress cannot override the native idle composer", async () => {
+  const f = fixture();
+  f.runtime[Symbol.for("codex-web.native-dispatch-state")] = {
+    signature: "old",
+    dispatched: true,
+    state: "running",
+    conversationId,
+  };
+  await f.run();
+  assert.equal(f.state.send, 1);
 });

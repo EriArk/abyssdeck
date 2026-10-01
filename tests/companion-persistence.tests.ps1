@@ -59,6 +59,8 @@ class Fake {
    } else if(method==null && id!=null && id.Equals(question)) {
     Send(new {method="serverRequest/resolved",@params=new {threadId=thread,requestId=question}});
     Send(new {method="turn/completed",@params=new {threadId=thread,turn=new {id=turn,status="completed"}}});
+   } else if(method=="fixture/large") {
+    lock(gate) { Console.WriteLine("{\"id\":"+json.Serialize(id)+",\"result\":{\"text\":\""+new string('x',17*1024*1024)+"\"}}"); Console.Out.Flush(); }
    } else if(method!=null && id!=null) Send(new {id=id,result=new {ok=true}});
   }
  }
@@ -78,6 +80,13 @@ class Fake {
         Write-Frame $p @{id=3;method='turn/start';params=@{}}
         if ((Read-Frame $p).result.turn.status -ne 'inProgress') { throw 'Turn not started' }
         if ((Read-Frame $p).method -ne 'turn/started') { throw 'Missing start notification' }
+        if ($n -eq 1) {
+            Write-Frame $p @{id=30;method='fixture/large';params=@{}}
+            if ((Read-Frame $p).error.message -ne 'COMPANION_RESPONSE_TOO_LARGE') { throw 'Oversized response was not isolated' }
+            Write-Frame $p @{id=31;method='companion/inspect';params=@{}}
+            $proof = (Read-Frame $p).result
+            if ($proof.pid -ne $entry.pid -or $proof.active -ne 1) { throw 'Large read killed live work' }
+        }
         # Competing controller must lose without evicting the original writer.
         $other = Start-ProcessHidden "$taskRoot\Bridge.exe" '--runtime ignored'; $clients.Add($other)
         Write-Frame $other @{binding=$entry.binding;capability=$entry.capability;cwd=$taskRoot;create=$false}

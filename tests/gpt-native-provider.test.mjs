@@ -522,3 +522,37 @@ test("native connection recovers automatically from a transient catalog failure 
     before,
   );
 });
+
+test("new manual send continues the same paused chat without releasing or replaying its old receipt", async (t) => {
+  const f = setup(t),
+    service = f.open(),
+    old = randomUUID();
+  service.enqueue(old, f.input);
+  await until(() => service.job(old).status === "running" && !service.working);
+  const original = f.client.reconcileDispatch;
+  f.client.reconcileDispatch = async () => {
+    throw Error("NATIVE_HISTORY_HEADERS_TIMEOUT");
+  };
+  for (let i = 0; i < 3; i++) {
+    f.store.db.prepare("UPDATE gpt_native_read_health SET nextAt=0").run();
+    await service.pump();
+  }
+  const before = f.store.db.prepare("SELECT * FROM gpt_native_receipts WHERE jobId=?").get(old);
+  assert.equal(service.job(old).status, "unknown");
+  const next = randomUUID();
+  f.client.reconcileDispatch = async (key, id) => {
+    assert.notEqual(key, old, "do not restart old paused checks");
+    return original(key, id);
+  };
+  service.enqueue(next, { ...f.input, text: "Continue from the current response" });
+  await until(() => service.job(next).status === "running" && !service.working);
+  assert.equal(f.state.sends, 2);
+  assert.equal(f.state.input.key, next);
+  assert.equal(service.job(old).status, "unknown");
+  assert.deepEqual(
+    f.store.db.prepare("SELECT * FROM gpt_native_receipts WHERE jobId=?").get(old),
+    before,
+  );
+  service.enqueue(next, { ...f.input, text: "Continue from the current response" });
+  assert.equal(f.state.sends, 2, "lost new enqueue acknowledgement cannot send twice");
+});

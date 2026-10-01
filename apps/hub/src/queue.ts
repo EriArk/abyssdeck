@@ -40,7 +40,9 @@ export class QueueService {
       const queue = await this.native(id);
       if (
         queue.length ||
-        this.store.db.prepare("SELECT 1 FROM queue_transfers WHERE threadId=? LIMIT 1").get(id)
+        this.store.db
+          .prepare("SELECT 1 FROM queue_transfers WHERE threadId=? AND state<>'steered' LIMIT 1")
+          .get(id)
       )
         throw new HubError(409, "QUEUE_BUSY", "Ожидает сообщений в очереди.");
       return send();
@@ -127,7 +129,11 @@ export class QueueService {
               (q) => !held.some((v) => (JSON.parse(String(v.value)) as Submission).id === q.id),
             )
             .map((q) => this.public(id, q)),
-          ...held.map((v) => this.public(id, JSON.parse(String(v.value)), String(v.state))),
+          // A positive Steer acknowledgement is a delivered receipt, not pending
+          // work. Keep it durable for reconciliation, but never show it in Next.
+          ...held
+            .filter((v) => v.state !== "steered")
+            .map((v) => this.public(id, JSON.parse(String(v.value)), String(v.state))),
         ],
         canSteer: await this.sessions.owns(id),
       };
@@ -354,7 +360,7 @@ export class QueueService {
             "INVALID_STEER_RESPONSE",
             "Codex не подтвердил направление текущего хода",
           );
-        // Keep accepted Steer visible until Codex emits the matching user message.
+        // Retain the accepted receipt even when native omits the matching event.
         this.store.db
           .prepare("UPDATE queue_transfers SET state='steered' WHERE threadId=? AND id=?")
           .run(id, qid);

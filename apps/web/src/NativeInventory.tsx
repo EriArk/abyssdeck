@@ -1,8 +1,9 @@
 import type { NativeInventory as Inventory } from "@codex-web/shared";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, messageOf } from "./api";
 
 export function NativeInventory({ projectId, visible }: { projectId: string; visible: boolean }) {
+  const refreshRequested = useRef(false);
   const [open, setOpen] = useState(false),
     [value, setValue] = useState<Inventory | null>(null),
     [error, setError] = useState(""),
@@ -13,10 +14,16 @@ export function NativeInventory({ projectId, visible }: { projectId: string; vis
     setError("");
     if (!open || !visible || !projectId) return;
     const controller = new AbortController();
-    void api<Inventory>(`/projects/${encodeURIComponent(projectId)}/native-inventory`, {
-      signal: controller.signal,
-      timeoutMs: 60000,
-    })
+    const refresh = refreshRequested.current;
+    refreshRequested.current = false;
+    void api<Inventory>(
+      `/projects/${encodeURIComponent(projectId)}/native-inventory${refresh ? "/refresh" : ""}`,
+      {
+        method: refresh ? "POST" : "GET",
+        signal: controller.signal,
+        timeoutMs: 60000,
+      },
+    )
       .then((data) => {
         if (!controller.signal.aborted) setValue(data);
       })
@@ -77,8 +84,16 @@ export function NativeInventory({ projectId, visible }: { projectId: string; vis
           )}
         </>
       )}
-      <button type="button" className="secondary" onClick={() => setRetry((v) => v + 1)}>
-        Обновить список
+      <button
+        type="button"
+        className="secondary"
+        disabled={!value && !error}
+        onClick={() => {
+          refreshRequested.current = true;
+          setRetry((v) => v + 1);
+        }}
+      >
+        Переподключить инструменты
       </button>
     </details>
   );

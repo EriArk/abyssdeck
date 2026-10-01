@@ -56,6 +56,7 @@ interface Runtime {
   capabilities?: Capabilities;
   capabilitiesAt?: number;
   capabilitiesProject?: string;
+  mcpRefresh?: Promise<unknown>;
 }
 interface Approval {
   id: string;
@@ -511,6 +512,9 @@ export class Sessions extends EventEmitter {
         if (binding) {
           confirmCodexRuntime(this.store, machine.id, binding, identity.companion, account.account);
           runtime.instanceId = text(record(identity.companion).instanceId);
+          // Reconnecting a controller loses Hub memory, not the broker's live turns.
+          // Restore ownership before external activity can relabel this work.
+          this.adoptLiveTurns(runtime, record(identity.companion));
         }
       } catch (error) {
         rpc.close();
@@ -792,6 +796,101 @@ export class Sessions extends EventEmitter {
       return false;
     }
   }
+  private adoptLiveTurns(r: Runtime, proof: Record<string, any>) {
+    if (
+      !r.binding ||
+      proof.protocol !== 2 ||
+      proof.runtimeId !== r.binding.binding ||
+      proof.instanceId !== r.instanceId
+    )
+      return;
+    for (const [nativeId, turnId] of Object.entries(record(proof.turns))) {
+      if (typeof turnId !== "string" || !turnId) continue;
+      const t = this.store.threadByCodex(nativeId);
+      if (
+        !t ||
+        !this.catalog
+          .projects()
+          .some((p) => p.id === t.projectId && p.enabled && p.machineId === r.machineId)
+      )
+        continue;
+      r.loaded.add(t.id);
+      r.active.add(t.id);
+      this.store.db.prepare("UPDATE threads SET activitySource='hub' WHERE id=?").run(t.id);
+      this.store.setStatus(
+        t.id,
+        this.pending(t.id).length ? "waiting_approval" : "running",
+        turnId,
+      );
+      this.emitEvent(
+        t.id,
+        "session.state",
+        {
+          status: this.store.thread(t.id).status,
+          activitySource: "hub",
+          activeTurnId: turnId,
+        },
+        turnId,
+      );
+    }
+  }
+
+  /** Status checks never resume, unload or acquire a native thread writer. */
+  async inspect(id: string): Promise<ThreadRecord> {
+    this.assertWorkThread(id);
+    await this.verifyThreadRoot(this.thread(id));
+    const t = this.thread(id);
+    if (t.archived) throw new HubError(409, "THREAD_ARCHIVED", "Сначала разархивируй диалог.");
+    const r = await this.runtime(t.projectId);
+    if (r.binding) {
+      const proof = await r.rpc.inspectCompanion(() => this.authorizeInspection());
+      if (
+        proof.protocol !== 2 ||
+        proof.runtimeId !== r.binding.binding ||
+        proof.instanceId !== r.instanceId
+      )
+        throw new HubError(
+          409,
+          "CODEX_RUNTIME_CHANGED",
+          "Подключение изменилось. Состояние работы пока не подтверждено.",
+        );
+      this.adoptLiveTurns(r, proof);
+      if (record(proof.turns)[t.codexThreadId]) return this.store.thread(id);
+    } else if (r.loaded.has(id) && r.active.has(id)) return this.store.thread(id);
+    await this.externalActivity.refresh();
+    const current = this.store.thread(id);
+    if (
+      !r.loaded.has(id) &&
+      current.activitySource === "external" &&
+      ["running", "waiting_approval", "unknown"].includes(current.status)
+    )
+      return current;
+    // Summary avoids multi-megabyte history frames during a connection check.
+    const response = await r.rpc.request("thread/turns/list", {
+      threadId: t.codexThreadId,
+      limit: 1,
+      itemsView: "summary",
+      sortDirection: "desc",
+    });
+    if (!Array.isArray(response.data))
+      throw new HubError(502, "INVALID_CODEX_RESPONSE", "Codex не подтвердил состояние диалога.");
+    const last = record(response.data[0]);
+    // A newer notification may have arrived while the read was in flight.
+    if (this.store.thread(id).activeTurnId !== current.activeTurnId) return this.store.thread(id);
+    if (last.status === "inProgress") {
+      this.store.setStatus(id, "unknown", text(last.id) || current.activeTurnId);
+    } else if (!last.id || ["completed", "interrupted", "failed"].includes(text(last.status))) {
+      r.active.delete(id);
+      this.store.setStatus(id, last.id ? text(last.status) : "idle");
+    }
+    const result = this.store.thread(id);
+    this.emitEvent(id, "session.state", {
+      status: result.status,
+      activeTurnId: result.activeTurnId,
+      activitySource: result.activitySource,
+    });
+    return result;
+  }
   private entityWrites = new Set<string>();
   async manageEntity(kind: EntityKind, id: string, action: EntityAction) {
     const t = kind === "thread" ? this.thread(id) : undefined;
@@ -1007,10 +1106,20 @@ export class Sessions extends EventEmitter {
       throw new HubError(503, "LIMITS_UNAVAILABLE", "Лимиты сейчас недоступны.");
     }
   }
-  async inventory(projectId: string) {
+  async inventory(projectId: string, refresh = false) {
     const project = this.project(projectId),
       r = await this.runtime(projectId);
     r.touched = Date.now();
+    if (refresh) {
+      this.authorizeExecution();
+      // Reload configured tools through the existing writer. Never restart or resume a thread.
+      if (!r.mcpRefresh) {
+        r.mcpRefresh = r.rpc.request("config/mcpServer/reload", {}).finally(() => {
+          r.mcpRefresh = undefined;
+        });
+      }
+      await r.mcpRefresh;
+    }
     const groups = await readNativeInventory(
       (method, params) => r.rpc.request(method, params),
       project.workingDirectory,
@@ -1345,7 +1454,7 @@ export class Sessions extends EventEmitter {
     });
   }
   async resume(id: string, diagnostic = false): Promise<ThreadRecord> {
-    if (!diagnostic) this.assertWorkThread(id);
+    if (!diagnostic) return this.inspect(id);
     await this.verifyThreadRoot(this.thread(id));
     const t = this.thread(id);
     if (t.archived) throw new HubError(409, "THREAD_ARCHIVED", "Сначала разархивируй диалог.");
@@ -2259,7 +2368,7 @@ export class Sessions extends EventEmitter {
               const response = await r.rpc.request("thread/turns/list", {
                 threadId: thread.codexThreadId,
                 limit: 20,
-                itemsView: "full",
+                itemsView: "notLoaded",
                 sortDirection: "desc",
               });
               const turns = Array.isArray(response.data) ? response.data.map(record) : [];
@@ -2271,7 +2380,25 @@ export class Sessions extends EventEmitter {
                 continue;
               // Existing projection captures exact source-message artifacts and is idempotent.
               await this.catalog.history(thread);
-              for (const item of Array.isArray(exact.items) ? exact.items : [])
+              // Read only this turn, in bounded item pages. Twenty full tool-heavy
+              // turns can exceed the transport frame budget and kill old brokers.
+              const items: unknown[] = [];
+              let cursor: string | undefined;
+              for (let page = 0; page < 100; page++) {
+                const result = await r.rpc.request("thread/items/list", {
+                  threadId: thread.codexThreadId,
+                  turnId: exact.id,
+                  limit: 20,
+                  sortDirection: "asc",
+                  ...(cursor ? { cursor } : {}),
+                });
+                if (!Array.isArray(result.data)) throw new Error("Invalid recovery item page");
+                for (const entry of result.data) items.push(record(entry).item ?? entry);
+                cursor = text(result.nextCursor) || undefined;
+                if (!cursor) break;
+              }
+              if (cursor) throw new Error("Recovery page budget exhausted");
+              for (const item of items)
                 if (exact.status !== "inProgress" || record(item).status === "completed")
                   this.notification(r, "item/completed", {
                     threadId: thread.codexThreadId,

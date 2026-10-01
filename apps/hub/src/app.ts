@@ -634,6 +634,9 @@ export async function createApp(
     return { usage: sessions.nativeWork.snapshot(id).usage };
   });
   app.get("/api/projects/:id/native-inventory", async (req) => sessions.inventory(paramId(req)));
+  app.post("/api/projects/:id/native-inventory/refresh", async (req) =>
+    sessions.inventory(paramId(req), true),
+  );
   app.get("/api/threads/:id/activity", async (req) => {
     const id = paramId(req);
     sessions.thread(id);

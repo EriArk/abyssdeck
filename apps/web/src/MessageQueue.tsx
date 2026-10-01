@@ -44,7 +44,7 @@ export function useMessageQueue(threadId: string) {
         signal: controller.signal,
       });
       if (current.current === threadId && seq === request.current) {
-        setState(value);
+        setState({ ...value, items: value.items.filter((item) => item.state !== "steered") });
         readFailures.current = 0;
         setLoadError("");
       }

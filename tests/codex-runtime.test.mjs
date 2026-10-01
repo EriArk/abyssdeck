@@ -116,28 +116,105 @@ async function recoveryFixture(t) {
   f.store.setStatus(f.thread.id, "unknown", "offline-turn");
   return { ...f, runtime };
 }
+
+test("Check restores exact live ownership without resuming or interrupting the native writer", async (t) => {
+  const f = await recoveryFixture(t);
+  f.runtime.machineId = "pc";
+  f.runtime.instanceId = "same-instance";
+  f.rpc.inspectCompanion = async () => ({
+    protocol: 2,
+    runtimeId: "binding",
+    instanceId: "same-instance",
+    turns: { [f.thread.codexThreadId]: "offline-turn" },
+  });
+  f.rpc.request = async (method) => {
+    throw Error("Status check must not invoke " + method);
+  };
+  const result = await f.sessions.resume(f.thread.id);
+  assert.equal(result.status, "running");
+  assert.equal(result.activitySource, "hub");
+  assert.equal(result.activeTurnId, "offline-turn");
+  assert(f.runtime.loaded.has(f.thread.id));
+  assert.equal(f.rpc.closed, false);
+});
+
+test("explicit MCP refresh coalesces on the existing runtime without touching a chat", async (t) => {
+  const f = await recoveryFixture(t);
+  let reloaded = 0;
+  let finish;
+  const reload = new Promise((resolve) => {
+    finish = resolve;
+  });
+  f.rpc.request = async (method) => {
+    if (method === "config/mcpServer/reload") {
+      reloaded++;
+      return reload;
+    }
+    assert(["skills/list", "plugin/list", "mcpServerStatus/list"].includes(method));
+    return { data: [], marketplaces: [] };
+  };
+  const first = f.sessions.inventory(f.thread.projectId, true);
+  const second = f.sessions.inventory(f.thread.projectId, true);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(reloaded, 1);
+  finish({});
+  await Promise.all([first, second]);
+  await f.sessions.inventory(f.thread.projectId);
+  assert.equal(reloaded, 1);
+  assert.equal(f.store.thread(f.thread.id).activeTurnId, "offline-turn");
+  assert.equal(f.rpc.closed, false);
+});
+
+test("Check observes external work without acquiring its writer; terminal checks use a bounded summary", async (t) => {
+  const f = await recoveryFixture(t);
+  f.runtime.machineId = "pc";
+  f.runtime.instanceId = "same-instance";
+  f.rpc.inspectCompanion = async () => ({
+    protocol: 2,
+    runtimeId: "binding",
+    instanceId: "same-instance",
+    turns: {},
+  });
+  f.store.db.prepare("UPDATE threads SET activitySource='external' WHERE id=?").run(f.thread.id);
+  f.store.setStatus(f.thread.id, "running", "elsewhere");
+  let reads = 0;
+  f.rpc.request = async (method, params) => {
+    assert.equal(method, "thread/turns/list");
+    assert.equal(params.itemsView, "summary");
+    assert.equal(params.limit, 1);
+    reads++;
+    return { data: [{ id: "offline-turn", status: "interrupted" }] };
+  };
+  assert.equal((await f.sessions.resume(f.thread.id)).activitySource, "external");
+  assert.equal(reads, 0);
+  f.store.db.prepare("UPDATE threads SET activitySource='hub' WHERE id=?").run(f.thread.id);
+  f.store.setStatus(f.thread.id, "unknown", "offline-turn");
+  assert.equal((await f.sessions.resume(f.thread.id)).status, "interrupted");
+  assert.equal(reads, 1);
+  assert.equal(f.rpc.closed, false);
+});
 test("canonical completed output and results recover once without starting or resuming a turn", async (t) => {
   const f = await recoveryFixture(t);
   let reads = 0;
-  f.rpc.request = async (method) => {
-    assert.equal(method, "thread/turns/list");
-    reads++;
+  f.rpc.request = async (method, params) => {
+    if (method === "thread/turns/list") {
+      assert.equal(params.itemsView, "notLoaded");
+      reads++;
+      return { data: [{ id: "offline-turn", status: "completed" }] };
+    }
+    assert.equal(method, "thread/items/list");
+    assert.equal(params.turnId, "offline-turn");
+    assert.equal(params.limit, 20);
     return {
       data: [
+        { id: "answer", type: "agentMessage", phase: "final_answer", text: "Finished offline" },
         {
-          id: "offline-turn",
+          id: "check",
+          type: "commandExecution",
+          command: "npm test",
           status: "completed",
-          items: [
-            { id: "answer", type: "agentMessage", phase: "final_answer", text: "Finished offline" },
-            {
-              id: "check",
-              type: "commandExecution",
-              command: "npm test",
-              status: "completed",
-              exitCode: 0,
-              aggregatedOutput: "pass",
-            },
-          ],
+          exitCode: 0,
+          aggregatedOutput: "pass",
         },
       ],
     };
@@ -169,7 +246,9 @@ test("unavailable exact turn stops after three read checks and retains uncertain
 test("pending question marks recovered live turn waiting; maintenance requires live instance and exact turn", async (t) => {
   const f = await recoveryFixture(t);
   f.sessions.pending = () => [{ id: "approval" }];
-  f.rpc.request = async () => ({ data: [{ id: "offline-turn", status: "inProgress", items: [] }] });
+  f.rpc.request = async (method) => ({
+    data: method === "thread/items/list" ? [] : [{ id: "offline-turn", status: "inProgress" }],
+  });
   f.runtime.instanceId = randomUUID();
   f.rpc.inspectCompanion = async () => ({
     protocol: 2,
@@ -197,7 +276,8 @@ test("pending question marks recovered live turn waiting; maintenance requires l
 test("stale native inProgress history without live Companion proof stays uncertain", async (t) => {
   const f = await recoveryFixture(t);
   let reads = 0;
-  f.rpc.request = async () => {
+  f.rpc.request = async (method) => {
+    if (method === "thread/items/list") return { data: [] };
     reads++;
     return { data: [{ id: "offline-turn", status: "inProgress", items: [] }] };
   };

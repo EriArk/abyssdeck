@@ -31,14 +31,15 @@ namespace CodexWeb {
       readonly byte[] Buffer = new byte[65536];
       int Offset, Count;
       public Frames(Stream stream) { Stream=stream; }
-      public async Task<string> Next() {
+      public async Task<string> Next(bool drainOversized = false) {
         using(var bytes=new MemoryStream()) {
+          bool oversized=false;
           for(;;) {
             if(Offset==Count) { Count=await Stream.ReadAsync(Buffer,0,Buffer.Length); Offset=0; if(Count==0)throw new EndOfStreamException(); }
             int end=Offset; while(end<Count && Buffer[end]!=10)end++;
-            if(bytes.Length+end-Offset>MaxFrame)throw new InvalidDataException("FRAME_LIMIT");
-            bytes.Write(Buffer,Offset,end-Offset); Offset=end;
-            if(Offset<Count) { Offset++; return Utf8.GetString(bytes.ToArray()).TrimEnd('\r'); }
+            if(bytes.Length+end-Offset>MaxFrame) { if(!drainOversized)throw new InvalidDataException("FRAME_LIMIT"); oversized=true; }
+            if(!oversized)bytes.Write(Buffer,Offset,end-Offset); Offset=end;
+            if(Offset<Count) { Offset++; return oversized ? null : Utf8.GetString(bytes.ToArray()).TrimEnd('\r'); }
           }
         }
       }
@@ -203,7 +204,18 @@ namespace CodexWeb {
       try {
         var frames=new Frames(runtime.Child.StandardOutput.BaseStream);
         while(true) {
-          var frame=Json().Deserialize<Dictionary<string,object>>(await frames.Next());
+          var raw=await frames.Next(true);
+          if(raw==null) {
+            // Reject unconfirmed controller calls, not the native process. This
+            // also leaves all active turns and unanswered native requests alive.
+            List<Call> calls;
+            lock(runtime.Gate) { calls=new List<Call>(runtime.Calls.Values); runtime.Calls.Clear(); }
+            foreach(var call in calls) {
+              try { await call.Owner.Send(new {id=call.Id,error=new {code=-32002,message="COMPANION_RESPONSE_TOO_LARGE"}}); } catch {}
+            }
+            continue;
+          }
+          var frame=Json().Deserialize<Dictionary<string,object>>(raw);
           object id; bool hasId=frame.TryGetValue("id",out id); string method=Text(frame,"method");
           Controller target;
           lock(runtime.Gate) {

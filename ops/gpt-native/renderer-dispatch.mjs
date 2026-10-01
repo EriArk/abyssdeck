@@ -35,7 +35,7 @@ export async function nativeDispatch(request, read, control,
    return {key:request.key,state:previous.state,userMessageId:request.userMessageId};
   }
   if (request.operation!=='resolveCreation'&&previous?.signature === signature && previous.dispatched) return {key:request.key,state:previous.state,userMessageId:request.userMessageId};
-  if (request.operation!=='resolveCreation'&&previous?.dispatched && previous.state === 'running' && previous.conversationId===request.conversationId) fail('BUSY');
+  // A lost completion callback must not override the current native idle state below.
   if(request.operation==='resolveCreation'&&!creating)fail('INVALID_REQUEST');
   if(request.projectId)await read({operation:'readProject',projectId:request.projectId,accountFingerprint:request.accountFingerprint});
   const history = creating?{messages:[],currentNode:request.parentId}:await read({operation:'readConversation',...binding});

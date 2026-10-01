@@ -93,6 +93,9 @@ export class ExternalActivity {
   }
   apply(id: string, row: NativeActivity) {
     const old = this.store.thread(id);
+    // The same persisted turn is not evidence of another client. After a Hub
+    // reconnect only the exact runtime may confirm its live/terminal state.
+    if (old.activitySource === "hub" && old.activeTurnId === row.turnId) return;
     const active = row.status === "inProgress";
     // A stale unfinished disk record is not proof of a currently running process.
     const status = active

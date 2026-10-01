@@ -119,7 +119,12 @@ test("async question reply atomically steers its source turn without a browser o
     assert.equal(steer[0].p.expectedTurnId, turn);
     assert.equal(steer[0].p.input[0].text, text);
     assert.equal(f.rpc.queue.length, 0);
-    assert.equal((await f.queue.list(f.t.id)).items[0].state, "steered");
+    assert.equal((await f.queue.list(f.t.id)).items.length, 0);
+    assert.equal(
+      f.store.db.prepare("SELECT state FROM queue_transfers WHERE threadId=?").get(f.t.id).state,
+      "steered",
+    );
+    assert.equal(await f.queue.whenEmpty(f.t.id, async () => "ready"), "ready");
     assert.equal(f.rpc.calls.filter((c) => c.method === "turn/start").length, 1);
     await assert.rejects(
       f.queue.reply(f.t.id, text.replace("Choose?", "Invented?"), randomUUID(), turn),
@@ -249,7 +254,7 @@ test("native queue edits preserve images, survives service recreation and steers
     const steer = rpc.calls.find((c) => c.method === "turn/steer");
     assert.equal(steer.p.expectedTurnId, turn);
     assert.equal(steer.p.input[1].type, "localImage");
-    assert.equal((await queue.list(t.id)).items[0].state, "steered");
+    assert.equal((await queue.list(t.id)).items.length, 0);
     await assert.rejects(queue.change(t.id, q.id, q.revision, "delete"), {
       code: "MESSAGE_ACCEPTED",
     });

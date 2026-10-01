@@ -80,6 +80,21 @@ test("external observation detects active and unread work; initial history is re
       updatedAt: 2,
     });
     assert.equal(store.thread(t.id).status, "unknown");
+    store.db.prepare("UPDATE threads SET activitySource='hub' WHERE id=?").run(t.id);
+    store.setStatus(t.id, "unknown", "hub-turn");
+    activity.apply(t.id, {
+      ...row,
+      turnId: "hub-turn",
+      status: "inProgress",
+      startedAt: now,
+      updatedAt: now,
+    });
+    assert.equal(store.thread(t.id).activitySource, "hub");
+    assert.equal(
+      store.thread(t.id).status,
+      "unknown",
+      "disk activity cannot relabel a disconnected Hub turn as another client",
+    );
   } finally {
     await activity.close();
     store.close();

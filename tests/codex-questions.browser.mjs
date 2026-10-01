@@ -163,8 +163,8 @@ try {
         0,
         "answer delivery is one Hub operation, without manual Steer",
       );
-      await expect(page.locator(".queue-heading")).toContainText("Передано текущему ходу");
-      await expect(page.locator(".queue-text")).toContainText("Вижу на основном экране");
+      await expect(page.locator(".queue-heading")).toHaveCount(0);
+      await expect(page.locator(".queue-text")).toHaveCount(0);
       assert(
         !(await page.locator("main").innerText()).includes("send_user_message_question_reply"),
       );

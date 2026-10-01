@@ -1222,13 +1222,7 @@ export class GptService {
       throw error("GPT_FILES_TOO_LARGE", "Вложения превышают доступное хранилище GPT.", 413);
     if (this.jobs().filter((job) => active.includes(job.status)).length >= 20)
       throw error("GPT_QUEUE_FULL", "Очередь заполнена.");
-    if (
-      this.jobs().some(
-        (job) =>
-          job.status === "unknown" &&
-          (!this.native || (value.nativeId !== null && job.nativeId === value.nativeId)),
-      )
-    )
+    if (!this.native && this.jobs().some((job) => job.status === "unknown"))
       throw error(
         "GPT_CHECK_PREVIOUS",
         "Сначала проверь предыдущую отправку с неизвестным состоянием.",
@@ -1259,6 +1253,15 @@ export class GptService {
       this.store.db
         .prepare("INSERT INTO gpt_job_providers VALUES(?,?)")
         .run(jobId, this.native ? "native" : "browser");
+      if (this.native && value.nativeId) {
+        // A fresh, explicit Send may continue past old uncertainty. This is not
+        // permission to replay the old receipt or release already queued followers.
+        this.store.db
+          .prepare(
+            "INSERT INTO gpt_job_continuations SELECT ?,id FROM gpt_jobs WHERE nativeId=? AND status='unknown' AND id!=?",
+          )
+          .run(jobId, value.nativeId, jobId);
+      }
       if (value.projectId)
         this.store.db
           .prepare("INSERT INTO gpt_project_jobs(jobId,projectId) VALUES(?,?)")
@@ -1344,7 +1347,7 @@ export class GptService {
       // Give a ready independent chat priority over background history checks.
       // Its own persisted receipt still blocks it; old-provider jobs never migrate.
       const eligible = this.store.db.prepare(
-        "SELECT j.id FROM gpt_jobs j JOIN gpt_job_providers p ON p.jobId=j.id WHERE p.provider='native' AND j.status='queued' AND NOT EXISTS(SELECT 1 FROM gpt_native_preparations wait WHERE wait.jobId=j.id AND wait.retryAt>?) AND NOT EXISTS(SELECT 1 FROM gpt_jobs busy WHERE busy.status IN ('running','unknown') AND busy.nativeId IS j.nativeId AND j.nativeId IS NOT NULL) ORDER BY j.createdAt LIMIT 20",
+        "SELECT j.id FROM gpt_jobs j JOIN gpt_job_providers p ON p.jobId=j.id WHERE p.provider='native' AND j.status='queued' AND NOT EXISTS(SELECT 1 FROM gpt_native_preparations wait WHERE wait.jobId=j.id AND wait.retryAt>?) AND NOT EXISTS(SELECT 1 FROM gpt_jobs busy WHERE busy.status IN ('running','unknown') AND busy.nativeId IS j.nativeId AND j.nativeId IS NOT NULL AND NOT EXISTS(SELECT 1 FROM gpt_job_continuations c WHERE c.jobId=j.id AND c.previousJobId=busy.id)) ORDER BY j.createdAt LIMIT 20",
       );
       const nextReady = () =>
         (eligible.all(Date.now()) as { id: string }[]).find((row) => {

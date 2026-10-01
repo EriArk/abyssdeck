@@ -32,10 +32,10 @@ export class NativeDispatchReceipts {
  close(){this.db.close();}
  pending(){return !!this.db.prepare("SELECT 1 FROM operation_receipts WHERE state='unknown' LIMIT 1").get() || !!this.db.prepare("SELECT 1 FROM workspace_receipts WHERE state='unknown' LIMIT 1").get() || !!this.db.prepare("SELECT 1 FROM project_creations WHERE projectId IS NULL AND state='unknown' LIMIT 1").get() || !!this.db.prepare("SELECT 1 FROM project_receipts WHERE state='unknown' LIMIT 1").get() || !!this.db.prepare("SELECT 1 FROM library_receipts WHERE state='unknown' LIMIT 1").get() || !!this.db.prepare("SELECT 1 FROM receipts WHERE state NOT IN ('completed','cancelled','checked') LIMIT 1").get();}
  // These are conflict identities only. Reading them never reconciles or releases a receipt.
- pendingScopes(){
+ pendingScopes({sends=false}={}){
   const rows=(table,where="state='unknown'")=>this.db.prepare('SELECT * FROM '+table+' WHERE '+where).all();
   const scopes=[];
-  for(const row of rows('receipts',"state NOT IN ('completed','cancelled','checked')")){
+  for(const row of sends?[]:rows('receipts',"state NOT IN ('completed','cancelled','checked')")){
    const p=JSON.parse(row.payload),creation=p.conversationId===null?this.db.prepare('SELECT candidate,confirmed FROM creations WHERE key=?').get(row.key):null;
    scopes.push({conversationIds:[p.conversationId,creation?.candidate,creation?.confirmed].filter(Boolean),projectId:p.projectId});
   }
@@ -45,15 +45,17 @@ export class NativeDispatchReceipts {
   for(const row of rows('workspace_receipts')){const p=JSON.parse(row.payload).input;scopes.push({conversationIds:p.kind==='canvas'?[p.conversationId]:[],workspaceKind:p.kind,workspaceId:p.id});}
   return scopes;
  }
- blocksDispatch(conversationId,projectId){
-  return this.pendingScopes().some(s=>conversationId&&s.conversationIds.includes(conversationId)||projectId&&s.projectWide&&s.projectId===projectId);
+ blocksDispatch(conversationId,projectId,freshSend=false){
+  // Prior send receipts preserve idempotency, not a permanent conversation lock.
+  // The native prepare/dispatch action checks the actual current branch and idle state.
+  return this.pendingScopes({sends:freshSend}).some(s=>conversationId&&s.conversationIds.includes(conversationId)||projectId&&s.projectWide&&s.projectId===projectId);
  }
- async assertDispatch(r,reader){
-  if(this.blocksDispatch(r.conversationId,r.projectId))fail('PENDING_DISPATCH');
+ async assertDispatch(r,reader,freshSend=false){
+  if(this.blocksDispatch(r.conversationId,r.projectId,freshSend))fail('PENDING_DISPATCH');
   if(r.conversationId&&this.pendingScopes().some(s=>s.projectWide)){
    const history=await reader.readConversation(r);
    if(history.conversationId!==r.conversationId)fail('CONVERSATION_MISMATCH');
-   if(this.blocksDispatch(r.conversationId,history.projectId))fail('PENDING_DISPATCH');
+   if(this.blocksDispatch(r.conversationId,history.projectId,freshSend))fail('PENDING_DISPATCH');
   }
  }
  async assertProject(r,reader){
@@ -94,7 +96,7 @@ export class NativeDispatchReceipts {
    if(bytes.length!==f.bytes||bytes.toString('base64')!==f.base64||createHash('sha256').update(bytes).digest('hex')!==f.sha256)fail('UPLOAD_CHANGED');
   }
 
-  if(this.blocksDispatch(r.conversationId)||this.db.prepare('SELECT 1 FROM receipts WHERE key=?').get(r.key))fail('PENDING_DISPATCH');
+  if(this.blocksDispatch(r.conversationId,undefined,true)||this.db.prepare('SELECT 1 FROM receipts WHERE key=?').get(r.key))fail('PENDING_DISPATCH');
   if(this.db.prepare('SELECT count(*) AS n FROM uploads WHERE key=?').get(r.key).n>=8)fail('TOO_MANY_UPLOADS');
   this.db.prepare('INSERT INTO uploads(key,id,hash) VALUES(?,?,?)').run(r.key,f.id,hash);
   const native=await (path?reader.uploadStoredFile(r,path):reader.uploadFile(r));
@@ -106,7 +108,7 @@ export class NativeDispatchReceipts {
  }
  async prepare(r,reader){
   this.validate(r);
-  await this.assertDispatch(r,reader);
+  await this.assertDispatch(r,reader,true);
   await reader.selectConversation(r);
   // The native completion action does not need a mounted visual composer.
   // Model and effort are passed directly to the native completion action.
@@ -133,7 +135,7 @@ export class NativeDispatchReceipts {
   if(uploaded.length!==(r.attachments??[]).length||uploaded.some(x=>!x.result))fail('UPLOAD_MISMATCH');
   const hash=this.hash(r),old=this.db.prepare('SELECT * FROM receipts WHERE key=?').get(r.key);
   if(old){if(old.hash!==hash)fail('KEY_CONFLICT');return {state:old.state==='completed'?'completed':'unknown',userMessageId:r.userMessageId};}
-  await this.assertDispatch(r,reader);
+  await this.assertDispatch(r,reader,true);
   // This commit survives renderer/supervisor/Hub loss. Never invoke the writer twice.
   this.db.exec('BEGIN IMMEDIATE');
   try{

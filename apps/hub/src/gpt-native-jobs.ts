@@ -44,6 +44,9 @@ export class NativeGptJobs {
     )
       store.db.exec("ALTER TABLE gpt_native_receipts ADD COLUMN uncertainSince INTEGER");
     store.db.exec(
+      "CREATE TABLE IF NOT EXISTS gpt_job_continuations(jobId TEXT NOT NULL REFERENCES gpt_jobs(id),previousJobId TEXT NOT NULL REFERENCES gpt_jobs(id),PRIMARY KEY(jobId,previousJobId))",
+    );
+    store.db.exec(
       "CREATE TABLE IF NOT EXISTS gpt_native_creations(jobId TEXT PRIMARY KEY REFERENCES gpt_native_receipts(jobId),conversationId TEXT NOT NULL)",
     );
     store.db.exec(
@@ -108,8 +111,8 @@ export class NativeGptJobs {
       ).run(Date.now(), id);
       // Following accepted drafts in this same chat must not remain poised to send.
       db.prepare(
-        "UPDATE gpt_jobs SET status='failed',error='NATIVE_CHAT_PAUSED_UNSENT',updatedAt=? WHERE status='queued' AND nativeId IS NOT NULL AND nativeId = (SELECT nativeId FROM gpt_jobs WHERE id=?)",
-      ).run(Date.now(), id);
+        "UPDATE gpt_jobs SET status='failed',error='NATIVE_CHAT_PAUSED_UNSENT',updatedAt=? WHERE status='queued' AND nativeId IS NOT NULL AND nativeId = (SELECT nativeId FROM gpt_jobs WHERE id=?) AND NOT EXISTS(SELECT 1 FROM gpt_job_continuations c WHERE c.jobId=gpt_jobs.id AND c.previousJobId=?)",
+      ).run(Date.now(), id, id);
     }
   }
   private project(id: string): string | undefined {
@@ -174,9 +177,9 @@ export class NativeGptJobs {
       if (
         this.store.db
           .prepare(
-            "SELECT 1 FROM gpt_jobs WHERE id!=? AND (status='preparing' OR status IN ('running','unknown') AND nativeId IS ? AND nativeId IS NOT NULL) LIMIT 1",
+            "SELECT 1 FROM gpt_jobs WHERE id!=? AND (status='preparing' OR status IN ('running','unknown') AND nativeId IS ? AND nativeId IS NOT NULL AND NOT EXISTS(SELECT 1 FROM gpt_job_continuations c WHERE c.jobId=? AND c.previousJobId=gpt_jobs.id)) LIMIT 1",
           )
-          .get(id, row.nativeId == null ? null : String(row.nativeId))
+          .get(id, row.nativeId == null ? null : String(row.nativeId), id)
       )
         fail("PENDING_DISPATCH");
       const input = {

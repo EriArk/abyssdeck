@@ -140,7 +140,7 @@ export class NativeReadService {
         if(operation==='projectMutation'){const v=await this.projects.execute(bound,this.reader,this.uploads,transferStoredUpload);if(v.state!=='unknown'&&bound.action==='upload')await this.uploads.clear(bound);return v;}
         if(operation==='reconcileProject')return await this.projects.check(bound,this.reader);
         if(['libraryMutation','reconcileLibrary'].includes(operation)){if(!this.library)fail('INVALID_CANARY');return await this.library.run(bound,this.reader,operation==='reconcileLibrary');}
-        if(operation==='stageUpload'){this.canary.admitUpload(bound);if(this.canary.blocksDispatch(bound.conversationId))fail('PENDING_DISPATCH');return await this.uploads.append(bound);}
+        if(operation==='stageUpload'){this.canary.admitUpload(bound);if(this.canary.blocksDispatch(bound.conversationId,undefined,true))fail('PENDING_DISPATCH');return await this.uploads.append(bound);}
         if(operation==='uploadStoredFile'){
           this.canary.admitUpload(bound);
           const reader={uploadStoredFile:(r,path)=>transferStoredUpload(this.reader,r,path)};
