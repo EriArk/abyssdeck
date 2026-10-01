@@ -11,6 +11,7 @@ $definitions = @(
     @('CodexWebCompanionPersistent', 'Codex', 'companion-persistent', 'CodexWebCompanion.exe'),
     @('CodexWebCompanion', 'Совместимость', 'companion', 'CodexWebCompanion.exe'),
     @('CodexWebComputerUse', 'Computer Use', 'computer-use', ''),
+    @('CodexWebBrowser', 'Встроенный браузер', 'browser', ''),
     @('CodexWebDelivery', 'Файлы и результаты', 'delivery', 'Run-Delivery.ps1'),
     @('CodexWebFileLaunch', 'Открытие файлов', 'file-launch', 'Run-FileLaunch.ps1'),
     @('CodexWebProjectSetup', 'Проекты', 'project-setup', 'Run-ProjectSetup.ps1'),
@@ -36,8 +37,40 @@ $components = foreach ($definition in $definitions) {
     $folder = Join-Path $env:LOCALAPPDATA ('CodexWeb/' + $definition[2])
     $module = if ($definition[3]) { Join-Path $folder $definition[3] } else { $executable }
     $registered = $false
+    $toolReady=$null
     if ($task -and $mine -and $executable) {
         $registered = if ($definition[3] -like '*.ps1') { ([string]$task.Actions[0].Arguments).Contains('"' + $module + '"') } else { $executable.StartsWith($folder.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase) }
+    }
+    if ($task -and $mine -and $definition[0] -eq 'CodexWebBrowser') {
+        $registered=$false
+        try {
+            $pointer=Get-Content -LiteralPath (Join-Path $folder 'current.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+            if($pointer.release -notmatch '^[a-f0-9]{64}$'){throw 'BROWSER_RELEASE_INVALID'}
+            $runtime=Join-Path $folder ('runtime/'+$pointer.release)
+            if($executable -cne (Join-Path $runtime 'CodexWebBrowserHost.exe') -or $task.Actions[0].Arguments -cne '--server'){throw 'BROWSER_TASK_CHANGED'}
+            $names=@($pointer.files.PSObject.Properties.Name)
+            if($names.Count -ne 6 -or 'CodexWebBrowserHost.exe' -notin $names -or 'CodexWebBrowser.exe' -notin $names -or 'Start-Browser.ps1' -notin $names){throw 'BROWSER_FILES_INVALID'}
+            foreach($entry in $pointer.files.PSObject.Properties){
+                if($entry.Name -notmatch '^[A-Za-z0-9_.-]+$' -or $entry.Value -notmatch '^[a-f0-9]{64}$'){throw 'BROWSER_FILES_INVALID'}
+                $file=Join-Path $runtime $entry.Name
+                if((Get-Item -LiteralPath $file -Force).Attributes -band [IO.FileAttributes]::ReparsePoint -or (Get-FileHash -LiteralPath $file).Hash.ToLowerInvariant() -cne $entry.Value){throw 'BROWSER_FILE_CHANGED'}
+            }
+            $launcher=Join-Path $folder 'Start-Browser.ps1'
+            if((Get-FileHash -LiteralPath $launcher).Hash.ToLowerInvariant() -cne $pointer.files.'Start-Browser.ps1'){throw 'BROWSER_LAUNCHER_CHANGED'}
+            $registered=$true
+            $toolReady=$false
+            foreach($worker in @('companion-persistent','companion')){
+                $configPath=Join-Path $env:LOCALAPPDATA ('CodexWeb/'+$worker+'/config.json')
+                if(Test-Path -LiteralPath $configPath){
+                    $cli=(Get-Content -LiteralPath $configPath -Raw -Encoding UTF8|ConvertFrom-Json).codexCommand
+                    try {
+                        $raw=& $cli mcp get codexweb_browser --json 2>$null
+                        if($LASTEXITCODE -eq 0){$mcp=$raw|ConvertFrom-Json;$toolReady=$mcp.enabled -eq $true -and $launcher -cin @($mcp.transport.args)}
+                    } catch { }
+                    break
+                }
+            }
+        } catch {$registered=$false}
     }
     $digest = ''
     if ($task -and $mine) { try { $sha=[Security.Cryptography.SHA256]::Create(); try { $digest=([BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes((Export-ScheduledTask -TaskName $definition[0]))))).Replace('-','').ToLowerInvariant() } finally { $sha.Dispose() } } catch { $mine=$false } }
@@ -68,7 +101,7 @@ $components = foreach ($definition in $definitions) {
             }
         } catch {$registered=$false}
     }
-    [ordered]@{ id=$definition[0]; title=$definition[1]; folder=$definition[2]; installed=[bool]$task; owned=$mine; known=$tasksKnown; state=$(if ($task -and $mine) { $task.State.ToString() } else { 'Unknown' }); executable=$executable; executableExists=[bool]($registered -and (Test-Path -LiteralPath $executable -PathType Leaf) -and (Test-Path -LiteralPath $module -PathType Leaf)); taskDigest=$digest }
+    [ordered]@{ id=$definition[0]; title=$definition[1]; folder=$definition[2]; installed=[bool]$task; owned=$mine; known=$tasksKnown; state=$(if ($task -and $mine) { $task.State.ToString() } else { 'Unknown' }); executable=$executable; executableExists=[bool]($registered -and (Test-Path -LiteralPath $executable -PathType Leaf) -and (Test-Path -LiteralPath $module -PathType Leaf)); taskDigest=$digest;toolReady=$toolReady }
 }
 # No unrelated processes/windows, titles, arguments or environment variables.
 $codexProcesses = @(Get-CimInstance Win32_Process -Filter "Name='codex.exe'" -ErrorAction SilentlyContinue | Where-Object {

@@ -7,7 +7,7 @@ using System.Text.Json;
 namespace CodexWeb.Companion;
 
 public sealed record Component(string Id, string Title, string Folder, bool Installed,
-    bool Owned, bool Known, string State, string Executable, bool ExecutableExists, string TaskDigest = "");
+    bool Owned, bool Known, string State, string Executable, bool ExecutableExists, string TaskDigest = "", bool? ToolReady = null);
 public sealed record NativeProcess(int Pid, string Started);
 public sealed record Requirement(string Id, string Title, bool Ready);
 public sealed record Inventory(string Sid, string User, string Computer, int Session,
@@ -24,10 +24,11 @@ public static class StatusProjection
         if (!c.Installed) return new(c.Title, "Не установлен", "Компонент не найден на этом ПК.", true);
         if (!c.Owned) return new(c.Title, "Неизвестно", "Задача не подтверждена для текущей Windows-сессии.", true);
         if (!c.ExecutableExists) return new(c.Title, "Требуется действие", "Файл зарегистрированной задачи отсутствует.", true);
+        if (c.Id == "CodexWebBrowser" && c.ToolReady == false) return new(c.Title, "Требуется подключение", "Браузер не подключён к инструментам Codex. Нажми ремонт.", true);
         if (c.State == "Disabled") return new(c.Title, "Выключен", "Задача отключена в Windows.", false);
         if (c.State == "Running" && pipe == false) return new(c.Title, "Недоступен", "Процесс запущен, но локальный статус не отвечает.", true);
         if (c.State == "Running") return new(c.Title, "Запущен", pipe == true ? "Локальное соединение отвечает." : "Работает в этой Windows-сессии.", false);
-        if (c.State == "Ready" && c.Id is "CodexWebCompanion" or "CodexWebCompanionPersistent" or "CodexWebComputerUse")
+        if (c.State == "Ready" && c.Id is "CodexWebCompanion" or "CodexWebCompanionPersistent" or "CodexWebComputerUse" or "CodexWebBrowser")
             return new(c.Title, "Остановлен", "Компонент установлен, но его локальный процесс не запущен.", true);
         if (c.State == "Ready") return new(c.Title, "Готов по запросу", "Windows запускает этот компонент при необходимости.", false);
         return new(c.Title, "Неизвестно", "Состояние Windows: " + c.State, true);
@@ -75,11 +76,13 @@ public sealed class ReadinessService(SettingsStore settings, Func<Task<Inventory
                         continue;
                     }
                 }
+                if (component.Id == "CodexWebBrowser") pipe = await BrowserStatus();
             }
             views.Add(StatusProjection.Project(component, pipe));
         }
-        var healthyWriter = inventory.Components.Any(c => c.Id is "CodexWebCompanionPersistent" or "CodexWebCompanion"
-            && c.Installed && c.Owned && c.ExecutableExists && c.State == "Running");
+        var healthyWriter = inventory.Components.Select((c, i) => (c, i)).Any(x =>
+            x.c.Id is "CodexWebCompanionPersistent" or "CodexWebCompanion"
+            && views[x.i].State == "Запущен" && !views[x.i].Attention);
         for (int i = 0; i < inventory.Components.Length; i++) {
             var c = inventory.Components[i];
             if (!c.Installed && c.Known && (c.Id is "CodexWebComputerUse" or "CodexWebDesktopRestart"
@@ -179,6 +182,18 @@ public sealed class ReadinessService(SettingsStore settings, Func<Task<Inventory
         throw new IOException();
     }
     static async Task<bool> Ping(string name) { try { return await Exchange(name, "PING") == "OK"; } catch { return false; } }
+    async Task<bool> BrowserStatus()
+    {
+        try {
+            var frame = JsonSerializer.Serialize(new { client = Guid.NewGuid().ToString("N"), name = "status", arguments = new { } });
+            using var reply = JsonDocument.Parse(await Exchange("codex-web-browser-" + settings.Sid, frame));
+            using var body = JsonDocument.Parse(reply.RootElement.GetProperty("content")[0].GetProperty("text").GetString()!);
+            return BrowserReady(body.RootElement);
+        } catch { return false; }
+    }
+    public static bool BrowserReady(JsonElement body) => body.TryGetProperty("ready", out var ready)
+        && ready.ValueKind == JsonValueKind.True && body.TryGetProperty("webViewVersion", out var version)
+        && version.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(version.GetString());
     async Task<bool?> ComputerUseStatus(int session)
     {
         try

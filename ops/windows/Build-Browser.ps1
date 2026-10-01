@@ -19,5 +19,5 @@ foreach($file in Get-ChildItem -LiteralPath $OutputDirectory -File | Sort-Object
 $json=$files | ConvertTo-Json -Compress
 $hash=[Security.Cryptography.SHA256]::Create()
 try{$release=([BitConverter]::ToString($hash.ComputeHash([Text.Encoding]::UTF8.GetBytes($json)))).Replace('-','').ToLowerInvariant()}finally{$hash.Dispose()}
-[IO.File]::WriteAllText((Join-Path $OutputDirectory 'release.json'),(@{release=$release;files=$files;version='1.0.0'} | ConvertTo-Json -Depth 4),[Text.UTF8Encoding]::new($false))
+[IO.File]::WriteAllText((Join-Path $OutputDirectory 'release.json'),(@{release=$release;files=$files;version='1.0.1'} | ConvertTo-Json -Depth 4),[Text.UTF8Encoding]::new($false))
 @{release=$release;directory=[IO.Path]::GetFullPath($OutputDirectory)} | ConvertTo-Json -Compress

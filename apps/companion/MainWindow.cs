@@ -21,6 +21,7 @@ public sealed class MainWindow : Window, IDisposable
     readonly UpdateManager updates;
     readonly RecoveryManager recovery;
     readonly WorkerManager workers;
+    readonly BrowserComponent browser;
     bool maintaining;
     double[]? restoreOffsets;
     TextBlock updateText = new();
@@ -57,7 +58,7 @@ public sealed class MainWindow : Window, IDisposable
     {
         this.app = app; this.store = store; this.profile = profile; notice = error;
         hubDraft = profile.HubOrigin; palette = Themes.Get(profile.Theme); readiness = new(store);
-        hub = new(store); setup = new(store, hub); updates=new(store,hub);recovery=new(store);workers=new(store,hub);
+        hub = new(store); setup = new(store, hub); updates=new(store,hub);recovery=new(store);workers=new(store,hub);browser=new(store);
         try { hub.Restore(profile); } catch { notice = "Сохранённое подключение недоступно. Войди снова."; }
         Title = "CodexWeb Companion";
         Width = 840; Height = 690; MinWidth = 650; MinHeight = 520;
@@ -350,7 +351,11 @@ public sealed class MainWindow : Window, IDisposable
             if(expected!=generation || disposed || !accountReady)return;
             if(profile.AutoUpdates && snapshot is not null) {
                 string? workerKit=null;try {workerKit=updates.VerifiedHelpers;}catch { }
-                if(workerKit is not null){await workers.Update(snapshot,workerKit);snapshot=await readiness.Refresh(profile);}
+                if(workerKit is not null){
+                    var browserSource=snapshot.Inventory.Components.FirstOrDefault(c=>c.Id=="CodexWebBrowser");
+                    if(browserSource is not null)try{await browser.Ensure(browserSource,snapshot.Inventory,workerKit,true);}catch{}
+                    await workers.Update(snapshot,workerKit);snapshot=await readiness.Refresh(profile);
+                }
             }
             if(profile.AutoRecovery && snapshot is not null) {
                 string? kit=null;
@@ -447,16 +452,22 @@ public sealed class MainWindow : Window, IDisposable
             var state = Text(!c.Attention && c.State is "Запущен" or "Занято" or "Готов по запросу" ? "✓ " + c.State : c.State, bold: true); state.VerticalAlignment = VerticalAlignment.Center;
             state.Foreground = Themes.Brush(c.Attention ? palette.Danger : palette.Accent); Grid.SetColumn(state, 1); row.Children.Add(state);
             var content = Stack(row);
+            if(source.Id=="CodexWebBrowser" && browser.State.Length>0)content.Children.Add(Text(browser.State,muted:true));
             var managed=workers.Description(source);if(managed.Length>0)content.Children.Add(Text(managed,muted:true));
             var recovering=recovery.Description(source);if(recovering.Length>0)content.Children.Add(Text(recovering,muted:true));
             if (c.Attention || c.State == "Выключен" || c.State == "Не используется" && source.Id == "CodexWebComputerUse") {
                 var repair = Button("Исправить и проверить", () => _ = RunOperation(async () => {
-                    if (profile.DeviceId.Length == 0 && (!source.Installed || !source.ExecutableExists)) {
+                    if (source.Id=="CodexWebBrowser") {
+                        if(!accountReady)throw new IOException("Сначала войди в Hub.");
+                        await updates.Check(true);
+                        var browserKit=updates.VerifiedHelpers??throw new IOException("Сначала установи проверенное обновление Companion.");
+                        await browser.Ensure(source,s.Inventory,browserKit,false);notice=browser.State;
+                    } else if (profile.DeviceId.Length == 0 && (!source.Installed || !source.ExecutableExists)) {
                         if (!accountReady) { SelectPage(0); throw new IOException("Сначала войди в Hub в Обзоре."); }
                         await setup.Start();
                     } else if(WorkerManager.Candidate(source) && updates.VerifiedHelpers is { } kit) await workers.Migrate(source,s.Inventory,kit);
                     else await setup.Repair(source, s.Inventory);
-                    await Refresh(); })); repair.IsEnabled = !operating && !setup.Running && source.State != "Running"; content.Children.Add(repair);
+                    await Refresh(); })); repair.IsEnabled = !operating && !setup.Running && !maintaining && (source.State != "Running" || source.Id=="CodexWebBrowser"); content.Children.Add(repair);
             }
             if(managed.StartsWith("✓") && WorkerManager.Candidate(source) && source.Id!="CodexWebCompanionPersistent") {
                 var restore=Button("Вернуть предыдущую версию",()=>_ = RunOperation(async()=> {

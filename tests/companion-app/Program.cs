@@ -57,6 +57,15 @@ try
     Check(StatusProjection.Project(c).State == "Готов по запросу" && !StatusProjection.Project(c).Attention, "idle demand worker is available, not a false error");
     Check(StatusProjection.Project(c with { State = "Running" }, false).Attention
         && StatusProjection.Project(c with { Owned = false }).State == "Неизвестно", "failed status and foreign task cannot imply readiness");
+    Check(StatusProjection.Project(c with {Id="CodexWebBrowser"}).Attention
+        && StatusProjection.Project(c with {Id="CodexWebBrowser",State="Running"},false).Attention
+        && !StatusProjection.Project(c with {Id="CodexWebBrowser",State="Running"},true).Attention,
+        "browser readiness requires a running answering host, not just an installed task");
+    using(var goodBrowser=JsonDocument.Parse("{\"ready\":true,\"webViewVersion\":\"152.0\"}"))
+    using(var missingRuntime=JsonDocument.Parse("{\"ready\":true,\"webViewVersion\":\"\"}"))
+    using(var stoppingBrowser=JsonDocument.Parse("{\"ready\":false,\"webViewVersion\":\"152.0\"}"))
+        Check(ReadinessService.BrowserReady(goodBrowser.RootElement) && !ReadinessService.BrowserReady(missingRuntime.RootElement)
+            && !ReadinessService.BrowserReady(stoppingBrowser.RootElement),"missing WebView runtime and draining browser cannot receive a readiness check");
     var barrier = new TaskCompletionSource<Snapshot>(); var calls = 0;
     using var coalesced = new ReadinessService(store, customReader: _ => { calls++; return barrier.Task; });
     var first = coalesced.Refresh(profile); var second = coalesced.Refresh(profile);

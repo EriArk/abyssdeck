@@ -15,7 +15,7 @@ public sealed class RecoveryManager(SettingsStore settings, Func<DateTimeOffset>
     }
     void Save()=>ReleaseVerifier.Atomic(PathName(settings),JsonSerializer.SerializeToUtf8Bytes(attempts,SettingsStore.Json));
     public static bool Candidate(Component c) => c.Known && c.Installed && c.Owned && c.TaskDigest.Length==64 && c.State=="Ready"
-        && c.Id is not ("CodexWebCompanion" or "CodexWebCompanionPersistent" or "CodexWebDesktopRestart")
+        && c.Id is not ("CodexWebCompanion" or "CodexWebCompanionPersistent" or "CodexWebDesktopRestart" or "CodexWebBrowser")
         && (!c.ExecutableExists || c.Id=="CodexWebComputerUse");
     public bool Due(Component c) => attempts is not null && Candidate(c) && (!attempts.TryGetValue(c.Id,out var entry)
         || entry.Sid!=settings.Sid || entry.Digest!=c.TaskDigest || entry.NextAt<=Now);
