@@ -62,7 +62,16 @@ If Tailscale is added later, equivalent ACL rules should restrict access to the 
 
 ## Authentication
 
-v1 has one configured account, no registration.
+Ordinary sign-in/authorization requested by the user may be performed through the
+available [Computer Use module](COMPUTER_USE.md#use), including password fields and
+credentials from that user's explicitly designated account fixtures/configuration.
+The same scoped authorization persists across fields and routine login steps.
+This replaces the historical blanket automation ban; it does not authorize copying
+unrelated accounts, storing passwords in the Companion, or bypassing OS elevation.
+
+The original v1 baseline had one configured account and no registration. Current
+owner-enabled team enrollment and per-account isolation follow [Team Workspace](TEAM_WORKSPACE.md);
+see [CURRENT_STATUS](CURRENT_STATUS.md) for installed readiness and pending acceptance.
 
 Requirements:
 
@@ -290,6 +299,13 @@ The local maintenance CLI is the only recovery-link issuer. It requires the conf
 Revocation disconnects chat/navigation/Remote streams and the optional GPT browser gateway; it never transfers execution ownership, interrupts native work or replays pending prompts. The gateway's session watch transmits only readiness and closes on revocation or connection/heartbeat loss.
 
 ### Interactive preview navigation boundary
+
+Source admission and iframe isolation are separate. Explicit public assistant
+exports may come from outside the project, including scratch directories, under
+the [current HTML contract](CODEX_INTEGRATION.md#interactive-html-result-contract).
+Their exact source message, actor, machine and captured bytes determine access;
+an arbitrary browser path does not. Project-root discovery rules apply to automatic
+file-change discovery, not these exports. The iframe boundary below applies to both.
 
 The app's parent CSP restricts frames to its authenticated `/api/previews/` and `/api/gpt/previews/` routes. Demo responses require browser Fetch Metadata identifying a same-origin iframe load; direct document navigation is rejected. The child retains an opaque-origin `sandbox allow-scripts`, blocks connections, external resources, forms, nested frames and objects, and receives no same-origin privilege. Local JavaScript remains interactive. Parent frame policy also blocks self-navigation and redirects out of preview routes, which a child-only connect policy does not cover. GPT inline demos use a conversation-scoped preview record, without resolving a Windows machine or opening a preview server.
 

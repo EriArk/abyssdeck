@@ -2,20 +2,26 @@
 
 ## Overview
 
-The installed Codex Web Interface combines personal workspaces with pluggable execution backends and owner-enabled team functionality on one Hub; [Team Workspace](TEAM_WORKSPACE.md) defines the privacy/collaboration boundaries. The 2026-09-13 audit confirmed engine/gateway `60b326892` installed, with new-member registration still closed. Independent-member acceptance is incomplete; see the [current audit](ISSUE_AUDIT_2026-09-13.md) and [release checkpoint](TEAM_CHECKPOINT.md).
+Codex Web Interface combines personal workspaces with pluggable execution backends
+and owner-enabled team functionality on one Hub; [Team Workspace](TEAM_WORKSPACE.md)
+defines the privacy/collaboration boundaries. Use [CURRENT_STATUS](CURRENT_STATUS.md)
+for installed versions and outstanding acceptance. The [September 13 audit](ISSUE_AUDIT_2026-09-13.md)
+and older [release checkpoint](TEAM_CHECKPOINT.md) are dated evidence, not the current
+deployment or a renewed prohibition on already-approved member work.
 
 This introduction describes the current boundary. Some original v1 sections below still need the comprehensive documentation reconciliation tracked in #176, especially historical storage/module and Companion descriptions; they do not supersede AGENTS.md, later decisions or the current feature-specific contracts.
 
 The current public service is a replaceable web/API gateway. The persistent engine owns native sessions, SQLite, authentication, queues, GPT orchestration and private PTYs over a private Unix socket. Gateway changes do not replace the execution engine. Windows execution goes through the logged-in local-only Companion, not an interactive SSH desktop session.
 
-### Companion application design (2026-09-30)
+### Companion application
 
-The owner-approved [universal tray application](COMPANION_APP.md) is the next
-Windows implementation: account-derived rights, readiness/recovery and updates.
-Its UI remains independent of native execution workers. The [observed installation
-and migration contract](COMPANION_APP_MIGRATION.md) preserves the owner's LAN
-route and active work. This is a design, not an installed replacement; Hub
-administration stays in the web. Linux retains the same transport/privacy boundaries.
+The owner-approved [universal tray application](COMPANION_APP.md) has account-derived
+rights, readiness/recovery and updates, with Windows first for the current transition.
+Its UI remains independent of native execution workers. [Implementation evidence](COMPANION_APP_BUILD.md)
+and the [migration contract](COMPANION_APP_MIGRATION.md) distinguish source, installation
+and worker migration; do not infer that an active worker was replaced merely from
+the UI's presence. Preserve the owner's LAN route and active work. Hub administration
+stays in the web; Linux retains the same transport/privacy boundaries.
 
 ### Team composition
 
@@ -376,18 +382,19 @@ Possible fields:
 
 Temperature/GPU data is optional and hardware-dependent.
 
-## Optional future Windows Companion
+## Windows Companion and interactive-session access
 
 There is a real Windows session boundary between OpenSSH processes and the logged-in GUI desktop.
 
-If later features require:
+The approved [independent Computer Use module](COMPUTER_USE.md) supports:
 
 - launch a GUI app visibly;
 - capture the interactive desktop/window;
 - enumerate visible windows;
 - drive UI automation;
 
-add a minimal **Windows Companion** that runs in the logged-in user's session.
+These actions run in the logged-in user's session through local Companion IPC,
+not directly in Windows SSH Session 0. The original future-only deferral is superseded.
 
 Preferred constraints:
 
@@ -397,7 +404,9 @@ Preferred constraints:
 - a small command-line bridge invoked through SSH may relay requests to it;
 - scope it specifically to interactive-session operations.
 
-Do not make the Companion mandatory for ordinary Codex chat/edit/build workflows.
+The early App Server Companion was already required for the observed Windows
+Session 0 sandbox failure (D17). The optional GUI module does not become a prerequisite
+for ordinary chat/file/build work; its availability is checked separately.
 
 ## Failure handling
 

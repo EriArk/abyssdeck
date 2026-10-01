@@ -287,11 +287,26 @@ See D17 for the approved Session 0 workaround. The bridge uses raw inherited sta
 
 ## Interactive HTML result contract
 
-Codex can present a self-contained HTML/CSS/JavaScript design as an HTML fenced block, a Markdown link to a project .html/.htm file, a structured HTML file change, or an explicit MCP text/html embedded resource. These create an idempotent preview Result. Streaming creates a card when the item completes; historical items are recognized as their pages are opened.
+Codex can present HTML/CSS/JavaScript as an HTML fenced block, an explicit public assistant file link/visualize reference, a structured project HTML file change, or an MCP text/html resource. These create an idempotent preview Result. Streaming creates a card when the item completes; historical items are recognized as their pages are opened.
 
-Project files are fetched on the first explicit preview open through system SSH (Windows) or a bounded local file read (Linux), and then snapshotted on the Hub. Paths must stay inside the conversation's project directory; Windows reparse points and Linux escaping symlinks are rejected. A new result item gets its own snapshot. Each document is limited to 2 MiB, with at most eight candidates per item and 2,000 saved preview records.
+The original project-root-only rule now applies to automatic file-change discovery,
+not explicit public assistant exports. Under the [September 26 export rule](../AGENTS.md#owner-requested-location-independent-chat-downloads-2026-09-26),
+explicit HTML may live outside the checkout, including hidden scratch/export directories.
+`Previews.observe` binds those sources to the captured artifact ID and exact
+thread/turn/message; `document` consumes the captured bytes. Browser-supplied paths
+and user message text do not authorize capture. Project discoveries still use
+`previewPath` and the existing project-scoped machine transport. Both paths retain
+the actor's machine/account, bounded regular-file reads and private immutable snapshots.
+Each rendered document remains limited to 2 MiB, with at most eight candidates per
+item and 2,000 saved preview records; these are preview budgets, not download limits.
 
-The viewer supports ordinary self-contained HTML fragments/documents and the Tweak select/slider/toggle controls used in the owner's TrainerOs studies. It offers fit-to-width and a 960 CSS-pixel canvas with horizontal scrolling. Closing restores the workspace and focus. Separate JavaScript/CSS bundles, CDN libraries, backend endpoints and arbitrary localhost URLs are outside this self-contained format.
+The viewer supports HTML fragments/documents and the Tweak controls used in TrainerOs
+studies. It offers fit-to-width and a 960 CSS-pixel canvas with horizontal scrolling;
+closing restores the workspace and focus. Supported local static assets are inlined
+by `bundlePreview`: project discoveries resolve them within the project; explicit
+exports resolve them beside the exact exported document on the same machine.
+Unresolved imports, CDN libraries, backend endpoints and arbitrary localhost URLs
+are not granted network access by this viewer.
 
 The opaque-origin iframe sandbox and child response CSP deny origin privileges, network resources/APIs, nested frames, forms, popups and top navigation. The parent app also restricts frame navigation to its two authenticated preview directories. This blocks script-driven self-navigation, links, meta refresh and redirect escape to arbitrary destinations; the child connect policy alone is insufficient. Preview documents require a same-origin iframe Fetch Metadata request and reject direct document navigation. Normal session and conversation-scope checks remain on document/readiness routes. Inline scripts/styles and embedded data images/fonts still work; the parent exposes no preview postMessage control. Chromium and WebKit regression fixtures cover 25 escape vectors while verifying ordinary local button interactions. Raw reasoning and unstructured tool logs are never preview sources.
 

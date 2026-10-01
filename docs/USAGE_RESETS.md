@@ -1,5 +1,10 @@
 # Earned Codex resets (#129)
 
+This page describes earned reset operations. Settings separately displays the native
+account's available credit balance, unlimited or unavailable state; see
+[D32's updated usage contract](DECISIONS.md#d32--native-usage-and-task-boundaries).
+The distinction below is not a prohibition on that balance display.
+
 Settings shows native earned reset credits below the existing limits. This is not purchased usage or a billing balance. A user selects a currently available credit (or “use one” when Codex provides only a count) and confirms explicitly. Count, native title/description and expiry are bounded for display. Unsupported, unknown, expired and already-used details are never made actionable.
 
 The Hub calls `account/rateLimitResetCredit/consume` through the configured machine's existing App Server connection. It does not load a chat, change access, transfer ownership or restart the desktop. The request uses a durable UUID as the native idempotency key. Account identity is private and hashed; snapshot revision/fingerprint and an account-wide reservation reject stale or simultaneous requests from another device/machine.

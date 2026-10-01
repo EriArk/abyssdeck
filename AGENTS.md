@@ -1,5 +1,18 @@
 # AGENTS.md
 
+## Reading current and historical rules (2026-10-02 reconciliation)
+
+- Dated owner updates below record an evolving product. A superseded paragraph
+  is historical evidence, not a second permission gate. Follow the specific
+  current owner decision linked at that paragraph; do not request authorization
+  again for the same already-authorized scope.
+- Keep helper-specific limits scoped to that helper. A fixed project-setup API,
+  diagnosis-only Doctor mode or automatic file discovery does not prohibit the
+  separate Computer Use, repair mode or explicit assistant export workflows.
+- [Current rule map](docs/DECISIONS.md#current-rule-map-2026-10-02) locates these
+  decisions. Verify installation/acceptance in `docs/CURRENT_STATUS.md`; historical
+  next-stage proposals and old release versions are not the active work queue.
+
 ## Owner-requested backup retention (2026-10-01)
 
 - Keep the latest three completed backups per automatic backup stream: pre-upgrade
@@ -129,6 +142,8 @@
 
 ## Owner-requested Linux priority (2026-09-28)
 
+- Companion sequencing was subsequently changed to Windows first for the owner
+  and friend; see [the September 30 application decision](#owner-approved-universal-companion-application-2026-09-30).
 - Linux is the primary direction for the owner's users, including managed server
   workspaces and future personal Linux machines. Preserve the existing Windows
   baseline for users who remain there; do not remove their projects, file tools,
@@ -421,9 +436,11 @@ Do **not** assume:
 - a GUI app started by Codex over the SSH-hosted App Server will be visible in an RDP session;
 - desktop screenshots can be captured reliably from the SSH session.
 
-For v1, Codex over SSH is for code/files/build/test/CLI work. Manual GUI inspection is done through the Remote pane/view.
-
-A future optional **Windows Companion** may bridge into the logged-in interactive session. If implemented, it must be local-only (for example a user-session process plus named-pipe IPC) and must not listen on a network port.
+SSH alone remains for code/files/build/test/CLI work; it does not become an
+interactive desktop. Manual inspection is available through Remote. The local-only
+Companion and its separately approved [Computer Use module](#owner-approved-independent-windows-computer-use-2026-09-30)
+provide interactive-session access through same-user named-pipe IPC. The original
+v1 deferral of Companion/GUI access is superseded; no Windows network listener is added.
 
 ## Preferred repository shape
 
@@ -607,7 +624,7 @@ Before mobile support is considered complete, the same core workflow must also w
 - Include model selection, native Work/Plan collaboration mode, reasoning-effort selection and file/image attachments in the first working release.
 - Open chats with the latest 20 messages; older history is fetched explicitly in pages of 20.
 - Authentication is password-only. The owner creates the first password via a private one-use enrollment link; no default/test production password.
-- A local-only Windows Companion is approved now because the installed Codex sandbox runner fails when spawned directly in Windows OpenSSH Session 0. SSH carries the bridge's stdio into a named pipe restricted to the local user, and the Companion launches only the configured App Server for allowlisted project directories in the logged-in session. It must not create a network listener or expose arbitrary GUI/command APIs. This is a narrow exception to delaying the Companion until Phase 9.
+- A local-only Windows Companion was brought forward because the Codex sandbox runner failed in Windows OpenSSH Session 0. Its App Server transport uses SSH/stdio and a same-user named pipe for configured project directories, without a network listener. The original fixed-API-only GUI restriction is superseded by the [September 30 independent Computer Use approval](#owner-approved-independent-windows-computer-use-2026-09-30); do not apply the App Server helper's command scope to that separate module.
 - Run backend builds and heavy verification on Linux. Keep the Windows PC as the existing execution environment.
 - Discover actual desktop Codex projects and conversations automatically, and allow creation/connection of project folders from the web. Continue native thread IDs across clients; keep history paged. Do not mutate private desktop state files to force sidebar synchronization.
 - Default phone Remote to trackpad; support tablet direct touch and stylus. Connected phone Remote, especially landscape, must keep its full viewport with floating controls.
@@ -617,7 +634,7 @@ Before mobile support is considered complete, the same core workflow must also w
 
 - The completed website is the owner's primary and intended sole client. Keep Windows execution independent of the desktop ChatGPT/Codex UI through the existing Companion.
 - Continue existing native conversations after their desktop writer is released. Do not make copies or a desktop relay the ordinary solution for sending.
-- Do not stop a running desktop task to migrate a writer. Finish the work, then explain the one-time full desktop exit if its writer is still held.
+- Ordinary writer migration waits for running work. The later [explicit active-client handoff](#owner-approved-active-client-handoff-2026-09-06) supersedes this wait only for the confirmed Settings action; do not turn it into an automatic interruption during routine work.
 
 ## Owner-requested workflow and density updates (2026-09-06)
 
@@ -631,7 +648,7 @@ Before mobile support is considered complete, the same core workflow must also w
 ## Owner-requested desktop maintenance (2026-09-06)
 
 - Add an authenticated Settings action to restart the installed Windows Codex desktop app. This is an explicit user action, not an automatic writer-migration strategy.
-- Use the existing system SSH connection and a dedicated fixed Scheduled Task in the owner's interactive session. No public Windows port or generic command/GUI API is added. Keep the Companion and its independent App Servers running.
+- This desktop-restart action uses the existing system SSH connection and a dedicated fixed Scheduled Task in the owner's interactive session; it adds no public port or generic command/GUI API. That describes this maintenance endpoint, not a ban on the separately approved Computer Use module. Keep the Companion and its independent App Servers running.
 - Block restart while tasks are known active or their state cannot be checked. Require an explicit in-app confirmation, guard against duplicate requests and expose the operation result. Do not restart the owner's desktop as part of development verification; use a harmless interactive probe and simulated process tests.
 
 
@@ -644,7 +661,7 @@ Before mobile support is considered complete, the same core workflow must also w
 - Keep accepted Steer submissions visible until their matching native user message appears. Failed attachment preparation must not leave the draft blocked as already submitted.
 - Make the turn-status row expand/collapse a small panel of recent actions and native public reasoning summaries. Never expose raw reasoning text/content. Keep commands collapsed and the panel bounded.
 
-- Show native Codex usage windows in Settings, including the weekly remaining percentage and reset time. Determine windows by their duration rather than assuming primary/secondary order; do not expose billing credentials or credit balances.
+- Show native Codex usage windows in Settings, including remaining percentages and reset times. The owner's later credit-display request supersedes the original balance exclusion: also show the native account's available credit balance, unlimited or unavailable state (`UsageLimits.tsx`). Keep billing credentials private; a numeric balance is not a credential.
 - Add a clearly visible end-of-task separator in conversation history. Do not insert one inside an active turn or between Steer messages belonging to the same turn.
 
 ## Owner-approved active client handoff (2026-09-06)
@@ -686,7 +703,7 @@ Before mobile support is considered complete, the same core workflow must also w
 
 - Reopening a long live turn must not append older Hub messages below the latest native page. Reconcile known attachment envelopes using their bound attachment IDs and exact user text; preserve distinct Steer messages.
 - Show interactive HTML design demos in Results when Codex emits an HTML block, a linked project HTML file, an HTML file change or an explicit MCP HTML resource.
-- Read project HTML through the existing machine transport with bounded size and project-root checks. Never start a public preview server on Windows.
+- Automatic HTML file-change discovery uses project-root checks. Explicit public assistant HTML exports also work outside the checkout under the [September 26 location-independent export rule](#owner-requested-location-independent-chat-downloads-2026-09-26), including hidden scratch directories. Retain exact source identity, the actor's machine, bounded capture and the sandboxed viewer; no public Windows preview server.
 - Run demos in a separate opaque-origin sandbox with scripts, without same-origin privileges, network access, forms or host credentials. Keep source code collapsed and provide an accessible close control.
 
 ## Owner-requested desktop preparation (2026-09-07)
@@ -752,7 +769,7 @@ Before mobile support is considered complete, the same core workflow must also w
 
 - Stabilize GPT before the project-workspace expansion (#83-#89). Preserve native features, drafts, and the single-password experience.
 - Suppress Chromium crash-restore UI on startup without modifying login/profile data. Keep browser memory sufficient for real long conversations and log process exits with fixed, non-content diagnostic codes.
-- During explicit GPT preparation, dismiss recognized optional ChatGPT promotions through native negative/close controls. Leave login, consent, payment, editable and unknown dialogs to the owner with a direct connection-page action.
+- During automatic GPT preparation, dismiss only recognized optional promotions through native negative/close controls; leave account, payment, editable and unknown dialogs for the direct connection-page flow. This preparation routine does not override [requested ordinary sign-in through Computer Use](#owner-approved-computer-use-authorization-2026-09-30).
 - Transient navigation/context replacement and metadata-read failures should recover without stale warning banners. Never replay an uncertain send or silently bypass model/effort verification.
 
 
@@ -799,15 +816,15 @@ Before mobile support is considered complete, the same core workflow must also w
 
 - Selecting an existing GPT chat shows that chat's identity and an explicit history loading/retry state. Only a truly new chat uses the empty composer shell. Cached history remains visible during bounded revalidation; late replies cannot overwrite another selection.
 - The project wizard uses Project / Folder / optional GitHub / Review. Preserve the existing no-Git folder workflow. Git mutations are a narrow, explicit exception to the read-only Files/Git inspector: create a repository, initialize Git, clone, or add an absent matching origin through typed operations after Review. No automatic commit/push, reset, force, unrelated merge, or non-empty destination replacement.
-- Use a separate fixed local Windows user-session Scheduled Task for wizard GitHub access. Keep authentication on the execution machine; no listener, PAT transfer, caller commands or general GUI API. Hub and execution-machine receipts persist operation identity, review fingerprints and uncertain outcomes. Reconcile postconditions before continuing; native grouping is registered only after setup is confirmed.
+- Use a separate fixed local Windows user-session Scheduled Task for wizard GitHub access. That wizard helper accepts no listener, PAT transfer, caller commands or general GUI API; these helper-specific limits do not disable the separately approved Computer Use module. Keep authentication on the execution machine and persist exact operation/review receipts. Reconcile postconditions before continuing; native grouping is registered only after setup is confirmed.
 - Sidebar Search and close stay at the top. Refresh/Archive live in Settings. One bottom row holds Settings, icon-only Remote and a larger direct icon-only Codex/GPT toggle. This supersedes the former branding-header placement without removing Remote or either client.
 - Project Overview is a modal over the mounted current workspace. Merely opening/closing it must preserve project/thread, drafts/files, scroll, unread state, support pane and native work. Explicit links can navigate; existing workspace modules are reused.
 
 ## Owner-requested Bridge Doctor and completion reading (2026-09-10, #107, #108)
 
-- Persistent qualified GPT faults may send one diagnostic request to a dedicated project-scoped Bridge Doctor native chat, separate from Current Chat. This is explicit authorization for bounded diagnostic sends only. Normal work and desktop ownership take priority; unknown creation/submission never causes blind replay. The association and private incidents survive restarts/backups.
+- Persistent qualified GPT faults use the dedicated associated Bridge Doctor chat, separate from Current Chat. The original diagnostic-only scope is superseded for explicitly enabled `repair` mode by [the October 1 repair decision](#owner-requested-bridge-doctor-repairs-2026-10-01); investigation/preparation can run alongside ordinary project work. Native ownership, exact receipts and no blind replay still apply in both modes.
 - Ignore normal busy/brief startup/recovered network failures and owner-controlled login/payment/consent flows. Apply startup grace, persistent-fault thresholds, fingerprint deduplication, rate bounds and sustained-health recovery. Unknown dialogs are observed, never clicked by Doctor.
-- Automatic Doctor turns use native read-only sandbox policy with no escalation, and deterministic diagnosis-only instructions. They do not authorize file changes, arbitrary project execution, restart/deploy, credential changes, GPT sends or automatic repairs.
+- Doctor `diagnose` mode retains read-only execution and diagnosis-only instructions. Explicit `repair` mode authorizes incident-related code changes, focused tests and ordinary deployment without another repair approval; use an isolated worktree and normal activation admission. Neither mode authorizes replaying uncertain GPT input or restarting unfinished provider work. See [repair implementation and verification](docs/BRIDGE_DOCTOR_REPAIR_2026-10-01.md).
 - Evidence contains only allowlisted fixed diagnostics. A sanitized native screenshot hides all text, user/account/media regions and composer contents; retain only structural layout. Omit evidence when owner flows or reliable capture cannot be excluded. It remains private behind Hub authentication.
 - While following a live response, successful completion moves to the start of its final/main assistant answer once. Manual scrolling, source/history views, hidden panels, old completions and another conversation's late responses take precedence. Use the internal scroller, keep focus/drafts intact and prevent later layout changes from pulling the reader back to the bottom.
 
@@ -887,7 +904,7 @@ Before mobile support is considered complete, the same core workflow must also w
 ## Owner-prioritized personal installation (2026-09-12)
 
 - Focus current development on completing the owner's personal daily workflow, missing Codex/GPT functionality and reliability on the existing installation.
-- Defer guided installers, transfer to other people's infrastructure, clean second-user installations and distribution-specific packaging/generalization. This supersedes the earlier distribution milestone sequencing; #11 and the distribution portion of #14 are outside the current work scope until the owner explicitly resumes them.
+- Historical distribution deferral: separate Hub installations and distribution-specific generalization remain separate scope. The guided second-user/PC setup deferral was superseded by later member onboarding and the [Companion first-run wizard](#owner-requested-companion-first-run-wizard-2026-09-30); do not use this old paragraph to block that approved work. Consult CURRENT_STATUS before proposing another installer stage.
 - Continue backups, recovery, security and compatible updates needed by the owner's installation. Existing owner deferrals for #6 and #37 remain unchanged.
 
 ## Owner-requested settings organization (2026-09-12)
@@ -993,7 +1010,7 @@ Before mobile support is considered complete, the same core workflow must also w
 
 - Prioritize evaluating the official Linux ChatGPT client on the Hub. Prefer native local IPC; evaluate a native renderer adapter for missing operations. Keep the old connector, profiles, durable send receipts and ordinary Codex recovery intact until the replacement passes real-account acceptance. Record actual evidence in `docs/GPT_NATIVE_LINUX.md`.
 - Use a separate private Linux runtime/profile, never copied Windows or old browser credentials. The owner has completed native sign-in and accepts the combined ChatGPT/Codex package if ordinary GPT works.
-- Phone recovery uses laptop-style relative trackpad motion, tap at the current cursor, two-finger scroll, visible cursor and zoom, sharing the PC Remote gesture implementation. Native sign-in opens a system browser in that same protected desktop. Login, consent and bot challenges remain manual owner actions.
+- Phone recovery uses laptop-style relative trackpad motion, tap at the current cursor, two-finger scroll, visible cursor and zoom, sharing the PC Remote gesture implementation. Native sign-in opens a browser in that same protected desktop. The original manual-only login rule is superseded for requested ordinary sign-in and authorization by [Computer Use authorization](#owner-approved-computer-use-authorization-2026-09-30), when the selected runtime provides that capability. Bot challenges remain owner steps; the wizard does not acquire or copy another account's credentials.
 
 ## Owner-requested reasoning-effort guidance (2026-09-19)
 

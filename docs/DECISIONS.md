@@ -1,6 +1,31 @@
 # Architecture and Product Decisions
 
-This file records decisions that should be treated as fixed unless the owner explicitly changes them.
+This file records decisions and their owner-approved replacements. Dated entries
+are not cumulative prohibitions: use the specific later decision for the same
+workflow. `AGENTS.md` takes precedence; [CURRENT_STATUS](CURRENT_STATUS.md) records
+source, installation and acceptance separately. An old release's limited scope
+does not disable a later approved module.
+
+## Current rule map (2026-10-02)
+
+This reconciles existing approvals; it adds no permission gate or new capability.
+
+| Workflow | Current owner decision | Earlier scope it replaces |
+| --- | --- | --- |
+| Ordinary app login and authorization | [Computer Use](COMPUTER_USE.md#use): requested login/password input, explicitly supplied or designated account credentials, including test fixtures; scoped authorization persists | Blanket authentication/password-input ban; manual-only login wording |
+| Windows GUI access | [Independent Computer Use](COMPUTER_USE.md) through the actor's interactive session and private Companion route, without per-app allowlists | D17's original fixed-App-Server-only release; not the no-public-listener boundary |
+| Explicit assistant files and HTML demos | [Location-independent exports](../AGENTS.md#owner-requested-location-independent-chat-downloads-2026-09-26) and [HTML source rules](CODEX_INTEGRATION.md#interactive-html-result-contract), with exact public assistant source identity | Project-root-only capture applies to automatic discovery, not explicit assistant exports |
+| Bridge Doctor | [Repair mode](BRIDGE_DOCTOR_REPAIR_2026-10-01.md): account-authorized investigation, edits, tests and ordinary deployment; diagnosis-only remains separate | September 10's universal read-only policy and waiting for every project chat before investigation |
+| New manual GPT messages | [Fresh-send admission](../AGENTS.md#owner-requested-gpt-continuation-without-stale-locks-2026-10-01) verifies the canonical branch and preserves old uncertain receipts | Blanket same-chat lock after an older uncertain operation; it does not authorize replaying that operation |
+| Manual file work during Codex tasks | [File editor](FILE_EDITOR.md): explicit unlock, exact checkout and conflict handling; native task activity does not disable manual writes | The original read-only inspector and reuse of native/Git idle guards for manual editing |
+| Usage display | Native credit balance/unlimited/unavailable state alongside limits and resets (`apps/web/src/UsageLimits.tsx`) | D32's exclusion of credit balances; billing credentials remain private |
+| Companion platform sequence | [Universal Windows-first application](COMPANION_APP.md), with account-derived features and Linux direction retained | September 28 Linux-first sequencing for this application |
+
+Current implementation checks for this reconciliation: `previews.ts` distinguishes
+captured assistant exports from project discoveries; `bridge-doctor-policy.ts` and
+`bridge-doctor.ts` separate repair/diagnosis; `ComputerUse.cs` permits requested
+ordinary authentication; `UsageLimits.tsx` renders available credits. This is a
+documentation reconciliation, not new installed-runtime acceptance.
 
 ## 2026-09-30 — Universal tray Companion, Windows first for the current transition
 
@@ -43,7 +68,9 @@ The owner plans to move users to Linux. Managed Server Workspaces and later pers
 Linux machines are the primary development direction. Preserve the existing Windows
 baseline (projects, files, terminals and Codex); do not remove or migrate its accounts
 implicitly. The host remains private and member Linux access ends at their isolated
-workspace. Installer/new-user improvements remain the next separate approved pass.
+workspace. Companion sequencing is superseded by the September 30 Windows-first
+application decision above. This entry's installer follow-up is historical; use
+CURRENT_STATUS for the active queue.
 
 ## 2026-09-24 — Brainstorm before a repository
 
@@ -192,7 +219,9 @@ Preferred transport is Windows RDP through Apache Guacamole when the Windows edi
 
 **Decision:** v1 does not require a custom daemon/listener on the Windows PC.
 
-**Future option:** A local-only Windows Companion may later run in the logged-in user session to launch/capture GUI applications. It should communicate locally (for example named pipes) and expose no network listener.
+**Timing superseded:** D17 brought forward the local-only App Server Companion;
+the September 30 [Computer Use decision](COMPUTER_USE.md) approved interactive
+app access. Same-user local IPC and no public Windows listener remain current.
 
 ---
 
@@ -275,7 +304,7 @@ These are not architecture blockers and should be configuration, not hard-coded 
 
 The owner approved bringing forward the local-only Companion after a real read-only command failed under the SSH-hosted Codex sandbox (runner pipe timeout / Windows application initialization failure). The same sandboxed command succeeds in the interactive session.
 
-The main flow remains system SSH and stdio. A fixed bridge forwards it to a local named pipe; a limited user-session task starts the configured Codex App Server with an allowlisted working directory. Remote pipe clients are rejected by the Windows pipe API. No Codex TCP listener, generic command endpoint or copied authentication is introduced. This overrides only D11's timing, not its prohibition on a custom network agent. Visible GUI automation remains outside this release.
+The main flow remains system SSH and stdio. A fixed bridge forwards it to a local named pipe; a limited user-session task starts the configured Codex App Server with an allowlisted working directory. Remote pipe clients are rejected by the Windows pipe API. No Codex TCP listener, generic command endpoint or copied authentication is introduced. This overrode D11's timing. **Later scope:** GUI automation is now provided by the separately approved [independent Computer Use module](COMPUTER_USE.md); D17's original release scope is not a current GUI prohibition. The no-public-Windows-listener boundary remains.
 
 ## D18 — Password-only enrollment and bounded history
 
@@ -373,9 +402,9 @@ The status row toggles a small scrollable recent-work panel. The Hub contract re
 
 ## D32 — Native usage and task boundaries
 
-Owner-approved extension (#129, 2026-09-11): earned rate-limit reset credits may be shown and explicitly redeemed below the limits through a durable, account-bound native operation. This does not expose billing credits/balances. See [earned resets](USAGE_RESETS.md).
+Owner-approved extension (#129, 2026-09-11): earned rate-limit reset credits may be shown and explicitly redeemed below the limits through a durable, account-bound native operation. See [earned resets](USAGE_RESETS.md). **Later owner update:** Settings also shows the available native credit balance. Reset availability and account credit balance are distinct values; the original balance exclusion is superseded.
 
-Settings reads account/rateLimits/read through the existing machine transport. The stable Hub response contains only group labels, bounded window durations, remaining percentages and reset timestamps. Weekly means 10080 minutes and can occur in either the primary or secondary slot. Prefer the main codex bucket and retain additional named buckets in collapsed sections; do not infer unavailable values or expose credit/billing fields. Read-only usage checks remain possible after desktop handoff and do not acquire a thread writer.
+Settings reads account/rateLimits/read through the existing machine transport. The Hub response contains group labels, bounded window durations, remaining percentages, reset timestamps and available native credit information. Weekly means 10080 minutes and can occur in either window slot. Prefer the main codex bucket and retain additional named buckets in collapsed sections. Show balance, unlimited or unavailable as actually returned; do not infer a balance from reset credits or expose billing credentials. Read-only usage checks remain possible after desktop handoff and do not acquire a thread writer.
 
 Conversation separators mark the end of a finished turn, including interrupted/failed boundaries without describing them as successful. Do not split multiple messages or accepted Steer input within the same active turn. Native thread/turn IDs and pagination remain unchanged.
 
@@ -419,7 +448,7 @@ The shared web shell provides native chat history, send/progress, file/image inp
 
 ## Interactive self-contained HTML Results (2026-09-06)
 
-The owner requested the interactive design studies used in TrainerOs. Support them as authenticated, bounded HTML artifacts with an opaque-origin sandbox, sourced from structured HTML resources/file changes or explicit assistant HTML blocks/local file links. Keep Windows private and fetch only within the selected project. This is an artifact viewer, not a general reverse proxy to development servers. Native chat order is authoritative; the live Hub supplement inserts only unpersisted messages at matching sequence anchors and must not promote older-page records to the tail.
+The owner requested the interactive design studies used in TrainerOs. Support them as authenticated, bounded HTML artifacts with an opaque-origin sandbox, sourced from structured HTML resources/file changes or explicit assistant HTML blocks/local file links. **Updated source scope:** automatic file-change discovery stays within the selected project; explicit public assistant exports may be outside it, including hidden scratch folders, under the [September 26 rule](../AGENTS.md#owner-requested-location-independent-chat-downloads-2026-09-26). Keep exact source/account/machine identity and immutable captured bytes. This is an artifact viewer, not a general reverse proxy to development servers. Native chat order is authoritative; the live Hub supplement inserts only unpersisted messages at matching sequence anchors and must not promote older-page records to the tail.
 
 ## GPT continuity and public progress (2026-09-07)
 
@@ -548,7 +577,14 @@ Git summaries are cached after the existing explicit Files/Git action and bound 
 
 ## 2026-09-08 — Local message read-aloud (#76)
 
-Codex and GPT assistant messages share a client-only SpeechSynthesis controller. Playback starts inside a user tap, selects a locally supplied system voice (`localService`), and never sends text to a Hub or external TTS endpoint. Empty/unavailable voice lists disable the control until `voiceschanged`; unsupported browsers omit it. Public message Markdown is parsed to prose, excluding code blocks, HTML, images and URL destinations. Long prose is queued as bounded paragraph/sentence chunks, one native utterance at a time.
+This entry describes the original system-voice path, not a ban on server speech:
+the later device-local System voice / Background audio decision below adds the
+optional Linux speech worker. In system-voice mode, Codex and GPT assistant messages
+use SpeechSynthesis inside a user tap, select a locally supplied voice (`localService`)
+and send no text to a TTS endpoint. Empty voice lists wait for `voiceschanged`.
+Public Markdown becomes prose excluding code blocks, HTML, images and URL destinations;
+long prose uses bounded paragraph/sentence utterances. Complete file reading follows
+the later [reader contract](FILE_VIEWERS.md).
 
 Pause/resume keeps the current native utterance. Cancellation generations reject late terminal callbacks, another message replaces the current queue, and leaving a conversation/view or closing the page cancels its speech. Changes in backend execution or connectivity do not own playback state. The spoken text is a snapshot of the visible public answer at the tap; subsequent streaming never auto-replays it. No hidden reasoning or Activity payload enters the controller. Voice/rate preferences and sentence highlighting remain follow-ups.
 
@@ -583,13 +619,13 @@ Issues #102/#103/#105/#106 replace transient new-chat shells, the one-page folde
 
 Project setup is stored in schema 18 (`project_setup_operations`) and in private execution-machine receipts. Each prepared operation has an immutable input and observed-state fingerprint. GitHub creation is never repeated after ambiguous dispatch. Clone staging is sibling-local and never overwrites non-empty source directories. Git and GitHub authentication run where the project lives; the Windows fixed `CodexWebProjectSetup` task reuses the user-session CLI login. Install its compiled probe from Linux with `ops/windows/Install-ProjectSetup.ps1`. The existing read-only releases task remains separate.
 
-Schema 19 adds private Bridge Doctor associations/incidents and a diagnostic-thread marker. Doctor is independent of browser presence: 60-second deployment grace; three matching observations over 45 seconds; 30 seconds of healthy state to resolve. It ignores expected busy/startup and sensitive owner flows, counts repeated faults without resending, and bounds new fingerprints to five per hour and 512 stored incidents. The existing Current chat is retained and diagnostic threads are excluded from implicit Current selection. Delivery waits for writable, idle project state and uses ordinary durable Codex command identities with read-only native policy. Unknown creation requires explicit binding; unknown sends may reconcile only from a native-bound message, never from local draft text alone.
+Schema 19 introduced private Bridge Doctor associations/incidents and a diagnostic-thread marker. Doctor runs independently of browser presence, with startup grace, persistent-fault thresholds, deduplication and sustained-health recovery. Current Chat remains separate. **Superseded execution scope:** read-only policy now applies to `diagnose` mode; account-enabled `repair` authorizes incident-related code/tests and ordinary deployment alongside other project work. Activation retains normal maintenance admission. Exact completed creation receipts can recover an association without another send. See the [October 1 repair changes and installed evidence](BRIDGE_DOCTOR_REPAIR_2026-10-01.md); do not restore the original blanket idle/read-only gate. Unknown sends are never replayed.
 
-Optional incident screenshots intentionally remove all text, images and personal regions, including unknown dialog text. They are structural evidence rather than raw screenshots. Private SQLite backup preserves the metadata/evidence; screenshots sent to Codex use the existing authenticated attachment transport. No automated repair workflow is added.
+Optional incident screenshots intentionally remove all text, images and personal regions, including unknown dialog text. They are structural evidence rather than raw screenshots. Private SQLite backup preserves the metadata/evidence; screenshots sent to Codex use the existing authenticated attachment transport. This original evidence format does not restrict the later authorized repair workflow.
 
 ### 2026-09-10 — Private device terminals
 
-The owner requested terminal output in Results and an infrastructure workspace alongside Remote, initially for the Windows PC and actual Linux host. Devices use a separate configured SSH registry; they never become fake Codex projects or acquire chat writers. The owner-approved privileged terminal is confined to the existing Hub session/Origin/CSRF boundary, system OpenSSH, bounded PTYs and explicit device actions. The Companion retains its narrow fixed API. See [Devices](DEVICES.md) for lifecycle, native mount/permission limitations and verification boundaries.
+The owner requested terminal output in Results and an infrastructure workspace alongside Remote, initially for the Windows PC and actual Linux host. Devices use a separate configured SSH registry; they never become fake Codex projects or acquire chat writers. The owner-approved terminal uses the existing Hub session/Origin/CSRF boundary, system OpenSSH, bounded PTYs and explicit device actions. This terminal feature does not expand the App Server helper API; the later [independent Computer Use module](COMPUTER_USE.md) has its own authorized scope. See [Devices](DEVICES.md) for lifecycle, native mount/permission limitations and verification boundaries.
 
 ## 2026-09-14 — Exact artifact navigation and large Codex exports
 
