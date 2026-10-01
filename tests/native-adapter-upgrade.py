@@ -13,10 +13,10 @@ spec.loader.exec_module(upgrade)
 
 
 class Upgrade(unittest.TestCase):
-    def scenario(self, busy=False, fail_start=False):
+    def scenario(self, busy=False, fail_start=False, enrolled=True):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder);profile=root/'profile';profile.mkdir();(profile/'native-adapter').mkdir()
-            (profile/'native-adapter/binding.json').write_text(json.dumps({'userId':'12345678-1234-4234-8234-123456789012'}))
+            (profile/('native-adapter/binding.json' if enrolled else 'native-adapter/enrollment.json')).write_text(json.dumps({'userId':'12345678-1234-4234-8234-123456789012'}))
             (root/'data/team').mkdir(parents=True)
             name='codex-web-gpt-native-lab';calls=[];starts=0
             old={'Name':'/'+name,'State':{'Running':True},'Config':{'Image':'codex-web-gpt-native:before','Hostname':'private','User':'1000:1000','Env':['TEST=1'],'Labels':{'owner':'bound'},'Cmd':None},
@@ -29,8 +29,10 @@ class Upgrade(unittest.TestCase):
                     starts+=1
                     if fail_start and starts==1:raise subprocess.CalledProcessError(1,args)
             def request(name,operation,**fields):
-                if operation=='status':return {'manual':False,'instanceId':'new' if starts else 'old'}
-                if operation=='workspace':return {'ready':True,'generating':busy}
+                if operation=='status':return {'manual':False,'writesEnabled':enrolled,'instanceId':'new' if starts else 'old'}
+                if operation=='workspace':
+                    self.assertTrue(enrolled, 'an unactivated profile has no bound workspace')
+                    return {'ready':True,'generating':busy}
                 return {}
             argv=['upgrade','--name',name,'--expected','codex-web-gpt-native:before','--image','codex-web-gpt-native:after','--profile',str(profile),'--state',str(root),'--revision','abcdef0']
             with patch.object(sys,'argv',argv),patch.object(upgrade,'inspect',return_value=old),patch.object(upgrade,'output',return_value=''),patch.object(upgrade,'assert_idle'),patch.object(upgrade,'request',side_effect=request),patch.object(upgrade,'run',side_effect=run):
@@ -54,6 +56,10 @@ class Upgrade(unittest.TestCase):
         calls,name=self.scenario(fail_start=True)
         self.assertIn(['docker','rename',name+'-before-abcdef0',name],calls)
         self.assertEqual(calls[-1],['docker','start',name])
+
+    def test_prepared_profile_is_updated_without_activation(self):
+        calls,_=self.scenario(enrolled=False)
+        self.assertTrue(any(c[:2]==['docker','create'] for c in calls))
 
 
 if __name__=='__main__':unittest.main()

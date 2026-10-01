@@ -30,8 +30,8 @@ def inspect(name):
 
 def request(name, operation, **fields):
     # The bound account comes from this container's private local configuration.
-    script = """import {readFileSync} from 'node:fs';import http from 'node:http';
-const b=JSON.parse(readFileSync('/data/native-adapter/binding.json'));
+    script = """import {readFileSync,existsSync} from 'node:fs';import http from 'node:http';
+const b=JSON.parse(readFileSync('/data/native-adapter/'+(existsSync('/data/native-adapter/binding.json')?'binding.json':'enrollment.json')));
 const r=http.request({socketPath:'/data/native-adapter/adapter.sock',path:'/v1',method:'POST',headers:{'Content-Type':'application/json'}},s=>{let data='';s.on('data',c=>data+=c);s.on('end',()=>{const v=JSON.parse(data);if(s.statusCode!==200||v.ok!==true){console.error(v.code);process.exitCode=1;}else console.log(JSON.stringify(v.result));});});
 r.on('error',()=>{process.exitCode=1;});r.setTimeout(25000,()=>r.destroy());
 r.end(JSON.stringify({...INPUT,userId:b.userId}));""".replace('INPUT', json.dumps(dict(operation=operation, **fields)))
@@ -100,7 +100,10 @@ def replace(args, locks):
     assert not h.get('PortBindings') and not h.get('Privileged') and not h.get('CapAdd')
     assert len(old['NetworkSettings']['Networks']) == 1 and h['NetworkMode'] != 'host'
     assert len(old['Mounts']) == 1 and old['Mounts'][0]['Source'] == str(profile) and old['Mounts'][0]['Destination'] == '/data'
-    binding = json.loads((profile / 'native-adapter/binding.json').read_text())
+    binding_path = profile / 'native-adapter/binding.json'
+    enrolled = binding_path.exists()
+    identity_path = binding_path if enrolled else profile / 'native-adapter/enrollment.json'
+    binding = json.loads(identity_path.read_text())
     user_id = str(uuid.UUID(binding['userId']))
     if args.name != 'codex-web-gpt-native-lab': assert args.name == 'codex-web-gpt-' + user_id
     proof = state / ('verification-' + args.revision) / args.name
@@ -112,8 +115,11 @@ def replace(args, locks):
     before = request(args.name, 'status')
     if before['manual']: raise RuntimeError('EXISTING_MANUAL_OWNER')
     assert_idle(user_id)
-    activity = request(args.name, 'workspace', action='activity')
-    if not activity['ready'] or activity['generating']: raise RuntimeError('NATIVE_NOT_IDLE')
+    if enrolled:
+        activity = request(args.name, 'workspace', action='activity')
+        if not activity['ready'] or activity['generating']: raise RuntimeError('NATIVE_NOT_IDLE')
+    elif before['writesEnabled']:
+        raise RuntimeError('UNBOUND_PROFILE_HAS_WRITER')
     lease = str(uuid.uuid4())
     request(args.name, 'beginManual', leaseId=lease)
     (proof / 'lease.json').write_text(json.dumps({'lease': lease, 'before': before, 'previous': prior}))
@@ -129,12 +135,15 @@ def replace(args, locks):
     renamed = created = False
     try:
         assert_idle(user_id)  # Close the admission race before stopping the native process.
+        assert binding_path.exists() == enrolled
+        assert json.loads(identity_path.read_text()) == binding
         run(['docker', 'update', '--restart', 'no', args.name], stdout=subprocess.DEVNULL)
         run(['docker', 'stop', '--timeout', '30', args.name], stdout=subprocess.DEVNULL)
         run(['docker', 'rename', args.name, prior]); renamed = True
         run(clone_args(old, args.image, profile, proof), stdout=subprocess.DEVNULL); created = True
         run(['docker', 'start', args.name], stdout=subprocess.DEVNULL)
-        assert json.loads((profile / 'native-adapter/binding.json').read_text()) == binding
+        assert binding_path.exists() == enrolled
+        assert json.loads(identity_path.read_text()) == binding
         status = end_lease()
         assert status['instanceId'] != before['instanceId'] and not status['manual']
         (proof / 'installed.json').write_text(json.dumps({'image': args.image, 'status': status, 'previous': prior}))
