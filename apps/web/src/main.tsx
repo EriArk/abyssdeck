@@ -22,6 +22,7 @@ import "./polymer.css";
 import "./accent-colors.css";
 import "./viewport-controls.css";
 import "./workspace-window.css";
+import "./theme-variants.css";
 
 applyTheme(cachedTheme());
 applyLayoutPreference();

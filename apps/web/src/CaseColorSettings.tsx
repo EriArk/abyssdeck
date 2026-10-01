@@ -9,6 +9,7 @@ import {
   setCaseColor,
   subscribeCaseColor,
   type Theme,
+  themeVariant,
 } from "./theme";
 
 export function CaseColorSettings({ theme }: { theme: Theme }) {
@@ -42,6 +43,7 @@ export function CaseColorSettings({ theme }: { theme: Theme }) {
             type="button"
             className="case-swatch"
             data-theme={theme}
+            data-theme-variant={themeVariant(theme)}
             data-case-color={color}
             aria-label={caseColorNames[color]}
             title={caseColorNames[color]}

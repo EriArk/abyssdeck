@@ -39,6 +39,7 @@ import { GptResultHandoffs } from "./GptResultHandoffs";
 import { beginGptHistory, gptCache, gptCacheEpoch, saveGptCache } from "./gptCache";
 import { type GptCatalogPage, readGptNavigation } from "./gptCatalog";
 import {
+  currentGptProgress,
   gptJobUser,
   gptTurnProgress,
   historicalGptJob,
@@ -770,7 +771,7 @@ export function GptWorkspace({
     .sort((a, b) => a.createdAt - b.createdAt);
   const active = currentJobs.find(isActive);
   const awaitingReply = currentJobs.find((job) => job.status === "unknown" && !job.error);
-  const progressJob = active ?? awaitingReply;
+  const progressJob = currentGptProgress(currentJobs);
   const turnProgress = gptTurnProgress(messages, progressJob);
   const externalReply =
     !contextMessage &&
@@ -1833,7 +1834,7 @@ export function GptWorkspace({
                 id: t.id,
                 title: t.title,
                 active: threadActive(t),
-                unread: false,
+                unread: unreadChats.has(t.id),
                 status: threadActive(t) ? "running" : "idle",
                 updatedAt: new Date(t.updatedAt * 1000).toISOString(),
               }))}
@@ -2155,20 +2156,16 @@ export function GptWorkspace({
             <div className="chat-status-row gpt-status-row">
               {(active || awaitingReply || busy || externalReply) && (
                 <GptProgress
-                  key={
-                    externalReply
-                      ? turnProgress.userId
-                      : (active?.id ?? awaitingReply?.id ?? "sending")
-                  }
+                  key={externalReply ? turnProgress.userId : (progressJob?.id ?? "sending")}
                   items={
                     externalReply || cachedProgress.length
                       ? cachedProgress
-                      : active?.status === "running"
-                        ? (active.progress ?? [])
+                      : progressJob?.status === "running"
+                        ? (progressJob.progress ?? [])
                         : []
                   }
                   live={
-                    !externalReply && live && live.jobId === (active?.id ?? awaitingReply?.id)
+                    !externalReply && live && live.jobId === progressJob?.id
                       ? live.items
                       : undefined
                   }
@@ -2176,19 +2173,23 @@ export function GptWorkspace({
                   label={
                     externalReply
                       ? "Ответ GPT в другом клиенте"
-                      : active?.status === "running"
+                      : progressJob?.status === "running"
                         ? titles.running
-                        : active && waitingGptJob(active, jobs)
-                          ? titles.queued
-                          : awaitingReply
-                            ? "Подтверждаем отправку"
-                            : "Отправляется"
+                        : progressJob?.status === "unknown"
+                          ? "Подтверждаем отправку"
+                          : progressJob && waitingGptJob(progressJob, jobs)
+                            ? titles.queued
+                            : awaitingReply
+                              ? "Подтверждаем отправку"
+                              : "Отправляется"
                   }
                   onStop={
-                    active && !externalReply
+                    progressJob && isActive(progressJob) && !externalReply
                       ? () =>
                           void action(async () => {
-                            await api("/gpt/jobs/" + active.id + "/cancel", { method: "POST" });
+                            await api("/gpt/jobs/" + progressJob.id + "/cancel", {
+                              method: "POST",
+                            });
                           })
                       : undefined
                   }

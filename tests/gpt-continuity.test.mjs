@@ -3,6 +3,7 @@ import test from "node:test";
 import { GptHistoryCache } from "../apps/hub/dist/gpt-cache.js";
 import { gptProgress, mergeGptProgress } from "../apps/hub/dist/gpt-progress.js";
 import {
+  currentGptProgress,
   gptJobUser,
   gptTurnProgress,
   historicalGptJob,
@@ -10,6 +11,18 @@ import {
   mergeGptJobs,
   showGptJob,
 } from "../apps/web/src/gptState.ts";
+
+test("queued followers cannot steal a response awaiting its canonical acknowledgement", () => {
+  const response = { id: "response", createdAt: 1, status: "unknown", error: "" };
+  const follower = { id: "follower", createdAt: 2, status: "queued", error: "" };
+  assert.equal(currentGptProgress([follower, response]).id, "response");
+  assert.equal(currentGptProgress([follower, { ...response, status: "completed" }]).id, "follower");
+  assert.equal(
+    currentGptProgress([follower, { ...response, error: "NATIVE_CHAT_PAUSED" }]).id,
+    "follower",
+  );
+  assert.equal(currentGptProgress([{ ...response, dismissed: true }]), undefined);
+});
 
 test("External native turns remain independent of off-branch receipts and repeated prompt text", () => {
   const job = {

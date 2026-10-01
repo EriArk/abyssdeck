@@ -1,5 +1,11 @@
-import { type CaseColor, type CasePreferences, caseColorIds } from "@codex-web/shared";
-import { accountLocalStorage as localStorage } from "./accountStorage.ts";
+import {
+  type CaseColor,
+  type CasePreferences,
+  caseColorIds,
+  type ThemeVariant,
+  type ThemeVariantPreferences,
+} from "@codex-web/shared";
+import { accountLocalStorage as localStorage, pageWorkspace } from "./accountStorage.ts";
 
 export const themes = [
   {
@@ -10,8 +16,8 @@ export const themes = [
   },
   {
     id: "crt-green",
-    title: "Зелёный терминал",
-    description: "Цветной пластик и зелёный фосфор",
+    title: "Ретро-терминал",
+    description: "Цветной корпус, фосфор или монохромный экран",
     chrome: "#061009",
   },
   {
@@ -22,13 +28,92 @@ export const themes = [
   },
   {
     id: "classic-dark",
-    title: "Классическая тёмная",
+    title: "Классическая",
     description: "Графит, мягкий контраст, ничего лишнего",
     chrome: "#101216",
   },
 ] as const;
 
 export type Theme = (typeof themes)[number]["id"];
+
+export const themeVariants: Record<Theme, readonly [ThemeVariant, ...ThemeVariant[]]> = {
+  organizer: ["light", "dark"],
+  "crt-green": ["green", "dark", "light"],
+  "hitech-2000s": ["light", "dark"],
+  "classic-dark": ["dark", "light"],
+};
+export const variantNames: Record<ThemeVariant, string> = {
+  light: "Светлый",
+  dark: "Тёмный",
+  green: "Зелёный",
+};
+const variantKeys = {
+  organizer: "organizerVariant",
+  "crt-green": "crtVariant",
+  "hitech-2000s": "hitechVariant",
+  "classic-dark": "classicVariant",
+} as const;
+export const themeVariantKey = (theme: Theme) => variantKeys[theme];
+const variantMemory: ThemeVariantPreferences = {};
+const variantEdited = new Set<keyof ThemeVariantPreferences>();
+const variantEvent = "codex-theme-variant-change";
+export function themeVariant(theme: Theme): ThemeVariant {
+  const key = variantKeys[theme];
+  let value: unknown = variantMemory[key];
+  try {
+    value ??= localStorage.getItem(`codex-${key}`);
+  } catch {
+    /* Optional cache. */
+  }
+  return themeVariants[theme].find((v) => v === value) ?? themeVariants[theme][0];
+}
+function cacheVariant(theme: Theme, value: ThemeVariant) {
+  const key = variantKeys[theme];
+  const selected = themeVariants[theme].find((v) => v === value) ?? themeVariants[theme][0];
+  Object.assign(variantMemory, { [key]: selected });
+  try {
+    localStorage.setItem(`codex-${key}`, selected);
+  } catch {
+    /* Session preference remains. */
+  }
+}
+export function hydrateThemeVariants(prefs: ThemeVariantPreferences) {
+  for (const { id } of themes) {
+    const key = variantKeys[id],
+      value = prefs[key];
+    if (!variantEdited.has(key) && value && themeVariants[id].includes(value))
+      cacheVariant(id, value);
+  }
+  applyTheme(document.documentElement.dataset.theme as Theme);
+  window.dispatchEvent(new Event(variantEvent));
+}
+export function setThemeVariant(theme: Theme, value: ThemeVariant) {
+  variantEdited.add(variantKeys[theme]);
+  cacheVariant(theme, value);
+  applyTheme(document.documentElement.dataset.theme as Theme);
+  window.dispatchEvent(new Event(variantEvent));
+}
+const storageKey = (key: string) =>
+  `${pageWorkspace ? `cw-user:${pageWorkspace}:` : ""}codex-${key}`;
+export function subscribeThemeVariant(listener: () => void) {
+  const storage = (event: StorageEvent) => {
+    if (
+      event.key !== null &&
+      !Object.values(variantKeys).some((key) => event.key === storageKey(key))
+    )
+      return;
+    for (const key of Object.values(variantKeys))
+      if (event.key === null || event.key === storageKey(key)) delete variantMemory[key];
+    applyTheme(document.documentElement.dataset.theme as Theme);
+    listener();
+  };
+  window.addEventListener(variantEvent, listener);
+  window.addEventListener("storage", storage);
+  return () => {
+    window.removeEventListener(variantEvent, listener);
+    window.removeEventListener("storage", storage);
+  };
+}
 
 export function cachedTheme(): Theme {
   try {
@@ -43,12 +128,19 @@ export function cachedTheme(): Theme {
 export function applyTheme(id: Theme) {
   const theme = themes.find((theme) => theme.id === id) ?? themes[0];
   document.documentElement.dataset.theme = theme.id;
+  const variant = themeVariant(theme.id);
+  document.documentElement.dataset.themeVariant = variant;
+  document.documentElement.style.colorScheme = variant === "light" ? "light" : "dark";
   const color = caseColor(theme.id);
   document.documentElement.dataset.caseColor = color;
   const chrome =
     theme.id === "hitech-2000s" || theme.id === "crt-green"
       ? caseChrome(color, theme.id === "crt-green")
-      : theme.chrome;
+      : theme.id === "organizer" && variant === "dark"
+        ? "#211e1a"
+        : theme.id === "classic-dark" && variant === "light"
+          ? "#eef0f3"
+          : theme.chrome;
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", chrome);
 }
 
@@ -149,7 +241,7 @@ export function setCaseColor(theme: Theme, value: CaseColor) {
 export function subscribeCaseColor(listener: () => void) {
   const storage = (event: StorageEvent) => {
     for (const key of preferenceKeys) {
-      if (event.key === `codex-${key}` || event.key === null) delete memory[key];
+      if (event.key === storageKey(key) || event.key === null) delete memory[key];
     }
     applyTheme(document.documentElement.dataset.theme as Theme);
     listener();

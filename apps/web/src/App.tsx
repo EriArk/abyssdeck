@@ -1,4 +1,9 @@
-import type { CasePreferences, NotebookLink, ResultCategory } from "@codex-web/shared";
+import type {
+  CasePreferences,
+  NotebookLink,
+  ResultCategory,
+  ThemeVariantPreferences,
+} from "@codex-web/shared";
 import {
   type CSSProperties,
   lazy,
@@ -41,7 +46,7 @@ import { completePendingSend, pendingSendKey } from "./pendingSend";
 import { Remote } from "./Remote";
 import { ResultFeed } from "./ResultFeed";
 import { ActivityPane } from "./Results";
-import { applyTheme, cachedTheme, hydrateCaseColors } from "./theme";
+import { applyTheme, cachedTheme, hydrateCaseColors, hydrateThemeVariants } from "./theme";
 import type {
   Activity,
   History,
@@ -606,6 +611,7 @@ function Workspace({
           api<{ projects: Project[] }>("/projects"),
           api<
             CasePreferences &
+              ThemeVariantPreferences &
               Partial<PersonalScale> & {
                 projectId?: string;
                 threadId?: string | null;
@@ -619,6 +625,7 @@ function Workspace({
         setProjects(list);
         if (prefs.theme) setTheme(prefs.theme);
         hydrateCaseColors(prefs);
+        hydrateThemeVariants(prefs);
         hydratePersonalScale(prefs);
         if (prefs.view)
           setView(["remote", "overview", "files"].includes(prefs.view) ? "chat" : prefs.view);

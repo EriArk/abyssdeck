@@ -13,8 +13,10 @@ import {
   type HubConfig,
   HubError,
   type HubEvent,
+  lightDarkVariants,
   resultCategorySchema,
   resultSearchQuerySchema,
+  terminalVariants,
   turnSettingsSchema,
 } from "@codex-web/shared";
 import cookie from "@fastify/cookie";
@@ -956,6 +958,10 @@ export async function createApp(
           hitechCaseColor: z.enum(caseColorIds).optional(),
           organizerAccentColor: z.enum(caseColorIds).optional(),
           darkAccentColor: z.enum(caseColorIds).optional(),
+          organizerVariant: z.enum(lightDarkVariants).optional(),
+          crtVariant: z.enum(terminalVariants).optional(),
+          hitechVariant: z.enum(lightDarkVariants).optional(),
+          classicVariant: z.enum(lightDarkVariants).optional(),
           projectId: idSchema.optional(),
           threadId: idSchema.nullable().optional(),
           view: z.enum(["chat", "results", "remote", "activity", "files", "overview"]).optional(),

@@ -1,0 +1,318 @@
+/* Variants change materials only. Family geometry, casing and content are shared. */
+.theme-variant-picker {
+  margin: 14px 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.theme-variant-picker legend {
+  margin-bottom: 8px;
+}
+.theme-variant-options {
+  display: flex;
+  gap: 8px;
+}
+.theme-variant-options button {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card-material);
+  color: var(--ink);
+}
+.theme-variant-options button[aria-pressed="true"] {
+  background: var(--soft);
+  border-color: var(--accent);
+  box-shadow: var(--selected-shadow);
+}
+
+:root[data-theme="organizer"][data-theme-variant="dark"] {
+  --paper: #24221e;
+  --canvas: #191816;
+  --nav: #292722;
+  --surface: #302d27;
+  --ink: #eee6d4;
+  --muted: #b9b09e;
+  --line: #625b49;
+  --gold: #c2a46b;
+  --danger: #f1a397;
+  --accent: color-mix(in srgb, var(--polymer-tint) 40%, #f0e8d7);
+  --accent-ink: #1e201d;
+  --soft: color-mix(in srgb, var(--polymer-tint) 22%, var(--paper));
+  --shadow: 0 8px 24px #0004;
+  --panel-material: linear-gradient(100deg, #1d1c19, #302d27 12%, #27251f);
+  --panel-heading: linear-gradient(#393429, #2a2721);
+  --card-material: linear-gradient(110deg, #332f27, #292720);
+  --card-shadow: inset 0 1px #c2a46b19, 0 2px 5px #0003;
+  --field-shadow: inset 0 1px 3px #0005, 0 1px #c2a46b20;
+  --selected-shadow: inset 3px 0 var(--accent), 0 1px 2px #0004;
+  --tab-material: linear-gradient(var(--soft), var(--nav));
+}
+:root[data-theme="organizer"][data-theme-variant="dark"] .workspace {
+  background: linear-gradient(
+    90deg,
+    #151411,
+    #302d25 18px,
+    #24221e 33px,
+    #28251f calc(100% - 22px),
+    #171612
+  );
+  box-shadow:
+    inset 0 0 0 1px #897347,
+    inset 0 -4px 0 #161512;
+}
+:root[data-theme="organizer"][data-theme-variant="dark"] .workspace::after {
+  opacity: 0.65;
+}
+:root[data-theme="organizer"][data-theme-variant="dark"] .desktop-nav {
+  background: var(--panel-material);
+  border-color: var(--line);
+  box-shadow:
+    3px 0 4px #0004,
+    inset 0 1px #c2a46b33;
+}
+:root[data-theme="organizer"][data-theme-variant="dark"]
+  :is(
+    .workspace-header,
+    .mobile-tabs,
+    .result-title,
+    .result-title:has(.badge.success),
+    .notebook-heading,
+    .project-overview-heading
+  ) {
+  background: var(--panel-heading);
+  border-color: var(--line);
+  box-shadow:
+    inset 0 -1px #c2a46b33,
+    0 1px 2px #0004;
+}
+:root[data-theme="organizer"][data-theme-variant="dark"]
+  :is(
+    .nav-brand,
+    .header-project,
+    .pane-heading,
+    .notebook-heading > strong,
+    .project-overview-heading > strong
+  ) {
+  color: var(--gold);
+  text-shadow:
+    0 -1px #000,
+    0 1px #d9bc7a26;
+}
+:root[data-theme="organizer"][data-theme-variant="dark"]
+  :is(.chat-pane, .gpt-chat, .support-pane, .gpt-results) {
+  background: radial-gradient(ellipse at 40% 35%, #c4b48308, transparent 70%), var(--paper);
+}
+:root[data-theme="organizer"][data-theme-variant="dark"] :is(.composer, .gpt-composer) {
+  background: var(--card-material);
+  box-shadow: var(--card-shadow);
+}
+:root[data-theme="organizer"][data-theme-variant="dark"] .result-card {
+  border-color: var(--line);
+  box-shadow: var(--card-shadow);
+}
+:root[data-theme="organizer"][data-theme-variant="dark"] .notebook-modules button {
+  background: linear-gradient(
+    color-mix(in srgb, var(--tab-tint) 18%, var(--surface)),
+    var(--surface)
+  );
+  color: var(--ink);
+  border-color: var(--line);
+  box-shadow: inset 0 1px #c2a46b33;
+}
+:root[data-theme="organizer"][data-theme-variant="dark"] :is(.notebook-modules, .inspector-tabs) {
+  box-shadow: inset 0 -1px var(--gold);
+}
+:root[data-theme="organizer"][data-theme-variant="dark"]
+  .notebook-modules
+  button[aria-pressed="true"] {
+  border-bottom-color: var(--accent);
+}
+:root[data-theme="organizer"][data-theme-variant="dark"] .notebook-body {
+  background-image: repeating-linear-gradient(
+    transparent 0 calc(1.7em - 1px),
+    #c2a46b12 calc(1.7em - 1px) 1.7em
+  );
+}
+:root[data-theme="organizer"][data-theme-variant="dark"] .overview-card {
+  border-top-color: var(--gold);
+}
+
+/* Neutral terminal: silver LCD or graphite phosphor, without a green raster/glow. */
+:root[data-theme="crt-green"][data-theme-variant="dark"] {
+  --paper: #17191c;
+  --canvas: #101214;
+  --nav: #1a1d20;
+  --surface: #22262a;
+  --ink: #dce0e4;
+  --muted: #a9b0b7;
+  --line: #596169;
+  --accent: #d4dae0;
+  --accent-ink: #191c20;
+  --soft: #343a40;
+  --gold: #bcc4cd;
+  --danger: #ffb19e;
+  --screen-material: linear-gradient(110deg, #1b1e22, #17191c);
+  --screen-shadow: inset 0 2px 6px #0008, inset 0 0 0 1px #b5bbc315;
+}
+:root[data-theme="crt-green"][data-theme-variant="light"] {
+  --paper: #cbd0cf;
+  --canvas: #b7bdbc;
+  --nav: #c2c8c7;
+  --surface: #d5d9d7;
+  --ink: #252d2e;
+  --muted: #4c5757;
+  --line: #798483;
+  --accent: #344143;
+  --accent-ink: #edf0eb;
+  --soft: #afbaba;
+  --gold: #515e5f;
+  --danger: #8c302c;
+  --screen-material:
+    linear-gradient(115deg, #e0e3dd55, transparent 45%, #6d7a7820),
+    repeating-linear-gradient(0deg, #28343206 0 1px, transparent 1px 3px), #cbd0cf;
+  --screen-shadow: inset 0 2px 7px #25333055, inset 0 -1px #f2f5ec88;
+}
+:root[data-theme="crt-green"]:is([data-theme-variant="dark"], [data-theme-variant="light"]) {
+  --crt-glow: none;
+  --crt-strong-glow: none;
+  --crt-raster: linear-gradient(transparent, transparent);
+  --panel-material: var(--screen-material);
+  --card-material: linear-gradient(110deg, var(--surface), var(--paper));
+  --card-shadow: inset 0 1px #aab5ba20, 0 1px 3px #0002;
+  --field-shadow: inset 0 1px 4px #0004;
+  --tab-material: var(--soft);
+  --selected-shadow: inset 2px 0 var(--accent);
+  --shadow: 0 8px 24px #0004;
+}
+:root[data-theme="crt-green"]:is([data-theme-variant="dark"], [data-theme-variant="light"])
+  :is(.result-card, .avatar, .nav-search, .inspector-search) {
+  border-color: var(--line);
+  box-shadow: var(--field-shadow);
+}
+:root[data-theme="crt-green"]:is([data-theme-variant="dark"], [data-theme-variant="light"])
+  .message.user
+  .message-body {
+  background: var(--soft);
+  border-color: var(--line);
+}
+:root[data-theme="crt-green"]:is([data-theme-variant="dark"], [data-theme-variant="light"])
+  .result-title {
+  background: var(--surface);
+}
+:root[data-theme="crt-green"]:is([data-theme-variant="dark"], [data-theme-variant="light"])
+  .nav-project.selected {
+  box-shadow: var(--selected-shadow);
+}
+:root[data-theme="crt-green"]:is([data-theme-variant="dark"], [data-theme-variant="light"])
+  .nav-project.selected
+  :is(small, .folder-icon) {
+  color: var(--accent-ink);
+}
+:root[data-theme="crt-green"]:is([data-theme-variant="dark"], [data-theme-variant="light"])
+  .login-card {
+  background: var(--screen-material);
+}
+:root[data-theme="crt-green"]:is([data-theme-variant="dark"], [data-theme-variant="light"])
+  .nav-brand
+  img {
+  filter: none;
+}
+:root[data-theme="crt-green"]:is([data-theme-variant="dark"], [data-theme-variant="light"])
+  .nav-search {
+  background: var(--paper);
+  color: var(--ink);
+}
+:root[data-theme="crt-green"]:is([data-theme-variant="dark"], [data-theme-variant="light"])
+  ::selection {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+:root[data-theme="hitech-2000s"][data-theme-variant="dark"] {
+  --paper: #192327;
+  --canvas: #151d21;
+  --nav: #1d292d;
+  --surface: #273338;
+  --ink: #e3ebe8;
+  --muted: #abbeba;
+  --line: #596e6d;
+  --accent: #9dcec2;
+  --accent-ink: #152d29;
+  --soft: #354b49;
+  --gold: #e4c889;
+  --danger: #ffa99d;
+  --screen-material: linear-gradient(110deg, #243135, #192327 65%);
+  --screen-shadow: inset 0 2px 6px #0008, inset 0 -1px #c0e1d71c;
+  --panel-material: var(--surface);
+  --card-material: linear-gradient(#304046, #253237);
+  --card-shadow: inset 0 1px #c0e1d726, 0 2px 4px #0004;
+  --field-shadow: inset 0 2px 4px #0006;
+  --selected-shadow: inset 3px 0 var(--accent), 0 1px 3px #0003;
+  --tab-material: linear-gradient(#3d5752, #2c413e);
+  --shadow: 0 8px 24px #0004;
+}
+:root[data-theme="hitech-2000s"][data-theme-variant="dark"] .message.user .message-body {
+  background: var(--soft);
+  border-color: var(--line);
+}
+:root[data-theme="hitech-2000s"][data-theme-variant="dark"] :is(.avatar, .gpt-chat .avatar) {
+  color: #193f3b;
+}
+:root[data-theme="hitech-2000s"][data-theme-variant="dark"] .result-title {
+  background: var(--card-material);
+}
+
+:root[data-theme="classic-dark"][data-theme-variant="light"] {
+  --paper: #fafbfc;
+  --canvas: #eef0f3;
+  --nav: #f0f2f5;
+  --surface: #ffffff;
+  --ink: #262d36;
+  --muted: #5f6875;
+  --line: #cbd1d9;
+  --accent: var(--paper-accent);
+  --accent-ink: #ffffff;
+  --soft: color-mix(in srgb, var(--polymer-tint) 14%, #f2f4f7);
+  --gold: #80672c;
+  --danger: #a53936;
+  --shadow: 0 8px 24px #20293614;
+  --card-shadow: 0 2px 8px #2029360c;
+  --selected-shadow: inset 3px 0 var(--accent);
+}
+:root[data-theme="classic-dark"][data-theme-variant="light"] .result-title {
+  background: var(--nav);
+}
+
+.theme-option.organizer[data-variant="dark"] .theme-swatch {
+  background: linear-gradient(90deg, #a98d54 0 3px, #29251e 3px 100%);
+  box-shadow: inset 0 0 0 1px #897347;
+}
+.theme-option.crt-green[data-variant="dark"] .theme-swatch {
+  background: #191c20;
+  box-shadow: inset 0 0 0 2px #62696f;
+}
+.theme-option.crt-green[data-variant="light"] .theme-swatch {
+  background: linear-gradient(130deg, #d9ddda, #aeb8b6);
+  box-shadow: inset 0 1px 3px #26332f88;
+}
+.theme-option.hitech-2000s[data-variant="dark"] .theme-swatch {
+  box-shadow:
+    inset -8px 0 #1b262a,
+    inset 0 1px #c5edda;
+}
+.theme-option.classic-dark[data-variant="light"] .theme-swatch {
+  background: #eef0f3;
+  box-shadow: inset 0 0 0 1px #aab3bf;
+}
+
+/* Palette chips preview the same independent accent as the selected variant. */
+.case-swatch[data-theme="organizer"][data-theme-variant="dark"] {
+  --accent: color-mix(in srgb, var(--polymer-tint) 40%, #f0e8d7);
+  --accent-ink: #1e201d;
+}
+.case-swatch[data-theme="classic-dark"][data-theme-variant="light"] {
+  --accent: var(--paper-accent);
+  --accent-ink: #fff;
+}

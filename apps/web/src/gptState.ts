@@ -1,6 +1,18 @@
 import type { GptHistoryPage, GptJob, GptMessage } from "@codex-web/shared";
 import type { GptCachedChat } from "./gptCache";
 
+/** Queued followers never replace the earlier response awaiting canonical receipt. */
+export function currentGptProgress(jobs: GptJob[]): GptJob | undefined {
+  return jobs
+    .filter(
+      (job) =>
+        !job.dismissed &&
+        (["queued", "preparing", "running"].includes(job.status) ||
+          (job.status === "unknown" && !job.error)),
+    )
+    .sort((a, b) => a.createdAt - b.createdAt)[0];
+}
+
 export function gptJobUser(job: GptJob, messages: GptMessage[]): number {
   const matches = messages.flatMap((message, index) =>
     message.role === "user" &&

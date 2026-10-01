@@ -1,8 +1,19 @@
-import { useSyncExternalStore } from "react";
+import type { ThemeVariant } from "@codex-web/shared";
+import { useState, useSyncExternalStore } from "react";
 import { accountLocalStorage as localStorage } from "./accountStorage.ts";
+import { api } from "./api";
 import { CaseColorSettings } from "./CaseColorSettings";
 import { PersonalScaleSettings } from "./PersonalScale";
-import { type Theme, themes } from "./theme";
+import {
+  setThemeVariant,
+  subscribeThemeVariant,
+  type Theme,
+  themes,
+  themeVariant,
+  themeVariantKey,
+  themeVariants,
+  variantNames,
+} from "./theme";
 import { ShortcutSettings } from "./WorkspaceCommands";
 
 const layoutKey = "codex-legacy-layout";
@@ -47,12 +58,29 @@ export function AppearanceSettings({
   onTheme: (id: Theme) => void;
 }) {
   const legacy = useLegacyLayout();
+  const variant = useSyncExternalStore(subscribeThemeVariant, () => themeVariant(theme));
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState(false);
+  async function selectVariant(value: ThemeVariant) {
+    if (pending || value === variant) return;
+    setPending(true);
+    setError(false);
+    setThemeVariant(theme, value);
+    try {
+      await api("/preferences", { method: "PATCH", body: { [themeVariantKey(theme)]: value } });
+    } catch {
+      setThemeVariant(theme, variant);
+      setError(true);
+    } finally {
+      setPending(false);
+    }
+  }
   return (
     <fieldset className="theme-picker">
       <legend>Тема</legend>
       <div className="theme-options">
         {themes.map(({ id, title, description }) => (
-          <label key={id} className={`theme-option ${id}`}>
+          <label key={id} className={`theme-option ${id}`} data-variant={themeVariant(id)}>
             <input type="radio" name="theme" checked={theme === id} onChange={() => onTheme(id)} />
             <span className="theme-swatch" />
             <span>
@@ -62,6 +90,22 @@ export function AppearanceSettings({
           </label>
         ))}
       </div>
+      <fieldset className="theme-variant-picker" disabled={pending}>
+        <legend>Вариант оформления</legend>
+        <div className="theme-variant-options">
+          {themeVariants[theme].map((value) => (
+            <button
+              type="button"
+              key={value}
+              aria-pressed={variant === value}
+              onClick={() => void selectVariant(value)}
+            >
+              {variantNames[value]}
+            </button>
+          ))}
+        </div>
+        {error && <p role="alert">Не удалось сохранить вариант. Выбери его ещё раз.</p>}
+      </fieldset>
       <CaseColorSettings key={theme} theme={theme} />
       <label className="layout-preference">
         <input
