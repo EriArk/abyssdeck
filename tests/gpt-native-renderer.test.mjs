@@ -14,7 +14,11 @@ test("updated native build retains account binding and reports its actual versio
   const account = await f.read({ operation: "inspectAccount" });
   assert.equal(account.build, "26.928.31416");
   assert.equal(account.accountFingerprint, before);
-  const result = await f.read({ operation: "readConversation", conversationId, accountFingerprint: before });
+  const result = await f.read({
+    operation: "readConversation",
+    conversationId,
+    accountFingerprint: before,
+  });
   assert.equal(result.conversationId, conversationId);
 });
 test("identical full upstream responses reuse projection while old edits invalidate it", async () => {
@@ -819,6 +823,31 @@ test("stalled history body is cancelled at its deadline with a stage-specific er
   } finally {
     clearTimeout(timer);
   }
+});
+
+test("native transport Retry-After survives its thrown HTTP error", async () => {
+  const f = fixture(),
+    accountFingerprint = await f.binding();
+  let now = Date.now(),
+    calls = 0;
+  f.runtime.Date = { now: () => now };
+  f.service.$rn.getInstance = () => ({
+    fetch: async (_route, options) => {
+      calls++;
+      options.onResponseHeaders(new Headers({ "Retry-After": "600" }));
+      throw { status: 429, responseStatus: 429 };
+    },
+  });
+  await assert.rejects(
+    f.read({ operation: "readHistoryUpdate", conversationId, accountFingerprint }, true),
+    /RATE_LIMITED/,
+  );
+  now += 300000;
+  await assert.rejects(f.read({ operation: "readModels", accountFingerprint }), /RATE_LIMITED/);
+  assert.equal(calls, 1);
+  now += 300001;
+  await assert.rejects(f.read({ operation: "readModels", accountFingerprint }), /RATE_LIMITED/);
+  assert.equal(calls, 2);
 });
 
 test("account cooldown covers other chats, models and catalogs; success cannot cancel Retry-After", async () => {

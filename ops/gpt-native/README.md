@@ -7,6 +7,25 @@
 
 # Isolated Linux ChatGPT evaluation
 
+## Shared read budget (2026-10-01)
+
+The Hub native client shares short-lived presentation metadata across viewers:
+30 seconds for pins, project pages and the first catalog page; 120 seconds for
+older catalog pages. A changed first page invalidates offset pages immediately.
+Writes, manual transitions and instance changes invalidate all metadata, including
+pending cache fills. The cache is bounded to 64 entries / 4 MiB and is never used
+for canonical history, action admission or account verification. Old deep catalog
+changes can take up to two minutes to appear without a first-page change.
+
+The supervisor heartbeat remains local. Warm-instance model verification is every
+15 minutes; a cold/restarted instance and a manual account transition still require
+verification. Every dispatch independently checks its account/model.
+
+Upstream 429 pauses are account-wide, but failure streaks reset only after success
+in the same request group. Native `onResponseHeaders` preserves Retry-After even
+when fetch throws instead of returning a Response. Scheduled reads use the same
+cooldown. Nothing here retries a write or clears an uncertain receipt.
+
 This is the #193 research runtime, **not yet the production GPT provider**. See [the technical record](../../docs/GPT_NATIVE_LINUX.md) for real-account proof, current gaps and rollback.
 
 The supervised read stage below is installed in the original owner's separate runtime. It supersedes temporary debugger startup for ordinary adapter reads; the main GPT workspace still uses its existing provider.

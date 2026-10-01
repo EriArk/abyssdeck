@@ -119,7 +119,10 @@ export class NativeGptProvider {
       if (this.checking?.instance !== status.instanceId) {
         const task = this.workspace.client.models().then(() => {
           if (this.checking?.task === task) {
-            this.verified = { instance: status.instanceId, until: Date.now() + 60000 };
+            // The local supervisor heartbeat detects a restart/manual transition.
+            // Dispatch verifies the account and model itself. Navigation does not
+            // need a separate upstream model read every minute.
+            this.verified = { instance: status.instanceId, until: Date.now() + 15 * 60000 };
             this.rateLimited = false;
           }
         });

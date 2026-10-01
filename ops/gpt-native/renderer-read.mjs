@@ -51,16 +51,16 @@ export async function nativeRead(request, load = () => nativeModule(), runtime =
   // In this pinned build safeGet({retry:false}) drops expectedIdentity. Use the
   // lower transport so disabling retries never weakens the account binding.
   const {url,headers}=m.kWt.getRequestTarget(route,options);
-  let response;
+  let response,retryAfter;
   try {
-   response=await bounded(m.$rn.getInstance().fetch(url,{headers,expectedIdentity:before.principal,signal,retry:false}));
-   if(!response.ok){const status=response.status,delay=response.headers?.get?.('retry-after');await response.body?.cancel();if(status===429)gate.limited(delay);throw {status,responseStatus:status};}
+   response=await bounded(m.$rn.getInstance().fetch(url,{headers,expectedIdentity:before.principal,signal,retry:false,onResponseHeaders:h=>{retryAfter=h.get('retry-after');}}));
+   if(!response.ok){const status=response.status,delay=response.headers?.get?.('retry-after');await response.body?.cancel();if(status===429)gate.limited(delay,route);throw {status,responseStatus:status};}
    const reader=response.body.getReader(),decoder=new TextDecoder();let bytes=0,text='';
    try{for(;;){const chunk=await bounded(reader.read());if(chunk.done)break;bytes+=chunk.value.length;if(bytes>16*1024**2)fail('RESPONSE_TOO_LARGE');text+=decoder.decode(chunk.value,{stream:true});}}
    catch(e){void reader.cancel().catch(()=>{});throw e;}
    finally{reader.releaseLock();}
-   const value=JSON.parse(text+decoder.decode());gate.success();return value;
-  } catch(e){if(e?.responseStatus===429&&e.status===429)gate.limited(e.headers?.get?.('retry-after'));throw e;}
+   const value=JSON.parse(text+decoder.decode());gate.success(route);return value;
+  } catch(e){if(e?.responseStatus===429&&e.status===429)gate.limited(retryAfter??e.headers?.get?.('retry-after'),route);throw e;}
  };
  if(['readProjects','readProject','readProjectConversations'].includes(request.operation)){
   const route=request.operation==='readProjects'?'/gizmos/snorlax/sidebar':request.operation==='readProject'?'/gizmos/{gizmo_id_or_short_url}':'/gizmos/{gizmo_id}/conversations';
@@ -191,13 +191,13 @@ export async function nativeRead(request, load = () => nativeModule(), runtime =
    const headers={...target.headers};
    const base=saved?.value?.conversation_id===request.conversationId?saved:undefined;
    if(base?.etag)headers['If-None-Match']=base.etag;
-   let response;
-   try { response=await bounded(m.$rn.getInstance().fetch(target.url,{headers,expectedIdentity:principal,signal,retry:false})); }
+   let response,retryAfter;
+   try { response=await bounded(m.$rn.getInstance().fetch(target.url,{headers,expectedIdentity:principal,signal,retry:false,onResponseHeaders:h=>{retryAfter=h.get('retry-after');}})); }
    catch(e){
     if(signal.aborted)fail('HISTORY_HEADERS_TIMEOUT');
     // Native fetch throws for every non-2xx status, including a valid 304.
     if(e?.status===304&&e.responseStatus===304)response={status:304};
-    else throw e;
+    else {if(e?.status===429&&e.responseStatus===429)gate.limited(retryAfter??e.headers?.get?.('retry-after'),'history');throw e;}
    }
    let value,bytes=0,bodyHash;
    if(response.status===304){
@@ -205,7 +205,7 @@ export async function nativeRead(request, load = () => nativeModule(), runtime =
     if(!base?.etag||!base.value)fail('INVALID_HISTORY_VALIDATOR');
     value=base.value;bytes=base.bytes;bodyHash=base.bodyHash;
    }else{
-    if(!response.ok){const status=response.status,retryAfter=response.headers?.get?.('retry-after');await response.body?.cancel();if(status===429)gate.limited(retryAfter);throw {status,responseStatus:status};}
+    if(!response.ok){const status=response.status,retryAfter=response.headers?.get?.('retry-after');await response.body?.cancel();if(status===429)gate.limited(retryAfter,'history');throw {status,responseStatus:status};}
     let text='';const decoder=new TextDecoder(),reader=response.body.getReader();
     try {
      while(true){
@@ -228,13 +228,13 @@ export async function nativeRead(request, load = () => nativeModule(), runtime =
    if(!value.mapping||typeof value.mapping!=='object'||Array.isArray(value.mapping)||Object.keys(value.mapping).length>10000)fail('INVALID_HISTORY');
    const raw=response.headers?.get?.('etag'),etag=typeof raw==='string'&&raw.length<=1024&&/^(W\/)?"[^"\r\n]+"$/.test(raw)?raw:response.status===304?base.etag:undefined;
    if(cache.get(key)===reading)cache.set(key,{value,bytes,bodyHash,at:Date.now(),retryAt:0,etag,history:value===base?.value?base.history:undefined,publicBytes:value===base?.value?base.publicBytes:0});
-   gate.success();
+   gate.success('history');
    let total=0;for(const v of cache.values())total+=(v.bytes??0)+(v.publicBytes??0);
    for(const [k,v] of cache){if(total<=64*1024**2)break;if(k!==key&&!v.pending){cache.delete(k);total-=(v.bytes??0)+(v.publicBytes??0);}}
    return value;
   };
   reading.pending=fetchHistory().catch(e=>{
-   if(e?.responseStatus===429&&e.status===429)gate.limited(e.headers?.get?.('retry-after'));
+   if(e?.responseStatus===429&&e.status===429)gate.limited(e.headers?.get?.('retry-after'),'history');
    if(/^NATIVE_[A-Z_]+$/.test(e?.message??''))throw e;
    fail(signal.aborted?'TIMEOUT':'READ_UNAVAILABLE');
   });

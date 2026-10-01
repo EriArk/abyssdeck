@@ -6,6 +6,7 @@ import { basename, dirname, isAbsolute } from "node:path";
 import type { GptFile, GptHistoryPage, GptMessage } from "@codex-web/shared";
 import { z } from "zod";
 import { NativeHistoryProjection } from "./gpt-native-history.js";
+import { NativeMetadataCache } from "./gpt-native-read-cache.js";
 import { gptSandboxFiles } from "./gpt-sandbox-files.js";
 
 const uuid = z.string().uuid();
@@ -91,6 +92,11 @@ export class NativeGptReadClient {
     write: { active: 0, limit: 1, queue: [] as Array<() => Promise<void>> },
   };
   private reads = new Map<string, Promise<unknown>>();
+  private metadata = new NativeMetadataCache();
+  private invalidateReads() {
+    this.reads.clear();
+    this.metadata.clear();
+  }
   constructor(
     private readonly binding: { socketPath: string; userId: string },
     private readonly authorize: () => void,
@@ -138,7 +144,9 @@ export class NativeGptReadClient {
     const admittedLane = this.independentReads ? laneName : "legacy";
     const lane = this.lanes[admittedLane];
     const key = laneName === "read" && !cancellation ? JSON.stringify(input) : undefined;
-    if (laneName === "write") this.reads.clear();
+    if (laneName === "write") this.invalidateReads();
+    const cached = key ? this.metadata.get(key) : undefined;
+    if (cached !== undefined) return cached;
     const shared = key ? this.reads.get(key) : undefined;
     if (shared) {
       const result = await shared;
@@ -153,7 +161,8 @@ export class NativeGptReadClient {
           cancellation?.throwIfAborted();
           this.authorize();
           // Reads admitted while a mutation waited must not survive its boundary.
-          if (laneName === "write") this.reads.clear();
+          if (laneName === "write") this.invalidateReads();
+          const generation = this.metadata.generation;
           let result: unknown;
           for (let attempt = 0; ; attempt++) {
             try {
@@ -174,11 +183,12 @@ export class NativeGptReadClient {
               this.authorize();
             }
           }
+          if (key) this.metadata.save(input, key, result, generation);
           resolve(result);
         } catch (error) {
           reject(error);
         } finally {
-          if (laneName === "write") this.reads.clear();
+          if (laneName === "write") this.invalidateReads();
         }
       });
     });
@@ -473,7 +483,10 @@ export class NativeGptReadClient {
       .parse(response);
     this.independentReads = value.independentReads === true;
     this.historyUpdates = value.historyUpdates === true;
-    if (this.nativeInstance !== value.instanceId) this.historyProjection.clear();
+    if (this.nativeInstance !== value.instanceId || value.manual) {
+      this.historyProjection.clear();
+      this.invalidateReads();
+    }
     this.nativeInstance = value.instanceId;
     return value;
   }

@@ -21,11 +21,12 @@ export async function nativeLibrary(r, read, load=()=>nativeModule(), runtime=gl
  };
  const fetchFixed=async(method,route,options={})=>{
   gate.check();
-  const principal=await account(),{url,headers}=m.kWt.getRequestTarget(route,options);let attempts=0;
+  const principal=await account(),{url,headers}=m.kWt.getRequestTarget(route,options);let attempts=0,retryAfter;
+  const scope=method==='GET'&&route==='/conversation/{conversation_id}'?'history':'library';
   let response;try{response=await m.$rn.getInstance().fetch(url,{method,headers,body:method==='GET'?undefined:m.kWt.getRequestBody(options),signal,retry:false,
-   expectedIdentity:principal,assertRequestCurrent:()=>{if(signal.aborted||attempts++!==0)fail('LIBRARY_REPLAY_BLOCKED');}});
+   expectedIdentity:principal,onResponseHeaders:h=>{retryAfter=h.get('retry-after');},assertRequestCurrent:()=>{if(signal.aborted||attempts++!==0)fail('LIBRARY_REPLAY_BLOCKED');}});
   }catch(error){
-   if(error?.responseStatus===429&&error.status===429)gate.limited(error.headers?.get?.('retry-after'));
+   if(error?.responseStatus===429&&error.status===429)gate.limited(retryAfter??error.headers?.get?.('retry-after'),scope);
    // The pinned native transport throws on non-2xx responses. Only an actual
    // explicit HTTP rejection is terminal; timeouts/transport failures stay unknown.
    if(!signal.aborted&&[400,403,404,409,422].includes(error?.responseStatus)&&error.status===error.responseStatus){
@@ -33,7 +34,7 @@ export async function nativeLibrary(r, read, load=()=>nativeModule(), runtime=gl
    }
    throw error;
   }
-  await account();if(response.status===429){const delay=response.headers?.get?.('retry-after');await response.body?.cancel();gate.limited(delay);}gate.success();return response;
+  await account();if(response.status===429){const delay=response.headers?.get?.('retry-after');await response.body?.cancel();gate.limited(delay,scope);}if(response.ok)gate.success(scope);return response;
  };
  const metadata=async()=>{
   if(r.kind==='project'){

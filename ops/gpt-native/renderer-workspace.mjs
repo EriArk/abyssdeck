@@ -1,4 +1,5 @@
 import {nativeModule} from './compatibility.mjs';
+import {nativeRequestGate} from './request-gate.mjs';
 // Fixed consumer workspace contracts through the signed-in native transport.
 export async function nativeWorkspace(r,read,load=()=>nativeModule(),runtime=globalThis){
  const fail=c=>{throw Error('NATIVE_'+c);};
@@ -15,19 +16,25 @@ export async function nativeWorkspace(r,read,load=()=>nativeModule(),runtime=glo
  const activity=()=>({ready:!!runtime.document.querySelector('[data-testid=app-shell-header-context-menu-surface]'),generating:[...runtime.document.querySelectorAll('button[aria-label="Stop"]')].some(e=>e.getClientRects().length)});
  if(r.operation==='activity')return activity();
  const request=async(route,body)=>{
+  const gate=nativeRequestGate(r.accountFingerprint,runtime);
+  gate.check();
   const principal=await account();
   // Fixed caller branches below are the sole route source. No external route input.
-  const {url,headers}=m.kWt.getRequestTarget(route,{});let attempts=0,response;
-  try{response=await m.$rn.getInstance().fetch(url,{method:body===undefined?'GET':'POST',headers,body:body===undefined?undefined:JSON.stringify(body),expectedIdentity:principal,signal,retry:false,assertRequestCurrent:()=>{if(signal.aborted||attempts++!==0)fail('REPLAY_BLOCKED');}});}
+  const {url,headers}=m.kWt.getRequestTarget(route,{});let attempts=0,response,retryAfter;
+  try{response=await m.$rn.getInstance().fetch(url,{method:body===undefined?'GET':'POST',headers,body:body===undefined?undefined:JSON.stringify(body),expectedIdentity:principal,signal,retry:false,onResponseHeaders:h=>{retryAfter=h.get('retry-after');},assertRequestCurrent:()=>{if(signal.aborted||attempts++!==0)fail('REPLAY_BLOCKED');}});}
   catch(e){
+   if(e?.status===429&&e.responseStatus===429){
+    try{gate.limited(retryAfter??e.headers?.get?.('retry-after'),'workspace');}catch(limited){if(body===undefined)throw limited;}
+    fail('WORKSPACE_REJECTED');
+   }
    if(body===undefined&&[404,410].includes(e?.responseStatus)&&e.status===e.responseStatus){await account();return null;}
    if(body!==undefined&&[400,401,403,404,409,410,422,429].includes(e?.responseStatus)&&e.status===e.responseStatus)fail('WORKSPACE_REJECTED');
    throw e;
   }
-  if(!response.ok){await response.body?.cancel();if(body===undefined&&[404,410].includes(response.status)){await account();return null;}if(body!==undefined&&[400,401,403,404,409,410,422,429].includes(response.status))fail('WORKSPACE_REJECTED');fail('WORKSPACE_UNAVAILABLE');}
+  if(!response.ok){await response.body?.cancel();if(response.status===429){try{gate.limited(response.headers?.get?.('retry-after'),'workspace');}catch(limited){if(body===undefined)throw limited;}fail('WORKSPACE_REJECTED');}if(body===undefined&&[404,410].includes(response.status)){await account();return null;}if(body!==undefined&&[400,401,403,404,409,410,422].includes(response.status))fail('WORKSPACE_REJECTED');fail('WORKSPACE_UNAVAILABLE');}
   let size=0;const parts=[];for await(const b of response.body){size+=b.length;if(size>1500000)fail('RESPONSE_TOO_LARGE');parts.push(b);}
   const bytes=new Uint8Array(size);let offset=0;for(const b of parts){bytes.set(b,offset);offset+=b.length;}
-  await account();return size?JSON.parse(new TextDecoder().decode(bytes)):null;
+  await account();gate.success('workspace');return size?JSON.parse(new TextDecoder().decode(bytes)):null;
  };
  const date=v=>typeof v==='string'&&Number.isFinite(Date.parse(v))?v:null;
  const schedule=async raw=>{
