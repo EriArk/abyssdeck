@@ -44,7 +44,6 @@ import { registerGpt } from "./gpt.js";
 import { configuredNativeGpt } from "./gpt-native-config.js";
 import type { NativeGptWorkspace } from "./gpt-native-provider.js";
 import { registerGuiPreviews } from "./gui-previews.js";
-import { registerWorkspacePreviews } from "./workspace-previews.js";
 import { ProjectIntake, registerIntake } from "./intake.js";
 import { IssueDrawer, registerIssueDrawer } from "./issue-drawer.js";
 import { entityAction, libraryMutation } from "./library.js";
@@ -82,6 +81,7 @@ import { registerUsageResets } from "./usage-resets.js";
 import { webSecurity } from "./web-security.js";
 import { registerWorkspaceNavigation } from "./workspace-navigation.js";
 import { registerWorkspaceNotices } from "./workspace-notices.js";
+import { registerWorkspacePreviews } from "./workspace-previews.js";
 
 const idSchema = z.string().min(1).max(100);
 const paramId = (req: FastifyRequest): string => z.object({ id: idSchema }).parse(req.params).id;
@@ -201,6 +201,17 @@ export async function createApp(
     app.get("/internal/codex/persistent", async () => ({
       threads: [...(await sessions.persistentThreadIds())],
     }));
+    app.post("/internal/companion/maintenance", async (req) => {
+      const body = z
+        .object({
+          machineId: z.string().min(1).max(100),
+          operationId: z.string().uuid(),
+          action: z.enum(["acquire", "release", "status"]),
+        })
+        .strict()
+        .parse(req.body);
+      return sessions.workerMaintenance(body.machineId, body.operationId, body.action);
+    });
     app.get("/internal/terminals/maintenance", () => devices.maintenance());
     app.post("/internal/terminals/maintenance", () => devices.maintenance(true));
   }

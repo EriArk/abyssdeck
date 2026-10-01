@@ -233,10 +233,19 @@ export class TeamAuth extends Auth {
       if (!path.startsWith("/api/")) return;
       reply.header("Cache-Control", "no-store");
       if (path === "/api/health" || path === "/api/auth/status") return;
-      if (!this.userId && (/^\/api\/companion\/(status|enrollment|logout|repair-kit|update)$/.test(path)
-          || path === "/api/companion/enrollment/:id/bundle" || path === "/api/companion/update/:digest/bundle")) {
-        if (req.headers.cookie || (req.headers.origin && req.headers.origin !== this.config.hub.publicBaseUrl)
-            || !/^Bearer [A-Za-z0-9_-]{43}$/.test(String(req.headers.authorization ?? "")))
+      if (
+        !this.userId &&
+        (/^\/api\/companion\/(status|enrollment|logout|repair-kit|update|maintenance)$/.test(
+          path,
+        ) ||
+          path === "/api/companion/enrollment/:id/bundle" ||
+          path === "/api/companion/update/:digest/bundle")
+      ) {
+        if (
+          req.headers.cookie ||
+          (req.headers.origin && req.headers.origin !== this.config.hub.publicBaseUrl) ||
+          !/^Bearer [A-Za-z0-9_-]{43}$/.test(String(req.headers.authorization ?? ""))
+        )
           throw new HubError(401, "COMPANION_LOGIN_REQUIRED", "Войди в Companion.");
         return; // Only these fixed handlers validate the purpose-specific credential.
       }

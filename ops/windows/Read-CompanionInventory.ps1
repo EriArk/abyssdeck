@@ -41,6 +41,33 @@ $components = foreach ($definition in $definitions) {
     }
     $digest = ''
     if ($task -and $mine) { try { $sha=[Security.Cryptography.SHA256]::Create(); try { $digest=([BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes((Export-ScheduledTask -TaskName $definition[0]))))).Replace('-','').ToLowerInvariant() } finally { $sha.Dispose() } } catch { $mine=$false } }
+    if ($task -and $mine -and $definition[0] -in @('CodexWebCompanionPersistent','CodexWebDelivery','CodexWebProjectSetup','CodexWebGitHubReleases','CodexWebFileLaunch','CodexWebGuiPreview')) {
+        try {
+            $journalPath=Join-Path $env:LOCALAPPDATA ('CodexWeb\companion-app\workers\state\'+$definition[0]+'.json')
+            if(Test-Path -LiteralPath $journalPath -PathType Leaf){
+                if((Get-Item -LiteralPath $journalPath -Force).Attributes -band [IO.FileAttributes]::ReparsePoint -or (Get-Item -LiteralPath $journalPath).Length -gt 65536){throw 'WORKER_JOURNAL_CHANGED'}
+                $journal=Get-Content -LiteralPath $journalPath -Raw -Encoding UTF8|ConvertFrom-Json
+                if($journal.sid -cne $sid -or $journal.componentId -cne $definition[0] -or $journal.release -notmatch '^[a-f0-9]{64}$'){throw 'WORKER_JOURNAL_CHANGED'}
+                $release=Join-Path $env:LOCALAPPDATA ('CodexWeb\companion-app\workers\releases\'+$journal.release)
+                $launcher=Join-Path $release 'Start-ManagedWorker.ps1'
+                $args='-NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "'+$launcher+'" -ComponentId '+$definition[0]
+                if($task.Actions[0].Arguments -ceq $args){
+                    $registered=$false
+                    $manifestPath=Join-Path $release 'worker.json'
+                    if((Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256).Hash.ToLowerInvariant() -cne $journal.release){throw 'WORKER_RELEASE_CHANGED'}
+                    $manifest=Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8|ConvertFrom-Json
+                    if($manifest.format -ne 1 -or $manifest.componentId -cne $definition[0] -or @($manifest.files.PSObject.Properties).Count -gt 16){throw 'WORKER_RELEASE_CHANGED'}
+                    foreach($entry in $manifest.files.PSObject.Properties){
+                        if($entry.Name -notmatch '^[A-Za-z0-9_.-]+$' -or $entry.Value -notmatch '^[a-f0-9]{64}$'){throw 'WORKER_RELEASE_CHANGED'}
+                        $file=Join-Path $release $entry.Name
+                        if((Get-Item -LiteralPath $file -Force).Attributes -band [IO.FileAttributes]::ReparsePoint -or (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant() -cne $entry.Value){throw 'WORKER_RELEASE_CHANGED'}
+                    }
+                    $registered=$journal.state -eq 'installed' -and $journal.taskDigest -ceq $digest -and $task.Actions[0].WorkingDirectory -ceq $folder
+                    if($registered){$module=$launcher}
+                }
+            }
+        } catch {$registered=$false}
+    }
     [ordered]@{ id=$definition[0]; title=$definition[1]; folder=$definition[2]; installed=[bool]$task; owned=$mine; known=$tasksKnown; state=$(if ($task -and $mine) { $task.State.ToString() } else { 'Unknown' }); executable=$executable; executableExists=[bool]($registered -and (Test-Path -LiteralPath $executable -PathType Leaf) -and (Test-Path -LiteralPath $module -PathType Leaf)); taskDigest=$digest }
 }
 # No unrelated processes/windows, titles, arguments or environment variables.

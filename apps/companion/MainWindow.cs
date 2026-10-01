@@ -20,6 +20,7 @@ public sealed class MainWindow : Window, IDisposable
     readonly SetupOperations setup;
     readonly UpdateManager updates;
     readonly RecoveryManager recovery;
+    readonly WorkerManager workers;
     bool maintaining;
     double[]? restoreOffsets;
     TextBlock updateText = new();
@@ -56,7 +57,7 @@ public sealed class MainWindow : Window, IDisposable
     {
         this.app = app; this.store = store; this.profile = profile; notice = error;
         hubDraft = profile.HubOrigin; palette = Themes.Get(profile.Theme); readiness = new(store);
-        hub = new(store); setup = new(store, hub); updates=new(store,hub);recovery=new(store);
+        hub = new(store); setup = new(store, hub); updates=new(store,hub);recovery=new(store);workers=new(store,hub);
         try { hub.Restore(profile); } catch { notice = "Сохранённое подключение недоступно. Войди снова."; }
         Title = "CodexWeb Companion";
         Width = 840; Height = 690; MinWidth = 650; MinHeight = 520;
@@ -232,7 +233,7 @@ public sealed class MainWindow : Window, IDisposable
             Section(Stack(Text("Обновления и восстановление",18,bold:true),updateText,
                 Row(Button("Проверить обновление",()=>_ = CheckUpdates()),updateApply),autoUpdates,autoRecovery,
                 Text("Подпись и файлы проверяются до установки. Автообновление ждёт скрытия окна и завершения личных шагов. Проекты и входы сохраняются.",muted:true),
-                Text("Вспомогательные модули восстанавливаются ограниченными попытками; выключенные и неизвестные задачи требуют твоего действия. Исполнитель Codex не заменяется автоматически.",muted:true))),
+                Text("Компоненты переходят на проверенные версии после завершения работы. Для Codex Hub отдельно подтверждает простой и прежний аккаунт; активный ход не прерывается. Выключенные и неизвестные задачи требуют твоего действия.",muted:true))),
             Section(Stack(Text("Companion " + Version + " · Windows x64", 16, bold: true),
                 Row(Button("Сохранить отчёт", () => _ = SaveReport()), Button("Выйти из интерфейса", app.Exit)))),
             new Expander
@@ -243,6 +244,7 @@ public sealed class MainWindow : Window, IDisposable
                 Text("Обзор показывает связь с Hub и рабочие папки. Компоненты проверяются раз в 30 секунд; кнопка проверки обновляет состояние сразу."),
                 Text("Готов по запросу — нормальное состояние: компонент запустится, когда понадобится. Занято — текущая работа продолжается."),
                 Text("После восстановления сети связь проверяется автоматически. Известный остановленный вспомогательный компонент может восстановиться сам; после повторных сбоев попытки замедляются. Сообщения, команды и действия не отправляются повторно."),
+                Text("Управляемые компоненты отмечены отдельной галочкой. Их программы хранятся по версиям, а настройки и квитанции остаются на прежнем месте. Кнопка возврата восстанавливает предыдущую версию вспомогательного компонента, когда он свободен. Codex переключается отдельно после проверки Hub."),
                 Text("Кнопка CodexWeb открывает веб. Аккаунты, приглашения и управление Hub остаются там; полная справка доступна в настройках веба."),
                 Text("Отчёт сохраняется в выбранный локальный файл. Он не содержит паролей, токенов или текста чатов.")))
             });
@@ -332,7 +334,7 @@ public sealed class MainWindow : Window, IDisposable
             }
         }
     }
-    bool UpdateIdle => !operating && !setup.Running && !recovery.Running && !refreshing
+    bool UpdateIdle => !operating && !setup.Running && !recovery.Running && !workers.Running && !refreshing
         && string.IsNullOrEmpty(passwordField.Text) && hubDraft.Trim().TrimEnd('/')==profile.HubOrigin
         && (!loginControls.IsVisible || string.IsNullOrEmpty(loginField.Text)) && connectionAddress.Text==profile.HubOrigin;
     public async Task CheckUpdates() {await updates.Check(true);if(!disposed)RenderSnapshot();}
@@ -346,6 +348,10 @@ public sealed class MainWindow : Window, IDisposable
         try {
             if(profile.AutoUpdates)await updates.Check();
             if(expected!=generation || disposed || !accountReady)return;
+            if(profile.AutoUpdates && snapshot is not null) {
+                string? workerKit=null;try {workerKit=updates.VerifiedHelpers;}catch { }
+                if(workerKit is not null){await workers.Update(snapshot,workerKit);snapshot=await readiness.Refresh(profile);}
+            }
             if(profile.AutoRecovery && snapshot is not null) {
                 string? kit=null;
                 if(snapshot.Inventory.Components.Any(c=>!c.ExecutableExists && recovery.Due(c)))try {kit=updates.VerifiedHelpers;}catch { }
@@ -441,14 +447,22 @@ public sealed class MainWindow : Window, IDisposable
             var state = Text(!c.Attention && c.State is "Запущен" or "Занято" or "Готов по запросу" ? "✓ " + c.State : c.State, bold: true); state.VerticalAlignment = VerticalAlignment.Center;
             state.Foreground = Themes.Brush(c.Attention ? palette.Danger : palette.Accent); Grid.SetColumn(state, 1); row.Children.Add(state);
             var content = Stack(row);
+            var managed=workers.Description(source);if(managed.Length>0)content.Children.Add(Text(managed,muted:true));
             var recovering=recovery.Description(source);if(recovering.Length>0)content.Children.Add(Text(recovering,muted:true));
             if (c.Attention || c.State == "Выключен" || c.State == "Не используется" && source.Id == "CodexWebComputerUse") {
                 var repair = Button("Исправить и проверить", () => _ = RunOperation(async () => {
                     if (profile.DeviceId.Length == 0 && (!source.Installed || !source.ExecutableExists)) {
                         if (!accountReady) { SelectPage(0); throw new IOException("Сначала войди в Hub в Обзоре."); }
                         await setup.Start();
-                    } else await setup.Repair(source, s.Inventory);
+                    } else if(WorkerManager.Candidate(source) && updates.VerifiedHelpers is { } kit) await workers.Migrate(source,s.Inventory,kit);
+                    else await setup.Repair(source, s.Inventory);
                     await Refresh(); })); repair.IsEnabled = !operating && !setup.Running && source.State != "Running"; content.Children.Add(repair);
+            }
+            if(managed.StartsWith("✓") && WorkerManager.Candidate(source) && source.Id!="CodexWebCompanionPersistent") {
+                var restore=Button("Вернуть предыдущую версию",()=>_ = RunOperation(async()=> {
+                    var kit=updates.VerifiedHelpers??throw new IOException("Сначала проверь подписанное обновление.");
+                    await workers.Migrate(source,s.Inventory,kit,true);notice=workers.State;await Refresh();
+                }));restore.IsEnabled=!operating && !workers.Running && source.State=="Ready";content.Children.Add(restore);
             }
             components.Children.Add(Section(content));
         }

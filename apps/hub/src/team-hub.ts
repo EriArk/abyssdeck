@@ -11,7 +11,6 @@ import Fastify, { type FastifyRequest } from "fastify";
 import { ZodError, z } from "zod";
 import { createApp } from "./app.js";
 import { tokenHash } from "./auth.js";
-import { registerCompanion } from "./companion-devices.js";
 import { BrainstormRooms } from "./brainstorm.js";
 import { BrainstormGpts } from "./brainstorm-gpt.js";
 import { registerBrainstorm } from "./brainstorm-routes.js";
@@ -21,8 +20,9 @@ import { registerCollaborationSpaces } from "./collaboration-routes.js";
 import { CollaborationSpaces } from "./collaboration-spaces.js";
 import { Communication } from "./communication.js";
 import { registerCommunication } from "./communication-routes.js";
+import { registerCompanion } from "./companion-devices.js";
 import { deploymentBlockers } from "./deployment-status.js";
-import { ENGINE_PROTOCOL, engineTerminalWork } from "./engine-client.js";
+import { ENGINE_PROTOCOL, engineTerminalWork, engineWorkerMaintenance } from "./engine-client.js";
 import { prepareEngineSocket } from "./engine-socket.js";
 import {
   enrolledRuntime,
@@ -633,7 +633,18 @@ export async function createTeamHub(config: HubConfig, options: Options) {
     await personal(userId);
   };
   app.get("/api/team/server-workspace", (req) => serverWorkspaces.view(actor(req)));
-  registerCompanion(app, config, auth, registry, enrollments);
+  registerCompanion(
+    app,
+    config,
+    auth,
+    registry,
+    enrollments,
+    async (userId, machineId, operationId, action) => {
+      const runtime = await personal(userId);
+      registry.active(userId);
+      return engineWorkerMaintenance(runtime.socket, { machineId, operationId, action });
+    },
+  );
   app.post("/api/team/server-workspace/start", slow, async (req) => {
     const userId = actor(req);
     z.object({}).strict().parse(req.body);

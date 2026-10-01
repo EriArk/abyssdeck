@@ -68,6 +68,9 @@ export class CodexClient extends EventEmitter {
   inspectCompanion(authorize: () => void): Promise<RecordValue> {
     return this.authorizedRequest("companion/inspect", {}, authorize);
   }
+  closeIdleCompanion(authorize: () => void): Promise<RecordValue> {
+    return this.authorizedRequest("companion/close", {}, authorize);
+  }
   request(method: string, params: RecordValue): Promise<RecordValue> {
     return this.authorizedRequest(method, params, this.authorize);
   }

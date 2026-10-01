@@ -97,7 +97,7 @@ async function work() {
       if (children.size >= 2) break;
       if (!publish(record.id, ".claim.json", { pid: process.pid, at: Date.now() })) continue;
       if (read(record.id, ".stop.json")) { publish(record.id, ".progress.json", { state: "failed", appOpen: false, code: "PREVIEW_STOPPED" }); continue; }
-      const child = cp.spawn(path.join(process.env.WINDIR, "System32", "WindowsPowerShell", "v1.0", "powershell.exe"), ["-NoLogo", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-ExecutionPolicy", "Bypass", "-File", path.join(home, "NativePreview.ps1"), "-OperationId", record.id, "-WorkerPid", String(process.pid)], { windowsHide: true, stdio: "ignore" });
+      const child = cp.spawn(path.join(process.env.WINDIR, "System32", "WindowsPowerShell", "v1.0", "powershell.exe"), ["-NoLogo", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-ExecutionPolicy", "Bypass", "-File", path.join(__dirname, "NativePreview.ps1"), "-OperationId", record.id, "-WorkerPid", String(process.pid)], { windowsHide: true, stdio: "ignore" });
       children.add(child); child.on("error", () => {}); child.on("close", () => children.delete(child));
     }
     if (children.size) last = Date.now();

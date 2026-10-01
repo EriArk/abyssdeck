@@ -89,7 +89,7 @@ async function request(root,owner,repo,execute=run) {
 }
 module.exports={worker,request,clean,valid};
 if(require.main===module) {
-  const root=__dirname;
+  const root=process.env.CODEXWEB_WORKER_STATE||__dirname;
   (async()=>{
     if(process.platform!=='win32')throw Error('WINDOWS_REQUIRED');
     if(process.argv.length===3&&process.argv[2]==='worker')await worker(root);

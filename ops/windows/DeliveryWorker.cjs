@@ -1,6 +1,6 @@
 'use strict';
 const fs=require('node:fs/promises'),path=require('node:path'),{randomUUID}=require('node:crypto'),{execFile}=require('node:child_process'),{promisify}=require('node:util');
-const run=promisify(execFile),root=__dirname,sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const run=promisify(execFile),root=process.env.CODEXWEB_WORKER_STATE||__dirname,sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const read=async (file,max=335544320)=>{const s=await fs.lstat(file);if(!s.isFile()||s.isSymbolicLink()||s.size>max)throw Error('DELIVERY_REQUEST');return JSON.parse(await fs.readFile(file,'utf8'));};
 const valid=v=>v&&v.request&&['inspect','prepare','apply','status','github'].includes(v.request.op)&&((typeof v.root==='string'&&path.isAbsolute(v.root)&&v.root.length<=2048)||(v.root===null&&v.request.op==='github'));
 async function worker(){

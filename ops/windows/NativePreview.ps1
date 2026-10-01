@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param([Parameter(Mandatory=$true)][ValidatePattern('^[a-fA-F0-9-]{36}$')][string]$OperationId,[Parameter(Mandatory=$true)][int]$WorkerPid)
 $ErrorActionPreference='Stop'
-$directory=Join-Path $PSScriptRoot 'state'
+$directory=Join-Path $(if($env:CODEXWEB_WORKER_STATE){$env:CODEXWEB_WORKER_STATE}else{$PSScriptRoot}) 'state'
 $record=Get-Content -LiteralPath (Join-Path $directory ($OperationId+'.request.json')) -Raw -Encoding UTF8 | ConvertFrom-Json
 $progress=Join-Path $directory ($OperationId+'.progress.json')
 $stopFile=Join-Path $directory ($OperationId+'.stop.json')

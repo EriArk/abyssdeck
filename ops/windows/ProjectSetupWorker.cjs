@@ -1,6 +1,6 @@
 'use strict';
 const fs=require('node:fs/promises'),path=require('node:path'),{randomUUID}=require('node:crypto'),{execFile}=require('node:child_process'),{promisify}=require('node:util');
-const run=promisify(execFile),root=__dirname,sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const run=promisify(execFile),root=process.env.CODEXWEB_WORKER_STATE||__dirname,sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const read=async file=>{const s=await fs.lstat(file);if(!s.isFile()||s.isSymbolicLink()||s.size>262144)throw Error('INVALID_REQUEST');return JSON.parse(await fs.readFile(file,'utf8'));};
 async function worker(){
  const {setupProbe}=await import('./setupProbe.js');let empty=0;const deadline=Date.now()+540000;

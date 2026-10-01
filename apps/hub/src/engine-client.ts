@@ -1,6 +1,50 @@
 import { request } from "node:http";
 
 export const ENGINE_PROTOCOL = 1;
+export function engineWorkerMaintenance(
+  socketPath: string,
+  body: { machineId: string; operationId: string; action: "acquire" | "release" | "status" },
+): Promise<{ state: string; operationId: string }> {
+  return new Promise((resolve, reject) => {
+    const bytes = Buffer.from(JSON.stringify(body));
+    const req = request(
+      {
+        socketPath,
+        path: "/internal/companion/maintenance",
+        method: "POST",
+        headers: { "content-type": "application/json", "content-length": bytes.length },
+      },
+      (res) => {
+        let text = "";
+        res.setEncoding("utf8");
+        res.on("data", (chunk) => {
+          text += chunk;
+          if (text.length > 4096) req.destroy(new Error("ENGINE_RESPONSE_LIMIT"));
+        });
+        res.on("error", reject);
+        res.on("end", () => {
+          try {
+            const value = JSON.parse(text);
+            if (
+              res.statusCode !== 200 ||
+              !["idle", "waitingIdle", "unknown", "draining", "drained", "released"].includes(
+                value.state,
+              ) ||
+              value.operationId !== body.operationId
+            )
+              throw new Error("COMPANION_ADMISSION_UNKNOWN");
+            resolve(value);
+          } catch (error) {
+            reject(error);
+          }
+        });
+      },
+    );
+    req.setTimeout(45000, () => req.destroy(new Error("ENGINE_TIMEOUT")));
+    req.on("error", reject);
+    req.end(bytes);
+  });
+}
 export interface EngineInfo {
   protocol: number;
   schema: number;

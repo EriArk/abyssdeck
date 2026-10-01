@@ -78,6 +78,197 @@ export class Sessions extends EventEmitter {
   authorizeExecution: () => void = () => {};
   authorizeInspection: () => void = () => this.authorizeExecution();
   executionBinding = "";
+  private workerMigrations = new Set<string>();
+  private assertWorkerAvailable(machineId: string): void {
+    if (
+      this.store.db
+        .prepare(
+          "SELECT machineId FROM companion_worker_leases WHERE machineId=? AND state<>'released'",
+        )
+        .get(machineId)
+    )
+      throw new HubError(
+        409,
+        "COMPANION_UPDATING",
+        "Companion переключает исполнитель. Черновик сохранён; отправка ещё не началась.",
+      );
+  }
+  /** Durable, machine-local admission. It does not stop GPT or gate manual file work. */
+  async workerMaintenance(
+    machineId: string,
+    operationId: string,
+    action: "acquire" | "release" | "status",
+  ) {
+    this.authorizeInspection();
+    const machine = this.config.machines.find(
+      (m) => m.id === machineId && m.type === "ssh-windows" && m.codex.persistent,
+    );
+    if (!machine)
+      throw new HubError(
+        409,
+        "COMPANION_DEVICE_UNKNOWN",
+        "Постоянный исполнитель этого ПК не настроен.",
+      );
+    let row = this.store.db
+      .prepare("SELECT * FROM companion_worker_leases WHERE machineId=?")
+      .get(machineId) as { operationId: string; state: string } | undefined;
+    if (row?.state === "released" && row.operationId !== operationId && action === "acquire") {
+      this.store.db
+        .prepare("DELETE FROM companion_worker_leases WHERE machineId=? AND state='released'")
+        .run(machineId);
+      row = undefined;
+    }
+    if (row && row.operationId !== operationId)
+      throw new HubError(409, "COMPANION_UPDATING", "Другое переключение ещё не подтверждено.");
+    if (action === "status") return { state: row?.state ?? "idle", operationId };
+    if (action === "release") {
+      if (row?.state === "released") return { state: "released", operationId };
+      if (row?.state !== "drained")
+        throw new HubError(
+          409,
+          "COMPANION_OUTCOME_UNKNOWN",
+          "Сначала проверь результат остановки прежнего исполнителя.",
+        );
+      const cwd =
+        machine.allowedProjectRoots?.[0] ??
+        this.catalog.projects().find((p) => p.machineId === machineId)?.workingDirectory;
+      if (!cwd)
+        throw new HubError(409, "COMPANION_DEVICE_UNKNOWN", "Рабочая папка не подтверждена.");
+      await this.machineRuntime(machine, cwd, true); // Read-only initialize/account validation against the preserved account fingerprint.
+      this.store.db
+        .prepare(
+          "UPDATE companion_worker_leases SET state='released' WHERE machineId=? AND operationId=?",
+        )
+        .run(machineId, operationId);
+      this.recoveryAttempts.delete(machineId);
+      return { state: "released", operationId };
+    }
+    if (row?.state === "draining" && !this.workerMigrations.has(machineId)) {
+      this.workerMigrations.add(machineId);
+      try {
+        const cwd =
+          machine.allowedProjectRoots?.[0] ??
+          this.catalog.projects().find((p) => p.machineId === machineId)?.workingDirectory;
+        if (!cwd) return { state: "unknown", operationId };
+        let runtime: Runtime;
+        try {
+          runtime = await this.machineRuntime(machine, cwd, true);
+        } catch (error) {
+          if (!(error instanceof HubError) || error.code !== "CODEX_RUNTIME_MISSING") throw error;
+          this.store.db
+            .prepare("UPDATE codex_runtime_bindings SET instanceId=NULL WHERE machineId=?")
+            .run(machineId);
+          this.store.db
+            .prepare(
+              "UPDATE companion_worker_leases SET state='drained' WHERE machineId=? AND operationId=?",
+            )
+            .run(machineId, operationId);
+          return { state: "drained", operationId };
+        }
+        const info = await runtime.rpc.inspectCompanion(() => this.authorizeInspection());
+        if (
+          !runtime.binding ||
+          info.protocol !== 2 ||
+          info.instanceId !== runtime.instanceId ||
+          info.runtimeId !== runtime.binding.binding
+        )
+          return { state: "unknown", operationId };
+        if (info.active !== 0 || info.pending !== 0 || runtime.active.size) {
+          this.store.db
+            .prepare("DELETE FROM companion_worker_leases WHERE machineId=? AND operationId=?")
+            .run(machineId, operationId);
+          return { state: "waitingIdle", operationId };
+        }
+        const closed = await runtime.rpc.closeIdleCompanion(() => this.authorizeInspection());
+        if (closed.closed !== true) return { state: "unknown", operationId };
+        this.runtimes.delete(machineId);
+        runtime.rpc.close();
+        this.store.db
+          .prepare("UPDATE codex_runtime_bindings SET instanceId=NULL WHERE machineId=?")
+          .run(machineId);
+        this.store.db
+          .prepare(
+            "UPDATE companion_worker_leases SET state='drained' WHERE machineId=? AND operationId=?",
+          )
+          .run(machineId, operationId);
+        return { state: "drained", operationId };
+      } finally {
+        this.workerMigrations.delete(machineId);
+      }
+    }
+    if (row) return { state: row.state, operationId };
+    if (this.workerMigrations.has(machineId)) return { state: "waitingIdle", operationId };
+    this.workerMigrations.add(machineId);
+    try {
+      const projects = this.catalog.projects().filter((p) => p.machineId === machineId);
+      if (
+        (this.machineWrites.get(machineId) ?? 0) > 0 ||
+        projects.some(
+          (p) =>
+            this.locks.has(p.id) ||
+            this.deliveryProjects.has(p.id) ||
+            this.handingOff.has(p.id) ||
+            this.store
+              .threads(p.id)
+              .some((t) => t.activeTurnId || ["running", "waiting_approval"].includes(t.status)),
+        )
+      )
+        return { state: "waitingIdle", operationId };
+      if (this.machineClient(machineId) === "desktop") return { state: "waitingIdle", operationId };
+      // If a persistent process exists after engine reconnect, first attach to its
+      // exact binding. Never assume an empty in-memory map proves Windows idle.
+      let pending = this.runtimes.get(machineId);
+      const binding = this.store.db
+        .prepare("SELECT instanceId FROM codex_runtime_bindings WHERE machineId=?")
+        .get(machineId);
+      if (!pending && binding?.instanceId) {
+        const cwd = machine.allowedProjectRoots?.[0] ?? projects[0]?.workingDirectory;
+        if (!cwd) return { state: "unknown", operationId };
+        pending = this.machineRuntime(machine, cwd);
+      }
+      const runtime = pending ? await pending : undefined;
+      if (runtime) {
+        if (!runtime.binding || runtime.active.size) return { state: "waitingIdle", operationId };
+        const info = await runtime.rpc.inspectCompanion(() => this.authorizeInspection());
+        if (
+          info.protocol !== 2 ||
+          info.runtimeId !== runtime.binding.binding ||
+          info.instanceId !== runtime.instanceId
+        )
+          return { state: "unknown", operationId };
+        if (info.active !== 0 || info.pending !== 0) return { state: "waitingIdle", operationId };
+      }
+      // Synchronous recheck closes the race with request admission before a drain.
+      if ((this.machineWrites.get(machineId) ?? 0) > 0 || runtime?.active.size)
+        return { state: "waitingIdle", operationId };
+      this.store.db
+        .prepare("INSERT INTO companion_worker_leases VALUES(?,?,?,?)")
+        .run(machineId, operationId, "draining", Date.now());
+      if (runtime) {
+        const closed = await runtime.rpc.closeIdleCompanion(() => this.authorizeInspection()); // Broker refuses active turns, questions and outstanding calls atomically.
+        if (closed.closed !== true)
+          throw new HubError(
+            409,
+            "COMPANION_OUTCOME_UNKNOWN",
+            "Исполнитель не подтвердил завершение подключения.",
+          );
+        this.runtimes.delete(machineId);
+        runtime.rpc.close();
+      }
+      // Preserve capability, account fingerprint, roots and uncertain receipts.
+      this.store.db
+        .prepare("UPDATE codex_runtime_bindings SET instanceId=NULL WHERE machineId=?")
+        .run(machineId);
+      this.store.db
+        .prepare(
+          "UPDATE companion_worker_leases SET state='drained' WHERE machineId=? AND operationId=?",
+        )
+        .run(machineId, operationId);
+      return { state: "drained", operationId };
+    } finally {
+      this.workerMigrations.delete(machineId);
+    }
+  }
   projectInstructions: (projectId: string) => string | null = () => null;
   private readonly collaborationThreads = new Set<string>();
   private turnInstructions(thread: ThreadRecord) {
@@ -136,6 +327,9 @@ export class Sessions extends EventEmitter {
       new CodexClient(spawnCodex(m, cwd, undefined, binding), undefined, undefined, !!binding),
   ) {
     super();
+    this.store.db.exec(
+      "CREATE TABLE IF NOT EXISTS companion_worker_leases(machineId TEXT PRIMARY KEY,operationId TEXT NOT NULL,state TEXT NOT NULL,createdAt INTEGER NOT NULL)",
+    );
     this.nativeWork = new NativeWorkStore(store);
     this.attachments = new Attachments(
       join(config.hub.resultsPath, "uploads"),
@@ -222,8 +416,13 @@ export class Sessions extends EventEmitter {
     if (!machine) throw new HubError(503, "MACHINE_NOT_FOUND", "Машина не настроена");
     return this.machineRuntime(machine, p.workingDirectory);
   }
-  private async machineRuntime(machine: MachineConfig, workingDirectory: string): Promise<Runtime> {
+  private async machineRuntime(
+    machine: MachineConfig,
+    workingDirectory: string,
+    maintenanceInspection = false,
+  ): Promise<Runtime> {
     this.authorizeExecution();
+    if (!maintenanceInspection) this.assertWorkerAvailable(machine.id);
     const runtimeId = machine.id;
     await verifyProjectRoot(machine, workingDirectory);
     this.authorizeExecution();
@@ -239,7 +438,11 @@ export class Sessions extends EventEmitter {
       this.authorizeExecution();
       const binding = codexRuntimeBinding(this.store, machine, anchor, this.executionBinding);
       const rpc = this.clientFactory(machine, anchor, binding);
-      rpc.authorize = () => this.authorizeExecution();
+      let initializingMaintenance = maintenanceInspection;
+      rpc.authorize = () => {
+        this.authorizeExecution();
+        if (!initializingMaintenance) this.assertWorkerAvailable(machine.id);
+      };
       const runtime: Runtime = {
         machineId: machine.id,
         binding,
@@ -320,6 +523,7 @@ export class Sessions extends EventEmitter {
         for (const request of Array.isArray(ready.pending) ? ready.pending : [])
           rpc.emit("request", request);
       }
+      initializingMaintenance = false;
       return runtime;
     })();
     this.runtimes.set(runtimeId, existing);
@@ -336,6 +540,7 @@ export class Sessions extends EventEmitter {
     return clients[machineId] === "desktop" ? "desktop" : "web";
   }
   assertWritable(projectId: string): void {
+    this.assertWorkerAvailable(this.project(projectId).machineId);
     if (this.deliveryProjects.has(projectId))
       throw new HubError(
         409,
@@ -1999,6 +2204,14 @@ export class Sessions extends EventEmitter {
     this.recovering = true;
     try {
       for (const machine of this.config.machines.filter((m) => m.codex.persistent)) {
+        if (
+          this.store.db
+            .prepare(
+              "SELECT machineId FROM companion_worker_leases WHERE machineId=? AND state<>'released'",
+            )
+            .get(machine.id)
+        )
+          continue;
         if ((this.recoveryAttempts.get(machine.id) ?? 0) >= 3) continue;
         const projects = this.catalog.projects().filter((p) => p.machineId === machine.id);
         const threads = projects

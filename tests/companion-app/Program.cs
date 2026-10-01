@@ -33,6 +33,20 @@ try
     Check(config.Roots.SequenceEqual(new[] { "C:\\source-one", "D:\\source-two" }) && config.Runtime == cli && config.Notice is null
         && File.ReadAllBytes(workerConfig).SequenceEqual(configBytes), "read-only adoption preserves exact worker config and roots");
     var c = new Component("delivery", "Files", "delivery", true, true, true, "Ready", cli, true);
+    var kit=Path.Combine(temporary,"reviewed-kit");Directory.CreateDirectory(kit);
+    foreach(var name in WorkerManager.Files["CodexWebDelivery"].Append("Start-ManagedWorker.ps1"))File.WriteAllText(Path.Combine(kit,name),"reviewed-"+name);
+    var managed=WorkerManager.Prepare(store.Directory,kit,"CodexWebDelivery");
+    var repeat=WorkerManager.Prepare(store.Directory,kit,"CodexWebDelivery");
+    Check(managed==repeat && ReleaseVerifier.HashFile(Path.Combine(managed.Directory,"worker.json"))==managed.Digest,
+        "reviewed workers stage one immutable release separately from private state");
+    File.WriteAllText(Path.Combine(managed.Directory,"DeliveryWorker.cjs"),"corrupted");
+    var repair=WorkerManager.Prepare(store.Directory,kit,"CodexWebDelivery");
+    Check(repair.Digest!=managed.Digest && WorkerManager.Prepare(store.Directory,kit,"CodexWebDelivery")==repair
+        && File.ReadAllText(Path.Combine(managed.Directory,"DeliveryWorker.cjs"))=="corrupted",
+        "damaged code repairs to a durable fresh address without overwriting active code");
+    Check(!WorkerManager.Candidate(c with {Id="CodexWebDesktopRestart",TaskDigest=new string('a',64)})
+        && !WorkerManager.Candidate(c with {Id="CodexWebDelivery",State="Disabled",TaskDigest=new string('a',64)}),
+        "worker migration cannot enable disabled tasks or upgrade privileged desktop control");
     Check(StatusProjection.Project(c).State == "Готов по запросу" && !StatusProjection.Project(c).Attention, "idle demand worker is available, not a false error");
     Check(StatusProjection.Project(c with { State = "Running" }, false).Attention
         && StatusProjection.Project(c with { Owned = false }).State == "Неизвестно", "failed status and foreign task cannot imply readiness");
@@ -71,7 +85,7 @@ try
         Check(await output.Task.WaitAsync(TimeSpan.FromSeconds(15)), "real same-user ConPTY accepts input and produces output without SSH");
     }
     using(var signing=System.Security.Cryptography.RSA.Create(3072)) {
-        var candidate=new UpdateRelease(1,"codexweb-companion-ui","win-x64","0.4.9",101,19045,1,new string('a',64),new string('b',64),4096,new string('c',40),DateTimeOffset.UtcNow);
+        var candidate=new UpdateRelease(1,"codexweb-companion-ui","win-x64","0.5.9",101,19045,1,new string('a',64),new string('b',64),4096,new string('c',40),DateTimeOffset.UtcNow);
         SignedUpdate Signed(UpdateRelease value) {
             var data=JsonSerializer.SerializeToUtf8Bytes(value,SettingsStore.Json);
             return new(1,Convert.ToBase64String(data),Convert.ToBase64String(signing.SignData(data,System.Security.Cryptography.HashAlgorithmName.SHA256,System.Security.Cryptography.RSASignaturePadding.Pss)));

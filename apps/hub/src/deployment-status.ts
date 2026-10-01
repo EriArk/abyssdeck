@@ -17,6 +17,16 @@ export function deploymentBlockers(
     const count = Number(store.db.prepare(sql).get()?.n ?? 0);
     if (count) blockers.push({ kind, count, label });
   };
+  if (
+    store.db
+      .prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='companion_worker_leases'")
+      .get()
+  )
+    add(
+      "companion",
+      "SELECT COUNT(*) n FROM companion_worker_leases WHERE state<>'released'",
+      "Companion: переключение исполнителя ещё не подтверждено",
+    );
   const codex = store.db
     .prepare(
       "SELECT id FROM threads WHERE activitySource!='external' AND (activeTurnId IS NOT NULL OR status IN ('starting','running','waiting_approval','unknown'))",

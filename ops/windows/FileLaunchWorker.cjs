@@ -87,7 +87,7 @@ async function work() {
       if (!r || read(r.id, ".claim.json") || read(r.id, ".progress.json")) continue;
       if (!publish(r.id, ".claim.json", { at: Date.now() })) continue;
       if (r.expiresAt < Date.now() || children.size >= 4) { publish(r.id, ".progress.json", { state: "failed", code: r.expiresAt < Date.now() ? "LAUNCH_EXPIRED" : "LAUNCH_BUSY", updatedAt: Date.now() }); continue; }
-      const child = cp.spawn(path.join(process.env.WINDIR, "System32", "WindowsPowerShell", "v1.0", "powershell.exe"), ["-NoLogo", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-ExecutionPolicy", "Bypass", "-File", path.join(home, "NativeFileLaunch.ps1"), "-OperationId", r.id], { windowsHide: true, stdio: "ignore" });
+      const child = cp.spawn(path.join(process.env.WINDIR, "System32", "WindowsPowerShell", "v1.0", "powershell.exe"), ["-NoLogo", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-ExecutionPolicy", "Bypass", "-File", path.join(__dirname, "NativeFileLaunch.ps1"), "-OperationId", r.id], { windowsHide: true, stdio: "ignore" });
       children.add(child); last = Date.now();
       child.on("error", () => {}); child.on("close", () => children.delete(child));
     }
