@@ -132,6 +132,108 @@ async function setup(instructions = () => null) {
   };
 }
 
+test("legacy confirmed Steer becomes a historical message after upgrade, not a permanent queue card", async () => {
+  const f = await setup();
+  try {
+    const clientId = randomUUID(),
+      queueId = randomUUID();
+    const text = questionReplyText("old_question", [{ title: "Confirm UAC?" }], ["Yes"]);
+    const submission = {
+      id: queueId,
+      clientUserMessageId: clientId,
+      input: [{ type: "text", text }],
+    };
+    f.store.db
+      .prepare("INSERT INTO queue_transfers VALUES(?,?,?,'steered')")
+      .run(f.t.id, queueId, JSON.stringify(submission));
+    const ack = f.store.append(f.t.id, "queue.changed", {
+      action: "steer",
+      clientMessageId: clientId,
+    });
+    f.store.db
+      .prepare("UPDATE events SET createdAt=? WHERE seq=?")
+      .run("2026-10-01T05:55:51.942Z", ack.seq);
+    const later = f.store.append(
+      f.t.id,
+      "user.message",
+      { id: randomUUID(), text: "Later task" },
+      "later-turn",
+    );
+    f.store.setStatus(f.t.id, "running", "later-turn");
+    const beforeCalls = f.rpc.calls.length;
+    const reopened = new QueueService(f.sessions, f.store);
+    new QueueService(f.sessions, f.store);
+    assert.equal(f.rpc.calls.length, beforeCalls, "recovery never calls native, sends, or steers");
+    const restored = f.store.db
+      .prepare("SELECT * FROM messages WHERE threadId=? AND id=?")
+      .get(f.t.id, clientId);
+    assert.equal(restored.text, text);
+    assert.equal(restored.firstSeq, ack.seq);
+    assert.ok(restored.firstSeq < later.seq);
+    assert.equal(restored.createdAt, "2026-10-01T05:55:51.942Z");
+    assert.equal(restored.turnId, null, "never invent the original turn from the current one");
+    assert.equal((await reopened.list(f.t.id)).items.length, 0);
+    assert.equal(f.store.thread(f.t.id).activeTurnId, "later-turn");
+    assert.equal(
+      f.store.db
+        .prepare("SELECT count(*) n FROM messages WHERE threadId=? AND id=?")
+        .get(f.t.id, clientId).n,
+      1,
+    );
+    assert.ok(
+      f.store.events(f.t.id).some((e) => e.seq === ack.seq),
+      "original acceptance evidence remains",
+    );
+    f.rpc.emit("notification", "item/started", {
+      threadId: f.t.codexThreadId,
+      turnId: "original-turn",
+      item: { id: randomUUID(), clientId, type: "userMessage", content: [{ type: "text", text }] },
+    });
+    const confirmed = f.store.db
+      .prepare("SELECT * FROM messages WHERE threadId=? AND id=?")
+      .get(f.t.id, clientId);
+    assert.equal(confirmed.turnId, "original-turn");
+    assert.equal(confirmed.firstSeq, ack.seq);
+  } finally {
+    await f.close();
+  }
+});
+
+test("legacy recovery requires both a confirmed receipt and its own exact acceptance event", async () => {
+  const f = await setup();
+  try {
+    const other = f.store.createThread("p", "other-native", "Other");
+    for (const state of ["unknown", "enqueue_unknown", "queued", "steered"]) {
+      const clientId = randomUUID(),
+        queueId = randomUUID();
+      f.store.db.prepare("INSERT INTO queue_transfers VALUES(?,?,?,?)").run(
+        f.t.id,
+        queueId,
+        JSON.stringify({
+          id: queueId,
+          clientUserMessageId: clientId,
+          input: [{ type: "text", text: "Do not replay" }],
+        }),
+        state,
+      );
+      // Same ID in a different private thread must not serve as proof.
+      f.store.append(state === "steered" ? other.id : f.t.id, "queue.changed", {
+        action: "steer",
+        clientMessageId: clientId,
+      });
+    }
+    const before = f.store.history(f.t.id).messages.length;
+    new QueueService(f.sessions, f.store);
+    assert.equal(f.store.history(f.t.id).messages.length, before);
+    assert.equal(
+      f.store.db.prepare("SELECT count(*) n FROM queue_transfers WHERE threadId=?").get(f.t.id).n,
+      4,
+    );
+  } finally {
+    await f.close();
+  }
+});
+
 test("async question reply atomically steers its source turn without a browser ownership hint; exact receipt is single-use", async () => {
   const f = await setup();
   try {

@@ -21,6 +21,40 @@ export class QueueService {
         "UPDATE queue_transfers SET state=CASE WHEN state='enqueue_pending' THEN 'enqueue_unknown' ELSE 'unknown' END WHERE state IN ('pending','enqueue_pending')",
       )
       .run();
+    this.recoverConfirmedSteers();
+  }
+  /** Older releases persisted the Steer ACK but not its user message. Recover
+   * that historical projection from the exact receipt/event, never by sending
+   * again or by attaching it to whatever turn happens to be active now. */
+  private recoverConfirmedSteers() {
+    const rows = this.store.db
+      .prepare(
+        "SELECT threadId,value FROM queue_transfers WHERE state='steered' AND NOT EXISTS (SELECT 1 FROM messages WHERE messages.threadId=queue_transfers.threadId AND messages.id=json_extract(queue_transfers.value, '$.clientUserMessageId'))",
+      )
+      .all();
+    for (const row of rows) {
+      const q = JSON.parse(String(row.value)) as Submission;
+      const ack = this.store.db
+        .prepare(
+          "SELECT seq,createdAt,turnId FROM events WHERE threadId=? AND type='queue.changed' AND json_extract(payload,'$.action')='steer' AND json_extract(payload,'$.clientMessageId')=? ORDER BY seq LIMIT 1",
+        )
+        .get(String(row.threadId), q.clientUserMessageId);
+      if (!ack) continue;
+      const text = this.public(String(row.threadId), q, "steered").text;
+      this.store.db
+        .prepare(
+          "INSERT INTO messages VALUES(?,?,?, 'user','',?,?,?,?) ON CONFLICT(threadId,id) DO NOTHING",
+        )
+        .run(
+          String(row.threadId),
+          q.clientUserMessageId,
+          ack.turnId == null ? null : String(ack.turnId),
+          text,
+          Number(ack.seq),
+          Number(ack.seq),
+          String(ack.createdAt),
+        );
+    }
   }
   private async locked<T>(id: string, fn: () => Promise<T>): Promise<T> {
     if (this.locks.has(id)) throw new HubError(409, "QUEUE_BUSY", "Дождись обновления очереди");
