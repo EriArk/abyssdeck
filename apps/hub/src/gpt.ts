@@ -25,6 +25,11 @@ import type { FastifyInstance } from "fastify";
 import sharp from "sharp";
 import { z } from "zod";
 import { GptHistoryCache, type GptHistorySnapshot } from "./gpt-cache.js";
+import {
+  confirmationWarning,
+  gptConfirmationPending,
+  gptConfirmationState,
+} from "./gpt-confirmation.js";
 import { GptDeletions } from "./gpt-deletions.js";
 import {
   GptHistoryNormalizer,
@@ -1006,6 +1011,7 @@ export class GptService {
       .map((row) => this.publicJob(row));
   }
   private publicJob(row: Json): GptJob {
+    const confirmation = gptConfirmationState(this.store, String(row.id));
     return {
       id: row.id,
       ...(typeof row.requestId === "string" &&
@@ -1032,17 +1038,21 @@ export class GptService {
       createdAt: Number(row.createdAt),
       updatedAt: Number(row.updatedAt),
       error:
-        row.error === "NATIVE_CHAT_PAUSED"
-          ? "Проверки этого чата остановлены после повторных ошибок. Сообщение могло быть отправлено; автоматического повтора не будет. Другие чаты доступны."
-          : row.error === "NATIVE_CHAT_PAUSED_UNSENT"
-            ? "Отправка остановлена из-за сбоя этого чата. Сообщение не отправлялось; его можно вернуть в черновик."
-            : row.error === "NATIVE_DRAFT_PRESENT"
-              ? "В этом чате GPT уже есть нативный черновик. Сохрани или убери его через подключение к GPT; другие чаты доступны."
-              : typeof row.error === "string" && row.error.startsWith("NATIVE_")
-                ? row.status === "unknown"
-                  ? ""
-                  : "Отправка не подготовлена. Текст и файлы сохранены."
-                : row.error,
+        confirmation === "waiting"
+          ? ""
+          : row.error === "NATIVE_CHAT_PAUSED"
+            ? "Проверки этого чата остановлены после повторных ошибок. Сообщение могло быть отправлено; автоматического повтора не будет. Другие чаты доступны."
+            : confirmation === "review"
+              ? confirmationWarning
+              : row.error === "NATIVE_CHAT_PAUSED_UNSENT"
+                ? "Отправка остановлена из-за сбоя этого чата. Сообщение не отправлялось; его можно вернуть в черновик."
+                : row.error === "NATIVE_DRAFT_PRESENT"
+                  ? "В этом чате GPT уже есть нативный черновик. Сохрани или убери его через подключение к GPT; другие чаты доступны."
+                  : typeof row.error === "string" && row.error.startsWith("NATIVE_")
+                    ? row.status === "unknown"
+                      ? ""
+                      : "Отправка не подготовлена. Текст и файлы сохранены."
+                    : row.error,
     };
   }
   job(jobId: string) {
@@ -1415,6 +1425,12 @@ export class GptService {
         const receipt = this.store.db
           .prepare("SELECT 1 FROM gpt_native_receipts WHERE jobId=?")
           .get(jobId);
+        if (receipt)
+          this.store.db
+            .prepare(
+              "UPDATE gpt_native_receipts SET uncertainSince=COALESCE(uncertainSince,?) WHERE jobId=?",
+            )
+            .run(Date.now(), jobId);
         if (["queued", "preparing", "running", "unknown", "failed"].includes(current.status))
           this.update(jobId, {
             status: receipt ? "unknown" : "failed",
@@ -1448,19 +1464,9 @@ export class GptService {
   private invalidateNativeJob(id: string, refresh = false) {
     const job = this.job(id);
     if (job.status === "unknown") {
-      const since = Number(
-        this.store.db
-          .prepare("SELECT uncertainSince FROM gpt_native_receipts WHERE jobId=?")
-          .get(id)?.uncertainSince ?? Date.now(),
-      );
       this.store.db
         .prepare("UPDATE gpt_jobs SET error=? WHERE id=? AND error!='NATIVE_CHAT_PAUSED'")
-        .run(
-          Date.now() - since >= 45000
-            ? "Не удалось подтвердить доставку сообщения. Проверь историю перед новой отправкой."
-            : "",
-          id,
-        );
+        .run(gptConfirmationPending(this.store, id) ? "" : confirmationWarning, id);
     }
     this.observedHistory = undefined;
     if (job.nativeId) {

@@ -5,6 +5,7 @@ import type { FastifyInstance } from "fastify";
 import webpush, { type PushSubscription } from "web-push";
 import { z } from "zod";
 import type { Auth } from "./auth.js";
+import { gptConfirmationPending } from "./gpt-confirmation.js";
 import { type Notice, noticeDisplay } from "./push-content.js";
 import type { Store } from "./store.js";
 
@@ -260,6 +261,20 @@ export class PushService {
         db.prepare(
           "UPDATE push_deliveries SET state='skipped' WHERE notice=? AND subscription=?",
         ).run(row.id, row.subscription);
+        continue;
+      }
+      if (
+        row.client === "gpt" &&
+        row.kind === "unknown" &&
+        gptConfirmationPending(this.store, row.target)
+      ) {
+        // Keep the notice pending, so a later recovery stop can still notify.
+        // Successful confirmation makes it stale on the next tick.
+        db.prepare("UPDATE push_deliveries SET nextAt=? WHERE notice=? AND subscription=?").run(
+          Date.now() + 3000,
+          row.id,
+          row.subscription,
+        );
         continue;
       }
       db.prepare(

@@ -397,6 +397,10 @@ test("routine native delivery reconciliation is silent; prolonged uncertainty re
   f.store.db
     .prepare("UPDATE gpt_native_receipts SET uncertainSince=? WHERE jobId=?")
     .run(Date.now() - 60000, key);
+  assert.equal(service.job(key).error, "");
+  f.store.db
+    .prepare("UPDATE gpt_native_receipts SET uncertainSince=? WHERE jobId=?")
+    .run(Date.now() - 120001, key);
   f.store.db.prepare("UPDATE gpt_native_read_health SET nextAt=0 WHERE jobId=?").run(key);
   await service.pump();
   assert.match(service.job(key).error, /доставку/);

@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import vm from "node:vm";
+import { NativeGptJobs } from "../apps/hub/dist/gpt-native-jobs.js";
 import { Library } from "../apps/hub/dist/library.js";
 import { loadPushKeys, PushService, pushEndpoint } from "../apps/hub/dist/push.js";
 import { notificationText } from "../apps/hub/dist/push-content.js";
@@ -37,6 +38,10 @@ async function fixture(send) {
         categories: prefs,
       });
       assert.equal(r.statusCode, 200, r.body);
+      // SQLite's subsecond clock can round below JS Date.now() in the same ms.
+      f.store.db
+        .prepare("UPDATE push_subscriptions SET createdAt=createdAt-1 WHERE id=?")
+        .run(r.json().id);
       return r.json().id;
     },
     complete: (turn = randomUUID()) => {
@@ -62,6 +67,112 @@ function job(f, status = "running") {
     .run(id, id, "native-" + id, status, Date.now(), Date.now());
   return id;
 }
+
+test("native confirmation waits quietly, recovers without replay and warns when recovery stops or expires", async () => {
+  for (const outcome of ["recovered", "paused", "expired"]) {
+    const f = await fixture();
+    try {
+      await f.subscribe();
+      const id = job(f, "queued"),
+        nativeId = randomUUID();
+      f.store.db
+        .prepare("UPDATE gpt_jobs SET nativeId=?,model='latest',effort='1' WHERE id=?")
+        .run(nativeId, id);
+      let sent = 0,
+        payload,
+        state = "unknown";
+      const client = {
+        prepareDispatch: async () => ({
+          parentId: randomUUID(),
+          model: "model",
+          effort: null,
+          versionId: "latest",
+          presetId: 1,
+        }),
+        dispatchText: async (value) => {
+          sent++;
+          payload = value;
+        },
+        reconcileDispatch: async () => ({
+          state,
+          userMessageId: payload.userMessageId,
+          messages: [],
+        }),
+      };
+      const worker = new NativeGptJobs(f.store, client, () => {}, new Set([nativeId]));
+      await worker.run(id);
+      const receipt = f.store.db
+        .prepare("SELECT payload FROM gpt_native_receipts WHERE jobId=?")
+        .get(id).payload;
+      // This used to show an error after 45 seconds despite ongoing recovery.
+      f.store.db
+        .prepare("UPDATE gpt_native_receipts SET uncertainSince=? WHERE jobId=?")
+        .run(Date.now() - 60000, id);
+      const quiet = async () => {
+        assert.equal(f.gpt.job(id).error, "");
+        assert.equal(
+          (await f.request("/api/workspace/notices"))
+            .json()
+            .items.some((n) => n.target.client === "gpt"),
+          false,
+        );
+        f.store.db.prepare("UPDATE push_deliveries SET nextAt=0").run();
+        await f.push.tick();
+        assert.equal(f.sent.length, 0);
+      };
+      await quiet();
+      assert.equal(deliveries(f)[0].state, "pending");
+      if (outcome === "recovered") {
+        state = "running";
+        await worker.reconcile(id);
+      } else if (outcome === "paused") {
+        await worker.reconcile(id);
+        await quiet();
+        await worker.reconcile(id);
+        assert.equal(
+          f.store.db.prepare("SELECT paused FROM gpt_native_read_health WHERE jobId=?").get(id)
+            .paused,
+          1,
+        );
+      } else {
+        // No extra worker tick is needed to reveal an expired confirmation.
+        f.store.db
+          .prepare("UPDATE gpt_native_receipts SET uncertainSince=? WHERE jobId=?")
+          .run(Date.now() - 120001, id);
+      }
+      f.store.db.prepare("UPDATE push_deliveries SET nextAt=0").run();
+      await f.push.tick();
+      if (outcome === "recovered") {
+        assert.equal(f.sent.length, 0);
+        assert.equal(deliveries(f)[0].state, "skipped");
+        state = "completed";
+        await worker.reconcile(id);
+        await f.push.tick();
+        assert.equal(f.sent.length, 1);
+        assert.match(f.sent[0].payload.display.title, /Готово/);
+      } else {
+        assert.equal(f.sent.length, 1);
+        assert.match(f.sent[0].payload.display.title, /Нужна проверка/);
+        assert.ok(f.gpt.job(id).error);
+        assert.equal(
+          (await f.request("/api/workspace/notices"))
+            .json()
+            .items.some((n) => n.target.client === "gpt"),
+          true,
+        );
+        await f.push.tick();
+        assert.equal(f.sent.length, 1);
+      }
+      assert.equal(sent, 1);
+      assert.equal(
+        f.store.db.prepare("SELECT payload FROM gpt_native_receipts WHERE jobId=?").get(id).payload,
+        receipt,
+      );
+    } finally {
+      await f.close();
+    }
+  }
+});
 test("push is opt-in, session-bound and rejects untrusted endpoints without exposing device secrets", async () => {
   const f = await fixture();
   try {

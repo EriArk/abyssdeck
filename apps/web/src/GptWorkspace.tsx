@@ -1250,7 +1250,7 @@ export function GptWorkspace({
                 <b>Вы</b>
                 <small>
                   {job.status === "unknown" && !job.error
-                    ? "Ожидаем ответ"
+                    ? "Подтверждаем отправку"
                     : job.status === "queued" && !waitingGptJob(job, jobs)
                       ? "Отправляется"
                       : titles[job.status]}
@@ -1463,7 +1463,7 @@ export function GptWorkspace({
             {job.text.slice(0, 60) || "Новая отправка"}
             <small>
               {job.status === "unknown" && !job.error
-                ? "Отправляется"
+                ? "Подтверждаем отправку"
                 : job.status === "queued" && !waitingGptJob(job, jobs)
                   ? "Отправляется"
                   : titles[job.status]}
@@ -2135,7 +2135,7 @@ export function GptWorkspace({
                         : active && waitingGptJob(active, jobs)
                           ? titles.queued
                           : awaitingReply
-                            ? "Ожидаем ответ GPT"
+                            ? "Подтверждаем отправку"
                             : "Отправляется"
                   }
                   onStop={

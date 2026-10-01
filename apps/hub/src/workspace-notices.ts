@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { HubError, type WorkspaceNotice } from "@codex-web/shared";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { gptConfirmationPending } from "./gpt-confirmation.js";
 import { notificationText } from "./push-content.js";
 import type { Sessions } from "./sessions.js";
 
@@ -82,6 +83,7 @@ export function registerWorkspaceNotices(app: FastifyInstance, sessions: Session
         "SELECT id,nativeId,status,updatedAt FROM gpt_jobs WHERE status IN ('completed','failed','unknown') AND nativeId IS NOT NULL AND nativeId<>'' AND updatedAt>=? ORDER BY updatedAt DESC LIMIT 100",
       )
       .all(since)) {
+      if (j.status === "unknown" && gptConfirmationPending(store, String(j.id))) continue;
       const nativeId = String(j.nativeId),
         thread = meta("gpt", "thread", nativeId);
       if (

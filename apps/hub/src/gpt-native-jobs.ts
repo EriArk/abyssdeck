@@ -73,6 +73,11 @@ export class NativeGptJobs {
     );
     store.db
       .prepare(
+        "UPDATE gpt_native_receipts SET uncertainSince=COALESCE(uncertainSince,?) WHERE jobId IN (SELECT id FROM gpt_jobs WHERE status IN ('preparing','running'))",
+      )
+      .run(Date.now());
+    store.db
+      .prepare(
         "UPDATE gpt_jobs SET status='unknown',error='NATIVE_RECONCILE_REQUIRED' WHERE status IN ('preparing','running') AND id IN (SELECT jobId FROM gpt_native_receipts)",
       )
       .run();
