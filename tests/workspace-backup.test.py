@@ -1,4 +1,4 @@
-import hashlib,json,os,sqlite3,sys,tempfile,unittest,uuid
+import errno,hashlib,json,os,sqlite3,sys,tempfile,unittest,uuid
 from pathlib import Path
 from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'ops/workspaces'))
@@ -58,5 +58,33 @@ class Backup(unittest.TestCase):
         backup.create(self.saved,self.team)
         (self.saved/'slot0.ext4').unlink();(self.saved/'slot0.ext4').symlink_to(self.image)
         with self.assertRaisesRegex(RuntimeError,'BACKUP_PATH_INVALID'):backup.verify(self.saved,self.team)
+    def test_capture_is_not_valid_until_finalized_and_uses_no_live_files_after_resume(self):
+        backup.capture(self.saved)
+        self.assertFalse((self.saved/'manifest.json').exists())
+        self.image.unlink();self.registry.unlink();self.config.unlink()
+        backup.finalize(self.saved,self.team)
+        self.assertEqual(backup.verify(self.saved,self.team)['bindings'][0][0],self.owner)
+    def test_copy_corruption_before_finalization_is_rejected(self):
+        backup.capture(self.saved)
+        with (self.saved/'slot0.ext4').open('r+b') as file:file.write(b'wrong')
+        with self.assertRaisesRegex(RuntimeError,'BACKUP_CHECKSUM'):backup.finalize(self.saved,self.team)
+    def test_sparse_extent_copy_keeps_leading_middle_trailing_holes_and_exact_hash(self):
+        with self.image.open('wb') as file:
+            file.seek(2*1024**2);file.write(b'first')
+            file.seek(6*1024**2);file.write(b'second');file.truncate(8*1024**2)
+        copied=self.root/'sparse'
+        info=backup.sparse_copy(self.image,copied)
+        self.assertEqual(info,{'bytes':8*1024**2,'sha256':backup.digest(self.image)})
+        self.assertEqual(backup.digest(copied),info['sha256'])
+        self.assertLess(copied.stat().st_blocks*512,copied.stat().st_size//2)
+    def test_filesystem_without_extent_support_uses_exact_linear_fallback(self):
+        copied=self.root/'fallback'
+        with patch.object(backup.os,'lseek',side_effect=OSError(errno.EINVAL,'unsupported')):
+            info=backup.sparse_copy(self.image,copied)
+        self.assertEqual(backup.digest(copied),backup.digest(self.image))
+        self.assertEqual(info['sha256'],backup.digest(self.image))
+    def test_unexpected_extent_io_error_is_not_treated_as_empty_disk(self):
+        with patch.object(backup.os,'lseek',side_effect=OSError(errno.EIO,'disk error')):
+            with self.assertRaises(OSError):backup.sparse_copy(self.image,self.root/'failed')
 
 if __name__=='__main__':unittest.main()

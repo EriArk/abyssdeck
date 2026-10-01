@@ -1,7 +1,8 @@
-import importlib.util,json,sqlite3,sys,tempfile,unittest,uuid
+import importlib.util,json,os,sqlite3,sys,tempfile,unittest,uuid
 from pathlib import Path
 from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'ops/workspaces'))
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'ops/linux'))
 import checkpoint as cp
 import backup
 
@@ -18,8 +19,15 @@ class Checkpoint(unittest.TestCase):
         self.config=self.root/'host.json';self.config.write_text(json.dumps({'uid':1001,'hubUid':1000,'image':self.image}))
         self.disks=self.root/'disks';(self.disks/'images').mkdir(parents=True);(self.disks/'images/slot0.ext4').write_bytes(b'disk')
         self.log=[];self.running=True;self.busy=False;self.fail=None
+        log=self.log
+        class Frozen:
+            def __init__(self,state,destination):self.destination=destination;destination.mkdir()
+            def prepare(self,*_):log.append(['prepare'])
+            def seal(self):log.append(['seal'])
+            def grant_reader(self,*_):log.append(['reader'])
         self.patches=[patch.object(backup,'CONFIG',self.config),patch.object(backup,'REGISTRY',self.registry),patch.object(cp,'ROOT',str(self.disks)),patch.object(cp,'JOURNAL',self.root/'journal.json'),patch.object(cp,'run',self.command),patch.object(cp,'check_mount',lambda *_:None)]
         for p in self.patches:p.start()
+        frozen=patch.object(cp,'FrozenHub',Frozen);frozen.start();self.patches.append(frozen)
         self.op=cp.Checkpoint({'state':str(self.state),'destination':str(self.dest),'hubGid':1000,'keep':3})
     def tearDown(self):
         for p in reversed(self.patches):p.stop()
@@ -55,36 +63,95 @@ class Checkpoint(unittest.TestCase):
         self.assertFalse(any('podman' in ' '.join(a) and 'stop' in a for a in self.log))
         self.assertIn(['docker','start',cp.GATEWAY],self.log)
     def test_unmount_failure_journals_before_effect_and_recovers_mounts(self):
-        self.fail=lambda a:a==['systemctl','stop','slot0.mount']
+        def fail(args):
+            if args==['systemctl','stop','slot0.mount']:
+                self.assertEqual(json.loads(cp.JOURNAL.read_text())['slots'],[0])
+                return True
+        self.fail=fail
         with self.assertRaisesRegex(RuntimeError,'INJECTED'):self.op.create()
-        self.assertEqual(json.loads(cp.JOURNAL.read_text())['slots'],[0])
         self.fail=None;self.op.recover()
         self.assertIn(['systemctl','start','slot0.mount'],self.log);self.assertTrue(self.running)
         self.assertFalse(cp.JOURNAL.exists())
     def test_pair_is_published_only_after_disk_verification(self):
-        def create(destination,team):
+        def capture(destination):
             destination.mkdir();(destination/'manifest.json').write_text('{}')
-        with patch.object(backup,'create',create),patch.object(backup,'verify',side_effect=RuntimeError('CORRUPT')):
+        with patch.object(backup,'capture',capture),patch.object(backup,'finalize',side_effect=RuntimeError('CORRUPT')):
             with self.assertRaisesRegex(RuntimeError,'CORRUPT'):self.op.create()
         self.op.recover()
         self.assertFalse(list(self.dest.glob('*/complete.json')))
         self.assertTrue(self.running)
-    def test_success_restores_only_original_containers_and_keeps_revocation(self):
-        def create(destination,team):
+    def test_success_resumes_before_verifying_and_never_mounts_live_state(self):
+        def capture(destination):
+            self.log.append(['capture'])
             destination.mkdir();(destination/'manifest.json').write_text('{}')
-        with patch.object(backup,'create',create),patch.object(backup,'verify',return_value={}):
+        def finalize(*_):
+            self.assertTrue(self.running)
+            self.assertIn(['docker','start',cp.GATEWAY],self.log)
+            self.assertFalse(cp.JOURNAL.exists())
+            self.log.append(['verify'])
+        with patch.object(backup,'capture',capture),patch.object(backup,'finalize',finalize):
             result=self.op.create()
         invocation=next(a for a in self.log if a[:2]==['docker','run'])
-        self.assertIn(f'type=bind,src={self.state},dst={self.state}',invocation)
+        self.assertIn(f'type=bind,src={result}/frozen,dst={self.state}',invocation)
+        self.assertNotIn(f'type=bind,src={self.state},dst={self.state}',invocation)
         self.assertIn('--read-only',invocation) # rootfs remains read-only
+        self.assertLess(self.log.index(['prepare']),self.log.index(['docker','stop','--time','10',cp.GATEWAY]))
+        self.assertLess(self.log.index(['seal']),self.log.index(['capture']))
+        self.assertLess(self.log.index(['capture']),self.log.index(['docker','start',cp.GATEWAY]))
+        self.assertFalse((result/'frozen').exists())
+        self.assertTrue((result/'complete.json').exists())
+    def test_recovery_keeps_revocation(self):
+        self.op.journal={'state':str(self.state),'hub':{},'broker':True,'containers':[[self.owner,0,self.image]],'slots':[0]}
+        self.op.save();self.running=False
         with sqlite3.connect(self.registry) as db:db.execute("UPDATE workspaces SET state='revoked'")
         self.op.recover()
-        self.assertFalse(self.running);self.assertTrue((result/'complete.json').exists())
+        self.assertFalse(self.running)
     def test_recovery_rejects_changed_binding(self):
-        self.busy=True
-        with self.assertRaises(RuntimeError):self.op.create()
-        j=json.loads(cp.JOURNAL.read_text());j['containers']=[[self.owner,1,self.image]];cp.write(cp.JOURNAL,j)
+        self.op.journal={'state':str(self.state),'hub':{},'broker':True,'containers':[[self.owner,1,self.image]],'slots':[]}
+        self.op.save()
         with self.assertRaisesRegex(RuntimeError,'CHECKPOINT_RECOVERY_BINDING'):self.op.recover()
         self.assertTrue(cp.JOURNAL.exists())
+    def test_warm_failure_never_stops_hub_and_removes_own_staging(self):
+        with patch.object(cp.FrozenHub,'prepare',side_effect=RuntimeError('COPY_FAILED')):
+            with self.assertRaisesRegex(RuntimeError,'COPY_FAILED'):self.op.create()
+        self.assertFalse(list(self.dest.iterdir()))
+        self.assertFalse(any(a[:2]==['docker','stop'] for a in self.log))
+    def test_verification_failure_happens_after_resume(self):
+        def capture(path):path.mkdir()
+        def failed(args):
+            if args[:2]==['docker','run']:
+                self.assertTrue(self.running)
+                self.assertFalse(cp.JOURNAL.exists())
+                return True
+        self.fail=failed
+        with patch.object(backup,'capture',capture):
+            with self.assertRaisesRegex(RuntimeError,'INJECTED'):self.op.create()
+        self.assertFalse(list(self.dest.iterdir()))
+    def test_retention_keeps_three_complete_sets_and_leaves_foreign_and_incomplete(self):
+        targets=[]
+        for day in range(1,6):
+            path=self.dest/f'checkpoint-2026100{day}T000000-{uuid.uuid4()}'
+            (path/'disks').mkdir(parents=True)
+            (path/'disks/manifest.json').write_text('{}')
+            cp.write(path/'complete.json',{'diskManifest':backup.digest(path/'disks/manifest.json')})
+            targets.append(path)
+        incomplete=self.dest/f'checkpoint-20261006T000000-{uuid.uuid4()}';incomplete.mkdir()
+        foreign=self.dest/'other';foreign.mkdir()
+        # Ownership test is fixed to root on the installed service; fixture runs
+        # as the SSH user and substitutes only the observed owner id.
+        original=Path.stat
+        def stat(path,*args,**kwargs):
+            result=original(path,*args,**kwargs)
+            if path in targets:return os.stat_result((*result[:4],0,*result[5:]))
+            return result
+        with patch.object(Path,'stat',stat):self.op.prune()
+        self.assertEqual([p.exists() for p in targets],[False,False,True,True,True])
+        self.assertTrue(incomplete.exists());self.assertTrue(foreign.exists())
+    def test_busy_maintenance_lock_is_a_successful_defer(self):
+        lock=self.root/'lock';lock.touch()
+        with patch.object(cp,'SETTINGS',self.root/'settings.json'),patch.object(cp,'LOCK',lock),patch.object(cp.os,'geteuid',return_value=0),patch.object(sys,'argv',['checkpoint.py']),patch.object(cp.fcntl,'flock',side_effect=BlockingIOError):
+            cp.SETTINGS.write_text(json.dumps(self.op.settings))
+            cp.main()
+        self.assertFalse(self.log)
 
 if __name__=='__main__':unittest.main()

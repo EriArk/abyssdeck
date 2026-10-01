@@ -158,13 +158,15 @@ def private_bindings(data, databases, expected=None):
     return result
 
 
-def inventory(root, protected=(), databases=(), cache=None, warm=False):
+def inventory(root, protected=(), databases=(), cache=None, warm=False, include=None):
     root = canonical(root)
     entries = {}
     volatile = {name + '-shm' for name in databases}
     def visit(folder):
         for path in sorted(folder.iterdir()):
             name = path.relative_to(root).as_posix()
+            if include is not None and not any(name == item or name.startswith(item + '/') or item.startswith(name + '/') for item in include):
+                continue
             if name in volatile:
                 require(path.is_file() and not path.is_symlink(), 'CHECKPOINT_SQLITE_SHM')
                 continue  # SQLite rebuilds its shared-memory index from the saved WAL.
@@ -237,6 +239,75 @@ class PreparedCheckpoint:
         require(not self.destination.exists(), 'CHECKPOINT_TARGET_EXISTS')
         self.destination.mkdir(mode=0o700, parents=True)
         self.cache = {}
+
+
+class FrozenHub:
+    """Private input for the daily Team backup CLI, never itself a backup.
+
+    Warm preparation is advisory. seal() runs only with the Hub stopped and
+    re-enumerates all files and account databases. The CLI can then run against
+    this isolated tree while the original installation resumes.
+    """
+    def __init__(self, state, destination):
+        self.state, self.destination = canonical(state), canonical(destination)
+        require(not self.destination.is_relative_to(self.state), 'CHECKPOINT_DESTINATION')
+        self.destination.mkdir(mode=0o700)
+        self.cache = {}
+
+    def entries(self, warm=False):
+        config = json.loads((self.state / 'config.json').read_text())
+        layout = team_layout(self.state, config)
+        excluded = layout['protected'] + [name + suffix for name in layout['databases'] for suffix in ('', '-wal', '-shm', '-journal')]
+        data = self.state / 'data'
+        team = Path(config['team']['root']).relative_to(data)
+        # Match createTeamSnapshot's inputs, not everything stored beside them.
+        # In particular, old restore rehearsals/backups are not backup inputs.
+        include = layout['databases'] + [Path(config['hub']['resultsPath']).relative_to(data).as_posix()]
+        include += [(team / name).as_posix() for name in ('shared-results', 'space-chat-files')]
+        for name in layout['databases'][1:]:
+            parent = Path(name).parent
+            include.append((parent / 'push-keys.json').as_posix())
+            if parent != Path(config['hub']['databasePath']).relative_to(data).parent:
+                include.append((parent / 'results').as_posix())
+        return config, layout, inventory(data, excluded, cache=self.cache, warm=warm, include=include)
+
+    def prepare(self, reserve_bytes=0):
+        try:
+            _, layout, entries = self.entries(warm=True)
+            # One warm tree and the eventual ordinary Team backup coexist.
+            size = sum(item.get('bytes', 0) for item in entries.values())
+            size += sum((self.state / 'data' / name).stat().st_size for name in layout['databases'])
+            require(shutil.disk_usage(self.destination).free > reserve_bytes + 2 * size + 2 * 1024 ** 3, 'CHECKPOINT_DISK_SPACE')
+            copy_inventory(self.state / 'data', self.destination / 'data', entries, self.cache, warm=True)
+        except FileNotFoundError:
+            pass  # A live deletion is reconciled by the stopped seal.
+
+    def seal(self):
+        config, layout, entries = self.entries()
+        sync_inventory(self.state / 'data', self.destination / 'data', entries, self.cache)
+        for name in layout['databases']:
+            source = database(self.state / 'data' / name)
+            target = None
+            try:
+                target = sqlite3.connect(self.destination / 'data' / name)
+                source.backup(target)
+                target.execute('PRAGMA journal_mode=DELETE')
+            finally:
+                source.close()
+                if target is not None:
+                    target.close()
+            (self.destination / 'data' / name).chmod(0o600)
+        require(self.entries() == (config, layout, entries), 'CHECKPOINT_SOURCE_CHANGED')
+        write_json(self.destination / 'config.json', config)
+
+    def grant_reader(self, uid, gid):
+        # Only our isolated tree changes ownership, never live databases/profiles.
+        for root, dirs, files in os.walk(self.destination):
+            os.chown(root, uid, gid)
+            for name in files:
+                path = canonical(Path(root) / name)
+                require(path.is_file() and not path.is_symlink(), 'CHECKPOINT_FILE')
+                os.chown(path, uid, gid)
 
 
 def prepare(state, destination, revision):

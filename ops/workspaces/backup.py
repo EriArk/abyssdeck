@@ -7,6 +7,7 @@ the same installation only, with Hub nativeAdmission blocked. Old disk files and
 registry are retained beside their replacements; no automatic rollback/replay.
 """
 import argparse
+import errno
 import hashlib
 import json
 import os
@@ -85,14 +86,36 @@ def quiescent(config, bindings):
 
 
 def sparse_copy(source, destination):
-    # Preserve exact bytes; zero ranges are holes, not omitted from the digest.
-    h=hashlib.sha256(); size=0
+    # SEEK_DATA avoids reading unallocated disk ranges. Holes still contribute
+    # their exact zero bytes to the ordinary SHA-256 (format 1 stays compatible).
+    h=hashlib.sha256(); zero=bytes(1024*1024)
     with regular(source).open('rb') as src, open(destination,'xb') as dst:
         os.fchmod(dst.fileno(),0o600)
-        while block:=src.read(1024*1024):
-            h.update(block);size+=len(block)
-            if block.count(0)==len(block): dst.seek(len(block),1)
-            else: dst.write(block)
+        before=os.fstat(src.fileno());size=before.st_size;offset=0;extents=True
+        while offset<size:
+            data=offset;end=size
+            if extents:
+                try:
+                    data=os.lseek(src.fileno(),offset,os.SEEK_DATA)
+                except OSError as error:
+                    if error.errno==errno.ENXIO: data=size
+                    elif error.errno in (errno.EINVAL,errno.ENOTSUP): extents=False;data=offset;end=size
+                    else: raise
+                else:
+                    end=min(size,os.lseek(src.fileno(),data,os.SEEK_HOLE))
+            if not offset<=data<=size or (data<size and end<=data): raise RuntimeError('DISK_EXTENTS_INVALID')
+            while offset<data:
+                length=min(len(zero),data-offset);h.update(zero[:length]);offset+=length
+            src.seek(data);dst.seek(data)
+            while offset<end and offset<size:
+                block=src.read(min(len(zero),end-offset))
+                if not block: raise RuntimeError('DISK_COPY_TRUNCATED')
+                h.update(block);offset+=len(block)
+                if block.count(0)==len(block): dst.seek(len(block),1)
+                else: dst.write(block)
+        after=os.fstat(src.fileno())
+        if (before.st_size,before.st_mtime_ns,before.st_ctime_ns)!=(after.st_size,after.st_mtime_ns,after.st_ctime_ns):
+            raise RuntimeError('DISK_CHANGED_DURING_COPY')
         dst.truncate(size);dst.flush();os.fsync(dst.fileno())
     return {'bytes':size,'sha256':h.hexdigest()}
 
@@ -120,10 +143,10 @@ def verify(directory, team_snapshot):
     return manifest
 
 
-def create(directory, team_snapshot):
+def capture(directory):
+    """Copy a stopped installation. This alone is never a completed backup."""
     config=json.loads(regular(CONFIG).read_text());bindings=rows(REGISTRY)
     quiescent(config,bindings)
-    identity=team_identity(team_snapshot,bindings)
     directory=Path(directory)
     if not directory.is_absolute() or directory.parent.resolve()!=directory.parent or directory.exists():
         raise RuntimeError('BACKUP_DESTINATION')
@@ -138,11 +161,29 @@ def create(directory, team_snapshot):
         if path.stat().st_size!=DISK_GIB*1024**3: raise RuntimeError('DISK_SIZE_INVALID')
         files[path.name]=sparse_copy(path,directory/path.name)
     manifest={'kind':'codex-web-workspace-disks','format':1,'created':time.time(),'config':config,
-              'team':identity,'bindings':bindings,'files':files}
+              'bindings':bindings,'files':files}
+    with open(directory/'capture.json','x') as file:
+        os.fchmod(file.fileno(),0o600);json.dump(manifest,file);file.flush();os.fsync(file.fileno())
+    return manifest
+
+
+def finalize(directory, team_snapshot):
+    """Verify captured bytes after services resume; never read live disks here."""
+    directory=Path(directory)
+    manifest=json.loads(regular(directory/'capture.json').read_text())
+    manifest['team']=team_identity(team_snapshot,manifest['bindings'])
     with open(directory/'manifest.json','x') as file:
         os.fchmod(file.fileno(),0o600);json.dump(manifest,file);file.flush();os.fsync(file.fileno())
     verify(directory,team_snapshot)
+    (directory/'capture.json').unlink()
     return manifest
+
+
+def create(directory, team_snapshot):
+    # Keep the manual offline CLI and its original format/verification contract.
+    team_identity(team_snapshot,rows(REGISTRY))
+    capture(directory)
+    return finalize(directory,team_snapshot)
 
 
 def restore(directory, team_snapshot, live_team):

@@ -17,6 +17,7 @@ import time
 import uuid
 from contextlib import ExitStack
 import backup
+from engine_checkpoint import FrozenHub
 from policy import ROOT, podman_command, container_name
 from install import check_mount
 
@@ -71,6 +72,8 @@ class Checkpoint:
         self.host = json.loads(backup.regular(backup.CONFIG).read_text())
         self.podman = podman_command(self.host['uid'])
         self.journal = None
+        self.target = None
+        self.timings = {}
 
     def save(self):
         write(JOURNAL, self.journal)
@@ -114,6 +117,21 @@ class Checkpoint:
 
     def create(self):
         if JOURNAL.exists(): raise RuntimeError('CHECKPOINT_RECOVERY_REQUIRED')
+        try:
+            return self._create()
+        finally:
+            self.recover()
+            # Only this invocation's private staging is disposable. Never sweep
+            # old incomplete backups or remove recovery evidence on failure.
+            if self.target is not None:
+                cleanup=self.target/'frozen' if (self.target/'complete.json').exists() else self.target
+                try:
+                    if cleanup.exists(): shutil.rmtree(cleanup)
+                except OSError:
+                    print('Checkpoint staging cleanup deferred',file=sys.stderr)
+
+    def _create(self):
+        if JOURNAL.exists(): raise RuntimeError('CHECKPOINT_RECOVERY_REQUIRED')
         config=json.loads(backup.regular(self.state/'config.json').read_text())
         if not config.get('team',{}).get('enabled'): raise RuntimeError('TEAM_REQUIRED')
         if not config.get('serverWorkspaces'): raise RuntimeError('WORKSPACES_NOT_ACTIVATED')
@@ -130,11 +148,20 @@ class Checkpoint:
         required=sum((Path(ROOT)/'images'/f'slot{r[1]}.ext4').stat().st_blocks*512 for r in bindings)
         if shutil.disk_usage(self.destination).free < required+2*1024**3: raise RuntimeError('CHECKPOINT_SPACE')
         run(['docker','exec',ENGINE,'node','dist/maintenance-check.js'])
+        started=time.monotonic()
+        name='checkpoint-'+time.strftime('%Y%m%dT%H%M%S')+'-'+str(uuid.uuid4())
+        target=self.destination/name;target.mkdir(mode=0o700);self.target=target
+        frozen=FrozenHub(self.state,target/'frozen')
+        frozen.prepare(required)
+        self.timings['prepareMs']=round((time.monotonic()-started)*1000)
+        if inspect(ENGINE)['Id']!=engine['Id'] or inspect(GATEWAY)['Id']!=gateway['Id']:
+            raise RuntimeError('CHECKPOINT_HUB_CHANGED')
         # Journal BEFORE reserving. If its reply is lost while the engine remains
         # running, the ordinary reservation expires; never restart active work.
         self.journal={'state':str(self.state),'hub':{ENGINE:engine['Id'],GATEWAY:gateway['Id']},'broker':True,'containers':[],'slots':[]}
         self.save()
         run(['docker','exec',ENGINE,'node','dist/maintenance-check.js','--reserve-terminals'])
+        stopped=time.monotonic()
         run(['docker','stop','--time','10',GATEWAY])
         run(['docker','stop','--time','45',ENGINE])
         run(['systemctl','stop',BROKER])
@@ -155,16 +182,20 @@ class Checkpoint:
             check_mount(Path(ROOT)/'slots'/str(slot),Path(ROOT)/'images'/f'slot{slot}.ext4')
             self.journal['slots'].append(slot);self.save()
             run(['systemctl','stop',unit(slot)])
-        name='checkpoint-'+time.strftime('%Y%m%dT%H%M%S')+'-'+str(uuid.uuid4())
-        target=self.destination/name;target.mkdir(mode=0o700)
-        hub=target/'hub';hub.mkdir(mode=0o700);os.chown(hub,self.host['hubUid'],self.host['hubUid'])
+        # These are the only cold copies. They contain the same frozen point in
+        # time; later verification must not touch live state or mounted images.
+        frozen.seal()
+        backup.capture(target/'disks')
+        self.recover()
+        self.timings['downtimeMs']=round((time.monotonic()-stopped)*1000)
+        verifying=time.monotonic()
+        frozen.grant_reader(self.host['hubUid'],self.settings['hubGid'])
+        hub=target/'hub';hub.mkdir(mode=0o700);os.chown(hub,self.host['hubUid'],self.settings['hubGid'])
         args=['docker','run','--rm','--network','none','--read-only','--cap-drop','ALL','--security-opt','no-new-privileges','--memory','1g','--cpus','1','--pids-limit','64',
               '--user',str(self.host['hubUid'])+':'+str(self.settings['hubGid']),
-              # SQLite's read-only connection still needs writable directories
-              # for WAL/SHM bookkeeping after a clean cold shutdown. The trusted
-              # backup CLI opens source databases readOnly; Hub and broker stay
-              # stopped. A read-only mount makes a valid WAL database unreadable.
-              '--mount',f'type=bind,src={self.state},dst={self.state}',
+              # Preserve original absolute paths inside the isolated container.
+              # SQLite may create sidecars only in our frozen copy, never live.
+              '--mount',f'type=bind,src={frozen.destination},dst={self.state}',
               '--mount',f'type=bind,src={hub},dst=/snapshots',engine['Config']['Image'],
               'node','dist/maintenance.js','backup','--config',str(self.state/'config.json'),'--destination','/snapshots','--keep','1','--revision',revision,
               '--private-file','config.json='+str(self.state/'config.json')]
@@ -172,12 +203,12 @@ class Checkpoint:
         snapshot=Path(result['snapshot'])
         if snapshot.parent!=Path('/snapshots') or not snapshot.name.startswith('codex-team-backup-'): raise RuntimeError('TEAM_SNAPSHOT_PATH')
         team=hub/snapshot.name
-        backup.create(target/'disks',team)
+        backup.finalize(target/'disks',team)
         # Team CLI verifies its entire content; disk verifier binds it to the exact
         # registry hash. Publish completion only after both have succeeded.
-        backup.verify(target/'disks',team)
+        self.timings['verifyMs']=round((time.monotonic()-verifying)*1000)
         write(target/'complete.json',{'format':1,'created':time.time(),'revision':revision,'team':str(team.relative_to(target)),
-                                    'diskManifest':backup.digest(target/'disks/manifest.json')})
+                                    'diskManifest':backup.digest(target/'disks/manifest.json'),'timings':self.timings})
         return target
 
     def prune(self):
@@ -203,7 +234,9 @@ def main():
         for path in [LOCK,canonical(settings['state'])/'send-handoff-deploy.lock',canonical(settings['state'])/'data/team/gpt-host.lock']:
             canonical(path)
             file=locks.enter_context(path.open('a'))
-            fcntl.flock(file,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            try: fcntl.flock(file,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            except BlockingIOError:
+                print(json.dumps({'ok':True,'deferred':'busy'}));return
         operation=Checkpoint(settings)
         if sys.argv[1:]==['--recover']:
             operation.recover();return
@@ -212,11 +245,11 @@ def main():
             value=json.loads(backup.regular(marker).read_text())
             if 0 <= time.time()-value.get('created',0) < 23*3600:
                 print(json.dumps({'ok':True,'recentCheckpoint':True}));return
-        try:
-            result=operation.create();print(json.dumps({'ok':True,'checkpoint':str(result)}))
-        finally:
-            operation.recover()
-        operation.prune()
+        result=operation.create()
+        try: operation.prune()
+        except OSError:
+            print('Checkpoint verified; retention cleanup deferred',file=sys.stderr)
+        print(json.dumps({'ok':True,'checkpoint':str(result),'timings':operation.timings}))
 
 
 if __name__=='__main__':

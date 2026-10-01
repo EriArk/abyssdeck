@@ -438,6 +438,47 @@ class UpgraderTest(unittest.TestCase):
             checkpoint.restore(self.state, saved)
 
 
+class FrozenHubTest(unittest.TestCase):
+    setUp = CheckpointTest.setUp
+
+    def test_warm_changes_deletions_and_wal_receipts_are_reconciled_when_stopped(self):
+        # Frozen output must be outside the live installation.
+        self.target = Path(self.temp.name).parent / (Path(self.temp.name).name + '-frozen')
+        self.addCleanup(lambda: __import__('shutil').rmtree(self.target, ignore_errors=True))
+        frozen = checkpoint.FrozenHub(self.state, self.target)
+        old = self.data / 'results/private.bin'
+        (self.data / 'old-backup').mkdir()
+        (self.data / 'old-backup/nested.db').write_bytes(b'not an input')
+        frozen.prepare()
+        old.unlink()
+        (self.data / 'results/new.bin').write_bytes(b'new after preparation')
+        with sqlite3.connect(self.data / 'app.db') as db:
+            db.execute("UPDATE receipts SET state='confirmed'")
+        frozen.seal()
+        self.assertFalse((self.target / 'data/results/private.bin').exists())
+        self.assertEqual((self.target / 'data/results/new.bin').read_bytes(), b'new after preparation')
+        with sqlite3.connect(self.target / 'data/app.db') as db:
+            self.assertEqual(db.execute('SELECT state FROM receipts').fetchone(), ('confirmed',))
+        self.assertFalse((self.target / self.profile.relative_to(self.state)).exists())
+        self.assertFalse((self.target / 'data/old-backup').exists())
+        self.assertEqual(json.loads((self.target / 'config.json').read_text()), self.config)
+        # Live changes after resume cannot alter the CLI's isolated input.
+        (self.data / 'results/new.bin').write_bytes(b'later live edit')
+        self.assertEqual((self.target / 'data/results/new.bin').read_bytes(), b'new after preparation')
+
+    def test_same_size_mtime_replacement_is_not_reused_from_warm_cache(self):
+        self.target = Path(self.temp.name).parent / (Path(self.temp.name).name + '-frozen')
+        self.addCleanup(lambda: __import__('shutil').rmtree(self.target, ignore_errors=True))
+        frozen = checkpoint.FrozenHub(self.state, self.target)
+        frozen.prepare()
+        file = self.data / 'results/private.bin'
+        before = file.stat()
+        file.write_bytes(b'x' * before.st_size)
+        os.utime(file, ns=(before.st_atime_ns, before.st_mtime_ns))
+        frozen.seal()
+        self.assertEqual((self.target / 'data/results/private.bin').read_bytes(), b'x' * before.st_size)
+
+
 if __name__ == '__main__':
     os.umask(0o077)
     unittest.main()

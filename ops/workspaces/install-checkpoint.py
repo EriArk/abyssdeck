@@ -9,9 +9,10 @@ from pathlib import Path
 import pwd
 import subprocess
 import sys
+import time
 from install import write
 
-FILES={'checkpoint.py','backup.py','policy.py','install.py','install-checkpoint.py'}
+FILES={'checkpoint.py','backup.py','policy.py','install.py','install-checkpoint.py','engine_checkpoint.py'}
 
 
 def main():
@@ -41,8 +42,13 @@ def main():
     lock=Path('/var/lib/codex-workspace-checkpoint/lock').open('a')
     fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
     if Path('/var/lib/codex-workspace-checkpoint/journal.json').exists(): raise RuntimeError('RECOVER_PREVIOUS_CHECKPOINT_FIRST')
-    for name in ['checkpoint.py','backup.py','policy.py','install.py']:
+    # Dependencies first; the previous entrypoint remains usable until the last
+    # atomic replacement. The shared lock excludes timer/recovery invocations.
+    for name in ['engine_checkpoint.py','backup.py','policy.py','install.py','checkpoint.py']:
         write('/opt/codex-workspace-checkpoint/'+name,(source/name).read_text())
+    installed={name:hashlib.sha256(Path('/opt/codex-workspace-checkpoint',name).read_bytes()).hexdigest()
+               for name in FILES-{'install-checkpoint.py'}}
+    if any(installed[name]!=manifest['files'][name] for name in installed): raise RuntimeError('INSTALLED_HASH')
     write('/etc/codex-workspaces/checkpoint.json',json.dumps(settings),0o600)
     write('/etc/systemd/system/codex-workspace-checkpoint.service','''[Unit]
 Description=CodexWeb paired private Hub and workspace checkpoint
@@ -73,6 +79,10 @@ WantedBy=timers.target
     # Coordinator refuses before Hub activation. Busy work is deferred; a recent
     # verified pair suppresses further cold checkpoints for 23 hours.
     subprocess.run(['systemctl','enable','--now','codex-workspace-checkpoint.timer'],check=True)
+    receipt=state/'workspace-checkpoint-install.json'
+    write(receipt,json.dumps({'installedAt':time.time(),'files':installed,'keep':3,
+                             'timer':'codex-workspace-checkpoint.timer','checkpointRun':False}),0o600)
+    os.chown(receipt,account.pw_uid,account.pw_gid)
     lock.close()
     print('Checkpoint timer installed. It waits for Hub activation and idle work.')
 

@@ -9,7 +9,7 @@ def main():
     if sys.argv[1:] not in ([],['--apply']): raise RuntimeError('ARGUMENTS_INVALID')
     root=Path(__file__).resolve().parent
     manifest=json.loads((root/'features-package.json').read_text())
-    expected={'apply-features.py','install.py','broker.py','client.py','policy.py','host-check.py','acceptance.py','checkpoint.py','backup.py','install-checkpoint.py','checkpoint-package.json'}
+    expected={'apply-features.py','install.py','broker.py','client.py','policy.py','host-check.py','acceptance.py','checkpoint.py','backup.py','install-checkpoint.py','checkpoint-package.json','engine_checkpoint.py'}
     if set(manifest['files'])!=expected: raise RuntimeError('PACKAGE_FILES')
     for name,digest in manifest['files'].items():
         path=root/name

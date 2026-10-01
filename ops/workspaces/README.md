@@ -172,28 +172,54 @@ than 23 hours old, and keeps three complete sets in the root-private
 `/var/lib/codex-workspace-checkpoint/backups`. Existing Hub-only copies remain
 independent; they must never be described as copies of workspace disks.
 
-The coordinator serializes with engine deployment/profile maintenance, requires
-ordinary idle admission, freezes/stops the Hub and broker, checks for detached
-workspace processes, stops only idle containers, unmounts exact claimed slots,
-then creates and verifies the Team and disk checkpoints. A running app/server
-defers the copy; it is not killed. A private journal records transitions before
+The coordinator serializes with engine deployment/profile maintenance. It first
+prepares the Team backup's file inputs online (not old backups or restore rehearsals
+stored alongside them). Warm copies alone are never valid checkpoints. After fresh
+idle admission it stops the Hub and broker, checks for detached workspace processes,
+stops only idle containers and unmounts exact claimed slots. It reconciles changed
+files, captures SQLite databases and copies workspace disks at that frozen point.
+Sparse disk copies skip unallocated ranges while retaining the format-1 SHA-256
+over all logical bytes. Filesystems without extent support use the linear fallback.
+The original services resume **before** the Team CLI builds/verifies the archive
+and before disk checksum verification. The CLI mounts only the isolated captured
+state at its original absolute paths; it never mounts the live state. A running
+app/server defers the copy; it is not killed. A private journal records transitions before
 effects. `ExecStopPost` invokes the fixed `checkpoint.py --recover` to restore
 exact mounts, original containers and the original Hub, preserving revocation.
 No user commands are replayed. If identity has changed, recovery refuses and keeps
 the journal for an administrator. Never delete that journal to force a new copy.
 
-The backup container rootfs is read-only, but its private state bind is writable:
-SQLite read-only source connections may need to create WAL/SHM bookkeeping files
-after a clean shutdown. Hub and broker remain stopped and the trusted backup CLI
-opens source databases with `readOnly: true`; user database contents are not edited.
-A read-only state mount is not compatible with cold WAL databases.
+The backup container rootfs is read-only, but its isolated snapshot bind is writable
+for SQLite sidecar bookkeeping. Live Hub data and browser profiles are never
+available to this container. Completion records include prepare, capture/restart
+and verification timings. A held maintenance lock is a successful deferred run.
 
-Only `complete.json` marks a verified pair. Failed/incomplete directories are not
-automatically deleted. Restore uses the paired Team snapshot and `disks` directory
+Only `complete.json` marks a verified pair. After successful recovery, the current
+invocation removes its own failed staging or its successful temporary frozen tree.
+Older incomplete/foreign directories are not swept. Retention removes older completed
+sets only after the new pair verifies; a filesystem cleanup failure does not fail
+the completed checkpoint or stop services. Restore uses the paired Team snapshot and `disks` directory
 with the offline procedure above, native admission still closed. Keep the previous
-runtime archive and host keys separately. Six fault tests in
-`tests/workspace-checkpoint.test.py` cover refusal, interrupted unmount, corrupt
-copy, revocation and identity changes; they are not real production disk acceptance.
+runtime archive and host keys separately. Focused tests in
+`tests/workspace-checkpoint.test.py`, `tests/workspace-backup.test.py`,
+`tests/team-engine-upgrade.py` and `tests/checkpoint-installer.test.py` cover refusal,
+interrupted unmount, corrupted copies, warm source changes, resume-before-verification,
+revocation, retention and exact installation hashes. They are not production disk
+restore acceptance.
+
+For an existing installation, build **only** the checkpoint update package:
+
+```sh
+python3 ops/workspaces/package-checkpoint.py --output /absolute/new-package \
+  --hub-user INSTALLATION_USER --state /absolute/hub-state
+sudo python3 /absolute/new-package/install-checkpoint.py --apply
+```
+
+The package contains source and installation paths, no credentials or backup data.
+The installer preserves disks/runtime, refuses an active checkpoint/recovery journal,
+verifies installed module hashes and records `workspace-checkpoint-install.json` in
+Hub state. It enables the ordinary timer without starting a checkpoint immediately.
+Do not rerun the pre-enrollment `apply-features.py` for this update.
 
 Hub activation uses the ordinary `ops/linux/upgrade-engine.py` release with
 `--enable-server-workspaces --workspace-image sha256:<accepted-config-id>`.
