@@ -11,9 +11,23 @@
 аккаунт и admission установки сохраняются. Старые ложные инциденты после
 восстановления связи закрываются без новых заданий Doctor.
 
-Проверены 69 Linux-тестов Doctor, прав, handoff, очереди, native provider/work и
-вопросов, TypeScript и сборка. Панель проверяется в Chromium/WebKit; активация
-выпуска и включение ремонта на живой привязке владельца пока ожидаются.
+Выпуск `1e22073` установлен обычным updater в 15:36 UTC; engine/web healthy,
+backup проверен, текущий Codex turn и второй persistent-чат сохранены. На реальном
+API владельца включён `mode=repair`; native capabilities подтверждают full access.
+Та же привязка автоматически стала ready, 88 старых инцидентов стали recovered.
+В Doctor по-прежнему одна команда и пять сообщений: повторов и новых запусков нет.
+Оба проблемных GPT-разговора отдают свежую историю; healthy/canRead/canSend=true.
+Старые два неопределённых GPT receipts сохранены. Native приложение остаётся
+`26.928.31416-ba02bd4`, новые Windows helpers для этого выпуска не требуются.
+
+Проверены 76 тестов на кандидатном Linux-образе (Doctor, права/handoff, очередь,
+native provider/work, вопросы, Companion/Team), 23 сценария upgrade/rollback,
+TypeScript и сборка. Chromium/WebKit: режим ремонта, сохранение черновика, четыре
+темы/четыре размера; вход в кандидатный Hub и реальное преобразование DOCX.
+Доказательства: `verification-1e22073/{receipt,doctor-live,doctor-final-counts,
+gpt-live,continuity-before,continuity-after}.json`, `deployment-1e22073.json`.
+Автономный ремонт будущей несовместимой версии приложения ещё не проверен на
+настоящем новом инциденте; проверки dispatch/policy не подменяют такую приёмку.
 Подробности: [аудит Doctor](BRIDGE_DOCTOR_REPAIR_2026-10-01.md).
 
 ## Обновление серверного ChatGPT — 26.928.31416 (2026-10-01)

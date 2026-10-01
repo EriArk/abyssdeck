@@ -1,4 +1,4 @@
-﻿# Bridge Doctor audit and repair — 2026-10-01
+# Bridge Doctor audit and repair — 2026-10-01
 
 ## Evidence and changes
 
@@ -51,8 +51,10 @@ coalescing keep a transient outage from launching repeated repair turns.
 ## Verification
 
 - `pnpm build` and `pnpm typecheck`.
-- 69 passing Linux tests: Doctor, access/handoff, elicitation, queue, native provider,
-  native work. Focused Windows Doctor/access tests also pass.
+- 69 passing Linux behavior tests: Doctor, access/handoff, elicitation, queue, native
+  provider/work. Candidate-image verification extends this to 76 tests with
+  Companion/Team checks, plus 23 upgrade/checkpoint/rollback fixtures. Focused
+  Windows Doctor/access tests also pass.
 - Access fixtures updated to the already-shipped behavior: opening a thread only
   inspects it; an explicit send acquires a writer. Persisted-thread fixtures now
   declare native persistence instead of accidentally testing an empty draft.
@@ -63,7 +65,19 @@ coalescing keep a transient outage from launching repeated repair turns.
   policy, repair instructions, parallel owner turns and unchanged preferences;
   diagnosis remains read-only. Lost acknowledgements never dispatch twice.
 
-Live release/activation results are recorded in CURRENT_STATUS and private server
-verification receipts. A future real incompatible app update has not yet been
+## Installed acceptance
+
+Normal updater installed `1e22073` at 15:36 UTC, with verified backup and healthy
+engine/web. Native ChatGPT stays `26.928.31416-ba02bd4`. The same Doctor association
+recovered to ready and the owner's authenticated settings API enabled repair.
+Native capabilities include `full`. All 88 old incidents are recovered; the same
+one turn command and five messages remain. Neither recovery nor mode activation
+sent a new Doctor turn. Both persistent Codex threads survived; the current turn
+remained running. Both problematic GPT conversations returned fresh history,
+healthy/read/send readiness; two old uncertain receipts remain unchanged.
+
+Evidence: private `verification-1e22073/{doctor-live,doctor-final-counts,gpt-live,
+continuity-before,continuity-after,receipt}.json` and deployment receipt. A future
+real incompatible app update has not yet been
 repaired autonomously by this new mode; controlled dispatch tests and installed
 health/configuration checks do not claim that end-to-end result.
