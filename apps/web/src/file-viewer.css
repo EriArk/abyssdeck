@@ -145,12 +145,15 @@
 }
 .file-viewer-actions {
   display: grid;
+  min-width: 0;
   grid-auto-flow: column;
-  grid-auto-columns: 1fr;
+  grid-auto-columns: minmax(0, 1fr);
   gap: 8px;
 }
 .file-viewer-actions > * {
   min-height: 44px;
+  min-width: 0;
+  white-space: normal;
 }
 .file-viewer-content > .file-preview {
   max-height: none;

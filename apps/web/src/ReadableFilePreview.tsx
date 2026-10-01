@@ -2,16 +2,23 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CopyButton } from "./CopyButton";
-import { SpeechButton, useSpeechScope } from "./MessageSpeech";
 import { visibleFileSpeech } from "./fileSpeechPosition";
+import { SpeechButton, useSpeechScope } from "./MessageSpeech";
 
 const markdownComponents: Components = { a: ({ children }) => <span>{children}</span> };
 
-export function ReadableFilePreview({ file }: { file: File }) {
+export function ReadableFilePreview({
+  file,
+  initialRaw = false,
+}: {
+  file: File;
+  initialRaw?: boolean;
+}) {
   const [loaded, setLoaded] = useState<{ file: File; text: string; readable: boolean }>(),
     [wrap, setWrap] = useState(true),
-    [raw, setRaw] = useState(false);
+    [raw, setRaw] = useState(initialRaw);
   const markdown = /\.(md|markdown)$/i.test(file.name);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Each immutable file owns a separate speech session.
   const scope = useMemo(() => "file-preview:" + crypto.randomUUID(), [file]);
   useSpeechScope(scope, true);
   const current = loaded?.file === file ? loaded : undefined;
@@ -25,7 +32,6 @@ export function ReadableFilePreview({ file }: { file: File }) {
   useEffect(() => {
     let live = true;
     void file
-      .slice(0, 65536)
       .text()
       .then((value) => {
         if (live)
@@ -54,7 +60,7 @@ export function ReadableFilePreview({ file }: { file: File }) {
           >
             Перенос строк
           </button>
-          {markdown && (
+          {markdown && !initialRaw && (
             <button
               type="button"
               className="secondary"
@@ -96,9 +102,6 @@ export function ReadableFilePreview({ file }: { file: File }) {
         <pre ref={content} className="file-text" data-wrap={wrap}>
           {text}
         </pre>
-      )}
-      {file.size > 65536 && (
-        <small>Показано начало файла · исходный файл доступен для скачивания</small>
       )}
     </div>
   );

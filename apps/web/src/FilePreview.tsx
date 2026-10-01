@@ -13,6 +13,7 @@ const DxfPreview = lazy(() => import("./DxfFilePreview"));
 
 const PdfPreview = lazy(() => import("./PdfFilePreview"));
 const PackagePreview = lazy(() => import("./PackageFilePreview"));
+const ReaderPreview = lazy(() => import("./ReaderFilePreview"));
 function FileCard({ file }: { file: File }) {
   const type = file.name.match(/\.([a-z0-9]{1,10})$/i)?.[1]?.toUpperCase() || "Файл";
   return (
@@ -152,6 +153,16 @@ export function FilePreview({
             }
           >
             <PdfPreview file={file} />
+          </Suspense>
+        ) : kind === "book" || (kind === "text" && full) ? (
+          <Suspense
+            fallback={
+              <p role="status">
+                <span className="spinner" /> Открываю читалку…
+              </p>
+            }
+          >
+            <ReaderPreview file={file} />
           </Suspense>
         ) : kind === "text" ? (
           <ReadableFilePreview file={file} />

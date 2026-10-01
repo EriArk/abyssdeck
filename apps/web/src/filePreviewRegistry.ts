@@ -1,4 +1,6 @@
+import { GPT_FILE_BYTES } from "@codex-web/shared";
 export type PreviewKind =
+  | "book"
   | "image"
   | "pdf"
   | "html"
@@ -100,11 +102,20 @@ export const filePreviewHandlers = [
     isolation: "media",
   },
   {
+    kind: "book",
+    extensions: /\.(fb2|epub)$/i,
+    mime: /^(application\/(epub\+zip|x-fictionbook\+xml))$/,
+    maxBytes: 32 * MiB,
+    thumbnail: false,
+    mobile: true,
+    isolation: "escaped-text",
+  },
+  {
     kind: "text",
     extensions:
       /\.(txt|md|markdown|json|jsonl|csv|tsv|log|xml|yaml|yml|toml|ini|cfg|py|js|jsx|ts|tsx|css|scss|sql|sh|ps1|c|cpp|h|rs|go|java|rb|php|bat|env)$|^(readme|license|licence|copying|makefile|dockerfile|\.gitignore|\.gitattributes|\.editorconfig)$/i,
     mime: /^(text\/|application\/json$)/,
-    maxBytes: 65536,
+    maxBytes: GPT_FILE_BYTES,
     thumbnail: false,
     mobile: true,
     isolation: "escaped-text",

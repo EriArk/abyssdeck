@@ -1,0 +1,191 @@
+/* Reader geometry and page materials from MybookOpds; outer shell uses CodexWeb tokens. */
+.book-reader {
+  --paper: var(--surface, #1e2329);
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 220px;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+  color: inherit;
+}
+.reader-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px 44px;
+  gap: 6px;
+  padding: 6px;
+  flex: none;
+}
+.reader-toolbar select {
+  min-width: 0;
+  width: 100%;
+}
+.book-reader select {
+  color: inherit;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--control-radius, 6px);
+  padding: 6px 8px;
+  font: inherit;
+}
+.book-reader .reader-scroll article {
+  font-weight: 400;
+}
+.book-reader button,
+.book-reader select {
+  min-height: 44px;
+}
+.book-reader .reader-scroll {
+  position: relative;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  flex: 1;
+  min-height: 100px;
+  width: 100%;
+  max-width: 1280px;
+  margin-inline: auto;
+  touch-action: pinch-zoom;
+}
+.book-reader .reader-scroll article {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: var(--reader-size, 20px);
+  line-height: var(--reader-line, 1.7);
+  padding: 0;
+  margin: 16px 22px;
+  column-count: auto;
+  column-gap: 44px;
+  column-fill: auto;
+  overflow-wrap: break-word;
+  orphans: 2;
+  widows: 2;
+}
+.book-reader .reader-scroll article p {
+  margin: 0.4em 0;
+  text-indent: 1.3em;
+}
+.book-reader .reader-scroll article h1,
+.book-reader .reader-scroll article h2,
+.book-reader .reader-scroll article h3 {
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 1.25em;
+  line-height: 1.4;
+  text-align: center;
+  margin: 1em 0;
+  break-after: avoid;
+}
+.book-reader .reader-scroll article blockquote {
+  font-style: italic;
+  font-size: 0.9em;
+  margin: 1.5em;
+}
+.book-reader .reader-scroll article pre,
+.book-reader .reader-plain {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.book-reader .reader-scroll article pre {
+  font-size: 0.8em;
+}
+.book-reader .reader-scroll table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+.book-reader .reader-scroll td,
+.book-reader .reader-scroll th {
+  border: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.book-reader .reader-scroll.reader-measure {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  max-width: none;
+  margin: 0;
+  flex: none;
+  visibility: hidden;
+  pointer-events: none;
+  contain: layout style paint;
+}
+.book-reader .reader-bottom {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  gap: 6px;
+  align-items: center;
+  flex: none;
+  padding: 6px;
+  border-top: 1px solid var(--line);
+  text-align: center;
+}
+.book-reader .reader-settings {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 12px;
+  padding: 8px;
+  max-height: 30dvh;
+  overflow: auto;
+  flex: none;
+  border-bottom: 1px solid var(--line);
+}
+.book-reader .reader-settings label {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.book-reader .reader-settings select,
+.book-reader .reader-settings input {
+  width: 100%;
+  min-width: 0;
+}
+.book-reader .spoken-block {
+  background: color-mix(in srgb, var(--accent, #ba8c31) 22%, transparent);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.book-reader .reader-turn-sheet {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  z-index: 2;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--paper);
+  backface-visibility: hidden;
+}
+.book-reader .reader-spread::after {
+  content: "";
+  position: absolute;
+  top: 16px;
+  bottom: 16px;
+  left: 50%;
+  width: 1px;
+  background: var(--line);
+  pointer-events: none;
+}
+.reader-file-preview {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.reader-file-mode {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 6px;
+  flex: none;
+}
+.reader-file-mode button {
+  min-height: 44px;
+}
+.file-viewer-content:has(.book-reader),
+.file-preview:has(.book-reader) {
+  overflow: hidden !important;
+}
+.reader-file-preview > .readable-file {
+  flex: 1;
+  min-height: 0;
+}

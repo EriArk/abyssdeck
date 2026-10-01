@@ -13,6 +13,7 @@ export default function PdfFilePreview({ file }: { file: File }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null),
     [page, setPage] = useState(1),
+    [zoom, setZoom] = useState(100),
     [error, setError] = useState(false),
     [ready, setReady] = useState(false);
   useEffect(() => {
@@ -68,7 +69,12 @@ export default function PdfFilePreview({ file }: { file: File }) {
         if (disposed || !canvas.current) return;
         const original = sheet.getViewport({ scale: 1 });
         const viewport = sheet.getViewport({
-          scale: Math.min(2, 1000 / original.width, 1400 / original.height),
+          scale: Math.min(
+            2 * (zoom / 100),
+            4096 / original.width,
+            4096 / original.height,
+            Math.sqrt(4_000_000 / (original.width * original.height)),
+          ),
         });
         const target = canvas.current;
         target.width = Math.ceil(viewport.width);
@@ -86,7 +92,7 @@ export default function PdfFilePreview({ file }: { file: File }) {
       clearTimeout(timer);
       render?.cancel();
     };
-  }, [pdf, page]);
+  }, [pdf, page, zoom]);
   if (error) return <p className="file-preview-fallback">PDF · Предпросмотр недоступен</p>;
   return (
     <div className="file-pdf">
@@ -95,7 +101,11 @@ export default function PdfFilePreview({ file }: { file: File }) {
           <span className="spinner" /> Загружаю предпросмотр…
         </p>
       )}
-      <canvas ref={canvas} hidden={!ready} role="img" aria-label={"PDF, страница " + page} />
+      <div className="pdf-sheet-scroll">
+        <div style={{ width: `${zoom}%`, minWidth: "100%" }}>
+          <canvas ref={canvas} hidden={!ready} role="img" aria-label={"PDF, страница " + page} />
+        </div>
+      </div>
       {pdf && (
         <div className="file-pages">
           <button
@@ -109,6 +119,17 @@ export default function PdfFilePreview({ file }: { file: File }) {
           <span>
             {page} / {pdf.numPages}
           </span>
+          <select
+            aria-label="Масштаб PDF"
+            value={zoom}
+            onChange={(e) => setZoom(Number(e.target.value))}
+          >
+            {[100, 125, 150, 200, 300].map((value) => (
+              <option key={value} value={value}>
+                {value}%
+              </option>
+            ))}
+          </select>
           <button
             type="button"
             aria-label="Следующая страница PDF"

@@ -115,6 +115,31 @@ button.download-text {
 .file-pdf canvas[hidden] {
   display: none;
 }
+.file-preview .file-pdf {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.file-pdf .pdf-sheet-scroll {
+  overflow: auto;
+  min-height: 0;
+  flex: 1;
+  width: 100%;
+}
+.file-pdf .pdf-sheet-scroll canvas {
+  width: 100%;
+  max-width: none;
+}
+.file-pdf .file-pages {
+  flex: none;
+}
+.file-pdf .file-pages select {
+  min-height: 44px;
+  color: inherit;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
 .file-pages {
   display: flex;
   align-items: center;

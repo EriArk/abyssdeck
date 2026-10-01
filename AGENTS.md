@@ -1,5 +1,16 @@
 # AGENTS.md
 
+## Owner-requested full reader and fixed document pages (2026-10-01)
+
+- Read complete text files in the universal viewer, not a 64 KiB excerpt. Reuse
+  the existing MybookOpds pagination and speech controllers almost unchanged;
+  preserve their iPhone playback, pause, end and reflow fixes.
+- TXT/Markdown, FB2 and EPUB use book pages, reading-position speech and automatic
+  page turns. Preserve private source bytes, downloads, parent drafts and position.
+- PDF and DOCX retain fixed document pages and zoom, never responsive book reflow.
+  The existing DOCX text/table extraction is not evidence of original Word layout;
+  do not call that requirement complete without a real paginated renderer.
+
 ## Owner-requested GPT continuation without stale locks (2026-10-01)
 
 - A new explicit manual send may continue from the freshly verified canonical

@@ -160,16 +160,31 @@ try {
               .toBeGreaterThan(100);
             await page.getByRole("button", { name: "Следующая страница PDF" }).tap();
             await expect(page.getByRole("img", { name: "PDF, страница 2" })).toBeVisible();
+            let beforeZoom;
+            await expect
+              .poll(async () => {
+                beforeZoom = await page.locator("canvas").boundingBox();
+                return beforeZoom?.width || 0;
+              })
+              .toBeGreaterThan(0);
+            await page.getByRole("combobox", { name: "Масштаб PDF" }).selectOption("200");
+            await expect(page.getByRole("img", { name: "PDF, страница 2" })).toBeVisible();
+            await expect
+              .poll(async () => (await page.locator("canvas").boundingBox())?.width || 0)
+              .toBeGreaterThan(beforeZoom.width * 1.9);
+            await expect
+              .poll(() =>
+                page.locator(".pdf-sheet-scroll").evaluate((el) => el.scrollWidth > el.clientWidth),
+              )
+              .toBe(true);
           }
-          if (file.name.endsWith(".md"))
-            await page.getByRole("button", { name: "Исходный текст" }).tap();
+          if (file.kind === "text" || file.kind === "bounded")
+            await page.getByRole("button", { name: "Исходный текст", exact: true }).first().tap();
           if (file.kind === "text")
             await expect(page.locator(".file-text")).toHaveText(file.bytes.toString());
           if (file.kind === "bounded") {
-            await expect(page.locator(".file-text")).toHaveText(
-              file.bytes.toString().slice(0, 65536),
-            );
-            await expect(dialog).toContainText("Показано начало файла");
+            await expect(page.locator(".file-text")).toHaveText(file.bytes.toString());
+            await expect(dialog).not.toContainText("Показано начало файла");
           }
           if (file.name.endsWith(".svg"))
             await expect(page.locator(".image-stage img")).toBeVisible();
@@ -201,12 +216,18 @@ try {
           );
           for (const control of [save, dialog.getByRole("button", { name: "Закрыть просмотр" })]) {
             const rect = await control.boundingBox();
+            if (
+              rect.y + rect.height > viewport.height + 1 ||
+              rect.y < 0 ||
+              rect.x + rect.width > viewport.width + 1
+            )
+              await page.screenshot({ path: ".local/qa-file-preview/overflow.png" });
             assert(
               rect.x >= 0 &&
                 rect.y >= 0 &&
                 rect.x + rect.width <= viewport.width + 1 &&
                 rect.y + rect.height <= viewport.height + 1,
-              `${engine}/${layout}/${file.name} control outside viewport`,
+              `${engine}/${layout}/${file.name} control outside viewport: ${JSON.stringify(rect)}`,
             );
           }
           assert.equal(await page.evaluate(() => window.shares.length), 0);
@@ -227,6 +248,20 @@ try {
             "Keep draft and attachment context",
           );
         }
+        // The Result entry used to truncate at 64 KiB independently of DownloadLink.
+        const fullText = files.find((file) => file.kind === "bounded");
+        await page.goto(
+          origin +
+            "/tests/fixtures/file-popup.html?" +
+            new URLSearchParams({ file: fullText.url, name: fullText.name, result: "1" }),
+        );
+        await page.getByRole("button", { name: "Открыть файл" }).tap();
+        await page.getByRole("button", { name: "Исходный текст", exact: true }).first().tap();
+        await expect(page.locator(".file-text")).toHaveText(fullText.bytes.toString());
+        await page.getByRole("button", { name: "Закрыть просмотр" }).tap();
+        await expect(page.getByRole("textbox", { name: "Draft" })).toHaveValue(
+          "Preserve this draft",
+        );
         // A failed optional preview does not disable the already prepared original file.
         const html = files.find((file) => file.name === "demo.html");
         await page.route("**/api/previews/file", (route) =>

@@ -117,6 +117,7 @@ const player = {
   pause: () => (audioPlayer.snapshot().id ? audioPlayer.pause() : systemPlayer.pause()),
   resume: () => (audioPlayer.snapshot().id ? audioPlayer.resume() : systemPlayer.resume()),
   start: (id: string, text: string, onPosition?: (offset: number) => void) => {
+    window.dispatchEvent(new CustomEvent("codexweb-speech-owner", { detail: id }));
     audioPlayer.stop();
     systemPlayer.stop();
     if (speechMode.snapshot() === "background" || !device()) {
@@ -139,6 +140,11 @@ const player = {
       );
   },
 };
+
+export function claimSpeech(owner: string) {
+  player.stop();
+  window.dispatchEvent(new CustomEvent("codexweb-speech-owner", { detail: owner }));
+}
 type SpeechMode = "system" | "background";
 const modeKey = "codex-speech-mode";
 const readMode = (): SpeechMode => {

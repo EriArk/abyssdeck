@@ -30,8 +30,7 @@ export function ResultFilePreview({
   const { kind, limit } = resultPreview(result);
   const [file, setFile] = useState<File | null>(null),
     [url, setUrl] = useState(""),
-    [error, setError] = useState(""),
-    [truncated, setTruncated] = useState(false);
+    [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
   const identity = `${result.id}:${path}:${revision}`;
   const [loaded, setLoaded] = useState("");
@@ -48,7 +47,6 @@ export function ResultFilePreview({
     setFile(null);
     setUrl("");
     setError("");
-    setTruncated(false);
     if (resolving || resolutionError) return;
     const controller = new AbortController();
     let resource = "";
@@ -58,24 +56,18 @@ export function ResultFilePreview({
       const response = await fetch(workspaceUrl(path), {
         credentials: "same-origin",
         redirect: "error",
-        signal: AbortSignal.any([controller.signal, AbortSignal.timeout(30000)]),
+        signal: AbortSignal.any([controller.signal, AbortSignal.timeout(180000)]),
       });
       if (!response.ok || !response.body) throw Error();
       const reader = response.body.getReader(),
         chunks: Uint8Array<ArrayBuffer>[] = [];
-      let size = 0,
-        cut = false;
+      let size = 0;
       try {
         while (true) {
           const { value, done } = await reader.read();
           if (done) break;
           const remaining = limit - size;
-          if (value.length > remaining) {
-            if (kind !== "text") throw Error();
-            chunks.push(new Uint8Array(value.subarray(0, remaining)));
-            cut = true;
-            break;
-          }
+          if (value.length > remaining) throw Error();
           size += value.length;
           chunks.push(new Uint8Array(value));
         }
@@ -92,7 +84,6 @@ export function ResultFilePreview({
       setFile(value);
       setLoaded(identity);
       setUrl(resource);
-      setTruncated(cut);
     })().catch(() => {
       if (!controller.signal.aborted)
         setError("Предпросмотр недоступен. Можно скачать исходный файл.");
@@ -163,12 +154,11 @@ export function ResultFilePreview({
       ) : file && ready ? (
         <>
           <FilePreview key={identity} file={file} objectUrl={url} source={path} full />
-          {truncated && (
-            <small>Показано начало файла. Полная версия доступна для скачивания.</small>
-          )}
         </>
       ) : (
-        <p role="status">Загружаем предпросмотр…</p>
+        <p role="status">
+          <span className="spinner" /> Загружаем файл…
+        </p>
       )}
     </FileViewerDialog>
   );
