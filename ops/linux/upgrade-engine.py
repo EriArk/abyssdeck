@@ -188,6 +188,16 @@ def main():
                     else:
                         shutil.copyfile(source, target)
         status('waiting')
+        prepared = None
+        preparation_started = time.monotonic()
+        if enabled_team:
+            try:
+                prepared = engine_checkpoint.prepare(
+                    state, state / 'backups' / ('before-team-engine-' + a.revision + '-' + str(time.time_ns())), a.expected)
+            except Exception:
+                status('failed', code='BACKUP_PREPARATION_FAILED')
+                raise  # Public gateway and engine are still running.
+        preparation_ms = round((time.monotonic() - preparation_started) * 1000)
         while True:
             force = forced()
             if not force and not idle():
@@ -209,6 +219,7 @@ def main():
                 if workspace_config:
                     workspace_activation.verify_host(state, a.workspace_image)
                 status('installing', forced=int(force))
+                stopped_at = time.monotonic()
                 # No public admission after the final database-locked recheck.
                 run(['docker', 'stop', '--time', '10', 'codex-web-hub'])
                 if old_engine:
@@ -231,7 +242,7 @@ def main():
         checkpoint = None
         try:
             if enabled_team:
-                checkpoint = engine_checkpoint.create(state, state / 'backups' / ('before-team-engine-' + a.revision + '-' + str(time.time_ns())), a.expected)
+                checkpoint = engine_checkpoint.create(state, prepared.destination, a.expected, prepared=prepared)
             else:
                 with sqlite3.connect(database) as source, sqlite3.connect(backup) as destination:
                     source.backup(destination)
@@ -260,7 +271,7 @@ def main():
             if activation:
                 run(['docker', 'exec', 'codex-web-engine', 'node', 'dist/owner-team-check.js'])
             if checkpoint:
-                engine_checkpoint.admission(state, checkpoint, workspace_activation=bool(workspace_config))
+                engine_checkpoint.admission(state, checkpoint, workspace_activation=bool(workspace_config), prepared=prepared)
             run(['docker', 'run', '--rm', '--network', 'none', '--read-only', '--user', '1000:1000', '--cap-drop', 'ALL',
                  '-v', str(state / 'engine') + ':/run/codex-engine:ro', '-v', str(web) + ':/releases',
                  'codex-web-hub:' + a.revision, 'node', 'dist/publish-web.js', '/web', '/releases', '/run/codex-engine/engine.sock', a.revision])
@@ -272,13 +283,14 @@ def main():
                 # later host recovery must not restore over admitted user writes.
                 engine_checkpoint.write_json(checkpoint / 'admitted.json', dict(revision=a.revision, at=time.time_ns()))
             run(compose + ['up', '-d', '--no-deps', '--no-build', '--wait', 'hub'])
+            downtime_ms = round((time.monotonic() - stopped_at) * 1000)
             run(['python3', str(release / 'ops/linux/publish-web.py'), a.revision, '--state', str(state)])
             run(['docker', 'exec', 'codex-web-engine', 'node', 'dist/doctor.js', '--config', '/config/config.json', '--json', '--public'], stdout=subprocess.DEVNULL)
             backup_env = Path.home() / '.config/codex-web/backup.env'
             if backup_env.exists():
                 update_env(backup_env, dict(CODEX_WEB_IMAGE='codex-web-hub:' + a.revision, CODEX_WEB_REVISION=a.revision))
             status('installed', installedAt=int(time.time()*1000))
-            atomic(state / ('deployment-' + a.revision + '.json'), dict(revision=a.revision, previousRevision=a.expected, schema=proof['schema'], healthy=True, separated=True, checkpoint=str(checkpoint) if checkpoint else None, deployedAt=datetime.now(timezone.utc).isoformat(), verification=str(Path(a.verification).resolve())))
+            atomic(state / ('deployment-' + a.revision + '.json'), dict(revision=a.revision, previousRevision=a.expected, schema=proof['schema'], healthy=True, separated=True, checkpoint=str(checkpoint) if checkpoint else None, preparationMs=preparation_ms, downtimeMs=downtime_ms, deployedAt=datetime.now(timezone.utc).isoformat(), verification=str(Path(a.verification).resolve())))
         except Exception:
             status('failed', code='ENGINE_MAINTENANCE_FAILED')
             if not exposed:

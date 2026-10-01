@@ -113,7 +113,7 @@ test("idempotency never repeats an unacknowledged operation", async () => {
     s.close();
   }
 });
-test("database restart preserves history and marks active work unknown", () => {
+test("opening storage preserves live work; only explicit runtime recovery marks it unknown", () => {
   const path = mkdtempSync(join(tmpdir(), "codex-store-"));
   try {
     let s = new Store(join(path, "db.sqlite"));
@@ -122,6 +122,12 @@ test("database restart preserves history and marks active work unknown", () => {
     s.setStatus(t.id, "running", "turn");
     s.close();
     s = new Store(join(path, "db.sqlite"));
+    assert.equal(s.thread(t.id).status, "running");
+    const observer = new Store(join(path, "db.sqlite"));
+    assert.equal(observer.thread(t.id).status, "running");
+    observer.close();
+    assert.equal(s.thread(t.id).activeTurnId, "turn");
+    s.recoverRuntimeState();
     assert.equal(s.thread(t.id).status, "unknown");
     assert.equal(s.history(t.id).messages[0].text, "persist");
     s.close();

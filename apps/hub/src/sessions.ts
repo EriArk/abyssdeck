@@ -340,6 +340,7 @@ export class Sessions extends EventEmitter {
       new CodexClient(spawnCodex(m, cwd, undefined, binding), undefined, undefined, !!binding),
   ) {
     super();
+    store.recoverRuntimeState();
     this.store.db.exec(
       "CREATE TABLE IF NOT EXISTS companion_worker_leases(machineId TEXT PRIMARY KEY,operationId TEXT NOT NULL,state TEXT NOT NULL,createdAt INTEGER NOT NULL)",
     );

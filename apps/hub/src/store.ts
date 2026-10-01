@@ -77,6 +77,10 @@ export class Store {
       this.db.close();
       throw error;
     }
+  }
+  /** Only the execution owner calls this when starting its runtime. Opening
+   * another storage handle (diagnostics, migration validation) is not a restart. */
+  recoverRuntimeState(): void {
     this.db
       .prepare(
         "UPDATE threads SET status='unknown' WHERE status IN ('starting','running','waiting_approval')",

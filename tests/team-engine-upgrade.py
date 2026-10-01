@@ -203,12 +203,12 @@ class CheckpointTest(unittest.TestCase):
         db.execute("INSERT INTO team_audit VALUES(1,'committed before shutdown')")
         db.commit()
         original = checkpoint.copy_inventory
-        def copy(source, target, entries):
+        def copy(source, target, entries, *args, **kwargs):
             if source == self.data:
                 self.assertTrue(Path(str(path) + '-wal').exists())
                 db.close()  # Last connection checkpoints and removes the WAL.
                 self.assertFalse(Path(str(path) + '-wal').exists())
-            return original(source, target, entries)
+            return original(source, target, entries, *args, **kwargs)
         try:
             with patch.object(checkpoint, 'copy_inventory', copy):
                 self.create()
@@ -218,6 +218,86 @@ class CheckpointTest(unittest.TestCase):
         with sqlite3.connect(self.target / 'data/team/team.db') as saved:
             self.assertEqual(saved.execute('SELECT action FROM team_audit').fetchall(), [('committed before shutdown',)])
         self.assertFalse((self.target / 'data/team/team.db-wal').exists())
+
+
+class WarmCheckpointTest(unittest.TestCase):
+    setUp = CheckpointTest.setUp
+
+    def test_live_changes_are_finalized_with_fresh_wal_and_exact_restore(self):
+        unchanged = self.data / 'results/private.bin'
+        changed = self.team / 'shared-results/shared.bin'
+        old = changed.stat()
+        removed = self.data / 'results/removed'
+        removed.write_bytes(b'remove after preparation')
+        prepared = checkpoint.prepare(self.state, self.target, 'aaaaaaa')
+        self.assertFalse((self.target / 'checkpoint.json').exists())
+        self.assertFalse((self.target / 'data/app.db').exists())
+        # Same size and restored mtime still invalidate the source via ctime.
+        changed.write_bytes(b'changed result!!')
+        self.assertEqual(changed.stat().st_size, old.st_size)
+        os.utime(changed, ns=(old.st_atime_ns, old.st_mtime_ns))
+        removed.unlink()
+        (self.data / 'results/new').write_bytes(b'arrived while online')
+        with sqlite3.connect(self.data / 'app.db') as db:
+            db.execute('PRAGMA journal_mode=WAL')
+            db.execute("INSERT INTO content VALUES('last-write','after warm copy')")
+            db.commit()
+            checkpoint.create(self.state, self.target, 'aaaaaaa', prepared=prepared)
+        checkpoint.verify(self.target)
+        checkpoint.admission(self.state, self.target, prepared=prepared)
+        self.assertEqual((self.target / 'data/team/shared-results/shared.bin').read_bytes(), b'changed result!!')
+        self.assertFalse((self.target / 'data/results/removed').exists())
+        unchanged.write_bytes(b'broken after snapshot')
+        checkpoint.restore(self.state, self.target)
+        self.assertEqual(unchanged.read_bytes(), b'private result')
+        with sqlite3.connect(self.data / 'app.db') as db:
+            self.assertEqual(db.execute("SELECT value FROM content WHERE id='last-write'").fetchone(), ('after warm copy',))
+
+    def test_unchanged_payload_is_neither_copied_nor_rehashed_during_closed_window(self):
+        prepared = checkpoint.prepare(self.state, self.target, 'aaaaaaa')
+        opened, copied = [], []
+        original_open, original_copy = Path.open, checkpoint.shutil.copyfile
+        def open_file(path, *args, **kwargs):
+            if path.name == 'private.bin': opened.append(path)
+            return original_open(path, *args, **kwargs)
+        def copy_file(source, target, *args, **kwargs):
+            if Path(source).name == 'private.bin': copied.append(source)
+            return original_copy(source, target, *args, **kwargs)
+        with patch.object(Path, 'open', open_file), patch.object(checkpoint.shutil, 'copyfile', copy_file):
+            checkpoint.create(self.state, self.target, 'aaaaaaa', prepared=prepared)
+            checkpoint.admission(self.state, self.target, prepared=prepared)
+        self.assertEqual(opened, [])
+        self.assertEqual(copied, [])
+        # Independent verification/rollback does not trust a persisted hash cache.
+        checkpoint.verify(self.target)
+
+    def test_corrupt_warm_copy_is_replaced_and_later_tampering_is_rejected(self):
+        prepared = checkpoint.prepare(self.state, self.target, 'aaaaaaa')
+        saved = self.target / 'data/results/private.bin'
+        saved.write_bytes(b'corrupt preparation')
+        checkpoint.create(self.state, self.target, 'aaaaaaa', prepared=prepared)
+        self.assertEqual(saved.read_bytes(), b'private result')
+        saved.write_bytes(b'corrupt final copy')
+        with self.assertRaisesRegex(RuntimeError, 'CHECKSUM'):
+            checkpoint.admission(self.state, self.target, prepared=prepared)
+        with self.assertRaisesRegex(RuntimeError, 'CHECKSUM'):
+            checkpoint.restore(self.state, self.target)
+
+    def test_file_directory_replacement_and_new_symlink_during_preparation(self):
+        path = self.data / 'results/changing'
+        path.mkdir()
+        (path / 'child').write_text('old')
+        prepared = checkpoint.prepare(self.state, self.target, 'aaaaaaa')
+        (path / 'child').unlink()
+        path.rmdir()
+        path.write_text('now a file')
+        checkpoint.create(self.state, self.target, 'aaaaaaa', prepared=prepared)
+        self.assertEqual((self.target / 'data/results/changing').read_text(), 'now a file')
+        other = self.state / 'backups/second'
+        prepared = checkpoint.prepare(self.state, other, 'aaaaaaa')
+        (self.data / 'results/link').symlink_to(self.state / 'config.json')
+        with self.assertRaisesRegex(RuntimeError, 'CHECKPOINT_LINK'):
+            checkpoint.create(self.state, other, 'aaaaaaa', prepared=prepared)
 
 
 class UpgraderTest(unittest.TestCase):
@@ -238,6 +318,13 @@ class UpgraderTest(unittest.TestCase):
         def run(args, **kwargs):
             nonlocal failed
             events.append(args)
+            if 'stop' in args and args[-1] == 'codex-web-hub':
+                warm = next((self.state / 'backups').glob('before-team-engine-*'))
+                self.assertTrue((warm / 'data/results/private.bin').exists())
+                self.assertTrue((warm / 'restore-check/results/private.bin').exists())
+                self.assertFalse((warm / 'checkpoint.json').exists())
+                if failure == 'cold_backup':
+                    (self.data / 'results/unsafe').symlink_to(self.state / 'config.json')
             if 'dist/maintenance-check.js' in args:
                 return subprocess.CompletedProcess(args, 20 if busy else 0)
             candidate = 'ENGINE_REVISION=ccccccc' in (self.state / 'deploy.env').read_text()
@@ -301,6 +388,8 @@ class UpgraderTest(unittest.TestCase):
         self.assertLess(check, stop)
         receipt = json.loads((self.state / 'deployment-ccccccc.json').read_text())
         saved = Path(receipt['checkpoint'])
+        self.assertGreaterEqual(receipt['preparationMs'], 0)
+        self.assertGreaterEqual(receipt['downtimeMs'], 0)
         self.assertTrue((saved / 'admitted.json').exists())
         self.assertTrue((saved / 'verified.json').exists())
         self.assertEqual(json.loads((self.state / 'web-releases/maintenance.json').read_text())['state'], 'installed')
@@ -310,13 +399,12 @@ class UpgraderTest(unittest.TestCase):
         self.assertFalse(events)
         self.assertFalse((self.state / 'backups').exists())
 
-    def test_backup_failure_restarts_original_services_without_candidate(self):
+    def test_warm_backup_failure_leaves_running_services_untouched(self):
         events = self.execute(failure='backup')
         self.assertFalse(any('compose' in args for args in events))
-        self.assertIn(['docker', 'start', 'codex-web-engine'], events)
-        self.assertIn(['docker', 'start', 'codex-web-hub'], events)
+        self.assertFalse(any('stop' in args or 'start' in args for args in events))
         self.assertIn('ENGINE_REVISION=aaaaaaa', (self.state / 'deploy.env').read_text())
-        self.assertEqual(json.loads((self.state / 'web-releases/maintenance.json').read_text())['code'], 'BACKUP_FAILED')
+        self.assertEqual(json.loads((self.state / 'web-releases/maintenance.json').read_text())['code'], 'BACKUP_PREPARATION_FAILED')
 
     def test_failed_engine_restores_both_databases_and_exact_previous_pair(self):
         events = self.execute(failure='engine')
@@ -325,6 +413,14 @@ class UpgraderTest(unittest.TestCase):
         self.assertFalse((self.data / 'results/candidate-file').exists())
         self.assertTrue(any('compose' in args and args[-2:] == ['engine', 'hub'] for args in events))
         self.assertEqual(json.loads((self.state / 'web-releases/maintenance.json').read_text())['state'], 'rolled_back')
+
+    def test_cold_backup_failure_restarts_original_services(self):
+        events = self.execute(failure='cold_backup')
+        self.assertTrue(any('start' in args and args[-1] == 'codex-web-engine' for args in events))
+        self.assertTrue(any('start' in args and args[-1] == 'codex-web-hub' for args in events))
+        self.assertFalse(any('compose' in args for args in events))
+        self.assertIn('ENGINE_REVISION=aaaaaaa', (self.state / 'deploy.env').read_text())
+        self.assertEqual(json.loads((self.state / 'web-releases/maintenance.json').read_text())['code'], 'BACKUP_FAILED')
 
     def test_wrong_identity_never_reaches_public_gateway(self):
         events = self.execute(failure='identity')

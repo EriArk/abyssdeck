@@ -1,7 +1,8 @@
-"""Cold, same-installation Team checkpoints. Not a portable/native-profile backup.
+"""Same-installation Team checkpoints with optional online file preparation.
 
-The caller holds the deployment and GPT-host locks, closes public admission and
-stops the engine. Restore is allowed only before the replacement gateway starts.
+The caller holds the deployment and GPT-host locks. Final create requires closed
+public admission and a stopped engine; prepare alone is never a valid snapshot.
+Restore is allowed only before the replacement gateway starts.
 """
 import hashlib
 from contextlib import ExitStack
@@ -26,13 +27,27 @@ def canonical(path):
     return path
 
 
-def file_hash(path):
-    require(stat.S_ISREG(path.lstat().st_mode), 'CHECKPOINT_FILE')
+def fingerprint(path):
+    info = path.lstat()
+    return (info.st_dev, info.st_ino, info.st_mode, info.st_nlink,
+            info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+
+
+def file_hash(path, cache=None):
+    before = fingerprint(path)
+    require(stat.S_ISREG(before[2]), 'CHECKPOINT_FILE')
+    if cache is not None and path in cache and cache[path][0] == before:
+        return cache[path][1]
     digest = hashlib.sha256()
     with path.open('rb') as stream:
         for block in iter(lambda: stream.read(1024 * 1024), b''):
             digest.update(block)
-    return digest.hexdigest()
+    result = digest.hexdigest()
+    # In-memory evidence only; ctime also invalidates same-size/mtime replacements.
+    # A racing warm read is never reusable during the final stopped snapshot.
+    if cache is not None and fingerprint(path) == before:
+        cache[path] = (before, result)
+    return result
 
 
 def write_json(path, value):
@@ -143,7 +158,7 @@ def private_bindings(data, databases, expected=None):
     return result
 
 
-def inventory(root, protected=(), databases=()):
+def inventory(root, protected=(), databases=(), cache=None, warm=False):
     root = canonical(root)
     entries = {}
     volatile = {name + '-shm' for name in databases}
@@ -164,13 +179,17 @@ def inventory(root, protected=(), databases=()):
                 visit(path)
             else:
                 require(stat.S_ISREG(info.st_mode) and info.st_nlink == 1, 'CHECKPOINT_SPECIAL_FILE')
-                entries[name] = dict(kind='file', mode=stat.S_IMODE(info.st_mode), bytes=info.st_size, hash=file_hash(path))
+                try:
+                    entries[name] = dict(kind='file', mode=stat.S_IMODE(info.st_mode), bytes=info.st_size, hash=file_hash(path, cache))
+                except FileNotFoundError:
+                    if not warm:
+                        raise
             require(len(entries) <= 200000, 'CHECKPOINT_LIMIT')
     visit(root)
     return entries
 
 
-def copy_inventory(source, target, entries):
+def copy_inventory(source, target, entries, cache=None, warm=False):
     require(not target.exists(), 'CHECKPOINT_TARGET_EXISTS')
     target.mkdir(mode=0o700)
     for name, item in entries.items():
@@ -179,23 +198,78 @@ def copy_inventory(source, target, entries):
         if item['kind'] == 'directory':
             path.mkdir(mode=0o700)
         else:
+            try:
+                shutil.copyfile(source / name, path)
+                path.chmod(0o600)
+                matched = path.stat().st_size == item['bytes'] and file_hash(path, cache) == item['hash']
+                require(matched or warm, 'CHECKPOINT_COPY_CHANGED')
+            except FileNotFoundError:
+                if not warm:
+                    raise
+
+
+def sync_inventory(source, target, entries, cache):
+    """Finalize only changed files in our private, independently copied staging tree."""
+    if not target.exists():
+        return copy_inventory(source, target, entries, cache)
+    old = inventory(target, cache=cache)
+    for name in sorted(old, key=lambda p: len(Path(p).parts), reverse=True):
+        if name not in entries or old[name]['kind'] != entries[name]['kind']:
+            path = target / name
+            require(path.is_relative_to(target), 'CHECKPOINT_ENTRY')
+            path.rmdir() if old[name]['kind'] == 'directory' else path.unlink()
+    for name, item in entries.items():
+        path = target / name
+        require(path.is_relative_to(target) and '..' not in Path(name).parts and not Path(name).is_absolute(), 'CHECKPOINT_ENTRY')
+        if item['kind'] == 'directory':
+            path.mkdir(mode=0o700, exist_ok=True)
+        elif old.get(name, {}).get('hash') != item['hash'] or not path.exists():
             shutil.copyfile(source / name, path)
             path.chmod(0o600)
-            require(path.stat().st_size == item['bytes'] and file_hash(path) == item['hash'], 'CHECKPOINT_COPY_CHANGED')
+            require(path.stat().st_size == item['bytes'] and file_hash(path, cache) == item['hash'], 'CHECKPOINT_COPY_CHANGED')
 
 
-def verify(checkpoint):
+class PreparedCheckpoint:
+    """Warm copies are not a valid checkpoint until create seals the cold snapshot."""
+    def __init__(self, state, destination, revision):
+        self.state, self.destination, self.revision = canonical(state), canonical(destination), revision
+        require(not self.destination.is_relative_to(self.state / 'data'), 'CHECKPOINT_DESTINATION')
+        require(not self.destination.exists(), 'CHECKPOINT_TARGET_EXISTS')
+        self.destination.mkdir(mode=0o700, parents=True)
+        self.cache = {}
+
+
+def prepare(state, destination, revision):
+    prepared = PreparedCheckpoint(state, destination, revision)
+    state, destination = prepared.state, prepared.destination
+    config = json.loads((state / 'config.json').read_text())
+    layout = team_layout(state, config)
+    excluded = layout['protected'] + [name + suffix for name in layout['databases'] for suffix in ('', '-wal', '-shm')]
+    # The live app may replace/remove files. A vanished source only loses this
+    # warm optimization; final create re-enumerates after admission is closed.
+    try:
+        entries = inventory(state / 'data', excluded, cache=prepared.cache, warm=True)
+        require(shutil.disk_usage(destination).free > 3 * sum(item.get('bytes', 0) for item in entries.values()) + 64 * 1024 ** 2, 'CHECKPOINT_DISK_SPACE')
+        copy_inventory(state / 'data', destination / 'data', entries, prepared.cache, warm=True)
+        copied = inventory(destination / 'data', cache=prepared.cache)
+        copy_inventory(destination / 'data', destination / 'restore-check', copied, prepared.cache)
+    except FileNotFoundError:
+        pass
+    return prepared
+
+
+def verify(checkpoint, cache=None):
     canonical(checkpoint)
     require(not checkpoint.is_symlink(), 'CHECKPOINT_LINK')
     manifest = json.loads((checkpoint / 'checkpoint.json').read_text())
     require(manifest['kind'] == 'codex-web-engine-checkpoint' and manifest['format'] == 1, 'CHECKPOINT_FORMAT')
-    actual = inventory(checkpoint / 'data', databases=manifest['layout']['databases'])
+    actual = inventory(checkpoint / 'data', databases=manifest['layout']['databases'], cache=cache)
     # Copied files/directories have intentionally more restrictive permissions.
     comparable = lambda entries: {p: {k: v for k, v in item.items() if k != 'mode'} for p, item in entries.items()}
     require(comparable(actual) == comparable(manifest['entries']), 'CHECKPOINT_CHECKSUM')
     for name, digest in manifest['private'].items():
         require(name in ('config.json', 'deploy.env', 'web-pointer.json'), 'CHECKPOINT_PRIVATE_PATH')
-        require(file_hash(checkpoint / name) == digest, 'CHECKPOINT_CONFIG_CHECKSUM')
+        require(file_hash(checkpoint / name, cache) == digest, 'CHECKPOINT_CONFIG_CHECKSUM')
     config = json.loads((checkpoint / 'config.json').read_text())
     layout = team_layout(Path(manifest['state']), config, checkpoint / 'data')
     # JSON encodes database tuples as arrays.
@@ -205,20 +279,23 @@ def verify(checkpoint):
     return manifest
 
 
-def create(state, destination, revision):
+def create(state, destination, revision, prepared=None):
     state, destination = canonical(state), canonical(destination)
     require(not destination.is_relative_to(state / 'data'), 'CHECKPOINT_DESTINATION')
-    require(not destination.exists(), 'CHECKPOINT_TARGET_EXISTS')
-    destination.mkdir(mode=0o700, parents=True)
+    if prepared is None:
+        prepared = PreparedCheckpoint(state, destination, revision)
+    require((prepared.state, prepared.destination, prepared.revision) == (state, destination, revision), 'CHECKPOINT_PREPARATION')
+    require(not (destination / 'checkpoint.json').exists(), 'CHECKPOINT_ALREADY_SEALED')
+    cache = prepared.cache
     try:
         config = json.loads((state / 'config.json').read_text())
         layout = team_layout(state, config)
         # SQLite may remove WAL files when its final reader closes, even with
         # the engine stopped. Snapshot databases through SQLite, not file copies.
         excluded = layout['protected'] + [name + suffix for name in layout['databases'] for suffix in ('', '-wal', '-shm')]
-        entries = inventory(state / 'data', excluded)
+        entries = inventory(state / 'data', excluded, cache=cache)
         require(shutil.disk_usage(destination).free > 3 * sum(item.get('bytes', 0) for item in entries.values()) + 64 * 1024 ** 2, 'CHECKPOINT_DISK_SPACE')
-        copy_inventory(state / 'data', destination / 'data', entries)
+        sync_inventory(state / 'data', destination / 'data', entries, cache)
         with ExitStack() as readers:
             for name in layout['databases']:
                 source = database(state / 'data' / name)
@@ -237,17 +314,17 @@ def create(state, destination, revision):
                 canonical(source)
                 shutil.copyfile(source, destination / name)
                 (destination / name).chmod(0o600)
-                private[name] = file_hash(destination / name)
-        require(inventory(state / 'data', excluded) == entries, 'CHECKPOINT_SOURCE_CHANGED')
-        entries = inventory(destination / 'data', databases=layout['databases'])
+                private[name] = file_hash(destination / name, cache)
+        require(inventory(state / 'data', excluded, cache=cache) == entries, 'CHECKPOINT_SOURCE_CHANGED')
+        entries = inventory(destination / 'data', databases=layout['databases'], cache=cache)
         manifest = dict(kind='codex-web-engine-checkpoint', format=1, revision=revision, state=str(state), layout=layout, entries=entries, private=private,
                         privacy=privacy(state / 'data', layout['databases'][0]), privateBindings=private_bindings(state / 'data', layout['databases']), createdAt=time.time_ns())
         write_json(destination / 'checkpoint.json', manifest)
-        verify(destination)
+        verify(destination, cache)
         # Rehearse the exact file copy used for rollback, offline and without any
         # App Server startup, migration or replay of unknown native operations.
-        copy_inventory(destination / 'data', destination / 'restore-check', entries)
-        require(inventory(destination / 'restore-check', databases=layout['databases']) == inventory(destination / 'data', databases=layout['databases']), 'CHECKPOINT_REHEARSAL')
+        sync_inventory(destination / 'data', destination / 'restore-check', entries, cache)
+        require(inventory(destination / 'restore-check', databases=layout['databases'], cache=cache) == inventory(destination / 'data', databases=layout['databases'], cache=cache), 'CHECKPOINT_REHEARSAL')
         for name in layout['databases']:
             db = database(destination / 'restore-check' / name)
             db.close()
@@ -261,8 +338,10 @@ def create(state, destination, revision):
         raise
 
 
-def admission(state, checkpoint, workspace_activation=False):
-    manifest = verify(checkpoint)
+def admission(state, checkpoint, workspace_activation=False, prepared=None):
+    if prepared is not None:
+        require((prepared.state, prepared.destination) == (canonical(state), canonical(checkpoint)), 'CHECKPOINT_PREPARATION')
+    manifest = verify(checkpoint, prepared.cache if prepared else None)
     require(str(canonical(state)) == manifest['state'], 'CHECKPOINT_INSTALLATION')
     if workspace_activation:
         # Permit one fixed addition only. Every prior setting, account and machine
