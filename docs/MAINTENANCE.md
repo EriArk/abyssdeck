@@ -103,7 +103,7 @@ changing files using `python3 ops/linux/checkpoint_retention.py --state /srv/cod
 `--apply` enables deletion. Only the fixed direct checkpoint children are eligible.
 
 On 2026-10-01, the owner's installation had 86 pre-upgrade checkpoints and 441 GiB
-in `backups` overall. The approved initial cleanup selects 81 old admitted copies
+in `backups` overall. The approved initial cleanup removed 81 old admitted copies
 (387 GiB), retaining the latest three whose full checksums and databases were
 verified again. Old migration backups and test directories inside `data` also
 inflate each new checkpoint; correcting their lifecycle is separate from deleting
