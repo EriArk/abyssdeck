@@ -12,6 +12,7 @@ const ModelPreview = lazy(() => import("./ModelFilePreview"));
 const DxfPreview = lazy(() => import("./DxfFilePreview"));
 
 const PdfPreview = lazy(() => import("./PdfFilePreview"));
+const DocxPreview = lazy(() => import("./DocxFilePreview"));
 const PackagePreview = lazy(() => import("./PackageFilePreview"));
 const ReaderPreview = lazy(() => import("./ReaderFilePreview"));
 function FileCard({ file }: { file: File }) {
@@ -111,7 +112,14 @@ export function FilePreview({
   return (
     <PreviewBoundary file={file}>
       <div className="file-preview" data-kind={kind}>
-        {kind === "package" ? (
+        {kind === "package" &&
+        (/\.docx$/i.test(file.name) ||
+          file.type ===
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document") ? (
+          <Suspense fallback={<p role="status">Открываю документ…</p>}>
+            <DocxPreview file={file} />
+          </Suspense>
+        ) : kind === "package" ? (
           <Suspense fallback={<p role="status">Открываю файл…</p>}>
             <PackagePreview key={file.name + file.lastModified} file={file} />
           </Suspense>

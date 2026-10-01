@@ -31,6 +31,30 @@ Create a directory owned by the service user, mode 0700:
 
 Keep SSH keys, Remote passwords, ingress credentials and the website database out of Git. Do not copy native Codex auth.json or source repositories into Hub state. The tunnel container needs only its tunnel credential, not an account-wide Cloudflare certificate. Use your ingress provider's supported setup for your hostname and certificate.
 
+## Fixed document pages
+
+`ops/documents` builds a private LibreOffice worker for DOCX-to-PDF preview. Create
+`${CODEX_WEB_STATE}/documents` owned by UID/GID 1000, mode 0700 before starting
+the Compose `documents` service. Build it from the release's `ops/documents`
+directory and set `DOCUMENTS_REVISION` to that image tag in `deploy.env`.
+The engine mounts only its Unix socket directory, at `/run/codex-documents`;
+there is no new public port. Start the worker before activating the engine release.
+
+The viewer sends the already opened immutable DOCX through the authenticated,
+CSRF-protected `/api/previews/docx` route. LibreOffice calculates automatic page
+breaks and returns PDF pages; downloading still returns the original DOCX bytes.
+The worker has no network, account/profile mount or persistent document storage.
+Each conversion has its own disposable profile. Preview budgets are 32 MiB input
+and output, 128 MiB expanded package and a 60-second conversion deadline; these
+are parser budgets, not upload/download restrictions. The supplied Carlito,
+Caladea, Liberation, DejaVu and Noto fonts cover common documents, but unavailable
+fonts and advanced Word layout features can differ from Microsoft Word.
+
+Validate an installation with `tests/documents-worker.py` inside the built image;
+it checks real automatic/explicit pagination, final table, original bytes and
+cleanup after cancellation. The API and Chromium/WebKit tests cover session/CSRF,
+fixed pages, zoom and saving the original without losing the parent draft.
+
 ## Windows setup
 
 Use elevated PowerShell for service/firewall installation. Supply your actual Hub IPv4 address and Windows account explicitly; the scripts have no owner-specific defaults:

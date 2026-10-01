@@ -55,6 +55,7 @@ services:
       - "${CODEX_WEB_STATE}/ssh:${CODEX_WEB_STATE}/ssh:ro"
       - "${CODEX_WEB_STATE}/data:${CODEX_WEB_STATE}/data"
       - "${CODEX_WEB_STATE}/speech:/run/codex-speech:ro"
+      - "${CODEX_WEB_STATE}/documents:/run/codex-documents:ro"
       - "${GPT_NATIVE_ADAPTER_PATH:-${CODEX_WEB_STATE}/native-gpt}:/run/codex-gpt-native:ro"
     depends_on: [guacd]
   guacd:
@@ -111,6 +112,25 @@ services:
     ports: ["127.0.0.1:8786:8786"]
     volumes:
       - "${CODEX_WEB_STATE}/gpt:/data"
+
+  documents:
+    image: codex-web-documents:${DOCUMENTS_REVISION:-local}
+    build:
+      context: ../documents
+    container_name: codex-web-documents
+    restart: unless-stopped
+    init: true
+    network_mode: none
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 768m
+    cpus: 1
+    pids_limit: 96
+    tmpfs: ["/tmp:size=256m,mode=1777"]
+    volumes:
+      - "${CODEX_WEB_STATE}/documents:/run/documents"
 
   speech:
     profiles: [speech]

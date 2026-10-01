@@ -37,6 +37,7 @@ import { registerDeploymentStatus } from "./deployment-status.js";
 import { type DesktopTransport, registerDesktop } from "./desktop.js";
 import { type DeviceDependencies, registerDevices } from "./devices.js";
 import { registerDictation, type Transcribe } from "./dictation.js";
+import { registerDocumentPreviews } from "./documentPreviews.js";
 import { ENGINE_PROTOCOL } from "./engine-client.js";
 import { registerFileLaunches } from "./file-launches.js";
 import { registerFilePreviews } from "./filePreviews.js";
@@ -216,6 +217,7 @@ export async function createApp(
     app.post("/internal/terminals/maintenance", () => devices.maintenance(true));
   }
   registerSpeech(app, config, auth);
+  registerDocumentPreviews(app, auth);
   const nativeGpt =
     options.nativeGpt ?? configuredNativeGpt(config, options.authorizeExecution ?? (() => {}));
   registerDictation(app, config, auth, options.transcribe ?? nativeGpt?.transcribe);
