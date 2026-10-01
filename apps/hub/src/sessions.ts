@@ -203,14 +203,19 @@ export class Sessions extends EventEmitter {
       const projects = this.catalog.projects().filter((p) => p.machineId === machineId);
       if (
         (this.machineWrites.get(machineId) ?? 0) > 0 ||
+        this.handingOff.has(machineId) ||
+        record(this.store.preferences().desktopReturns)[machineId] ||
         projects.some(
           (p) =>
             this.locks.has(p.id) ||
             this.deliveryProjects.has(p.id) ||
-            this.handingOff.has(p.id) ||
             this.store
               .threads(p.id)
-              .some((t) => t.activeTurnId || ["running", "waiting_approval"].includes(t.status)),
+              .some(
+                (t) =>
+                  t.activeTurnId ||
+                  ["starting", "running", "waiting_approval", "unknown"].includes(t.status),
+              ),
         )
       )
         return { state: "waitingIdle", operationId };
@@ -239,7 +244,13 @@ export class Sessions extends EventEmitter {
         if (info.active !== 0 || info.pending !== 0) return { state: "waitingIdle", operationId };
       }
       // Synchronous recheck closes the race with request admission before a drain.
-      if ((this.machineWrites.get(machineId) ?? 0) > 0 || runtime?.active.size)
+      if (
+        (this.machineWrites.get(machineId) ?? 0) > 0 ||
+        runtime?.active.size ||
+        this.handingOff.has(machineId) ||
+        record(this.store.preferences().desktopReturns)[machineId] ||
+        this.machineClient(machineId) === "desktop"
+      )
         return { state: "waitingIdle", operationId };
       this.store.db
         .prepare("INSERT INTO companion_worker_leases VALUES(?,?,?,?)")
@@ -617,6 +628,7 @@ export class Sessions extends EventEmitter {
   private handingOff = new Set<string>();
 
   async handoffToDesktop(machineId: string, confirmInterrupt = false): Promise<void> {
+    this.assertWorkerAvailable(machineId);
     if (!confirmInterrupt) return this.setMachineClient(machineId, "desktop");
     if (
       this.handingOff.has(machineId) ||
@@ -692,6 +704,7 @@ export class Sessions extends EventEmitter {
     client: "web" | "desktop",
     force = false,
   ): Promise<void> {
+    this.assertWorkerAvailable(machineId);
     if (!this.config.machines.some((m) => m.id === machineId))
       throw new HubError(404, "MACHINE_NOT_FOUND", "Компьютер не найден");
     const projects = this.catalog.projects().filter((p) => p.machineId === machineId);

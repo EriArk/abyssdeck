@@ -54,6 +54,52 @@ test("machine migration waits for active/uncertain turns and never clears their 
   assert.equal(f.store.thread(f.thread.id).activeTurnId, "exact-uncertain-turn");
   assert.deepEqual(f.effects, []);
   assert.equal(f.store.db.prepare("SELECT COUNT(*) n FROM companion_worker_leases").get().n, 0);
+  f.store.setStatus(f.thread.id, "unknown", null);
+  assert.equal(
+    (await f.sessions.workerMaintenance("pc", f.operationId, "acquire")).state,
+    "waitingIdle",
+  );
+  assert.deepEqual(f.effects, []);
+});
+
+test("handoff admission cannot race a worker drain, including a handoff begun during inspection", async (t) => {
+  const f = await fixture(t);
+  f.sessions.handingOff.add("pc");
+  assert.equal(
+    (await f.sessions.workerMaintenance("pc", f.operationId, "acquire")).state,
+    "waitingIdle",
+  );
+  f.sessions.handingOff.clear();
+  f.store.setPreferences({
+    machineClients: { pc: "web" },
+    desktopReturns: { pc: { state: "pending" } },
+  });
+  assert.equal(
+    (await f.sessions.workerMaintenance("pc", f.operationId, "acquire")).state,
+    "waitingIdle",
+  );
+  f.store.setPreferences({ machineClients: { pc: "web" }, desktopReturns: {} });
+  const inspect = f.r.rpc.inspectCompanion;
+  f.r.rpc.inspectCompanion = async () => {
+    f.sessions.handingOff.add("pc");
+    return inspect();
+  };
+  assert.equal(
+    (await f.sessions.workerMaintenance("pc", f.operationId, "acquire")).state,
+    "waitingIdle",
+  );
+  assert.deepEqual(f.effects, []);
+  f.sessions.handingOff.clear();
+  f.r.rpc.inspectCompanion = inspect;
+  await f.sessions.workerMaintenance("pc", f.operationId, "acquire");
+  await assert.rejects(
+    f.sessions.setMachineClient("pc", "desktop"),
+    (error) => error.code === "COMPANION_UPDATING",
+  );
+  await assert.rejects(
+    f.sessions.handoffToDesktop("pc", true),
+    (error) => error.code === "COMPANION_UPDATING",
+  );
 });
 test("drain fences only native work, persists across engine restart, preserves account and reconciles lost release acknowledgement", async (t) => {
   const f = await fixture(t);

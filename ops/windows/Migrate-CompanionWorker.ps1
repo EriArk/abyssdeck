@@ -42,7 +42,7 @@ function Native-Ready {
  $owner=Invoke-CimMethod -InputObject $running[0] -MethodName GetOwnerSid -ErrorAction Stop
  if($owner.Sid -cne $expectedSid){return $false}
  $pipe=[IO.Pipes.NamedPipeClientStream]::new('.','codex-web-persistent-'+$expectedSid,[IO.Pipes.PipeDirection]::InOut)
- try {$pipe.Connect(3000);$writer=[IO.StreamWriter]::new($pipe);$writer.AutoFlush=$true;$writer.WriteLine('PING');$reader=[IO.StreamReader]::new($pipe);return $reader.ReadLine() -ceq 'OK'}finally{$pipe.Dispose()}
+   try {$pipe.Connect(3000);$writer=[IO.StreamWriter]::new($pipe);$writer.AutoFlush=$true;$writer.WriteLine('PING');$reader=[IO.StreamReader]::new($pipe);$reply=$reader.ReadLineAsync();if(-not $reply.Wait(3000)){return $false};return $reply.Result -ceq 'OK'}finally{$pipe.Dispose()}
 }
 $module=Join-Path $env:LOCALAPPDATA ('CodexWeb\'+$folders[$componentId])
 $appDirectory=Join-Path $env:LOCALAPPDATA 'CodexWeb\companion-app'
