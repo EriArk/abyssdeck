@@ -103,7 +103,7 @@ export class NativeHistoryProjection {
     }
     const graph: Graph = { ...value.graph, mapping, codex_native_assets: true };
     const bytes = Buffer.byteLength(JSON.stringify(graph));
-    if (bytes > 2 * 1024 ** 2) fail();
+    if (bytes > 16 * 1024 ** 2) fail();
     freeze(graph);
     // A slower concurrent response cannot roll the current baseline backwards.
     if (this.entries.get(id) === previous) {

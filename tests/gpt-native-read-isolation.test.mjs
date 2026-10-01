@@ -86,6 +86,39 @@ async function fixture(t) {
   };
 }
 
+test("long canonical history crosses the installed service transport without losing its tail", async (t) => {
+  const f = await fixture(t),
+    conversationId = "20000000-0000-4000-8000-000000000002";
+  const mapping = {};
+  for (let i = 0; i < 100; i++)
+    mapping["n" + i] = {
+      id: "n" + i,
+      parent: i ? "n" + (i - 1) : null,
+      children: [],
+      message: {
+        id: "n" + i,
+        author: { role: "assistant" },
+        content: { content_type: "text", parts: ["Chapter ".repeat(8000)] },
+      },
+    };
+  f.reader.readHistoryUpdate = async () => ({
+    kind: "full",
+    conversationId,
+    revision: "a".repeat(64),
+    graph: {
+      conversation_id: conversationId,
+      title: "Story",
+      gizmo_id: null,
+      current_node: "n99",
+      mapping,
+    },
+  });
+  const graph = await f.client.historyGraph(conversationId);
+  assert.ok(Buffer.byteLength(JSON.stringify(graph)) > 4 * 1024 ** 2);
+  assert.equal(graph.current_node, "n99");
+  assert.equal(Object.keys(graph.mapping).length, 100);
+});
+
 test("new Hub serializes a legacy installed adapter; old Hub status remains compatible", async (t) => {
   const f = await fixture(t);
   const request = f.service.request.bind(f.service);

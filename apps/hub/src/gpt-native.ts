@@ -260,7 +260,12 @@ export class NativeGptReadClient {
           let count = 0;
           res.on("data", (chunk: Buffer) => {
             count += chunk.length;
-            if (count > 2 * 1024 * 1024) {
+            const limit = ["readHistoryUpdate", "readConversationGraph"].includes(
+              String(input.operation),
+            )
+              ? 20 * 1024 ** 2
+              : 2 * 1024 ** 2;
+            if (count > limit) {
               req.destroy();
               reject(Error("NATIVE_RESPONSE_TOO_LARGE"));
               return;

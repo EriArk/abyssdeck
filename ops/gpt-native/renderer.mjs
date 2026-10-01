@@ -22,7 +22,7 @@ const endpoint = 'http://127.0.0.1:9222';
 const maxBytes = 2 * 1024 * 1024;
 const guard = '!!document.querySelector("[data-testid=app-shell-header-context-menu-surface]")';
 
-async function evaluate(url, expression, signal) {
+async function evaluate(url, expression, signal, responseLimit = maxBytes) {
  const target = new URL(url);
  if (target.protocol !== 'ws:' || target.hostname !== '127.0.0.1' || target.port !== '9222' ||
      target.username || target.password || target.search || target.hash ||
@@ -43,7 +43,7 @@ async function evaluate(url, expression, signal) {
   ws.onerror = () => finish(Error('NATIVE_DISCONNECTED'));
   ws.onclose = () => finish(Error('NATIVE_DISCONNECTED'));
   ws.onmessage = event => {
-   if (typeof event.data !== 'string' || Buffer.byteLength(event.data) > maxBytes) return finish(Error('NATIVE_RESPONSE_TOO_LARGE'));
+   if (typeof event.data !== 'string' || Buffer.byteLength(event.data) > responseLimit) return finish(Error('NATIVE_RESPONSE_TOO_LARGE'));
    try {
     const response = JSON.parse(event.data);
     if (response.id == null) return;
@@ -143,7 +143,8 @@ export class NativeRendererReader {
    const call = control === 'live' ? `(${nativeLive.toString()})(${JSON.stringify(request)},${nativeRead.toString()})` : control === 'operation' ? `(${nativeOperation.toString()})(${JSON.stringify(request)},${read},${nativeControl.toString()})` : control === 'workspace' ? `(${nativeWorkspace.toString()})(${JSON.stringify(request)},${nativeRead.toString()})` : control === 'media' ? `(${nativeMedia.toString()})(${JSON.stringify(request)},${read},${nativeArtifacts.toString()})` : control === 'dictation' ? `(${nativeDictation.toString()})(${JSON.stringify(request)},${nativeRead.toString()})` : control === 'project' ? `(${nativeProject.toString()})(${JSON.stringify(request)},${nativeRead.toString()})` : control === 'library' ? `(${nativeLibrary.toString()})(${JSON.stringify(request)},${nativeRead.toString()})` : control === 'stored-upload' ? `(${nativeStoredUpload.toString()})(${JSON.stringify(request)},${nativeRead.toString()})` : control === 'upload-stage' ? `(${nativeUploadStage.toString()})(${JSON.stringify(request)})` : control === 'upload' ? `(${nativeUpload.toString()})(${JSON.stringify(request)},${nativeRead.toString()})` : control === 'dispatch' ? `(${nativeDispatch.toString()})(${JSON.stringify(request)},${read},${nativeControl.toString()},undefined,globalThis,undefined,${nativeActivity.toString()})` : control === 'artifacts' ? `(${nativeArtifacts.toString()})(${JSON.stringify(request)},${nativeRead.toString()})` : control === 'composer' ? `(${nativeComposer.toString()})(${JSON.stringify(request)},${nativeRead.toString()})` : control === 'settings' ? `(${nativeSettings.toString()})(${JSON.stringify(request)},${read},${nativeControl.toString()})` : control ? `(${nativeControl.toString()})(${JSON.stringify(request)},${nativeRead.toString()})` : `(${read})(${JSON.stringify(request)})`;
    const expression = `(async()=>{const nativeRequestGate=${nativeRequestGate.toString()};try{if(!(${guard}))throw Error('NATIVE_WINDOW_CHANGED');return {ok:true,value:await ${call}}}catch(e){return {ok:false,code:/^NATIVE_[A-Z_]+$/.test(e?.message)?e.message:'NATIVE_READ_UNAVAILABLE'}}})()`;
    const unwrap=result=>{if(result?.ok!==true)throw Error(/^NATIVE_[A-Z_]+$/.test(result?.code??'')?result.code:'NATIVE_INVALID_RESPONSE');return result.value;};
-   if(this.transport)return unwrap(await this.transport.evaluateMain(expression,guard,signal));
+   const responseLimit=['readHistoryUpdate','readConversationGraph'].includes(request.operation)?20*1024**2:maxBytes;
+   if(this.transport)return unwrap(await this.transport.evaluateMain(expression,guard,signal,responseLimit));
    const response = await fetch(`${endpoint}/json/list`, {signal, redirect:'error'});
    if (!response.ok) throw Error('NATIVE_UNAVAILABLE');
    // Stream and bound discovery too; do not trust an unbounded response.json().
@@ -159,7 +160,7 @@ export class NativeRendererReader {
     if (await evaluate(page.webSocketDebuggerUrl, guard, signal) === true) matches.push(page);
    }
    if (matches.length !== 1) throw Error('NATIVE_WINDOW_AMBIGUOUS');
-   const result = await evaluate(matches[0].webSocketDebuggerUrl, expression, signal);
+   const result = await evaluate(matches[0].webSocketDebuggerUrl, expression, signal, responseLimit);
    return unwrap(result);
   } catch (error) {
    if (signal.aborted) throw Error(callerSignal?.aborted ? 'NATIVE_CANCELLED' : 'NATIVE_TIMEOUT');

@@ -26,6 +26,34 @@ const graph = {
   title: "Chat",
   mapping: { a: node("a"), b: node("b", "a") },
 };
+
+test("long stories survive full projection and later canonical branch updates", () => {
+  const store = new NativeHistoryProjection();
+  const mapping = {};
+  for (let i = 0; i < 100; i++)
+    mapping["n" + i] = node("n" + i, i ? "n" + (i - 1) : null, "Story ".repeat(10000));
+  const first = store.accept(id, undefined, {
+    kind: "full",
+    conversationId: id,
+    revision: version(1),
+    graph: { ...graph, current_node: "n99", mapping },
+  });
+  assert.ok(Buffer.byteLength(JSON.stringify(first)) > 4 * 1024 ** 2);
+  const next = store.accept(id, store.get(id), {
+    kind: "delta",
+    conversationId: id,
+    base: version(1),
+    revision: version(2),
+    removed: [],
+    graph: {
+      ...graph,
+      current_node: "latest",
+      mapping: { latest: node("latest", "n99", "Fresh answer") },
+    },
+  });
+  assert.equal(next.mapping.latest.message.content.parts[0], "Fresh answer");
+  assert.equal(Object.keys(next.mapping).length, 101);
+});
 test("exact public delta matches canonical edits, shortened branches, late attachments and duplicate text", () => {
   const store = new NativeHistoryProjection(),
     normalizer = new GptHistoryNormalizer();

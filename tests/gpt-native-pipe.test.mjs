@@ -68,6 +68,24 @@ test("pipe abort and EOF reject pending reads without resending", async (t) => {
   assert.equal(f.calls.length, 2);
 });
 
+test("history-sized pipe responses do not close the native connection", async (t) => {
+  const text = "x".repeat(5 * 1024 ** 2);
+  const f = fixture(t, (call) => ({ text: call.method === "Runtime.evaluate" ? text : "ok" }));
+  const large = await f.pipe.call(
+    "Runtime.evaluate",
+    {},
+    AbortSignal.timeout(3000),
+    "main",
+    20 * 1024 ** 2,
+  );
+  assert.equal(large.text, text);
+  assert.equal(f.pipe.closed, false);
+  await assert.rejects(
+    f.pipe.call("Runtime.evaluate", {}, AbortSignal.timeout(3000), "main", 2 * 1024 ** 2),
+    /RESPONSE_TOO_LARGE|PIPE_CLOSED/,
+  );
+});
+
 test("cross-session responses and oversized pipe frames close the transport", async (t) => {
   const f = fixture(t);
   const pending = f.pipe.call("Runtime.evaluate", {}, AbortSignal.timeout(1000), "expected");

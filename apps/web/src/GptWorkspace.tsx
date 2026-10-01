@@ -747,7 +747,12 @@ export function GptWorkspace({
   const progressJob = active ?? awaitingReply;
   const turnProgress = gptTurnProgress(messages, progressJob);
   const externalReply =
-    !contextMessage && !hasNewer && turnProgress.external && turnProgress.pending;
+    !contextMessage &&
+    !hasNewer &&
+    !historyStale &&
+    !historyNotice &&
+    turnProgress.external &&
+    turnProgress.pending;
   const cachedProgress = turnProgress.items;
   const historicalJobs = new Set(
     currentJobs

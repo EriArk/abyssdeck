@@ -14,7 +14,8 @@ export class NativePipe {
     output.on('data', chunk => {
       if (this.closed) return;
       this.buffer = Buffer.concat([this.buffer, chunk]);
-      if (this.buffer.length > 4 * 1024 * 1024) return this.close();
+      const limit = Math.max(4 * 1024 * 1024, ...[...this.pending.values()].map(p => p.responseLimit));
+      if (this.buffer.length > limit) return this.close();
       for (;;) {
         const end = this.buffer.indexOf(0);
         if (end < 0) break;
@@ -26,12 +27,15 @@ export class NativePipe {
           const pending = this.pending.get(message.id);
           if (!pending) continue; // A cancelled read may finish later. Never replay it.
           if (message.sessionId !== pending.sessionId) return this.close();
+          if (frame.length > pending.responseLimit) {
+            pending.finish(Error('NATIVE_RESPONSE_TOO_LARGE')); continue;
+          }
           pending.finish(message.error ? Error('NATIVE_PIPE_REJECTED') : null, message.result);
         } catch { this.close(); return; }
       }
     });
   }
-  call(method, params, signal, sessionId) {
+  call(method, params, signal, sessionId, responseLimit = 4 * 1024 * 1024) {
     if (this.closed) return Promise.reject(Error('NATIVE_PIPE_CLOSED'));
     if (this.pending.size >= 16) return Promise.reject(Error('NATIVE_BUSY'));
     return new Promise((resolve, reject) => {
@@ -42,7 +46,7 @@ export class NativePipe {
         error ? reject(error) : resolve(result);
       };
       const abort = () => finish(Error('NATIVE_CANCELLED'));
-      this.pending.set(id, { finish, sessionId });
+      this.pending.set(id, { finish, sessionId, responseLimit: Math.min(responseLimit, 20 * 1024 * 1024) });
       signal.addEventListener('abort', abort, { once: true });
       if (signal.aborted) return abort();
       const frame = Buffer.from(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) }) + '\0');
@@ -50,7 +54,7 @@ export class NativePipe {
       this.input.write(frame);
     });
   }
-  async evaluateMain(expression, guard, signal) {
+  async evaluateMain(expression, guard, signal, responseLimit) {
     const { targetInfos } = await this.call('Target.getTargets', {}, signal);
     if (!Array.isArray(targetInfos) || targetInfos.length > 32) throw Error('NATIVE_INVALID_TARGETS');
     const sessions = [];
@@ -64,7 +68,7 @@ export class NativePipe {
         if (result?.result?.value === true) matches.push(sessionId);
       }
       if (matches.length !== 1) throw Error('NATIVE_WINDOW_AMBIGUOUS');
-      const result = await this.call('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }, signal, matches[0]);
+      const result = await this.call('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }, signal, matches[0], responseLimit);
       if (result?.exceptionDetails || !result?.result) throw Error('NATIVE_INVALID_RESPONSE');
       return result.result.value;
     } finally {

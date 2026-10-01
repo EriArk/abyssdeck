@@ -288,7 +288,8 @@ export async function nativeRead(request, load = () => import('app://-/assets/ap
     if(action&&!publicMessage&&identity(m?.id))n.message={id:m.id,author:{role:'assistant'},channel:'commentary',recipient:'all',
     content:{content_type:'text',parts:[action.text]},create_time:Number.isFinite(m.create_time)?m.create_time:0,
     status:action.state==='completed'?'finished_successfully':'in_progress',end_turn:false,metadata:{codex_activity:action.kind}};
-   size+=new TextEncoder().encode(JSON.stringify(n)).length;if(size>1500000)fail('HISTORY_TOO_LARGE');
+   // Match the canonical response budget. Long public chats must keep syncing.
+   size+=new TextEncoder().encode(JSON.stringify(n)).length;if(size>16*1024**2)fail('HISTORY_TOO_LARGE');
    clean[id]=n;
   }
   if(!identity(conversation.current_node)||!clean[conversation.current_node])fail('INVALID_HISTORY');

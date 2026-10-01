@@ -92,6 +92,23 @@ function fixture() {
   return { account, runtime, conversation, calls, service, read, node, binding };
 }
 
+test("multi-megabyte story history keeps the latest native turns and revision updates", async () => {
+  const f = fixture(),
+    accountFingerprint = await f.binding();
+  for (let n = 2; n <= 100; n++) f.node(n, "Chapter text ".repeat(4000));
+  const request = { operation: "readHistoryUpdate", conversationId, accountFingerprint };
+  const first = await f.read(request, true);
+  assert.ok(Buffer.byteLength(JSON.stringify(first)) > 4 * 1024 ** 2);
+  assert.equal(first.graph.current_node, id(100));
+  const entry = [...f.runtime[Symbol.for("codex-web.native-history")].values()][0];
+  entry.at -= 16000;
+  f.node(101, "New native mobile answer");
+  const next = await f.read({ ...request, revision: first.revision }, true);
+  assert.equal(next.kind, "delta");
+  assert.equal(next.graph.current_node, id(101));
+  assert.equal(next.graph.mapping[id(101)].message.content.parts[0], "New native mobile answer");
+});
+
 test("parallel readers share one canonical upstream response and preserve account checks", async () => {
   const f = fixture(),
     accountFingerprint = await f.binding();
