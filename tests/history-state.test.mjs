@@ -60,3 +60,24 @@ test("fresh device receives complete snapshot without inheriting another convers
   };
   assert.deepEqual(mergeHistorySnapshot(state, snapshot).messages, snapshot.messages);
 });
+
+test("turn outcomes survive late history and older-page merges without replacing newer completion", () => {
+  const state = {
+    ...snapshot,
+    revision: 0,
+    turnOutcomes: {
+      current: { status: "failed", error: "capacity", seq: 15 },
+      old: { status: "failed", error: "older failure", seq: 3 },
+    },
+  };
+  const merged = mergeHistorySnapshot(state, {
+    ...snapshot,
+    turnOutcomes: {
+      current: { status: "completed", seq: 10 },
+      older: { status: "interrupted", seq: 1 },
+    },
+  });
+  assert.equal(merged.turnOutcomes.current.status, "failed");
+  assert.equal(merged.turnOutcomes.old.error, "older failure");
+  assert.equal(merged.turnOutcomes.older.status, "interrupted");
+});

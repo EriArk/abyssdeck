@@ -539,14 +539,20 @@ export async function createApp(
         before: z.string().max(100).optional(),
       })
       .parse(req.query);
-    return {
-      ...(thread.origin === "desktop" || thread.historyMode
+    const history =
+      thread.origin === "desktop" || thread.historyMode
         ? q.messageId
           ? await sessions.catalog.messageContext(thread, q.messageId, q.turnId)
           : await sessions.catalog.history(thread, q.before, q.turnId)
         : q.turnId || q.messageId
           ? store.context(id, q.turnId ?? "", q.messageId)
-          : store.history(id, page(req).before)),
+          : store.history(id, page(req).before);
+    return {
+      ...history,
+      turnOutcomes: store.turnOutcomes(
+        id,
+        history.messages.map((message) => message.turnId),
+      ),
       thread: store.thread(id),
       approvals: sessions.pending(id),
     };

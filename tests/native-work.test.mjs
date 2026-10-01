@@ -293,3 +293,48 @@ test("late native work from a loaded writer survives a removed catalog project",
     await f.close();
   }
 });
+
+test("history retains exact failed turn reasons after later turns, isolated from other chats", async () => {
+  const f = await handoffFixture();
+  try {
+    f.store.db.prepare("UPDATE threads SET origin='web' WHERE id=?").run(f.thread.id);
+    const other = f.store.createThread("project", randomUUID(), "Other chat");
+    for (const turn of ["first", "second"]) {
+      f.store.append(f.thread.id, "user.message", { id: turn, text: "Continue" }, turn);
+      f.store.append(
+        f.thread.id,
+        "error",
+        {
+          code: "CODEX_ERROR",
+          message: "Selected model is at capacity. Please try a different model.",
+        },
+        turn,
+      );
+      f.store.append(f.thread.id, "turn.completed", { status: "failed" }, turn);
+    }
+    f.store.append(
+      other.id,
+      "turn.completed",
+      { status: "failed", error: "OTHER PRIVATE ERROR" },
+      "first",
+    );
+    f.store.append(f.thread.id, "user.message", { id: "third", text: "Continue" }, "third");
+    f.store.append(f.thread.id, "turn.completed", { status: "completed" }, "third");
+    const response = await f.app.inject({
+      method: "GET",
+      url: `/api/threads/${f.thread.id}/history`,
+      headers: f.headers,
+    });
+    assert.equal(response.statusCode, 200);
+    const { turnOutcomes } = response.json();
+    assert.equal(turnOutcomes.first.status, "failed");
+    assert.match(turnOutcomes.first.error, /at capacity/);
+    assert.equal(turnOutcomes.second.status, "failed");
+    assert.equal(turnOutcomes.third.status, "completed");
+    assert.doesNotMatch(JSON.stringify(turnOutcomes), /OTHER PRIVATE/);
+    assert.deepEqual(f.store.turnOutcomes(f.thread.id, ["third"]), { third: turnOutcomes.third });
+    assert.deepEqual(f.store.turnOutcomes(f.thread.id, []), {});
+  } finally {
+    await f.close();
+  }
+});

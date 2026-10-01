@@ -12,6 +12,7 @@ export function mergeHistorySnapshot(state: ChatState, history: History): ChatSt
     ...state,
     ...history,
     messages,
+    turnOutcomes: mergeTurnOutcomes(history.turnOutcomes, state.turnOutcomes),
     thread: state.lastSeq > history.lastSeq ? state.thread : history.thread,
     approvals: state.lastSeq > history.lastSeq ? state.approvals : history.approvals,
     lastSeq: Math.max(state.lastSeq, history.lastSeq),
@@ -21,4 +22,11 @@ export function mergeHistorySnapshot(state: ChatState, history: History): ChatSt
     error: "",
     revision: state.revision + 1,
   };
+}
+
+export function mergeTurnOutcomes(a: History["turnOutcomes"], b: History["turnOutcomes"]) {
+  const result = { ...a };
+  for (const [id, value] of Object.entries(b ?? {}))
+    if (!result[id] || result[id].seq < value.seq) result[id] = value;
+  return result;
 }

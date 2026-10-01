@@ -2,7 +2,7 @@ import { chatQuestions } from "@codex-web/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { workspaceSocket } from "./accountStorage.ts";
 import { api, messageOf } from "./api";
-import { mergeHistorySnapshot } from "./historyState";
+import { mergeHistorySnapshot, mergeTurnOutcomes } from "./historyState";
 import type { Approval, Attachment, History, HubEvent, Message, TurnSettings } from "./types";
 export interface ChatState extends History {
   loading: boolean;
@@ -132,6 +132,19 @@ export function useWorkspace(threadId: string) {
             thread = s.thread,
             approvals = s.approvals;
           let progress = s.progress;
+          let turnOutcomes = s.turnOutcomes;
+          if (
+            turnId &&
+            (event.type === "turn.completed" ||
+              (event.type === "error" && p.code === "CODEX_ERROR"))
+          ) {
+            const outcome = { ...turnOutcomes?.[turnId], seq };
+            if (event.type === "turn.completed") {
+              outcome.status = String(p.status);
+              if (typeof p.error === "string" && p.error) outcome.error = p.error;
+            } else outcome.error = String(p.message ?? "Ошибка Codex");
+            turnOutcomes = { ...turnOutcomes, [turnId]: outcome };
+          }
           if (event.type === "turn.progress") progress = String(p.label ?? "");
           if (event.type === "turn.started") progress = "Обдумывает задачу";
           if (event.type === "turn.completed") progress = "";
@@ -209,7 +222,7 @@ export function useWorkspace(threadId: string) {
               "interrupted",
             ].includes(String(p.status))
               ? ""
-              : event.type === "error" ||
+              : (event.type === "error" && !(turnId && p.code === "CODEX_ERROR")) ||
                   (["session.state", "session.notice"].includes(event.type) && p.message)
                 ? String(p.message ?? "Ошибка Codex")
                 : s.error;
@@ -219,6 +232,7 @@ export function useWorkspace(threadId: string) {
             thread,
             approvals,
             progress,
+            turnOutcomes,
             lastSeq: seq,
             error,
             revision:
@@ -325,6 +339,7 @@ export function useWorkspace(threadId: string) {
         return {
           ...s,
           messages: [...history.messages.filter((m) => !ids.has(m.id)), ...s.messages],
+          turnOutcomes: mergeTurnOutcomes(history.turnOutcomes, s.turnOutcomes),
           nextBefore: history.nextBefore,
           hasMore: history.hasMore,
           loadingOlder: false,

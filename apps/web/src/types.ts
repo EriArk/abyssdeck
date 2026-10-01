@@ -90,6 +90,7 @@ export interface HubEvent {
   approvals?: Approval[];
 }
 export interface History {
+  turnOutcomes?: Record<string, { status?: string; error?: string; seq: number }>;
   sourceVersion?: number;
   contextTurn?: string;
   hasNewer?: boolean;

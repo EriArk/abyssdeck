@@ -106,6 +106,28 @@ for (const [engine, type] of [
     status("idle", null);
     await expect(control).toHaveCount(0);
     await expect(editor).toHaveValue("Preserve this draft");
+    const capacity = "Selected model is at capacity. Please try a different model.";
+    event("error", { code: "CODEX_ERROR", message: capacity });
+    event("turn.completed", { status: "failed", error: capacity });
+    status("failed", null);
+    await expect(page.locator(".task-boundary-error")).toContainText(["Модель сейчас перегружена"]);
+    await expect(page.locator(".connection-recovery")).toHaveCount(0);
+    event("user.message", { id: "next-user", text: "Another attempt" }, "next-turn");
+    status("running", "next-turn");
+    event("error", { code: "CODEX_ERROR", message: capacity }, "next-turn");
+    event("turn.completed", { status: "failed" }, "next-turn");
+    status("failed", null);
+    await expect(page.locator('hr[aria-label="Ход завершился с ошибкой"]')).toHaveCount(2);
+    await expect(page.locator(".task-boundary-error")).toHaveCount(2);
+    await page.reload();
+    await expect(page.locator('hr[aria-label="Ход завершился с ошибкой"]')).toHaveCount(2);
+    await expect(page.locator(".task-boundary-error")).toHaveCount(2);
+    await expect(page.locator(".connection-recovery")).toHaveCount(0);
+    await expect(editor).toHaveValue("Preserve this draft");
+    await expect(
+      page.getByRole("button", { name: "Отправить сообщение", exact: true }),
+    ).toBeEnabled();
+    await page.screenshot({ path: `.local/qa-codex-status/${engine}/capacity-failures.png` });
     assert.deepEqual(writes, []);
     assert.deepEqual(errors, []);
     console.log(

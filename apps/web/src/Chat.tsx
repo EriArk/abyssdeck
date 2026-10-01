@@ -42,6 +42,7 @@ import { SpeechButton, useSpeechScope } from "./MessageSpeech";
 import { NativePlan } from "./NativePlan";
 import { clearAcknowledgedSend, matchesPendingSend } from "./pendingSend";
 import { TurnDetails } from "./TurnDetails";
+import { taskEndLabel, turnFailureMessage } from "./turnOutcome";
 import { useCompletionPosition } from "./useCompletionPosition";
 import "./taskBoundary.css";
 import { ElicitationCard } from "./ElicitationCard";
@@ -118,20 +119,6 @@ function endsTask(
       message.phase === "final_answer" ||
       ["completed", "interrupted", "failed"].includes(status))
   );
-}
-function taskEndLabel(
-  turnId: string | null,
-  status: string,
-  last: boolean,
-  completion?: ThreadActivity,
-) {
-  const outcome =
-    completion?.completedTurnId === turnId ? completion?.completedStatus : last ? status : null;
-  return outcome === "failed"
-    ? "Ход завершился с ошибкой"
-    : outcome === "interrupted"
-      ? "Ход остановлен"
-      : "Конец задачи";
 }
 export function ApprovalCard({
   approval,
@@ -871,6 +858,7 @@ export function Chat({
                               state.thread.status,
                               index === state.messages.length - 1,
                               completion,
+                              state.turnOutcomes,
                             )}
                           />
                           <span aria-hidden="true">
@@ -879,9 +867,15 @@ export function Chat({
                               state.thread.status,
                               index === state.messages.length - 1,
                               completion,
+                              state.turnOutcomes,
                             )}
                           </span>
                           <div className="task-boundary-line" aria-hidden="true" />
+                          {turnFailureMessage(message.turnId, state.turnOutcomes) && (
+                            <p className="task-boundary-error">
+                              {turnFailureMessage(message.turnId, state.turnOutcomes)}
+                            </p>
+                          )}
                           {reviews
                             .filter((r) => r.turnId === message.turnId)
                             .map((r) => (

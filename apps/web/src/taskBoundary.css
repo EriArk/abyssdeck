@@ -44,3 +44,17 @@
   font-size: 14px;
   line-height: 1.5;
 }
+
+.task-boundary:has(.task-boundary-error) {
+  flex-wrap: wrap;
+}
+.task-boundary .task-boundary-error {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: normal;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}

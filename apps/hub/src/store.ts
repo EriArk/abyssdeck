@@ -323,6 +323,34 @@ export class Store {
       throw error;
     }
   }
+  turnOutcomes(threadId: string, turns: (string | null)[]) {
+    const ids = [...new Set(turns.filter((id): id is string => !!id))].slice(0, 100);
+    const result: Record<string, { status?: string; error?: string; seq: number }> = {};
+    if (!ids.length) return result;
+    const rows = this.db
+      .prepare(
+        `SELECT e.turnId,e.type,e.payload,e.seq FROM events e JOIN
+       (SELECT MAX(seq) seq FROM events WHERE threadId=? AND turnId IN (${ids.map(() => "?").join(",")})
+        AND type IN ('turn.completed','error') GROUP BY turnId,type) latest ON latest.seq=e.seq
+       ORDER BY e.seq`,
+      )
+      .all(threadId, ...ids);
+    for (const row of rows) {
+      const id = String(row.turnId),
+        payload = JSON.parse(String(row.payload));
+      const value = result[id] ?? { seq: 0 };
+      if (row.type === "turn.completed") {
+        value.status = String(payload.status);
+        if (typeof payload.error === "string" && payload.error)
+          value.error = payload.error.slice(0, 2000);
+      } else if (payload.code === "CODEX_ERROR" && typeof payload.message === "string") {
+        value.error = payload.message.slice(0, 2000);
+      }
+      value.seq = Number(row.seq);
+      result[id] = value;
+    }
+    return result;
+  }
   history(
     threadId: string,
     before = Number.MAX_SAFE_INTEGER,
@@ -343,7 +371,7 @@ export class Store {
       lastSeq: this.lastSeq(threadId),
     };
   }
-  context(threadId: string, turnId: string, messageId?: string): Record<string, unknown> {
+  context(threadId: string, turnId: string, messageId?: string) {
     const start = messageId
       ? this.db
           .prepare("SELECT firstSeq AS seq FROM messages WHERE threadId=? AND id=?")
