@@ -18,6 +18,7 @@ import type { Components } from "react-markdown";
 import { pageWorkspace, workspaceMediaUrl } from "./accountStorage";
 import { CollapsibleCode, textOf } from "./CollapsibleCode";
 import { CopyButton } from "./CopyButton";
+import { DecodedImage } from "./DecodedImage";
 import { openTerminal, terminalDevice } from "./DeviceWorkspaceHost";
 import { HumanReferenceLink } from "./HumanReferences";
 import { ImageGallery } from "./ImageGallery";
@@ -37,25 +38,25 @@ function MessageImage({
   const native = artifactSource(source);
   const direct = source.startsWith("/api/") || source.startsWith("data:image/");
   const remote = !native && /^https?:\/\//i.test(source);
-  const [url, setUrl] = useState(direct || remote ? source : "");
+  const [resolved, setResolved] = useState({ source: "", url: "" });
+  const url = resolved.source === source ? resolved.url : "";
   const host = useRef<HTMLSpanElement>(null),
     resolver = useRef(resolveImage);
   resolver.current = resolveImage;
   useEffect(() => {
     let alive = true;
-    if (direct || remote) {
-      setUrl(source);
-      return;
-    }
-    setUrl("");
     const observer = new IntersectionObserver(
       (entries) => {
         if (!entries.some((entry) => entry.isIntersecting)) return;
         observer.disconnect();
+        if (direct || remote) {
+          setResolved({ source, url: source });
+          return;
+        }
         void resolver
           .current?.(source)
           .then((value) => {
-            if (alive && value) setUrl(value);
+            if (alive && value) setResolved({ source, url: value });
           })
           .catch(() => {});
       },
@@ -68,12 +69,13 @@ function MessageImage({
     };
   }, [source, direct, remote]);
   const content = url ? (
-    <img
+    <DecodedImage
       src={workspaceMediaUrl(url)}
       alt={alt}
-      // Native resolution is already visibility-gated. A second lazy gate can
-      // stall zero-sized, not-yet-decoded images in WebKit.
-      loading={direct || remote ? "lazy" : "eager"}
+      // Visibility is already gated above. Do not leave the visible slide in
+      // the browser's low-priority lazy-image queue while it receives bytes.
+      loading="eager"
+      fetchPriority={remote ? "auto" : "high"}
       referrerPolicy="no-referrer"
     />
   ) : (

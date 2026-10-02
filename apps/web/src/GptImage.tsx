@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { workspaceMediaUrl } from "./accountStorage";
+import { DecodedImage } from "./DecodedImage";
 
 /** A failed image request is independent of sending a message. Retry only private
  * Hub media, twice; never reload an already decoded image during history polling. */
@@ -24,7 +25,7 @@ function ImageAttempt({ src, alt }: { src: string; alt: string }) {
   }, [failed, privateMedia, attempt]);
   const source = workspaceMediaUrl(src);
   return (
-    <img
+    <DecodedImage
       src={
         attempt && source
           ? `${source}${source.includes("?") ? "&" : "?"}imageAttempt=${attempt}`
