@@ -1,6 +1,6 @@
 # Текущий остаток — 2 октября 2026
 
-## GPT stopped response indicator (2026-10-02, prepared)
+## GPT stopped response indicator (2026-10-02, installed)
 
 Owner screenshots IMG_0808/0809 show native ChatGPT stopped reasoning while
 CodexWeb still displays tool activity. Read-only live inspection found the older
@@ -12,12 +12,21 @@ longer waits on the selected window's global Stop button (which may belong to
 another chat); and a recent intermediate message cannot resurrect a confirmed
 idle/cancelled/completed exact user receipt as external-client progress. Finished
 transport means idle, not successful completion; canonical polling and uncertain
-receipts are preserved. No send or Stop is issued by this recovery.
+receipts are preserved. No send or Stop is issued by this recovery. Confirmed
+idle state also survives native stream-cache expiry and Hub restart; an unchanged
+unfinished history node cannot revive that same response as running.
 
-Validation: production build/typecheck, 14 continuity/attention tests, the actual
-queue regression, Chromium/WebKit queue and stopped/idle/completed UI scenarios.
-Linux adapter tests and ordinary Hub activation are tracked in the deployment
-receipt. Companion installation and its automatic feed remain deferred by owner.
+Validation: production build/typecheck, 87 focused Linux tests, 25 checkpoint/
+rollback/admission tests, Chromium/WebKit queue and stopped/idle/completed UI
+scenarios, plus production-image smoke checks. The queue regression verifies
+cache expiry, restart, later canonical completion and exactly one original send.
+
+Hub and engine release `35ce674` was installed through the ordinary updater at
+2026-10-02 11:33:43 UTC; both containers are healthy. Deployment evidence is in
+`/home/abysscloud/services/codex-web/verification-35ce674/receipt.json`. The native
+ChatGPT container retained its 2026-10-01 21:27:50 UTC start time; no native restart
+or prompt replay was performed. Automatic checkpoint retention kept three verified
+copies. Companion installation and its automatic feed remain deferred by owner.
 
 
 ## Companion 0.5.5: prepared only, installation held by owner (2026-10-02)
