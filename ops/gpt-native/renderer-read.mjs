@@ -418,7 +418,15 @@ function gptLinkedText(body, metadata) {
   const sameContent=content?.content_type===expectedContent.content_type&&Array.isArray(content.parts)&&content.parts.length===expectedContent.parts.length&&
    expectedContent.parts.every((p,i)=>typeof p==='string'?content.parts[i]===p:
     content.parts[i]&&Object.keys(p).every(k=>content.parts[i][k]===p[k]));
-  if(chain.filter(n=>n.message?.id===request.userMessageId).length!==1||node.parent!==request.parentId||node.message.author?.role!=='user'||
+  // Native history can replace a transient parent after accepting a message.
+  // Reconcile only a persisted existing-chat receipt with the exact public UUID
+  // and bytes. A still-present different parent remains a branch mismatch.
+  // Dispatch admission continues to require the exact current parent before send.
+  const replacedParent=request.newChat!==true&&request.intentPersisted===true&&
+   !Object.hasOwn(conversation.mapping,request.parentId)&&uuid(node.parent)&&
+   chain.slice(index+1).some(n=>n.id===node.parent);
+  if(chain.filter(n=>n.message?.id===request.userMessageId).length!==1||
+     (node.parent!==request.parentId&&!replacedParent)||node.message.author?.role!=='user'||
      !sameContent||
      node.message.metadata?.is_visually_hidden_from_conversation===true)fail('SUBMISSION_MISMATCH');
   if(request.newChat===true&&(chain.slice(index+1).some(n=>n.message?.author?.role==='user')||(conversation.gizmo_id??null)!==(request.projectId??null)||conversation.conversation_origin==='tpp'))fail('SUBMISSION_MISMATCH');

@@ -1044,3 +1044,22 @@ test("receipt proof ignores unrelated large turns and retains a large exact fina
   );
   assert.equal(result.messages[0].text, "answer ".repeat(180000));
 });
+
+
+test("persisted receipt reconciles native replacement of a vanished transient parent", async () => {
+  const f=fixture(), accountFingerprint=await f.binding();
+  f.node(2,"accepted prompt",{id:id(90),author:{role:"user"}});
+  f.node(3,"finished answer",{end_turn:true});
+  const request={operation:"readSubmission",conversationId,accountFingerprint,userMessageId:id(90),
+    parentId:id(99),text:"accepted prompt",intentPersisted:true};
+  const result=await f.read(request);
+  assert.equal(result.state,"completed");
+  assert.deepEqual(result.messages.map(m=>m.text),["finished answer"]);
+  await assert.rejects(f.read({...request,intentPersisted:false}),/SUBMISSION_MISMATCH/);
+  await assert.rejects(f.read({...request,newChat:true}),/SUBMISSION_MISMATCH/);
+  await assert.rejects(f.read({...request,parentId:id(3)}),/SUBMISSION_MISMATCH/);
+  await assert.rejects(f.read({...request,text:"changed"}),/SUBMISSION_MISMATCH/);
+  assert.equal((await f.read({...request,userMessageId:id(98)})).state,"unknown");
+  f.node(4,"later user",{author:{role:"user"}});f.node(5,"later answer",{end_turn:true});
+  assert.deepEqual((await f.read(request)).messages.map(m=>m.text),["finished answer"]);
+});
