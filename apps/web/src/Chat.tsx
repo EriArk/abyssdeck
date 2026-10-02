@@ -811,9 +811,10 @@ export function Chat({
                               })),
                             ]}
                           />
-                          {message.role === "assistant" &&
-                            message.phase !== "commentary" &&
-                            !/!\[[^\]]*\]\(/.test(message.text) &&
+                            {message.role === "assistant" &&
+                              message.phase !== "commentary" &&
+                              !message.questions?.length &&
+                              !/!\[[^\]]*\]\(/.test(message.text) &&
                             !state.messages
                               .slice(index + 1)
                               .some(
