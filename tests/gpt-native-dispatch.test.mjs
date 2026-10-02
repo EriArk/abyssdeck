@@ -965,6 +965,9 @@ test("finished exact stream releases Hub progress while another native chat is g
   assert.equal(f.state.sends, 1);
   assert.equal(f.db.prepare("SELECT count(*) n FROM gpt_native_receipts").get().n, 1);
   assert.equal(f.db.prepare("SELECT answer FROM gpt_jobs").get().answer, "Public progress");
+  f.client.liveDispatch = async () => ({ items: [] });
+  assert.equal((await worker.reconcile(f.id)).status, "idle", "expiry cannot revive old work");
+  assert.equal((await f.open().reconcile(f.id)).status, "idle", "Hub restart retains idle proof");
   f.state.readState = "completed";
   assert.equal((await worker.reconcile(f.id)).status, "completed");
   assert.equal(f.state.sends, 1);

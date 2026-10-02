@@ -441,8 +441,11 @@ export class NativeGptJobs {
       if (result.userMessageId !== payload.userMessageId) fail("SUBMISSION_MISMATCH");
       if (
         result.state === "running" &&
-        (await nativeResponseIdle(this.client, id, payload.conversationId))
+        (row.status === "idle" ||
+          (await nativeResponseIdle(this.client, id, payload.conversationId)))
       )
+        // Persist the exact idle proof across renderer cache expiry/restarts.
+        // An unchanged unfinished history node is not a new response stream.
         result = { ...result, state: "idle" };
       if (
         payload.conversationId === null &&
