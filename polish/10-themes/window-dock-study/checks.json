@@ -1,0 +1,303 @@
+{
+  "scope": "Interactive design mockup only; no installed app or physical-device validation",
+  "cases": [
+    {
+      "engine": "chromium",
+      "theme": "green",
+      "width": 1120,
+      "overflow": false,
+      "phoneDockHidden": false,
+      "draftPreserved": true
+    },
+    {
+      "engine": "chromium",
+      "theme": "green",
+      "width": 900,
+      "overflow": false,
+      "phoneDockHidden": false,
+      "draftPreserved": true
+    },
+    {
+      "engine": "chromium",
+      "theme": "green",
+      "width": 768,
+      "overflow": false,
+      "phoneDockHidden": false,
+      "draftPreserved": true
+    },
+    {
+      "engine": "chromium",
+      "theme": "green",
+      "width": 600,
+      "overflow": false,
+      "phoneDockHidden": true,
+      "draftPreserved": false
+    },
+    {
+      "engine": "chromium",
+      "theme": "green",
+      "width": 390,
+      "overflow": false,
+      "phoneDockHidden": true,
+      "draftPreserved": false
+    },
+    {
+      "engine": "chromium",
+      "theme": "green",
+      "width": 320,
+      "overflow": false,
+      "phoneDockHidden": true,
+      "draftPreserved": false
+    },
+    {
+      "engine": "chromium",
+      "theme": "millennium",
+      "width": 1120,
+      "overflow": false,
+      "phoneDockHidden": false,
+      "draftPreserved": true
+    },
+    {
+      "engine": "chromium",
+      "theme": "millennium",
+      "width": 900,
+      "overflow": false,
+      "phoneDockHidden": false,
+      "draftPreserved": true
+    },
+    {
+      "engine": "chromium",
+      "theme": "millennium",
+      "width": 768,
+      "overflow": false,
+      "phoneDockHidden": false,
+      "draftPreserved": true
+    },
+    {
+      "engine": "chromium",
+      "theme": "millennium",
+      "width": 600,
+      "overflow": false,
+      "phoneDockHidden": true,
+      "draftPreserved": false
+    },
+    {
+      "engine": "chromium",
+      "theme": "millennium",
+      "width": 390,
+      "overflow": false,
+      "phoneDockHidden": true,
+      "draftPreserved": false
+    },
+    {
+      "engine": "chromium",
+      "theme": "millennium",
+      "width": 320,
+      "overflow": false,
+      "phoneDockHidden": true,
+      "draftPreserved": false
+    },
+    {
+      "engine": "chromium",
+      "theme": "organizer",
+      "width": 1120,
+      "overflow": false,
+      "phoneDockHidden": false,
+      "draftPreserved": true
+    },
+    {
+      "engine": "chromium",
+      "theme": "organizer",
+      "width": 900,
+      "overflow": false,
+      "phoneDockHidden": false,
+      "draftPreserved": true
+    },
+    {
+      "engine": "chromium",
+      "theme": "organizer",
+      "width": 768,
+      "overflow": false,
+      "phoneDockHidden": false,
+      "draftPreserved": true
+    },
+    {
+      "engine": "chromium",
+      "theme": "organizer",
+      "width": 600,
+      "overflow": false,
+      "phoneDockHidden": true,
+      "draftPreserved": false
+    },
+    {
+      "engine": "chromium",
+      "theme": "organizer",
+      "width": 390,
+      "overflow": false,
+      "phoneDockHidden": true,
+      "draftPreserved": false
+    },
+    {
+      "engine": "chromium",
+      "theme": "organizer",
+      "width": 320,
+      "overflow": false,
+      "phoneDockHidden": true,
+      "draftPreserved": false
+    },
+    {
+      "engine": "webkit",
+      "theme": "green",
+      "width": 1120,
+      "overflow": false,
+      "phoneDockHidden": false,
+      "draftPreserved": true
+    },
+    {
+      "engine": "webkit",
+      "theme": "green",
+      "width": 900,
+      "overflow": false,
+      "phoneDockHidden": false,
+      "draftPreserved": true
+    },
+    {
+      "engine": "webkit",
+      "theme": "green",
+      "width": 768,
+      "overflow": false,
+      "phoneDockHidden": false,
+      "draftPreserved": true
+    },
+    {
+      "engine": "webkit",
+      "theme": "green",
+      "width": 600,
+      "overflow": false,
+      "phoneDockHidden": true,
+      "draftPreserved": false
+    },
+    {
+      "engine": "webkit",
+      "theme": "green",
+      "width": 390,
+      "overflow": false,
+      "phoneDockHidden": true,
+      "draftPreserved": false
+    },
+    {
+      "engine": "webkit",
+      "theme": "green",
+      "width": 320,
+      "overflow": false,
+      "phoneDockHidden": true,
+      "draftPreserved": false
+    },
+    {
+      "engine": "webkit",
+      "theme": "millennium",
+      "width": 1120,
+      "overflow": false,
+      "phoneDockHidden": false,
+      "draftPreserved": true
+    },
+    {
+      "engine": "webkit",
+      "theme": "millennium",
+      "width": 900,
+      "overflow": false,
+      "phoneDockHidden": false,
+      "draftPreserved": true
+    },
+    {
+      "engine": "webkit",
+      "theme": "millennium",
+      "width": 768,
+      "overflow": false,
+      "phoneDockHidden": false,
+      "draftPreserved": true
+    },
+    {
+      "engine": "webkit",
+      "theme": "millennium",
+      "width": 600,
+      "overflow": false,
+      "phoneDockHidden": true,
+      "draftPreserved": false
+    },
+    {
+      "engine": "webkit",
+      "theme": "millennium",
+      "width": 390,
+      "overflow": false,
+      "phoneDockHidden": true,
+      "draftPreserved": false
+    },
+    {
+      "engine": "webkit",
+      "theme": "millennium",
+      "width": 320,
+      "overflow": false,
+      "phoneDockHidden": true,
+      "draftPreserved": false
+    },
+    {
+      "engine": "webkit",
+      "theme": "organizer",
+      "width": 1120,
+      "overflow": false,
+      "phoneDockHidden": false,
+      "draftPreserved": true
+    },
+    {
+      "engine": "webkit",
+      "theme": "organizer",
+      "width": 900,
+      "overflow": false,
+      "phoneDockHidden": false,
+      "draftPreserved": true
+    },
+    {
+      "engine": "webkit",
+      "theme": "organizer",
+      "width": 768,
+      "overflow": false,
+      "phoneDockHidden": false,
+      "draftPreserved": true
+    },
+    {
+      "engine": "webkit",
+      "theme": "organizer",
+      "width": 600,
+      "overflow": false,
+      "phoneDockHidden": true,
+      "draftPreserved": false
+    },
+    {
+      "engine": "webkit",
+      "theme": "organizer",
+      "width": 390,
+      "overflow": false,
+      "phoneDockHidden": true,
+      "draftPreserved": false
+    },
+    {
+      "engine": "webkit",
+      "theme": "organizer",
+      "width": 320,
+      "overflow": false,
+      "phoneDockHidden": true,
+      "draftPreserved": false
+    }
+  ],
+  "retention": [
+    "draft",
+    "scroll",
+    "window bounds",
+    "project identity"
+  ],
+  "engines": [
+    "Chromium",
+    "WebKit"
+  ]
+}

@@ -1,0 +1,152 @@
+<div id="cw-dock-study">
+  <div class="viz-carousel" aria-label="Док свёрнутых окон — материалы тем" data-previous-label="Предыдущая тема" data-next-label="Следующая тема">
+    <section data-variant="Зелёная · приборная рейка" data-theme="green" aria-label="Зелёная тема"></section>
+    <section data-variant="2000 · пластиковый блок" data-theme="millennium" aria-label="Тема 2000" hidden></section>
+    <section data-variant="Органайзер · закладки" data-theme="organizer" aria-label="Органайзер" hidden></section>
+  </div>
+  <template>
+    <div class="dc-app" aria-label="Макет рабочего пространства">
+      <aside class="dc-nav">
+        <header><i data-lucide="panels-top-left" aria-hidden="true"></i><strong>CodexWeb</strong></header>
+        <div class="dc-nav-label">Проекты</div>
+        <button class="dc-project" data-project="CodexWeb" aria-pressed="true"><i data-lucide="folder" aria-hidden="true"></i>CodexWeb</button>
+        <button class="dc-project" data-project="TrainerOS" aria-pressed="false"><i data-lucide="folder" aria-hidden="true"></i>TrainerOS</button>
+        <button class="dc-project" data-project="PikoOS" aria-pressed="false"><i data-lucide="folder" aria-hidden="true"></i>PikoOS</button>
+        <footer><button class="dc-key" data-open="notes" aria-label="Открыть заметки" data-tooltip="Заметки"><i data-lucide="notebook-pen" aria-hidden="true"></i></button><button class="dc-key" data-open="terminal" aria-label="Открыть терминал" data-tooltip="Устройства"><i data-lucide="terminal" aria-hidden="true"></i></button><span>Мой компьютер</span></footer>
+      </aside>
+      <button class="dc-divider" role="separator" aria-label="Ширина списка проектов" aria-orientation="vertical" aria-valuemin="150" aria-valuemax="270" aria-valuenow="190" data-tooltip="Ширина панели проектов"></button>
+      <main class="dc-main">
+        <header class="dc-top"><div><strong data-project-title>CodexWeb</strong><small>Рабочее пространство</small></div><div class="dc-tools"><button class="dc-key" data-open="files" aria-label="Открыть файлы" data-tooltip="Файлы · CodexWeb"><i data-lucide="folder-open" aria-hidden="true"></i></button><button class="dc-key" data-open="notes" aria-label="Открыть заметки" data-tooltip="Заметки"><i data-lucide="notebook-pen" aria-hidden="true"></i></button><button class="dc-key" data-open="terminal" aria-label="Открыть терминал" data-tooltip="Терминал · сервер"><i data-lucide="terminal" aria-hidden="true"></i></button></div></header>
+        <div class="dc-chat">
+          <article><small>Вы</small><p>Файлы и заметки нужны под рукой, но сейчас хочу вернуться к чату.</p></article>
+          <article><small>Codex</small><p>Док прикреплён к перегородке. Окна можно убрать с экрана и вернуть, не закрывая их.</p><p>Рабочее место остаётся там же: сообщение, черновик и панели не сдвигаются.</p></article>
+          <div class="dc-end"><span>Конец задачи</span></div>
+        </div>
+        <div class="dc-composer"><span>GPT-6-Astra <span>Работа · Высокое</span></span><textarea rows="3" aria-label="Черновик чата в макете" placeholder="Что нужно сделать?">Давай посмотрим, как док ощущается рядом с чатом.</textarea><small>Макет · сообщения не отправляются</small></div>
+      </main>
+      <aside class="dc-dock" aria-label="Свёрнутые окна">
+        <div class="dc-dock-cap"><span></span><span></span></div>
+        <div class="dc-slots">
+          <button class="dc-slot" data-restore="files" aria-label="Восстановить Файлы · CodexWeb" data-tooltip="Файлы · CodexWeb" data-tooltip-placement="right"><i data-lucide="folder-open" aria-hidden="true"></i><span class="dc-pip"></span></button>
+          <button class="dc-slot" data-restore="notes" aria-label="Восстановить Заметки · интерфейс" data-tooltip="Заметки · интерфейс" data-tooltip-placement="right"><i data-lucide="notebook-pen" aria-hidden="true"></i><span class="dc-pip"></span></button>
+          <button class="dc-slot" data-restore="terminal" aria-label="Восстановить Терминал · сервер" data-tooltip="Терминал · сервер" data-tooltip-placement="right"><i data-lucide="terminal" aria-hidden="true"></i><span class="dc-pip"></span></button>
+        </div>
+        <button class="dc-fold" aria-label="Убрать док к перегородке" aria-expanded="true" data-tooltip="Убрать док"><i data-lucide="chevron-left" aria-hidden="true"></i></button>
+      </aside>
+      <button class="dc-tab" aria-label="Развернуть док: 3 окна" data-tooltip="Развернуть свёрнутые окна" hidden><i data-lucide="panel-left-open" aria-hidden="true"></i><span>3</span></button>
+      <section class="dc-window" data-window="files" role="region" aria-label="Файлы · CodexWeb" hidden>
+        <header class="dc-window-head"><i data-lucide="folder-open" aria-hidden="true"></i><div><strong>Файлы</strong><small>CodexWeb · docs</small></div><button class="dc-key dc-minimize" aria-label="Свернуть Файлы" data-tooltip="Свернуть в док"><i data-lucide="minus" aria-hidden="true"></i></button><button class="dc-key dc-maximize" aria-label="Развернуть Файлы" data-tooltip="Развернуть окно"><i data-lucide="maximize" aria-hidden="true"></i></button><button class="dc-key dc-close" aria-label="Закрыть Файлы" data-tooltip="Закрыть"><i data-lucide="x" aria-hidden="true"></i></button></header>
+        <div class="dc-file-path"><i data-lucide="folder" aria-hidden="true"></i>CodexWeb / docs</div>
+        <div class="dc-file-body"><nav aria-label="Файлы макета"><button aria-pressed="true">UI_LAYOUT_RULES.md</button><button aria-pressed="false">CURRENT_STATUS.md</button><button aria-pressed="false">DECISIONS.md</button></nav><article class="dc-document"><small>MD · просмотр</small><h2>Рабочее пространство</h2><p>Окна принадлежат своим проектам. Переключение чата не меняет открытый документ.</p><h3>Файлы</h3><p>Узкий список слева оставляет больше места для просмотра.</p><h3>Окна</h3><p>Расположение, размер и текущая страница сохраняются при сворачивании.</p><h3>Заметки</h3><p>Можно записать мысль, убрать окно и вернуться к тому же черновику.</p></article></div>
+        <button class="dc-resize" aria-label="Изменить размер окна Файлы" data-tooltip="Изменить размер"><i data-lucide="grip" aria-hidden="true"></i></button>
+      </section>
+      <section class="dc-window" data-window="notes" role="region" aria-label="Заметки · интерфейс" hidden>
+        <header class="dc-window-head"><i data-lucide="notebook-pen" aria-hidden="true"></i><div><strong>Заметки</strong><small>Интерфейс · мой блокнот</small></div><button class="dc-key dc-minimize" aria-label="Свернуть Заметки" data-tooltip="Свернуть в док"><i data-lucide="minus" aria-hidden="true"></i></button><button class="dc-key dc-maximize" aria-label="Развернуть Заметки" data-tooltip="Развернуть окно"><i data-lucide="maximize" aria-hidden="true"></i></button><button class="dc-key dc-close" aria-label="Закрыть Заметки" data-tooltip="Закрыть"><i data-lucide="x" aria-hidden="true"></i></button></header>
+        <div class="dc-note"><label>Идеи для следующего прохода<textarea aria-label="Текст заметки в макете">Сначала Git. Просмотрщик обсудим отдельно.
+
+Док — часть корпуса, а не ещё одна плавающая панель.</textarea></label><small>Локальный черновик макета</small></div><button class="dc-resize" aria-label="Изменить размер окна Заметки"><i data-lucide="grip" aria-hidden="true"></i></button>
+      </section>
+      <section class="dc-window" data-window="terminal" role="region" aria-label="Терминал · сервер" hidden>
+        <header class="dc-window-head"><i data-lucide="terminal" aria-hidden="true"></i><div><strong>Терминал</strong><small>Сервер · демонстрация</small></div><button class="dc-key dc-minimize" aria-label="Свернуть Терминал" data-tooltip="Свернуть в док"><i data-lucide="minus" aria-hidden="true"></i></button><button class="dc-key dc-maximize" aria-label="Развернуть Терминал" data-tooltip="Развернуть окно"><i data-lucide="maximize" aria-hidden="true"></i></button><button class="dc-key dc-close" aria-label="Закрыть Терминал" data-tooltip="Закрыть"><i data-lucide="x" aria-hidden="true"></i></button></header>
+        <div class="dc-terminal"><p>abysscloud@server:~$</p><p>Макет терминала.<br>Подключения к серверу нет.</p><span>▌</span></div><button class="dc-resize" aria-label="Изменить размер окна Терминал"><i data-lucide="grip" aria-hidden="true"></i></button>
+      </section>
+      <span class="dc-announcement" aria-live="polite"></span>
+    </div>
+  </template>
+</div>
+<style>
+#cw-dock-study .dc-app{--dc-case:#25191d;--dc-edge:#503137;--dc-key:#302025;--dc-screen:#06140b;--dc-text:#a4ebb4;--dc-muted:#8cb398;--dc-line:#335b40;--dc-active:#244e32;--dc-shadow:#090708;--dc-highlight:#65464e;--dc-nav:190px;position:relative;isolation:isolate;display:grid;grid-template-columns:var(--dc-nav) 10px minmax(0,1fr);height:700px;box-sizing:border-box;background:var(--dc-case);color:var(--dc-text);font:14px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;border:5px ridge var(--dc-edge);border-radius:18px;overflow:hidden;box-shadow:inset 0 0 0 3px var(--dc-shadow)}
+#cw-dock-study .dc-app *{box-sizing:border-box}#cw-dock-study [hidden]{display:none!important}
+#cw-dock-study .dc-app button,#cw-dock-study .dc-app textarea{font:inherit;color:inherit}#cw-dock-study .dc-app button{touch-action:manipulation}#cw-dock-study .dc-app button:focus-visible{outline:2px solid var(--dc-text);outline-offset:-3px}#cw-dock-study .dc-app button:hover{filter:brightness(1.13)}#cw-dock-study .dc-app svg{width:20px;height:20px;flex-shrink:0}#cw-dock-study .dc-app small{display:block;font-size:12px;color:var(--dc-muted)}
+#cw-dock-study .dc-nav{display:flex;flex-direction:column;min-width:0;padding:12px 9px 9px;border-right:1px solid var(--dc-edge)}#cw-dock-study .dc-nav header{display:flex;align-items:center;gap:10px;height:55px}#cw-dock-study .dc-nav-label{padding:20px 9px 12px;color:var(--dc-muted);font-size:12px}#cw-dock-study .dc-project{display:flex;align-items:center;gap:12px;min-height:48px;margin:2px 0;padding:8px;border:1px solid transparent;border-radius:5px;background:transparent;text-align:left}#cw-dock-study .dc-project[aria-pressed=true]{background:var(--dc-active);border-color:var(--dc-line)}#cw-dock-study .dc-nav footer{margin-top:auto;display:flex;gap:5px;flex-wrap:wrap;align-items:center}#cw-dock-study .dc-nav footer span{font-size:11px;color:var(--dc-muted);width:100%;padding:7px}
+#cw-dock-study .dc-divider{padding:0;background:var(--dc-shadow);border:0;border-left:1px solid var(--dc-line);cursor:col-resize;touch-action:none;position:relative;z-index:9}#cw-dock-study .dc-divider:after{content:"";position:absolute;top:48%;height:40px;width:3px;left:3px;background:var(--dc-line);border-radius:3px}
+#cw-dock-study .dc-main{display:flex;flex-direction:column;min-width:0;padding:6px 7px 9px 2px}#cw-dock-study .dc-top{display:flex;align-items:center;justify-content:space-between;gap:6px;min-height:67px;padding:4px 8px 10px;border-bottom:3px groove var(--dc-edge)}#cw-dock-study .dc-top>div:first-child{min-width:0}#cw-dock-study .dc-top strong{font-size:17px}#cw-dock-study .dc-tools{display:flex;gap:5px}
+#cw-dock-study .dc-key{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;flex-shrink:0;border:1px solid var(--dc-shadow);border-top-color:var(--dc-highlight);border-radius:8px;background:linear-gradient(var(--dc-key),var(--dc-case));box-shadow:0 2px 3px var(--dc-shadow);padding:0}
+#cw-dock-study .dc-chat{flex:1;min-height:0;overflow:auto;background:var(--dc-screen);padding:22px clamp(28px,7%,76px) 22px 72px;border:1px solid var(--dc-line);border-top:0}#cw-dock-study .dc-chat article{margin-bottom:27px}#cw-dock-study .dc-chat p{margin:9px 0 0}#cw-dock-study .dc-end{display:flex;align-items:center;gap:12px;font-size:11px;color:var(--dc-muted);margin-top:38px}#cw-dock-study .dc-end:before,#cw-dock-study .dc-end:after{content:"";height:1px;background:var(--dc-line);flex:1}#cw-dock-study .dc-end span{white-space:nowrap}
+#cw-dock-study .dc-composer{margin-top:9px;background:var(--dc-screen);padding:11px 15px;border:3px ridge var(--dc-edge);border-radius:8px}#cw-dock-study .dc-composer>span{font-size:12px;display:flex;justify-content:space-between;gap:8px}#cw-dock-study .dc-composer textarea{display:block;resize:none;width:100%;background:transparent;border:0;padding:12px 0;font-size:16px;line-height:1.5}#cw-dock-study .dc-composer small{font-size:11px}
+#cw-dock-study .dc-dock{position:absolute;z-index:10;top:92px;left:calc(var(--dc-nav) + 10px);width:56px;max-height:calc(100% - 300px);display:flex;flex-direction:column;padding:0 5px 5px 3px;background:var(--dc-case);border:2px solid var(--dc-edge);border-left:0;border-radius:0 12px 12px 0;box-shadow:3px 3px 6px var(--dc-shadow),inset -2px 0 0 var(--dc-shadow)}#cw-dock-study .dc-dock-cap{height:15px;display:flex;align-items:center;justify-content:space-between;padding:0 5px;flex-shrink:0}#cw-dock-study .dc-dock-cap span{width:4px;height:4px;border-radius:50%;background:var(--dc-highlight);box-shadow:0 1px 0 var(--dc-shadow)}#cw-dock-study .dc-slots{display:flex;flex-direction:column;gap:4px;overflow-y:auto;scrollbar-width:thin;min-height:0}
+#cw-dock-study .dc-slot{position:relative;display:flex;justify-content:center;align-items:center;min-height:44px;width:44px;padding:0 0 3px;border:1px solid var(--dc-shadow);border-radius:6px;background:var(--dc-screen);box-shadow:inset 0 2px 3px var(--dc-shadow);flex-shrink:0}#cw-dock-study .dc-pip{position:absolute;width:4px;height:3px;bottom:5px;right:7px;background:var(--dc-text);box-shadow:0 0 4px var(--dc-line)}#cw-dock-study .dc-fold{background:transparent;border:0;min-height:44px;width:44px;display:grid;place-items:center;padding:0;color:var(--dc-muted)}#cw-dock-study .dc-fold svg{width:16px}
+#cw-dock-study .dc-tab{z-index:10;position:absolute;top:104px;left:calc(var(--dc-nav) + 10px);border:1px solid var(--dc-edge);border-left:0;border-radius:0 7px 7px 0;padding:6px 2px;width:22px;min-height:68px;background:var(--dc-case);box-shadow:2px 2px 4px var(--dc-shadow);display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px}#cw-dock-study .dc-tab:after{content:"";position:absolute;left:0;top:0;width:44px;height:100%}#cw-dock-study .dc-tab svg{width:16px}
+#cw-dock-study .dc-window{position:absolute;z-index:20;left:calc(var(--dc-nav) + 80px);top:130px;width:calc(100% - var(--dc-nav) - 102px);height:444px;min-width:0;display:flex;flex-direction:column;background:var(--dc-case);border:4px ridge var(--dc-edge);border-radius:12px;box-shadow:0 12px 30px var(--dc-shadow);overflow:hidden}#cw-dock-study .dc-window-head{display:flex;align-items:center;gap:7px;min-height:62px;padding:5px 8px;border-bottom:3px groove var(--dc-edge);touch-action:none;cursor:move}#cw-dock-study .dc-window-head>div{flex:1;min-width:0}#cw-dock-study .dc-window-head strong,#cw-dock-study .dc-window-head small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#cw-dock-study .dc-window-head .dc-key{width:44px;height:44px}#cw-dock-study .dc-file-path{display:flex;align-items:center;gap:9px;padding:8px 12px;background:var(--dc-screen);font-size:12px;border-bottom:1px solid var(--dc-line)}#cw-dock-study .dc-file-body{display:grid;grid-template-columns:145px minmax(0,1fr);flex:1;min-height:0;background:var(--dc-screen)}#cw-dock-study .dc-file-body nav{padding:7px;border-right:1px solid var(--dc-line);overflow:auto}#cw-dock-study .dc-file-body nav button{display:block;width:100%;background:transparent;border:0;border-radius:3px;padding:12px 7px;font-size:12px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#cw-dock-study .dc-file-body nav button[aria-pressed=true]{background:var(--dc-active)}#cw-dock-study .dc-document{overflow:auto;padding:17px 19px 28px}#cw-dock-study .dc-document h2{font-size:20px;line-height:1.35;margin:12px 0}#cw-dock-study .dc-document h3{font-size:16px;margin:20px 0 7px}#cw-dock-study .dc-document p{margin:8px 0}#cw-dock-study .dc-resize{position:absolute;bottom:0;right:0;width:32px;height:32px;padding:4px;background:var(--dc-case);border:0;border-radius:7px 0 0 0;cursor:nwse-resize;touch-action:none}#cw-dock-study .dc-note{padding:20px;background:var(--dc-screen);flex:1;min-height:0;display:flex;flex-direction:column}#cw-dock-study .dc-note label{display:flex;flex-direction:column;gap:14px;flex:1;min-height:0}#cw-dock-study .dc-note textarea{width:100%;flex:1;min-height:100px;resize:none;background:transparent;border:1px solid var(--dc-line);padding:14px;font-size:16px;line-height:1.6}#cw-dock-study .dc-note small{margin-top:12px}#cw-dock-study .dc-terminal{flex:1;background:var(--dc-screen);padding:18px;overflow:auto}#cw-dock-study .dc-announcement{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+#cw-dock-study [data-theme=millennium] .dc-app{--dc-case:#566175;--dc-edge:#8791a4;--dc-key:#7a879e;--dc-screen:#f2f3ed;--dc-text:#263341;--dc-muted:#526174;--dc-line:#abb8b9;--dc-active:#ccdbd6;--dc-shadow:#303949;--dc-highlight:#a9b2c4;font-family:Tahoma,system-ui,sans-serif;border-width:7px;border-radius:24px}#cw-dock-study [data-theme=millennium] .dc-nav,#cw-dock-study [data-theme=millennium] .dc-top,#cw-dock-study [data-theme=millennium] .dc-window-head{color:#f2f5fc}#cw-dock-study [data-theme=millennium] .dc-nav small,#cw-dock-study [data-theme=millennium] .dc-nav-label,#cw-dock-study [data-theme=millennium] .dc-nav footer span,#cw-dock-study [data-theme=millennium] .dc-top small,#cw-dock-study [data-theme=millennium] .dc-window-head small{color:#d1dbe7}#cw-dock-study [data-theme=millennium] .dc-project[aria-pressed=true]{color:#203740}#cw-dock-study [data-theme=millennium] .dc-dock{width:60px;padding:5px 7px 5px 3px;border-radius:0 20px 20px 0;border-width:3px;border-left:0;background:linear-gradient(90deg,#626b81,#8792aa);box-shadow:3px 4px 4px #303949,inset -2px 0 0 #a3adc0}#cw-dock-study [data-theme=millennium] .dc-slot{border-radius:12px;background:linear-gradient(#e0e5ef,#adb8ca);box-shadow:inset 0 2px 0 #f1f5ff,0 3px 2px #404b62;margin-bottom:4px;border-color:#424c60}#cw-dock-study [data-theme=millennium] .dc-pip{background:#347756;box-shadow:none;width:7px;height:3px;border-radius:2px}#cw-dock-study [data-theme=millennium] .dc-fold{color:#f5f8ff}#cw-dock-study [data-theme=millennium] .dc-tab{background:#8792aa;color:#182b3d;border-radius:0 12px 12px 0}
+#cw-dock-study [data-theme=organizer] .dc-app{--dc-case:#6b4b3b;--dc-edge:#9e795a;--dc-key:#805f4b;--dc-screen:#f2e8d0;--dc-text:#382e25;--dc-muted:#6b5a45;--dc-line:#c6b594;--dc-active:#d6c5a0;--dc-shadow:#402d23;--dc-highlight:#ad8b65;font-family:Georgia,serif;border-radius:9px 20px 20px 9px;border-style:solid;border-width:8px;box-shadow:inset 0 0 0 2px #4b3329}#cw-dock-study [data-theme=organizer] .dc-nav{background:#e1d2b2;border-right:0}#cw-dock-study [data-theme=organizer] .dc-top,#cw-dock-study [data-theme=organizer] .dc-window-head{color:#f4e6c9}#cw-dock-study [data-theme=organizer] .dc-top small,#cw-dock-study [data-theme=organizer] .dc-window-head small{color:#ddc5a7}#cw-dock-study [data-theme=organizer] .dc-divider{background:repeating-linear-gradient(180deg,#56382a 0 36px,#c4b796 36px 42px,#56382a 42px 58px);border:0}#cw-dock-study [data-theme=organizer] .dc-chat{background:repeating-linear-gradient(0deg,#f2e8d0 0 27px,#e5d8bb 27px 28px)}#cw-dock-study [data-theme=organizer] .dc-key{border-radius:4px;box-shadow:0 1px 2px #402d23}#cw-dock-study [data-theme=organizer] .dc-dock{padding:0;width:54px;border:0;border-radius:0;background:transparent;box-shadow:none;gap:0}#cw-dock-study [data-theme=organizer] .dc-dock-cap{display:none}#cw-dock-study [data-theme=organizer] .dc-slots{gap:8px;padding:2px 3px 5px 0}#cw-dock-study [data-theme=organizer] .dc-slot{width:49px;height:50px;border-radius:0 5px 5px 0;background:#c6ab78;border:1px solid #9a8055;border-left:0;box-shadow:2px 2px 2px #b2a080,inset -3px 0 #b19360}#cw-dock-study [data-theme=organizer] .dc-slot:nth-child(2){background:#bbbf9b;box-shadow:2px 2px 2px #b2a080,inset -3px 0 #9a9e7e}#cw-dock-study [data-theme=organizer] .dc-slot:nth-child(3){background:#c8a499;box-shadow:2px 2px 2px #b2a080,inset -3px 0 #ad887c}#cw-dock-study [data-theme=organizer] .dc-pip{display:none}#cw-dock-study [data-theme=organizer] .dc-fold{background:#decba4;border-radius:0 4px 4px 0;width:44px;box-shadow:2px 2px 2px #b2a080}#cw-dock-study [data-theme=organizer] .dc-tab{background:#c6ab78;box-shadow:2px 2px 2px #b2a080}#cw-dock-study [data-theme=organizer] .dc-window{border-style:solid;border-radius:6px 13px 13px 6px}
+@media(max-width:780px){#cw-dock-study .dc-app{--dc-nav:155px}#cw-dock-study .dc-window{left:calc(var(--dc-nav) + 71px);width:calc(100% - var(--dc-nav) - 88px)}#cw-dock-study .dc-file-body{grid-template-columns:110px minmax(0,1fr)}#cw-dock-study .dc-window-head{gap:3px;padding:4px}#cw-dock-study .dc-window-head>svg{display:none}#cw-dock-study .dc-chat{padding-left:65px;padding-right:18px}}
+@media(max-width:600px){#cw-dock-study .dc-app{grid-template-columns:minmax(0,1fr);height:700px;border-width:4px}#cw-dock-study .dc-nav,#cw-dock-study .dc-divider,#cw-dock-study .dc-dock,#cw-dock-study .dc-tab,#cw-dock-study .dc-minimize,#cw-dock-study .dc-maximize,#cw-dock-study .dc-resize{display:none!important}#cw-dock-study .dc-main{padding:5px}#cw-dock-study .dc-chat{padding:20px}#cw-dock-study .dc-top{padding-left:4px;padding-right:0}#cw-dock-study .dc-tools{gap:3px}#cw-dock-study .dc-top strong{font-size:15px}#cw-dock-study .dc-top small{font-size:11px}#cw-dock-study .dc-window{left:6px!important;top:80px!important;width:calc(100% - 12px)!important;height:570px!important}#cw-dock-study .dc-window-head{cursor:default;padding:5px 9px}#cw-dock-study .dc-file-body{grid-template-columns:100px minmax(0,1fr)}#cw-dock-study .dc-document{padding:12px}#cw-dock-study .dc-document h2{font-size:18px}#cw-dock-study .dc-composer>span{flex-wrap:wrap}}
+</style>
+<script>
+(() => {
+  const root = document.getElementById('cw-dock-study');
+  const template = root.querySelector('template');
+  for (const variant of root.querySelectorAll('[data-variant]')) {
+    variant.append(template.content.cloneNode(true));
+    const app = variant.querySelector('.dc-app');
+    const dock = app.querySelector('.dc-dock'), tab = app.querySelector('.dc-tab');
+    const windows = [...app.querySelectorAll('[data-window]')];
+    const status = new Map(windows.map(w => [w.dataset.window, 'minimized']));
+    let folded = false, layer = 20;
+    function announce(text) { app.querySelector('.dc-announcement').textContent = text; }
+    function draw() {
+      const count = [...status.values()].filter(s => s === 'minimized').length;
+      dock.hidden = !count || folded;
+      tab.hidden = !count || !folded;
+      tab.querySelector('span').textContent = count;
+      tab.setAttribute('aria-label', 'Развернуть док: ' + count + ' окна');
+      app.querySelectorAll('[data-restore]').forEach(b => b.hidden = status.get(b.dataset.restore) !== 'minimized');
+      windows.forEach(w => w.hidden = status.get(w.dataset.window) !== 'open');
+    }
+    function open(id) {
+      const w = windows.find(w => w.dataset.window === id);
+      if (!w) return;
+      // Keep the same mounted nodes, draft, scroll and bounds across minimize/restore.
+      status.set(id, 'open'); w.style.zIndex = ++layer; draw();
+      w.querySelector('.dc-close').focus({preventScroll:true});
+      announce('Восстановлено: ' + w.getAttribute('aria-label'));
+    }
+    app.querySelectorAll('[data-open],[data-restore]').forEach(b => b.addEventListener('click', () => open(b.dataset.open || b.dataset.restore)));
+    app.querySelector('.dc-fold').onclick = () => { folded = true; draw(); tab.focus({preventScroll:true}); };
+    tab.onclick = () => { folded = false; draw(); dock.querySelector('button:not([hidden])').focus({preventScroll:true}); };
+    app.querySelectorAll('[data-project]').forEach(b => b.onclick = () => {
+      app.querySelector('[data-project-title]').textContent = b.dataset.project;
+      app.querySelectorAll('[data-project]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    });
+    function drag(handle, read, update) {
+      let origin;
+      handle.addEventListener('pointerdown', e => {
+        if (e.button !== 0 || (handle.classList.contains('dc-window-head') && e.target.closest('button')) || app.clientWidth < 590) return;
+        e.preventDefault(); origin = { x: e.clientX, y: e.clientY, value: read() };
+        handle.setPointerCapture(e.pointerId);
+      });
+      handle.addEventListener('pointermove', e => { if (origin) update(origin.value, e.clientX-origin.x, e.clientY-origin.y); });
+      const end = e => { origin = null; if (handle.hasPointerCapture(e.pointerId)) handle.releasePointerCapture(e.pointerId); };
+      handle.addEventListener('pointerup', end); handle.addEventListener('pointercancel', end);
+    }
+    for (const w of windows) {
+      const id = w.dataset.window;
+      const returnFocus = () => { const button = app.querySelector('[data-restore="'+id+'"]'); if (!folded && !button.hidden && app.clientWidth > 590) button.focus({preventScroll:true}); else app.querySelector('[data-open="'+id+'"]').focus({preventScroll:true}); };
+      w.querySelector('.dc-minimize').onclick = () => { status.set(id,'minimized'); draw(); returnFocus(); announce('Свёрнуто: '+w.getAttribute('aria-label')); };
+      w.querySelector('.dc-close').onclick = () => { status.set(id,'closed'); draw(); app.querySelector('[data-open="'+id+'"]').focus({preventScroll:true}); };
+      let saved;
+      w.querySelector('.dc-maximize').onclick = () => {
+        const b = w.querySelector('.dc-maximize');
+        if (saved) { for (const [k,v] of Object.entries(saved)) w.style[k]=v; saved=null; b.setAttribute('aria-label','Развернуть '+w.querySelector('strong').textContent); }
+        else { saved={left:w.style.left,top:w.style.top,width:w.style.width,height:w.style.height}; Object.assign(w.style,{left:'14px',top:'14px',width:(app.clientWidth-28)+'px',height:(app.clientHeight-28)+'px'}); b.setAttribute('aria-label','Вернуть размер '+w.querySelector('strong').textContent); }
+      };
+      const bounds = () => ({x:w.offsetLeft,y:w.offsetTop,width:w.offsetWidth,height:w.offsetHeight});
+      drag(w.querySelector('.dc-window-head'), bounds, (v,x,y) => { if(saved)return; w.style.left=Math.max(4,Math.min(app.clientWidth-v.width-4,v.x+x))+'px'; w.style.top=Math.max(4,Math.min(app.clientHeight-v.height-4,v.y+y))+'px'; });
+      drag(w.querySelector('.dc-resize'), bounds, (v,x,y) => { if(saved)return; w.style.width=Math.min(app.clientWidth-v.x-4,Math.max(330,v.width+x))+'px'; w.style.height=Math.min(app.clientHeight-v.y-4,Math.max(270,v.height+y))+'px'; });
+      w.addEventListener('pointerdown', () => w.style.zIndex=++layer);
+    }
+    const divider = app.querySelector('.dc-divider');
+    function navWidth(value) { const n=Math.min(270,Math.max(150,Math.min(app.clientWidth-430,value)));app.style.setProperty('--dc-nav',n+'px');divider.setAttribute('aria-valuenow',Math.round(n)); }
+    drag(divider, () => app.querySelector('.dc-nav').offsetWidth, (v,x) => navWidth(v+x));
+    divider.onkeydown = e => { if(['ArrowLeft','ArrowRight','Home'].includes(e.key)){e.preventDefault();navWidth(e.key==='Home'?190:app.querySelector('.dc-nav').offsetWidth+(e.key==='ArrowRight'?10:-10));} };
+    app.querySelectorAll('.dc-file-body nav button').forEach(b => b.onclick = () => {
+      app.querySelectorAll('.dc-file-body nav button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+      app.querySelector('.dc-document h2').textContent = b.textContent === 'UI_LAYOUT_RULES.md' ? 'Рабочее пространство' : b.textContent === 'DECISIONS.md' ? 'Решения по интерфейсу' : 'Текущий статус';
+    });
+    draw();
+    if(globalThis.Tweak){const settings={top:92};const tweak=new Tweak({container:app, onChange:()=>{dock.style.top=settings.top+'px';tab.style.top=(settings.top+12)+'px';}});tweak.addSlider(settings,'top',{label:'Положение дока по высоте',min:82,max:180,unit:'px'});}
+  }
+  if(globalThis.lucide) lucide.createIcons({attrs:{width:20,height:20}});
+})();
+</script>
