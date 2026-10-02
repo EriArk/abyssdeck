@@ -20,7 +20,11 @@
 [Снимки и описания](../polish/10-themes/expanding-panels-2026-10-03/README.md).
 Проверки: workspace-panels, window-dock и devices в Chromium/WebKit, typecheck
 и web build. Проверены ввод/reconnect терминала, черновики, темы и телефон.
-Установка веб-выпуска выполняется; физический iPad этим не проверяется.
+Веб-выпуск `2178c92` установлен; host status, manifest и `/version.json` совпадают:
+`420be1ac055215d7c6ca242459b3ed32063e2cff0d78c1d5ced87a63826aa7d8`.
+Проверена отдача нового CSS с переходами и JS модулей. Hub, Engine и GPT сохранили
+image и время запуска; Companion не менялся. Квитанция:
+`verification-2178c92/web-check.json`. Физический iPad этим не проверяется.
 
 ### Файлы: компактные команды и обычные операции — 3 октября
 
