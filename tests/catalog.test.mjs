@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { Catalog } from "../apps/hub/dist/catalog.js";
 import { Store } from "../apps/hub/dist/store.js";
-import { configSchema } from "../packages/shared/dist/index.js";
+import { configSchema, HubError } from "../packages/shared/dist/index.js";
 
 const config = configSchema.parse({
   hub: {
@@ -552,6 +552,53 @@ test("desktop catalog refresh cannot move a recently used conversation backwards
     catalog.importThread(project, raw);
     assert.equal(store.thread(thread.id).updatedAt, recent);
     assert.equal(store.thread(thread.id).title, "Existing");
+  } finally {
+    store.close();
+  }
+});
+
+test("pending device login preserves its catalog without warning other working devices", async () => {
+  const store = new Store(":memory:");
+  let failure;
+  const calls = [];
+  const cfg = configSchema.parse({
+    ...config,
+    machines: [...config.machines, { ...config.machines[0], id: "pending" }],
+  });
+  const catalog = new Catalog(cfg, store, async (id) => {
+    calls.push(id);
+    if (id === "pending" && failure) throw failure;
+    return {
+      request: async () => ({
+        data: [{ id: id + "-native", name: id, roots: [{ path: "D:/Projects/" + id }] }],
+        nextCursor: null,
+      }),
+    };
+  });
+  try {
+    await catalog.refresh(true);
+    const saved = catalog.projects().find((p) => p.machineId === "pending");
+    assert(saved);
+    failure = new Error("SSH connection lost");
+    await catalog.refresh(true);
+    assert(catalog.errors.has("pending"), "real transport failure remains visible");
+    failure = new HubError(409, "CODEX_LOGIN_REQUIRED", "Sign in");
+    calls.length = 0;
+    await catalog.refresh(true);
+    assert.deepEqual(calls, ["pc", "pending"]);
+    assert.equal(catalog.errors.size, 0);
+    assert.deepEqual(
+      catalog.projects().find((p) => p.id === saved.id),
+      saved,
+    );
+    await assert.rejects(
+      catalog.createProject("pending", "New", "D:/Projects/New", false, "new-project"),
+      { code: "CODEX_LOGIN_REQUIRED" },
+    );
+    failure = undefined;
+    await catalog.refresh(true);
+    assert.equal(catalog.errors.size, 0);
+    assert.equal(catalog.projectSupport.get("pending"), true);
   } finally {
     store.close();
   }

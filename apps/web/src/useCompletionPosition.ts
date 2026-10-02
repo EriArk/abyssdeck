@@ -1,4 +1,5 @@
 import { type RefObject, useLayoutEffect, useRef } from "react";
+import { hasChatSelection } from "./chatSelection";
 export type CompletionEntry = { id: string; active: boolean; complete: boolean; target: string };
 // Each observed live response may settle once. History reads alone never create a transition.
 export function useCompletionPosition({
@@ -49,13 +50,13 @@ export function useCompletionPosition({
           s.target = "";
           s.align = false;
           locked.current = false;
-          following.current = true;
+          following.current = !hasChatSelection(scroller.current);
         }
         s.observed.add(entry.id);
       }
       if (entry.complete && s.observed.has(entry.id) && !s.done.has(entry.id)) {
         s.done.add(entry.id);
-        if (following.current) {
+        if (following.current && !hasChatSelection(scroller.current)) {
           s.anchor = entry.id;
           s.target = entry.target;
           s.align = false;
@@ -71,7 +72,15 @@ export function useCompletionPosition({
         target = s.target
           ? el?.querySelector<HTMLElement>(`[data-message="${CSS.escape(s.target)}"]`)
           : null;
-      if (!locked.current || !el || !target || !s.enabled || document.hidden) return;
+      if (
+        !locked.current ||
+        !el ||
+        !target ||
+        !s.enabled ||
+        document.hidden ||
+        hasChatSelection(el)
+      )
+        return;
       const box = el.getBoundingClientRect(),
         row = target.getBoundingClientRect();
       const top = row.top - box.top - el.clientTop,
@@ -107,16 +116,25 @@ export function useCompletionPosition({
       state.current.target = "";
       locked.current = false;
     };
+    const selection = (event: Event) => {
+      if (event.type !== "selectstart" && !hasChatSelection(el)) return;
+      following.current = false;
+      manual(event);
+    };
+    el.addEventListener("selectstart", selection);
+    document.addEventListener("selectionchange", selection);
     document.addEventListener("visibilitychange", visibility);
     const resize = new ResizeObserver(() => align.current());
     resize.observe(el);
     if (body) resize.observe(body);
     return () => {
       resize.disconnect();
+      el.removeEventListener("selectstart", selection);
+      document.removeEventListener("selectionchange", selection);
       document.removeEventListener("visibilitychange", visibility);
       for (const name of ["wheel", "touchstart", "pointerdown", "keydown", "message-navigation"])
         el.removeEventListener(name, manual);
     };
-  }, [enabled, scroller, content]);
+  }, [enabled, scroller, content, following]);
   return locked;
 }

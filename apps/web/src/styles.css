@@ -798,6 +798,9 @@ time {
   color: var(--ink);
 }
 .message-body {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
   font-size: 14px;
   line-height: 1.65;
   overflow-wrap: anywhere;

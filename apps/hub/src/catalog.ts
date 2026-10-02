@@ -274,6 +274,13 @@ export class Catalog {
           this.projectSupport.set(machine.id, true);
           this.errors.delete(machine.id);
         } catch (error) {
+          if (error instanceof HubError && error.code === "CODEX_LOGIN_REQUIRED") {
+            // A connected device can still be awaiting its owner's personal login.
+            // Keep its snapshot; setup readiness belongs to that device, not a
+            // global refresh warning in every other device's working chat.
+            this.errors.delete(machine.id);
+            continue;
+          }
           if (error instanceof HubError && error.code === "CODEX_METHOD_UNSUPPORTED") {
             this.projectSupport.set(machine.id, false);
             this.errors.set(

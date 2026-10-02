@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { hasChatSelection } from "../../src/chatSelection";
 import { useCompletionPosition } from "../../src/useCompletionPosition";
 
 function Fixture() {
@@ -9,15 +10,16 @@ function Fixture() {
     [active, setActive] = useState(true),
     [long, setLong] = useState(true),
     [late, setLate] = useState(false),
-    [font, setFont] = useState(false);
+    [font, setFont] = useState(false),
+    [growth, setGrowth] = useState(0);
   const scroller = useRef<HTMLDivElement>(null),
     content = useRef<HTMLDivElement>(null),
     following = useRef(true);
   // biome-ignore lint/correctness/useExhaustiveDependencies: Fixture mirrors committed message layout changes.
   useLayoutEffect(() => {
-    if (following.current && scroller.current)
+    if (following.current && scroller.current && !hasChatSelection(scroller.current))
       scroller.current.scrollTop = scroller.current.scrollHeight;
-  }, [active, long, scope, late]);
+  }, [active, long, scope, late, growth]);
   const lock = useCompletionPosition({
     scope: mode + scope,
     enabled: visible,
@@ -68,12 +70,15 @@ function Fixture() {
       <button type="button" onClick={() => setFont((v) => !v)}>
         Layout change
       </button>
+      <button type="button" onClick={() => setGrowth((v) => v + 200)}>
+        Stream
+      </button>
       <div
         ref={scroller}
         data-testid="scroller"
         style={{ height: 400, overflow: "auto", border: "1px solid" }}
         onScroll={() => {
-          if (!lock.current && scroller.current)
+          if (!lock.current && scroller.current && !hasChatSelection(scroller.current))
             following.current =
               scroller.current.scrollHeight -
                 scroller.current.scrollTop -
@@ -89,7 +94,9 @@ function Fixture() {
               <p>Readable answer</p>
             </article>
           )}
-          <div style={{ height: 20 }}>End</div>
+          <div style={{ height: 20 + growth }}>
+            <span data-selectable>Selectable text at the end</span>
+          </div>
         </div>
       </div>
     </>

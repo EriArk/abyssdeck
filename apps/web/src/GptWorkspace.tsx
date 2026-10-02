@@ -26,6 +26,7 @@ import {
 import { api, messageOf } from "./api";
 import { openContentSearch } from "./ContentSearch";
 import { CopyButton } from "./CopyButton";
+import { hasChatSelection } from "./chatSelection";
 import { composerShortcut } from "./composerShortcut";
 import { terminalDevice } from "./DeviceWorkspaceHost";
 import { useDictation } from "./Dictation";
@@ -667,7 +668,8 @@ export function GptWorkspace({
   useEffect(() => {
     if (!messageList.current) return;
     const observer = new ResizeObserver(() => {
-      if (sticky.current && scroll.current) scroll.current.scrollTop = scroll.current.scrollHeight;
+      if (sticky.current && scroll.current && !hasChatSelection(scroll.current))
+        scroll.current.scrollTop = scroll.current.scrollHeight;
     });
     observer.observe(messageList.current);
     return () => observer.disconnect();
@@ -795,7 +797,8 @@ export function GptWorkspace({
   );
   // biome-ignore lint/correctness/useExhaustiveDependencies: New content scrolls only while the reader follows the latest reply.
   useLayoutEffect(() => {
-    if (sticky.current && scroll.current) scroll.current.scrollTop = scroll.current.scrollHeight;
+    if (sticky.current && scroll.current && !hasChatSelection(scroll.current))
+      scroll.current.scrollTop = scroll.current.scrollHeight;
   }, [messages, currentJobs.map((j) => j.answer + j.status).join("")]);
   const choose = (id: string, jobId = "") => {
     if (id && !projectChat && !roomEndpoint)
@@ -1900,7 +1903,11 @@ export function GptWorkspace({
               }}
               onScroll={() => {
                 if (scroll.current && performance.now() < userScrollUntil.current) {
-                  if (!completionLocked.current && !scroll.current.dataset.messageNavigation)
+                  if (
+                    !completionLocked.current &&
+                    !scroll.current.dataset.messageNavigation &&
+                    !hasChatSelection(scroll.current)
+                  )
                     sticky.current =
                       scroll.current.scrollHeight -
                         scroll.current.scrollTop -

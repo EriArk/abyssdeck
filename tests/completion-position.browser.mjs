@@ -57,6 +57,32 @@ try {
           );
       for (const gpt of [false, true]) {
         await open(gpt);
+        const selected = await page.locator("[data-selectable]").evaluate((el) => {
+          const range = document.createRange();
+          range.selectNodeContents(el);
+          const selection = document.getSelection();
+          selection.removeAllRanges();
+          selection.addRange(range);
+          return selection.toString();
+        });
+        const readingPosition = await position();
+        // Background updates do not focus a button or clear native selection.
+        await page
+          .getByRole("button", { name: "Stream", exact: true })
+          .evaluate((el) => el.click());
+        await page.waitForTimeout(100);
+        assert.equal(await position(), readingPosition);
+        assert.equal(await page.evaluate(() => document.getSelection().toString()), selected);
+        await page
+          .getByRole("button", { name: "Complete", exact: true })
+          .evaluate((el) => el.click());
+        await page.waitForTimeout(100);
+        assert.equal(await position(), readingPosition);
+        assert.equal(await page.evaluate(() => document.getSelection().toString()), selected);
+        await page.evaluate(() => document.getSelection().removeAllRanges());
+        await page.getByRole("button", { name: "Latest", exact: true }).click();
+        assert((await position()) > readingPosition);
+        await open(gpt);
         await expect.poll(top).toBeLessThan(0);
         await page.getByRole("button", { name: "Complete", exact: true }).click();
         await expect.poll(top).toBeGreaterThanOrEqual(8);

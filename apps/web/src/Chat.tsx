@@ -29,6 +29,7 @@ import { ComposerOptions, useTurnSettings } from "./ComposerOptions";
 import { ConnectionRecovery, type RecoveryOutcome } from "./ConnectionRecovery";
 import { ContextUsage } from "./ContextUsage";
 import { CopyButton } from "./CopyButton";
+import { hasChatSelection } from "./chatSelection";
 import { composerShortcut } from "./composerShortcut";
 import { terminalDevice } from "./DeviceWorkspaceHost";
 import { useDictation } from "./Dictation";
@@ -356,7 +357,8 @@ export function Chat({
     // Fonts, result chips and the software keyboard can resize a settled chat.
     // Keep following its end only while the reader has not scrolled away.
     const resize = new ResizeObserver(() => {
-      if (atBottom.current && pendingHeight.current === undefined) el.scrollTop = el.scrollHeight;
+      if (atBottom.current && pendingHeight.current === undefined && !hasChatSelection(el))
+        el.scrollTop = el.scrollHeight;
     });
     resize.observe(el);
     resize.observe(body);
@@ -478,7 +480,7 @@ export function Chat({
       pendingHeight.current = undefined;
       return;
     }
-    if (atBottom.current) {
+    if (atBottom.current && !hasChatSelection(el)) {
       el.scrollTop = el.scrollHeight;
     }
   }, [threadId, state.messages, state.loadingOlder, visible]);
@@ -602,7 +604,11 @@ export function Chat({
             onScroll={(e) => {
               const el = e.currentTarget;
               positions.set(threadId, el.scrollTop);
-              if (!completionLocked.current && !el.dataset.messageNavigation)
+              if (
+                !completionLocked.current &&
+                !el.dataset.messageNavigation &&
+                !hasChatSelection(el)
+              )
                 atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
             }}
           >
