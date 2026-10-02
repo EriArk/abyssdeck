@@ -1,5 +1,14 @@
 # AGENTS.md
 
+## Owner-requested ordinary-use feedback (2026-10-02)
+
+- Do not keep physical-device acceptance as a separate mandatory stage. Investigate
+  concrete problems reported during normal use; automated checks remain scoped to
+  changes and do not count as physical-device verification.
+- Async question choices submit each answer independently on a click; an adjacent
+  unanswered question must not block it. Native Plan requests retain their full
+  response-set contract. Preselection is never consent.
+
 ## Owner-requested terminal close and update continuity (2026-10-02)
 
 - Explicitly closing Devices releases its visited terminals once the last viewer

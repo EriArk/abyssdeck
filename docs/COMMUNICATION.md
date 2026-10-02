@@ -1,3 +1,9 @@
+> Current update, 2 October: group membership management, rename, history search,
+> unread/mention navigation and approximate presence are implemented and installed.
+> See [the follow-up](COMMUNICATION_READING_2026-09-28.md) and
+> [current status](CURRENT_STATUS.md). Earlier stage exclusions below are historical.
+> Issue #202 is closed; normal-use defects remain actionable.
+
 # Conversations and Result sharing
 
 Implemented 24 September 2026 for #202/#213. Installation is recorded separately by the guarded release receipt; physical-device acceptance remains pending.

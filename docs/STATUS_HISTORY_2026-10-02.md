@@ -1,0 +1,1943 @@
+# История реализации и установки до 2 октября 2026
+
+Это архив прежнего CURRENT_STATUS.md. Датированные «следующие этапы» ниже
+описывают прошлые решения. Актуальная очередь — [CURRENT_STATUS.md](CURRENT_STATUS.md).
+Физическая проверка через обычное использование больше не отдельный обязательный этап.
+
+# Текущий остаток — 2 октября 2026
+
+## Independent async question answers (2026-10-02, installed)
+
+IMG_0811 exposed a regression in the immediate-choice form: an adjacent empty
+free-text question prevented the selected option from being sent. Each async
+question now submits only its own exact question identity. Accepted answers
+persist separately; reopening retains unanswered text without resending an
+accepted choice. Text answers have a button under their own field. Native Plan
+requests still require their complete response set.
+
+Validation: Chromium and WebKit mixed choice/empty-text regression, independent
+multiple choices, partial-answer remount, exact per-question envelopes, unchanged
+parent draft and full native Plan responses; production build/typecheck and
+repository checks. No Companion installation or feed change is part of this fix.
+
+Release 79b3185 was installed at 2026-10-02 13:05:41 UTC. Hub/engine healthy;
+proof: verification-79b3185/receipt.json and deployment-79b3185.json on Hub.
+
+
+## Codex question replies: immediate choices and stable revisions (2026-10-02, installed)
+
+The latest TrainerOS answer receipt at 12:20:31 UTC returned `queued`; manual
+Steer followed at 12:20:35 against the same source turn. Reproduction with the
+native generated QueuedSubmission order (`id,input,clientUserMessageId`) fails
+on the installed release: add hashes the raw object while list reorders fields,
+so the unchanged reply is wrongly rejected as QUEUE_CHANGED.
+
+Queue revisions now hash canonical object keys and the exact submission identity
+and inputs. Input array order and every input field still count; an actual edit
+continues to reject stale actions. The queue fixture now uses native field order,
+covering automatic question delivery rather than a conveniently ordered mock.
+No queued input is replayed by this fix and no Companion update is involved.
+
+Owner-selected interaction: clicking a ready-made choice immediately applies it,
+including the initially selected recommendation. Multiple-choice groups wait for
+an explicit choice in each question; free text keeps its submit button. Native
+Plan questions use the same interaction and their original request-response API.
+Preselection/restoring a draft never sends by itself; the parent draft is retained.
+
+Validation: failing regression on the previous production image, then all 15 queue
+tests passing with the fix in isolated Linux; 12 questions/native-plan tests;
+Chromium and WebKit question/free-text/Plan reply and native Plan workflow checks;
+production build/typecheck and repository checks. The final candidate passed 34
+focused Linux tests, 25 upgrade/checkpoint tests and the production-image smoke.
+
+Release `71d9d89` is installed on Hub and engine (both healthy), with the matching
+web bundle, at 2026-10-02 12:38:05 UTC. Deployment proof:
+`/home/abysscloud/services/codex-web/verification-71d9d89/receipt.json`.
+Native ChatGPT retained its prior process start time; Windows Companion and its
+update feed were not changed. Automatic checkpoint retention kept three copies.
+
+
+## GPT stopped response indicator (2026-10-02, installed)
+
+Owner screenshots IMG_0808/0809 show native ChatGPT stopped reasoning while
+CodexWeb still displays tool activity. Read-only live inspection found the older
+matching submissions already cancelled and newer work in the same conversations.
+It does not establish why OpenAI stopped the original response.
+
+Two reproducible status defects are fixed: an exact finished native stream no
+longer waits on the selected window's global Stop button (which may belong to
+another chat); and a recent intermediate message cannot resurrect a confirmed
+idle/cancelled/completed exact user receipt as external-client progress. Finished
+transport means idle, not successful completion; canonical polling and uncertain
+receipts are preserved. No send or Stop is issued by this recovery. Confirmed
+idle state also survives native stream-cache expiry and Hub restart; an unchanged
+unfinished history node cannot revive that same response as running.
+
+Validation: production build/typecheck, 87 focused Linux tests, 25 checkpoint/
+rollback/admission tests, Chromium/WebKit queue and stopped/idle/completed UI
+scenarios, plus production-image smoke checks. The queue regression verifies
+cache expiry, restart, later canonical completion and exactly one original send.
+
+Hub and engine release `35ce674` was installed through the ordinary updater at
+2026-10-02 11:33:43 UTC; both containers are healthy. Deployment evidence is in
+`/home/abysscloud/services/codex-web/verification-35ce674/receipt.json`. The native
+ChatGPT container retained its 2026-10-01 21:27:50 UTC start time; no native restart
+or prompt replay was performed. Automatic checkpoint retention kept three verified
+copies. Companion installation and its automatic feed remain deferred by owner.
+
+
+## Companion 0.5.5: prepared only, installation held by owner (2026-10-02)
+
+The owner is away from the PC and explicitly deferred Companion installation,
+component switching, process restarts and publication to its automatic update
+feed. This stage changes source and builds an isolated candidate only. Installed
+0.5.4 and the verified worker below remain the last accepted runtime baseline.
+
+The overview/settings now summarize versions of the components shipped in the
+installed signed package. A UI update receipt no longer claims that all workers
+are updated. Per-component confirmation compares source and installed bytes,
+task/configuration receipts and actual readiness; old/damaged releases, rollback,
+pending Hub confirmation and missing/disabled components remain explicit.
+Repair remains reachable even when the older component is operational.
+
+The old FileLaunch `disabling` journal is reconciled against the unchanged task.
+A denied task update records `needsElevation`; its repair button invokes standard
+Windows UAC for that exact same-user Limited demand task. Cancellation preserves
+it. The elevated repair grants read/write/execute for that task to its own user,
+not full control or a higher run level. A confirmed rollback can be retried by an
+explicit repair, while automatic ticks still do not reinstall a rejected release.
+
+Browser 1.0.0 lacks `shutdown_idle`. It now reports `waitingRestart` and does not
+receive repeated unsupported shutdown requests while that old host remains live.
+The first installed transition still needs completion when the owner is home;
+this stage does not forcibly terminate the browser or its tabs. Later versions
+retain their existing idle-only transition. Healthy current browser/worker
+versions skip repeated installer launches.
+
+Validation: 19 new read-only version/readiness fixtures plus existing Companion
+checks; 11 worker migration/rollback/permission fixtures; six browser installer
+fixtures including old-host waiting; render fixtures of the actual component
+cards at 650/840 px in all four Companion themes. Visual captures are isolated
+from the installed app. Actual UAC acceptance, the first browser transition and
+friend-PC acceptance remain pending. Package activation is deliberately withheld.
+
+The unsigned local 0.5.5 candidate was built from clean source `d095dc4`;
+all 277 inventory hashes and its bundled-runtime `--version` startup probe passed.
+Manifest SHA-256: `19c9a5e4f2b0ca4b0374c9087d4737a237c32e7d62f426b4641df41df9f5a726`.
+Evidence: `.local/companion-055-verification.json` and
+`.local/companion-055-candidate-d095dc4/`. No update-feed publication or installation
+was performed. Read-only verification still returns installed UI 0.5.4 and
+browser 1.0.0.
+
+## Companion 0.5.4 and reboot recovery (#234, 2026-10-02)
+
+A prepared coordinated release fixes the interrupted AltarAppsReborn/TrainerOS
+runtime and stale external-client status. The installed tray was 0.5.3, but the
+persistent worker was still the September 27 binary (SHA-256 `55faedf5852bdf91e5c79c6cccf5ffbe0879cd27046f0d41a2ead5982ad4b5a5`)
+after a recorded migration rollback. Both observed exits coincided with cumulative
+screenshot diffs first exceeding the old 16 MiB frame ceiling (05:54:29 and
+06:56:24 UTC). The installed parser reproduces FRAME_LIMIT; the source's existing
+oversized-frame drain had not reached that worker. New lifecycle logs record only
+process/frame metadata. A real broker fixture preserves two active turns across
+a 17 MiB notification and confirms stopping one does not stop the other.
+
+Migration now waits up to 15 seconds for the accepted startup instead of rolling
+back after 500 ms. The historical rollback's precise cause was not recorded.
+Hub now reads terminal summaries even when disk discovery labelled a thread
+external, persists its exact outcome against stale polling, and includes those
+threads in bounded background recovery. Reads never resume or interrupt a writer.
+
+Release `a5511b1` is installed on Hub/engine; both containers are healthy.
+Companion 0.5.4 is installed and running from the signed package manifest
+`f02c18bf9f30da4f4bc2500e8fe81b520d8e0410caff5f759bd61d5b7041ef52`.
+The exact owner profile and all captured component configs are unchanged; native
+PID 16688 survived deployment. Live Hub inspection/history returns AltarAppsReborn
+interrupted, no active turn/questions; subsequent background polling did not
+revive its stale external status. TrainerOS and this CodexWeb turn remain active.
+
+**Worker activation verified:** Companion completed normal migration to worker
+release `f015dd36e3759fcdc601645fb80b34e5c1aa2bb5713b50053af1e91566ed8f45`.
+The running broker PID 17404 uses that managed release; its SHA-256 matches
+`9fc1aa45741c4918c79bb455677bce9dac284580be8aeb2eb24b42b920ce7f93`.
+Its native child is PID 17436, the task is Running, the Hub maintenance lease is
+released and the local pending lease file is absent. AltarAppsReborn remains
+interrupted with no active turn; TrainerOS is completed. The current CodexWeb
+turn is running on the new executor. Both Hub containers remain healthy on
+`a5511b1`. This confirms the installed worker, not just the UI version.
+The earlier standalone binary replacement script was superseded and never applied.
+
+Passed: real persistent broker oversized-frame/two-turn fixture; four startup-wait
+checks; seven migration/rollback checks; Companion app checks; eleven runtime and
+related external/handoff/maintenance tests; production-image tests, repository
+checks and Chromium/WebKit image smoke. Pre-upgrade checkpoint retention kept
+three verified copies. Evidence: local `.local/runtime-exit234/`, server
+`verification-a5511b1` and `verification-companion-a5511b1`.
+The owner's existing account, roots and direct LAN route remain; friend-device
+acceptance is deferred. Broader Companion design remains for the owner discussion.
+
+## Продолжение Codex после остановки и переподключения (#234)
+
+В 05:54:30 UTC общий native-процесс на ПК завершился; в 05:54:32 появился
+новый процесс. TrainerOS и AltarAppsReborn восстановлены из истории как
+interrupted. Причина завершения процесса пока не установлена; это отдельный
+незакрытый пункт #234, а не доказанный дефект кнопки остановки.
+
+Исправлена ошибка Hub: чтение завершённого/остановленного хода больше не
+добавляет диалог в `runtime.loaded`. Только подтверждение точного живого хода
+от Companion восстанавливает владение. Новая ручная отправка после чтения
+истории выполняет `thread/resume` перед `turn/start`; фон сам ничего не посылает.
+Старые неизвестные квитанции сохраняются. Повтор прежней неопределённой попытки
+остаётся прежней операцией; новая ручная реплика имеет собственную квитанцию.
+
+Первая часть `dbe923b` установлена обычным updater. Живая проверка выявила
+второй дефект: ExternalActivity после снятия `activeTurnId` снова применял
+старый дисковый `inProgress` и менял уже interrupted-чат на external/unknown.
+Теперь записанное завершение точного turn ID имеет приоритет; уже испорченное
+состояние исправляется следующим опросом, настоящий новый turn ID не скрывается.
+Вторая часть `223c75f` установлена обычным updater 2026-10-02 около 06:35 UTC.
+Оба контейнера healthy. Через установленный Hub проверка и чтение истории
+TrainerOS/AltarAppsReborn вернули HTTP 200, interrupted, activeTurnId=null и
+ноль ожидающих вопросов. Текущий CodexWeb-ход остался running в том же PID 19592.
+Две старые квитанции TrainerOS остались unknown, их ввод не повторялся.
+Новую рабочую реплику вместо владельца проверка не отправляла.
+
+Локально прошли 11 runtime-тестов, включая новую регрессию, 12 проверок Hub и
+перехода desktop/web, typecheck и проверка репозитория. Установленный Codex
+0.159.2 в отдельном процессе на случайном несуществующем ID подтвердил прямой
+отказ `thread not found` (без запуска модели). В первой части также прошли
+21 проверка первого производственного Linux-образа; во второй части — 25,
+включая четыре проверки внешней активности. Также прошли 25 checkpoint/rollback/admission
+fixtures и проверки Chromium/WebKit. Процесс Codex PID 19592 при обновлениях
+сохранён. Проверочные сессии отозваны; неизвестные отправки не повторялись.
+Квитанции установки и проверок: `verification-dbe923b` и `verification-223c75f`
+на Hub, `.local/trainer-stop/` локально. Последние три проверенные checkpoint
+сохранены. Причина исходного native exit остаётся открытой в #234.
+
+## Большой проход: GPT, темы #230 и кредиты (2026-10-02)
+
+Владелец подтвердил единый проход, включая #230, без промежуточного ожидания.
+Живые проверки установленного GPT подтвердили завершение после закрытия браузера,
+очередь из трёх отправок, восстановление после потери HTTP-подтверждения без дубля,
+сохранение черновика при обрыве чтения и отметку непрочитанного ответа.
+Заведены и исправлены #231 (очередь перекрывала живой прогресс) и #232 (обзор
+GPT-проекта терял отметку непрочитанного). #230 добавляет пять вариантов к четырём
+семействам с отдельным сохранением каждого варианта и независимым цветом корпуса.
+Выпуск `d8ec99e` установлен обычным updater 2026-10-01 в 23:11:33 UTC:
+оба контейнера healthy, схема 30, сохранены активные Codex-процессы.
+Владелец подтвердил, что старый терминал больше не нужен, и поручил исправить
+закрытие окна. После проверки отсутствия дочерних команд закрыт только его
+конкретный shell; это освободило обновление. Квитанции: `verification-d8ec99e`.
+
+Исправление #233: крестик Devices запрашивает освобождение посещённых терминалов
+после ухода последнего зрителя и подтверждённого завершения команд. Повторное
+открытие отменяет ожидание закрытия; обрыв сети сам по себе не закрывает сессию.
+Форма ввода добавляет ровно один Enter, даже если вставленная команда уже
+заканчивалась переводом строки. Проверены гонки, работающая команда, повторное
+открытие и обрыв связи в Chromium/WebKit. Точная причина старого `unknown`
+задним числом не установлена. Исправление `bb4cc01` установлено обычным updater
+2026-10-01 в 23:33:49 UTC. Через production UI открыт настоящий SSH-терминал
+`hub-host`: закрытие окна во время `sleep 5` сохранило команду, после её завершения
+терминал автоматически перешёл в closed. В 23:36 UTC root и оба personal engine
+вернули `busy=0, unknown=0`; GPT healthy, canRead/canSend true. Квитанции:
+`verification-bb4cc01` на Hub; локальная проверка `.local/server-audit-20261002/`.
+Временная проверочная сессия отозвана в обеих базах. Сохранены три последних
+проверенных checkpoint. #230/#231/#232 закрыты; #233 оставлен для узкой
+исторической причины неизвестного состояния, без заявления о её доказанности.
+
+Кредиты: установленный Codex вернул 62500 и 18% недельного лимита. Отправка через
+Hub не блокируется нулевым процентом; регрессия проверяет передачу native при
+исчерпанных окнах и балансе без расхода earned reset. Реальный переход границы
+лимита ещё не наступил. Подробности и границы проверки:
+[живой контроль](GPT_LIVE_CHECK_2026-10-02.md). Общий #185 остаётся открытым.
+Временная сессия GPT-аудита отозвана в обеих базах. #230/#231/#232 включены в
+установленный выпуск; закрытие реального серверного терминала также проверено.
+
+## Согласование действующих правил (2026-10-02)
+
+Завершён пункт 5 аудита ограничений. В AGENTS, DECISIONS и профильных документах
+заменённые запреты помечены на месте и связаны с действующими решениями владельца:
+обычный вход через Computer Use, явные HTML/файлы вне проекта, режим ремонта Doctor,
+остаток кредитов, Windows-first Companion и его мастер первого запуска. Старые
+ограничения отдельных helper API больше не описаны как запрет всего инструментария.
+Исторические версии и предложения этапов отделены от текущего состояния.
+
+Добавлена [карта действующих правил](DECISIONS.md#current-rule-map-2026-10-02).
+Формулировки сверены с `ComputerUse.cs`, `previews.ts`, `bridge-doctor-policy.ts`,
+`bridge-doctor.ts` и `UsageLimits.tsx`; проверены изменённые локальные ссылки и diff.
+Это изменение инструкций и документации: службы, разрешения runtime и активные
+чаты не менялись. Уже загруженные инструкции другого живого чата этим коммитом
+автоматически не заменяются.
+
+Предлагавшийся следующий этап — контрольная проверка установленного GPT:
+возврат после закрытия веба, синхронизация завершения и доступность свежей отправки
+после сбоя. Это проверка фактического поведения уже выпущенных исправлений.
+**Astra → Высокое (`high`)**; подтверждён и выполнен в большом проходе выше.
+
+## Ежедневные резервные копии: короткая остановка (2026-10-02)
+
+Исходники `39fbf1c` установлены владельцем через приватный терминал 2026-10-01
+в 22:08:08 UTC (2 октября, 01:08 по местному времени). Квитанция установщика
+подтверждает чтение и совпадение SHA-256 пяти установленных модулей с `main`;
+настройка retention — три копии. Таймер active, unit использует фиксированный
+`/opt/codex-workspace-checkpoint/checkpoint.py`, оба контейнера Hub healthy.
+Ежедневный checkpoint заранее готовит только входные файлы Team backup, исключая
+старые копии и тестовые восстановления рядом с ними. В окне остановки сверяет
+изменения, сохраняет базы и рабочие диски, затем возвращает исходные службы.
+Создание архива и проверка контрольных сумм идут уже по изолированному снимку.
+Разреженные диски копируются без чтения невыделенных областей; SHA-256 и старый
+формат сохранены. Удерживаемый lock теперь означает штатное откладывание.
+Удаляются только старые завершённые копии после проверки новой; остаются три.
+
+53 Linux-проверки прошли: 10 backup/restore, 11 coordinator/recovery/retention,
+25 engine checkpoint/rollback и warm capture, 5 прежнего retention, 2 installer.
+На отдельной копии реальных данных установленный образ `ed44e8d` создал и проверил
+Team backup двух аккаунтов, затем восстановил его в новый каталог. Исходный каталог
+был удалён после фиксации, до запуска backup CLI. Авторизация при восстановлении
+закрыта (`nativeAdmission=blocked`), сессии отозваны; никакая работа не запускалась.
+Подготовка заняла 16,808 с, фиксация Hub — 17,711 с, отдельные backup/verify/restore —
+169,074 с. Это не замер production-простоя с workspace-дисками. Временные данные
+репетиции удалены, исходный checkpoint не изменялся.
+
+Доказательства: `/home/abysscloud/services/codex-web/verification-checkpoint-20261002/`
+(`rehearsal.json`, тестовые исходники). Пакет для отдельной установки:
+`/home/abysscloud/services/codex-web/checkpoint-update-20261002/`.
+Установка и сверка квитанции завершены. Следующий запуск таймера на момент проверки:
+2026-10-01 22:30:57 UTC; новый production checkpoint ещё не выполнялся. Последний
+запуск прежней версии в 21:54:47 UTC штатно пропущен из-за недавней копии. Полный
+замер production-простоя с workspace-дисками остаётся последующей проверкой;
+живые Hub/GPT в этом этапе не перезапускались. Доказательство установки:
+`workspace-checkpoint-install.json` в каталоге Hub.
+
+Согласование старых правил из пункта 5 выполнено отдельным этапом выше.
+
+## Исправления после аудита ограничений (2026-10-02)
+
+В выпуске `ed44e8d` native preflight сохраняет определённый отказ до записи как
+`rejected`; потерянный ответ читается по той же квитанции без повторной подготовки.
+Hub освобождает редактирование, а веб восстанавливает текст даже при отставшем
+списке операций. Ошибки после принятия записи остаются неопределёнными.
+
+Наблюдение неизменной истории постепенно редеет с 30 секунд до 15 минут;
+возраст последнего изменения сохраняется между перезапусками. Новая активность
+и открытие чата возвращают частые проверки, поздний final отмечается непрочитанным.
+Неуспешное начальное чтение моделей редеет до минуты и приостанавливается в скрытой
+вкладке; возврат/сеть возобновляют его без параллельных одинаковых запросов.
+
+Добавлен host-инструмент `ops/linux/upgrade-native-adapter.py` для замены адаптера
+в точном простаивающем профиле owner/member с сохранением параметров контейнера,
+авторизации, квитанций и предыдущего контейнера для отката. Его финальная версия —
+`a6a2f8a`: подготовленный профиль обновляется без активации; зависший Stop допускает
+замену только после проверки конкретного финального узла выбранного оператором чата.
+
+Установлены и сверены по SHA-256 оба адаптера: owner
+`26.928.31416-ed44e8d` и member `26.915.31945-ed44e8d`. Версии самого ChatGPT
+сохранены. Provisioning service уже использует новый member image. Участник находится
+на экране входа, native binding отсутствует: установка проверена, его авторизация — нет.
+У owner перед заменой каноническая история подтверждала `finished_successfully` и
+`end_turn=true`, хотя окно продолжало показывать Stop. После замены вход сохранился,
+зависший индикатор исчез; отправок, Stop и повторов сообщений не выполнялось.
+
+Проверены TypeScript и сборка, 132 сценария кандидатного Linux-образа, 23 сценария
+checkpoint/rollback и 5 сценариев замены адаптера. Chromium/WebKit проверили отказ
+до записи, сохранённый черновик, затухание моделей в скрытой вкладке и вход через
+кандидатный gateway. Отдельная тестовая поправка `ab2225f` учитывает реальную паузу
+после 429; до её исправления расширенная проверка честно падала на старом ожидании.
+Физическая iPhone-приёмка этого выпуска пока не заявляется.
+
+Hub/engine `ed44e8d` установлен 2026-10-01 в 21:33:17 UTC (2 октября по местному
+времени); оба контейнера healthy. Подготовка checkpoint заняла 163 с, переключение —
+85 с; retention оставил три последних завершённых checkpoint. Через установленный
+Hub получена свежая история «Художественного описания Юри» (53 сообщения) и «Алтарь
+Главный Разбор Кода» (32), HTTP 200 без признака устаревшего снимка. GPT status:
+healthy, canRead/canSend=true. Две прежние unknown-квитанции сохранены, ввод не повторялся.
+Оба ранее работающих persistent Codex thread сохранились, текущий activeTurnId
+не изменился. Provisioning timer после обновления успешно завершился с
+`prepared=0, failed=0`; временный failed-state при maintenance не остался.
+Доказательства на Hub: `verification-ed44e8d/{focused,host-installer-tests,image-smoke,
+native-installed,provisioning,live-accept,continuity-after}.json` и журнал установки.
+
+Следующий этап был подтверждён владельцем и выполняется: см. состояние ежедневного
+checkpoint выше. Настройка этапа: **Astra → Высокое (`high`)**.
+
+## Аудит оставшихся ограничений после `1acca19`
+
+Исторический срез перед текущим выпуском: в отдельном аудите воспроизведены определённые native preflight-отказы
+`NATIVE_BRANCH_CHANGED` и `NATIVE_NOT_READY`: записи и native receipt ещё нет,
+но Hub ставил `unknown` и блокировал следующее редактирование. На момент аудита
+исправление не применялось. Также подтверждены бессрочное наблюдение неизменной истории без
+final и старый member adapter/provisioning: у участника остаётся общий счётчик
+ошибок, хотя owner уже обновлён. Ежедневный checkpoint остаётся отдельным долгим
+offline-путём; текущий systemd result=success не доказывает исправления его кода.
+12 локальных и 17 Linux-проверок существующих разрешений проходят.
+Подробности, границы проверки и порядок исправлений:
+[аудит ограничений](CONSTRAINTS_REVIEW_2026-10-01.md).
+
+## Снижение фоновых запросов GPT (2026-10-01)
+
+После отдельного перезапуска native-клиента исследованы повторные чтения CodexWeb.
+Причина конкретного upstream 429 пока не доказана; наличие 429 в самом приложении
+не исключает вклад наших фоновых запросов. Подготовлено исправление:
+
+- общий для вкладок кэш каталога, закреплений и проектов на 30 секунд; старые
+  страницы каталога — до двух минут, с немедленным сбросом при изменении первой;
+- записи, manual/account transition и новый native instance сбрасывают кэш;
+  история и проверки перед отправкой через него не проходят;
+- local status остаётся частым, проверка моделей для готового instance — раз в
+  15 минут; перезапуск и ручная смена аккаунта требуют свежей проверки;
+- увеличение общей паузы после 429 учитывает отдельные группы запросов: модели
+  не сбрасывают ошибки истории. Сохранён Retry-After из callback native transport,
+  который выбрасывает ошибку до возврата Response. Расписания соблюдают ту же паузу.
+
+71 локальная и 106 Linux-проверок прошли, включая нагрузку нескольких вкладок,
+перепривязку, настоящий Unix-сокет, инвалидацию при записи, запоздалые ответы и
+Retry-After. Кандидатные engine/gateway проверены входом в Chromium/WebKit;
+23 проверки checkpoint/rollback/admission также прошли.
+
+Установлен `1acca19`: native-адаптер поверх того же приложения 26.928.31416 и оба
+контейнера Hub. Native admission подтвердил отсутствие активных отправок и
+генерации в открытом клиенте; файлы после установки совпадают по SHA-256.
+Hub штатно дождался новой отправки, завершил обновление в 20:38:33 UTC (подготовка
+backup 116 с, переключение 45 с). Три persistent Codex-сессии и текущий running
+turn сохранены; два старых unknown receipts остались без повторной отправки.
+Ротация оставила три последних завершённых checkpoint.
+
+После установки одна проверка проблемного story-chat через действующий Hub
+вернула HTTP 200, 23 сообщения и свежую историю без `stale/unavailable`;
+подключение healthy, canRead/canSend=true. Новую тестовую отправку не делали.
+Это подтверждает восстановление чтения сейчас, но не доказывает причинную связь
+прежнего 429 с нашим polling или отсутствие будущих ограничений OpenAI.
+Доказательства: `verification-1acca19/{focused,image-smoke,native-image-smoke,
+native-installed,live-final,continuity-after}.json`, `deployment-1acca19.json`.
+
+## HTML-визуализации и ограничение чтения GPT (2026-10-01)
+
+В исходниках добавлено распознавание публичного маркера `visualize`: он открывает
+HTML-демо через точный результат исходного сообщения. Явные HTML-ссылки вне
+checkout используют сохранённый файл и связанные локальные статические ресурсы;
+автоматическое обнаружение изменений остаётся ограничено checkout. Проверены
+43 Linux-теста, Chromium/WebKit на телефоне и широких экранах: интерактивность,
+исходный снимок, черновик и вложение после закрытия.
+
+На живом сервере чтение истории получает настоящий upstream HTTP 429, в том числе
+в самом приложении ChatGPT; в 19:46 UTC повторилось после десятиминутной паузы.
+Активных отправок и фоновых attention-watch нет. Каталог моделей читается.
+Исправлена классификация rate limit: он не превращается в потерю подключения и
+не отменяет проверенную готовность того же native instance. Ограничение OpenAI
+сохраняется; свежая история и отправка пока не подтверждены. Старые отправки не
+повторяются. `e990c2e` установлен штатным updater: старое сообщение AltarAppsReborn
+открывает точный HTML через history → reveal → ready → document (все HTTP 200).
+Реальные переключения роли и разделов проверены в Chromium/WebKit. Два старых
+unknown receipts сохранены, native instance не перезапускался.
+При визуальной проверке дополнительно исправлено отсутствие host-иконок Lucide:
+закреплённая библиотека поставляется внутри просмотрщика без запроса к CDN.
+Финальный выпуск `bf4c14b` установлен в 20:03 UTC, оба контейнера healthy.
+Повторно проверен HTML, полученный через установленный Hub: иконки, возврат на
+карточку, вход в Space, роли и разделы в Chromium/WebKit. 50 проверок кандидатного
+образа, 23 сценария upgrade/rollback и вход через кандидатный gateway проходят.
+После обновления story-chat всё ещё возвращает `stale:true`: восстановление GPT
+не завершено, ответ 429 не устраняется изменением статуса подключения. Настоящая
+отправка повторно не выполнялась. Доказательства: `verification-bf4c14b/{receipt,
+focused,image-smoke,live-final,continuity-after}.json`, `deployment-bf4c14b.json`.
+
+## Хранение трёх резервных копий (2026-10-01)
+
+Владелец подтвердил удаление 81 старой копии перед обновлениями (~387 ГиБ) и
+постоянное хранение трёх последних. Удалены все 81 согласованные копии: освобождено
+415 138 058 240 байт (~387 ГиБ), свободное место выросло примерно до 1 ТиБ.
+Установлена автоматическая очистка после успешного обновления, с отдельным hourly
+user timer для старых updater checkout. Ежедневная служба на сервере также переведена
+с `--keep 7` на `--keep 3`.
+Три сохраняемых checkpoint повторно проверены целиком; 28 тестов retention и
+upgrade/rollback проходят. Host-модуль из `35bc75e` установлен с проверкой хеша;
+таймер включён, первый запуск очистки успешен. Hub остаётся на `1164621`, оба
+контейнера healthy; перезапуск для этой установки не требовался. Отдельные старые
+незавершённые и миграционные архивы не входят в согласованную очистку.
+Реальный ежедневный backup завершился 19:07:30 UTC с exit 0: новый снимок создан,
+проверен и осталось ровно три ежедневных team-снимка. На 19:08 UTC свободно
+1 078 572 634 112 байт, каталог backups занимает 52 ГиБ вместе с отдельными
+историческими архивами. Доказательства:
+`verification-retention-35bc75e/{approved,cleanup,installation,daily-acceptance}.json`.
+
+## Продолжение аудита: восстановление очереди и вложения (2026-10-01)
+
+Установлен выпуск `1164621` с исправлением двух воспроизведённых ошибок: подтверждённая плашка
+`queued/steered` теперь снимается при чтении точного user item из канонической
+истории после пропуска события; ошибка настройки очереди до отправки освобождает
+блокировку вложения в черновике. Неопределённые операции не повторяются.
+Обе регрессии подтверждены на старом образе; 63 Linux-теста и проверки
+Chromium/WebKit отправки/восстановления истории проходят с исправлением.
+Обычный updater завершился в 16:29 UTC: engine/web healthy, подготовка backup
+114 с, переключение 44 с. Две persistent Codex-сессии и текущий running turn
+сохранены. Живой API вернул 20 сообщений этого чата и пустую очередь; оба
+GPT-чата отдают свежие финальные ответы, canRead/canSend=true, прежние два
+unknown receipts сохранены. Native приложение и Windows helpers не заменялись.
+Также прошли 45 проверок кандидатного образа, 23 сценария checkpoint/rollback/
+admission и настоящий вход Chromium/WebKit в кандидатный engine/gateway.
+Доказательства: `verification-1164621/{receipt,focused,image-smoke,live-final,
+continuity-before,continuity-after}.json`, `deployment-1164621.json`.
+Реальный встроенный браузер тоже отвечает.
+Дальше — отдельная оптимизация ежедневного checkpoint (остановка веба на всё
+копирование и ложная ошибка занятого lock); установленная служба пока не изменена.
+Подробности: [повторный аудит](WORKFLOW_AUDIT_FOLLOWUP_2026-10-01.md).
+
+## Bridge Doctor: аудит и режим ремонта (2026-10-01)
+
+В исходниках исправлены ложная проверка native-подключения по старому контракту
+расширения и зависшая привязка Doctor с уже завершённой квитанцией создания.
+Добавлен отдельный режим «Диагностика и ремонт»: обычные инструменты и полный
+доступ машины проекта, отдельный служебный чат, подготовка в worktree и штатная
+установка. Работа в других чатах проекта больше не блокирует диагностику/ремонт.
+Неподтверждённые отправки не повторяются; настоящий владелец native writer,
+аккаунт и admission установки сохраняются. Старые ложные инциденты после
+восстановления связи закрываются без новых заданий Doctor.
+
+Выпуск `1e22073` установлен обычным updater в 15:36 UTC; engine/web healthy,
+backup проверен, текущий Codex turn и второй persistent-чат сохранены. На реальном
+API владельца включён `mode=repair`; native capabilities подтверждают full access.
+Та же привязка автоматически стала ready, 88 старых инцидентов стали recovered.
+В Doctor по-прежнему одна команда и пять сообщений: повторов и новых запусков нет.
+Оба проблемных GPT-разговора отдают свежую историю; healthy/canRead/canSend=true.
+Старые два неопределённых GPT receipts сохранены. Native приложение остаётся
+`26.928.31416-ba02bd4`, новые Windows helpers для этого выпуска не требуются.
+
+Проверены 76 тестов на кандидатном Linux-образе (Doctor, права/handoff, очередь,
+native provider/work, вопросы, Companion/Team), 23 сценария upgrade/rollback,
+TypeScript и сборка. Chromium/WebKit: режим ремонта, сохранение черновика, четыре
+темы/четыре размера; вход в кандидатный Hub и реальное преобразование DOCX.
+Доказательства: `verification-1e22073/{receipt,doctor-live,doctor-final-counts,
+gpt-live,continuity-before,continuity-after}.json`, `deployment-1e22073.json`.
+Автономный ремонт будущей несовместимой версии приложения ещё не проверен на
+настоящем новом инциденте; проверки dispatch/policy не подменяют такую приёмку.
+Подробности: [аудит Doctor](BRIDGE_DOCTOR_REPAIR_2026-10-01.md).
+
+## Обновление серверного ChatGPT — 26.928.31416 (2026-10-01)
+
+По продолжению владельца приложение обновлено с 26.915.31945 до официальной
+26.928.31416. Новый renderer разделён на shared/initial/primary: привязки экспортов
+перенесены в `ops/gpt-native/compatibility.mjs`; старый build сохранён для отката.
+Проверка на отдельной копии профиля подтвердила аккаунт, native actions/completion,
+каталог моделей и оба проблемных разговора. Основной экземпляр переключён в 14:42 UTC.
+
+Живой API веба получил свежую историю «Алтарь Главный Разбор Кода» (227 native nodes)
+и «Художественное описание Юри» (120 nodes), состояние healthy/canSend. Первый чат
+также открыт в самом серверном приложении. Отдельный новый тестовый чат подтвердил
+одну отправку и завершённый ответ `nativeupdateok`; старые неопределённые receipts
+сохранены без повторов. Отдельная неудачная подготовка старого тестового чата не
+дошла до отправки. Исчезновение ошибки после обновления подтверждено; прежний
+upstream rate limit нельзя задним числом однозначно приписать версии клиента.
+
+Доказательства: `native-update-26.928.31416/` на сервере: candidate-check.log,
+installed.json, installed-screen.png, tests.log, tests-final.log; exact send proof
+в приватном results. Перед переключением сохранён pre-update-profile.tar и
+остановленный предыдущий контейнер. Владелец сохранил профиль и авторизацию.
+Hub, engine и web обновлены обычным updater до `ba02bd4` в 15:04 UTC;
+deployment receipt healthy, резервная копия проверена. После переключения повторно
+проверены обе истории через реальный API; canRead/canSend=true, activeJobs=0,
+unknownJobs=2 (старые receipts). Текущий Codex turn продолжился; второй прежний
+persistent-чат имеет completed/activeTurnId=null. Доказательства —
+`verification-ba02bd4/{receipt,continuity-after,threads-after}.json` и
+`native-update-26.928.31416/final-web-accept.json`.
+
+Окончательный native image — `codex-web-gpt-native:26.928.31416-ba02bd4`, запущен
+в 15:00 UTC; все 34 модуля побайтно совпадают с committed source, включая новый
+check-compatibility CLI. `final-image-proof.json` содержит точные SHA-256.
+Пройдены 45 renderer/transport/compatibility проверок, Linux provider/library и
+admission проверки, TypeScript, repository checks, проверки upgrade/rollback и
+вход в кандидатный Hub через Chromium/WebKit. Member runtime пока прежний и не
+привязан к личному аккаунту GPT; его provisioning image этим owner-update не менялся.
+
+На момент предыдущего выпуска Bridge Doctor оставался read-only диагностикой. Ремонт выполнен
+в этом авторизованном ходе; автоматический ремонт самим Doctor пока не реализован.
+Новый `check-compatibility.mjs` даёт воспроизводимую проверку обновления на отдельной
+копии профиля перед переключением. Это не разрешение повторять неопределённые sends.
+
+## Старое подтверждение Steer вновь показано в очереди (IMG_0781)
+
+Причина: выпуск `ee28837` создавал сообщение после нового ACK, но не восстанавливал
+старые `steered` receipts без сообщения. Владелец увидел прежний ответ UAC
+`e82f3124-8a47-4e92-91fc-aef94a8e259d`, подтверждённый 05:55:51 UTC, как текущую очередь.
+QueueService теперь восстанавливает историческое сообщение по точному положительному
+`queue.changed/steer` событию и receipt того же чата. Сохраняются исходные seq, время,
+текст и привязки вложений; неизвестный исходный turn не подменяется текущим.
+Неопределённые receipts и записи без точного ACK не меняются, native RPC не вызывается.
+Проверены 12 Linux-тестов очереди, включая обновление старой записи, повторное открытие,
+запоздалое native-событие, изоляцию чатов и вопросы. TypeScript проходит.
+Дополнительное исправление `3b431d3` установлено обычным updater в 13:59 UTC.
+Живой API этого чата дважды вернул пустую очередь; сообщение восстановлено с
+`firstSeq=673776` и исходным временем 05:55:51.942 UTC, исходный ACK остаётся в events.
+Текущий активный turn `01a0f7b9-89e1-7352-9f34-cf3a49044137` сохранён.
+Доказательство: `verification-3b431d3/legacy-steer-live.json`; deployment receipt healthy.
+Также прошли 19 тестов образа (12 очереди), проверки обновления/отката и кандидатный
+Chromium/WebKit вход. Native GPT и Windows helpers этим исправлением не заменялись.
+
+По явной просьбе владельца перезапущен только `codex-web-gpt-native-lab`.
+После перезапуска чтение истории вновь вернуло `NATIVE_RATE_LIMITED`; IMG_0782 показывает
+ошибку загрузки разговора и в самом серверном приложении ChatGPT. Это не доказывает,
+что причиной ограничения не была наша фоновая нагрузка; исследование остаётся открытым.
+
+## Установлен `7837414`; отдельный текущий отказ GPT — rate limit
+
+Hub, gateway/web и owner/member native adapters установлены; хеши модулей сверены.
+Обычный updater сохранил резервную копию, ожидал admission, force не применялся.
+Из трёх активных persistent Codex-чатов два продолжили работу; третий после
+переподключения дал `turn.completed` со статусом `completed` в 13:29:56 UTC.
+Проверены установленный endpoint непрочитанных GPT и русский WAV через приватный API.
+Отчёты на сервере: `verification-7837414/live-continuity.json`,
+`native-owner/installed.json`, `native-member/installed.json`, `workflow-checks.json`.
+Member adapter сохранён в прежнем неподключённом состоянии: binding аккаунта GPT
+там ещё не было. Это не означает завершённую приёмку личного GPT друга.
+
+Новый снимок IMG_0780: отправка `92da6c36-9e06-4f60-be25-863d48355326`
+в `6a9d3451-07d0-83eb-b8eb-91fdb7751f53` получила `NATIVE_RATE_LIMITED`
+на подготовке (13:24:34–13:25:37 UTC), `submitted=0`, dispatch receipt отсутствует.
+Никакой повторной отправки при диагностике не выполнялось. Нативный клиент
+подтверждает ready/idle, без manual lock; чтение истории пока также rate limited.
+Нельзя объявлять этот чат восстановленным: источник/длительность ограничения
+и вклад фоновой нагрузки ещё не установлены. Свежая история рассказов также
+пока возвращается из сохранённого снимка; установку фиксов не путать с live-приёмкой
+синхронизации при продолжающемся ограничении upstream.
+
+## Исправление запуска серверной озвучки читалки
+
+Воспроизведён цикл: строка подготовки меняла высоту страницы, ResizeObserver
+перезапускал PageVoice, отменял синтез и получал отказ занятого worker.
+Статус теперь занимает постоянное место, не меняя геометрию при старте/готовности.
+Алгоритмы MybookOpds и настройки голоса сохранены. Проверены настоящий русский WAV
+с установленного Hub в Chromium и WebKit, старт с 15-й страницы и подготовка
+следующей страницы. Регрессия с задержкой запуска проверяет отсутствие отмены
+и автоматическое листание. Физический iPhone остаётся пользовательской приёмкой.
+
+## Текущий проход: очередь, статусы GPT и непрочитанные ответы
+
+В исходниках исправлены пункты 1–5 аудита 2026-10-01: нативный idle отделён от
+завершённого ответа; подтверждение находит точную отправку до проекции истории;
+ручной текст согласован с существующим контрактом редактора 100 000 UTF-16 единиц;
+факт доставки сохраняется отдельно от ошибок чтения; ошибки инструментов подписаны
+как исторические, текущий каталог остаётся отдельным источником.
+
+Очередь Codex сохраняет подтверждение до появления точного сообщения в истории,
+Steer материализует подтверждённый ввод сразу. Наблюдение за внешней работой Codex
+продолжается без открытого браузера; известные ожидающие GPT-чаты прогреваются
+ограниченно в фоне. GPT получил частные постоянные отметки непрочитанных финалов.
+Старая неопределённая отправка не возвращается вниз чата при временной ошибке истории,
+если уже известен более поздний завершённый ход.
+
+Проверены Linux сценарии очереди/вопросов/квитанций, история, native controls,
+Chromium и WebKit: очередь после повторного открытия, лампочка, вопросы/режим плана
+и восстановление истории. Сборка и типы проходят. Установка подтверждена выше;
+свежая нативная история при текущем rate limit остаётся непроверенной.
+
+Предыдущий выпуск `9988a10` теперь установлен обычным updater: Hub/gateway/web,
+DOCX API и чтение истории прошли live acceptance. В сверке четырёх прежних
+persistent bindings осталось три; отсутствие одного старого binding само по себе
+не доказывает прерывание задачи и не считается подтверждением сохранения всех четырёх.
+Отчёт: `verification-9988a10/live-accept.json` на сервере.
+
+## Завершён отдельный аудит подходов; исправления находок — следующий проход
+
+[Аудит ограничений и ложных состояний](WORKFLOW_AUDIT_2026-10-01.md) сверяет
+исходники, живую установку и три воспроизведения. Найдены: вывод активности из
+отсутствия финала, отдельный предел 1 МиБ при подтверждении отправки, несогласованные
+32 КиБ ручного текста, смешение подтверждённой доставки с ошибкой чтения,
+исторические ошибки MCP под видом текущей недоступности, холодный ежедневный
+checkpoint и его ошибочная классификация обычного ожидания, расхождение выпусков.
+55 целевых проверок прошли на Linux. Функциональные изменения по находкам не
+применялись; исправлена устаревшая справка о включении браузера в пакет Companion.
+
+Чат рассказов подтверждён свежим финалом `09636d52-8067-4ecd-a5db-6caa2adbcc22`.
+Обычная активация `9988a10` пока ждёт одну другую запись GPT `running`, в её
+канонической публичной ветке ещё нет финала. Это не самостоятельное доказательство
+активного исполнения. Updater и отдельная автоматическая приёмка продолжают
+ожидание; установленную приёмку DOCX пока не объявлять завершённой.
+
+Следующий согласованный проход: пункты 1–5 аудита и проверка контракта на
+owner/member. Затем checkpoint и состояния компонентов. Рекомендация:
+**GPT-6 Astra → Высокое (`high`)**; начать после «Продолжаем» владельца.
+
+## Фиксированные страницы DOCX подготовлены к установке
+
+DOCX теперь проходит через отдельный LibreOffice worker и общий PDF-просмотрщик:
+автоматические и явные разрывы, таблицы, листание и масштаб 100–300% без переноса
+текста под телефон. Сохранение отдаёт исходный DOCX, а не производный PDF.
+Добавлены аутентифицированный маршрут предпросмотра, отмена при закрытии,
+изолированный одноразовый профиль конвертера и описание эксплуатации.
+Недоступные шрифты и сложная вёрстка Word могут отличаться от Microsoft Office.
+
+Проверены настоящий LibreOffice в итоговом контейнере (семь страниц, таблица,
+отмена и очистка), сессия/CSRF и отзыв сессии во время подготовки, Chromium/WebKit
+на телефоне и планшете через Hub API: байты документа, масштаб, все страницы,
+сохранение оригинала и черновика. Физический iPhone остаётся при использовании.
+Исходники в `main` (`9988a10`), worker `codex-web-documents:9988a10` установлен.
+Итоговый кандидат прошёл 75 проверок и реальную конвертацию через аутентифицированный
+Hub API в Chromium/WebKit. Обычный updater ждёт завершения оставшегося GPT-ответа;
+пока engine остаётся `8371646`, DOCX-интерфейс нового выпуска ещё не активирован.
+После переключения подготовлена автоматическая проверка реального API конвертации,
+истории чата и сохранённых Codex-соединений; результат записывается в серверный
+`verification-9988a10/live-accept.json`. Ожидание не означает завершённую приёмку.
+Проверки:
+`.local/documents-*.log`, `.local/qa-docx/`, `tests/documents-worker.py`.
+
+## Исправление синхронизации длинных GPT-чатов подготовлено
+
+На реальном чате рассказов подтверждён `NATIVE_HISTORY_TOO_LARGE`: сохранённый
+снимок оборвался на промежуточном ответе, хотя в родном приложении появились новые
+ходы. Причина — предел 1,5 МБ публичной проекции, ниже уже существующего бюджета
+канонического ответа 16 МиБ. Согласованы проекция, Hub и приватные CDP/pipe-передачи:
+история до 16 МиБ, транспортный конверт до 20 МиБ только для чтения истории;
+остальные операции сохраняют прежние пределы. Инкрементальные ревизии и общий
+бюджет кеша сохранены. Устаревший снимок больше не подтверждает индикатор
+«Ответ GPT в другом клиенте».
+
+Регрессии проверяют истории свыше 4 МиБ, новые ходы, изменения старых сообщений и
+сохранность pipe-соединения. Chromium/WebKit проверяют возврат в чат, фоновую
+синхронизацию и сохранение черновика без записей. Native owner установлен и проверен
+на `25c4293`; реальный веб-маршрут
+истории вернул актуальный завершённый ответ `d5fe9884-3afb-4505-a1a0-f6ce9ff4ff69`
+и новые ходы, включая новое сообщение `c1af4f27-fb4b-49fc-9fb6-456f99b71d20`
+и промежуточный ответ `aee25453-e2dc-4ac5-804f-78ffe624143a`, затем финал
+`09636d52-8067-4ecd-a5db-6caa2adbcc22`.
+Квитанции сохранены, повторов отправки нет. Обычный updater Hub
+ожидает окончания текущих GPT-ответов.
+
+## Установлен веб `70f649c`: полный текст и читалка MybookOpds
+
+TXT/Markdown загружаются полностью, включая путь Results, без прежнего обрезания
+на 64 КБ. Пагинация, DOM-якоря, общий индекс страниц, системный голос и конечные
+аудиостраницы скопированы из действующей MybookOpds; происхождение и изменения
+обёрток перечислены в `apps/web/src/bookReader/SOURCE.md`. Добавлены текст FB2,
+главы EPUB в порядке spine, оглавление, запоминание позиции, размер шрифта/интервал,
+озвучка с текущей страницы, пауза и автоматическое перелистывание. Фоновый режим
+использует существующий приватный Hub speech и один Audio; тайминги страницы берутся
+из WAV, временные метки слов не выдумываются. Иллюстрации FB2/EPUB пока не переносятся.
+
+PDF остаётся исходными страницами, добавлен масштаб 100–300% с прокруткой и повышением
+разрешения отрисовки. В этом предыдущем выпуске DOCX ещё использует извлечение
+текста/таблиц. Фиксированные страницы реализованы следующим выпуском `9988a10`,
+текущее состояние его установки указано выше.
+
+Проверки: 42 сценария исходной пагинации/PageVoice, существующие speech/file проверки,
+Chromium/WebKit — полный файл из Results и обычного viewer, страницы/озвучка/фоновые
+переходы, FB2/EPUB, восстановление позиции, четыре темы, телефон/планшет, PDF zoom,
+сохранение исходных байтов и черновика. Физическая приёмка iPhone остаётся при использовании.
+Публикация только веб-ресурсов: engine, gateway, Companion и живые чаты не перезапускаются.
+Два прежних изменения Companion исключены. Исторический аудит ниже не начинался.
+
+Веб `70f649c` опубликован 1 октября штатным `publish-web.py`; HTTP version.json,
+current pointer и release manifest совпали: web id
+`7cae2e06196e865f6cee0f7fd00844014ab71300015e96af77da50ae31c0aaee`.
+Engine instance до/после совпадает. Исходники и документы в main; доказательства:
+`.local/qa-book-reader/`, `.local/qa-file-preview/`, серверный
+`verification-70f649c-web`. На Windows 57 проверок прошли, две Linux-only пропущены;
+оба браузера прошли функциональные проверки, чистая Linux-сборка успешна.
+Этап фиксированных страниц DOCX описан выше. Следующий отдельный этап после
+активации и приёмки — запрошенный аудит; **GPT-6 Astra → Высокое (`high`)**.
+
+## Companion 0.5.3 установлен: браузер в готовности, пакете и ремонте
+
+Встроенный браузер включён в checklist, подписанный пакет и общий installer/repair.
+Галочка требует файлов, собственной задачи, MCP-регистрации и живого status с WebView2.
+Неработающий broker больше не считается исправной альтернативой только по State=Running.
+Host 1.0.1 умеет переключаться без вкладок; 1.0.0 остаётся до завершения старого процесса.
+На ПК владельца исходный browser 1.0.0 исправен, открыты четыре вкладки; они сохранены.
+UI 0.5.3 из чистого `5687dec` установлен штатным подписанным обновлением 1 октября
+в 13:05:32 +03:00, receipt `committed`. Manifest
+`3b88cb5ab237f9287ece537ce3fec78da57c4f9d158ccbed54bf40da1e819b5f`, архив
+`d3e66001a83d0db3cf78a147b7ddd5cb51a46148e06118a9313ef60c39b4d9ba`.
+Проверены подпись и все 277 файлов фактической установки, окно Settings с 0.5.3,
+галочка браузера и `waitingIdle`. Сверка сохранила profileHash, все девять прежних
+task definitions/configs, PID/start native Codex, task/pointer/PID браузера и четыре вкладки.
+Browser host остаётся 1.0.0; переход на подготовленный 1.0.1 ещё не активирован.
+ПК друга `Fima` по проверке Hub офлайн, последняя связь 28 сентября 09:54:17 UTC;
+удалённая установка на нём не заявляется. Два прежних незавершённых изменения
+Workers.cs/Migrate-CompanionWorker.ps1 в этот выпуск не включены.
+
+Проверки: focused C# suite, реальный изолированный browser lifecycle, пять сценариев
+installer (включая повторный запуск, ремонт повреждения, отказ при занятости и откат),
+Node publisher → Windows verifier → установленный пакет; check-repository и repository-files.
+При приёмке первый пакет не смог загрузить CoreCLR и штатно откатился на 0.5.2.
+Причина: отсутствовал runtimepack в deps.json при наличии DLL. Сборка теперь явно
+задаёт SelfContained/PublishSelfContained и запускает готовый exe с `--version`
+до упаковки. В откате browser installer устранена гонка запуска старой задачи
+до завершения нового процесса. Доказательства: `.local/companion-053/`,
+`.local/companion-signed-053-verified/`, серверный `verification-companion-5687dec`.
+
+Отдельное наблюдение для следующего аудита: ежедневный checkpoint временно остановил
+Hub 13:02:33–13:04:11 +03:00 и дал временную ошибку чтения каталога обновлений.
+Checkpoint завершился успешно, engine/gateway снова healthy; этот этап Hub не обновлял.
+Следующий предлагаемый этап — ранее запрошенный аудит подходов и лишних блокировок,
+включая доступность во время checkpoint. **GPT-6 Astra → Высокое (`high`)**;
+начало после следующего «Продолжаем» владельца.
+
+## Установлен `8371646`: тихое подтверждение отправки GPT
+
+Чат, внутренние уведомления и push используют общее состояние подтверждения.
+Пока read-only восстановление продолжается, до двух минут показывается
+«Подтверждаем отправку». Остановленные после трёх ошибок проверки дают предупреждение
+раньше; истечение двух минут показывает его даже без следующего прохода worker.
+Успешное подтверждение отменяет ещё не отправленный тревожный push. Отправка сообщения
+не повторяется, receipt и ограничение восстановления сохраняются.
+
+На Windows прошли 40 целевых проверок, на Linux candidate image — все 66, включая
+native dispatch. Chromium и WebKit проверили ожидание, восстановление, предупреждение,
+завершение и сохранение черновика без POST-запросов. Дополнительно прошли обязательные
+23 сценария checkpoint/update/rollback, 7 проверок Companion/Team и вход обоими браузерами
+в отдельный candidate image. Физическая приёмка на iPhone не заявляется.
+
+Engine/gateway `8371646` установлены штатно в 12:29:18 +03:00, оба healthy.
+Подготовка резервной копии при работающем вебе — 110,4 секунды, закрытое окно — 34,0 секунды.
+Текущий Codex и AltarAppsReborn сохранили свои activeTurnId и `running/activitySource=hub`.
+Windows Codex PID 13032 (10:54:00) сохранён. Исходная GPT-отправка теперь `completed`,
+ошибка пуста, `uncertainSince=null`; проверка читала состояние и не отправляла сообщений.
+Runtime подтвердил `confirmationWaitMs=120000`. Доказательства: `.local/confirmation-deploy/`,
+`.local/gpt-warning/`, серверные `verification-8371646` и `deployment-8371646.json`.
+GPT adapter и Windows workers в этом выпуске не менялись.
+
+Этап готовности компонентов Companion выполнен выше. Аудит подходов остаётся
+следующим отдельным запросом; эту историческую очередь повторно не запускать.
+
+### Диагноз исходного случая
+
+После снимков IMG_0770/IMG_0771 проверена конкретная отправка
+`20366ec5-7437-4460-a510-f931525ec6ea` от 1 октября, 12:06:22 +03:00.
+В 12:06:36 создан и отправлен push `unknown`. При диагностике Hub и native
+receipt уже показывают `running` для одного userMessageId; read-health очищен.
+Hub в этот момент не обновлялся: `e1888e3` установлен в 11:46.
+Причина первого неподтверждённого чтения в сохранённых журналах не установлена.
+
+Подтверждён дефект поведения: trigger `push_gpt_job` сразу публикует `unknown`,
+PushService не даёт окну автоматического подтверждения завершиться. В чате
+`invalidateNativeJob` показывает ошибку спустя 45 секунд, даже если восстановление
+ещё идёт; `readFailed` откладывает повторное чтение на 30 секунд. В результате
+временное ожидание выглядит как запрос ручного вмешательства.
+
+Диагностический проход `12e2db0` runtime не менял. Исправление установлено в `8371646`;
+Companion остаётся следующим отдельным этапом.
+
+## Установлен `e1888e3`: простой обновлений и сброс статусов
+
+Найдена причина повторного `unknown` в проверках предыдущих выпусков:
+конструктор `Store` сбрасывал активные статусы и pending-команды при каждом
+открытии базы. Диагностический скрипт создавал такой Store для временной сессии
+и сам вызывал этот сброс. Это не доказательство ошибки обычного чтения истории.
+Сброс перенесён в явный старт владельца исполнения (`Sessions`); дополнительное
+открытие базы больше не считается перезапуском Hub.
+
+Обновлятор готовит файловую копию и репетицию восстановления при работающем вебе.
+После закрытия admission он заново сверяет файлы, переносит изменения и снимает
+свежие SQLite-копии, включая WAL. Повторное чтение неизменившихся файлов исключено
+через проверенные хеши в памяти одного процесса и полные файловые fingerprints
+(включая inode и ctime). Самостоятельная проверка/откат не доверяет этому кешу.
+В квитанции выпуска сохраняются время подготовки и закрытого окна.
+
+Hub engine/gateway `e1888e3` установлены штатно и healthy. Подготовка копии заняла
+**107,2 секунды при работающем вебе**, закрытое окно — **48,5 секунды** вместо
+примерно пяти минут в предыдущем выпуске. Новые замеры записаны в deployment receipt.
+
+Без ручного «Проверить» текущий ход вернулся в `running`, `activitySource=hub`,
+activeTurnId `01a0f695-b089-7c63-a5d5-1a8b54e03b5b`. Дополнительный Store и три
+последовательных history GET сохранили этот статус. Windows Codex PID **13032**
+(10:54:00) не изменился. AltarAppsReborn сохранил `completed`, активного хода нет;
+новых сообщений проверка не отправляла.
+
+Сборка/typecheck, 19 проверок Hub/runtime на Windows и в Linux image,
+23 Linux-сценария checkpoint/update/rollback, 7 проверок Companion/Team и вход
+Chromium/WebKit прошли. Физическая приёмка на iPhone не заявляется.
+После открытия веба отдельный процесс полностью перепроверил резервную копию:
+1440 файловых записей, три базы, 37,9 секунды; кеш подготовительного процесса
+не использовался. Это время не входит в простой.
+Доказательства: `.local/reconnect-deploy/`, серверные `verification-e1888e3`
+и `deployment-e1888e3.json`. GPT adapter и установленные Windows workers в этом
+выпуске не менялись.
+
+Следующий предлагаемый этап: фактическая готовность компонентов Companion,
+включение отдельного браузера в checklist/пакет/обновление и подходящий ремонт.
+**GPT-6 Astra → Высокое (`high`)**; начало после продолжения владельца.
+
+## Продолжение GPT и редактор — установленный выпуск `ac3acbc`
+
+Hub engine/gateway `ac3acbc` установлены штатно, оба healthy. Owner/member GPT
+adapter обновлены до `26.915.31945-admission-{owner,member}-ac3acbc`; хеш
+`dispatch-receipts.mjs` совпадает с выпуском в обоих работающих контейнерах.
+
+Исправлены определённый отказ до принятия правки и потеря подтверждения: редактор
+сохраняет текст, проверяет точную квитанцию через GET и не повторяет POST при
+проверке. Повторное открытие неизвестной попытки сохраняет её id; завершение
+старой правки не удаляет новый черновик того же сообщения.
+
+Новая ручная отправка отделена от старой unknown-правки и косметических операций
+библиотеки. Hub и native adapter заново проверяют текущую ветку; старые квитанции
+сохраняются. Текущий writer, удаление и изменения проектного контекста сохраняют
+своё admission. Временная занятость каталога моделей больше не отзывает готовность
+уже проверенного native instance; смена аккаунта/процесса требует новой проверки.
+
+Прошли 29 целевых Windows Node-проверок, сборка/typecheck и Chromium/WebKit:
+отказ, потерянное подтверждение до/после принятия, повторное открытие редактора,
+новая отправка при старой unknown, ветвление, темы и сохранение черновика.
+Дополнительно прошли 74 целевые Linux-проверки в candidate image, обязательные
+проверки checkpoint/rollback, авторизации и входа через Chromium/WebKit.
+
+На установленном owner adapter `prepareDispatch` для существующего чата со старой
+unknown-квитанцией подтвердил актуального родителя; старая квитанция не изменилась,
+сообщений не отправлено. Статус GPT healthy, `canSend=true`. Нативных правок в
+живом аккаунте сейчас нет: новый GET проверен на точном отсутствующем id, а
+принятая/failed квитанция — в интеграционном тесте. Member adapter работает, но
+его личный вход ещё ожидается. Физическая приёмка iPhone не заявляется.
+
+Codex activeTurnId `01a0f679-e64c-7fd0-8bb2-905dc16e7ae2` и Windows
+Codex PID **13032** (10:54:00) были сохранены. Диагностика показывала повторный
+`unknown`; в следующем проходе установлено, что его вызывал конструктор Store
+в самом диагностическом скрипте, а не обычный history GET. Причина исправлена
+в `e1888e3`, результат проверки описан выше.
+Окно обновления снова заняло около пяти минут на checkpoint-процедуре.
+
+Доказательства: `.local/gpt-admission-deploy/`, `.local/qa-gpt-operations/`,
+серверные `verification-ac3acbc` и `deployment-ac3acbc.json`.
+Историческое предложение этого выпуска выполнено в `e1888e3`; актуальная очередь выше.
+
+## Предыдущий выпуск: маршрутизация инструментов / ошибки ходов
+
+Установлен **Hub engine/gateway `55fc9a3`**, оба healthy. Выпуск содержит
+контекст выбора `codexweb_browser` и thread-scoped проверку MCP (`979c099`),
+а также сохранение причины и статуса каждого failed turn в истории и live UI.
+Причина перегрузки модели не запускает восстановление соединения. Проверены
+29 целевых Node-сценариев и Chromium/WebKit, сохранение черновика, доступная
+следующая отправка и отсутствие автоматического повтора. Candidate image прошёл
+проверки авторизации/сокета, входа в браузерах и штатные checkpoint/rollback checks.
+
+На установленном Hub проверен именно **TrainerOs**: `codexweb_browser` — четыре
+инструмента, состояние «Подключён»; Computer Use также подключён. В этом ходе
+реальный browser MCP открыл `about:blank`, показал снимок и закрыл свою вкладку.
+Выбор браузера моделью в следующем ходе TrainerOs ещё не наблюдался; vendor `iab`
+не восстановлен и не подменён. Особенности очереди описаны в COMPANION_BROWSER.md.
+
+У **AltarAppsReborn** два сбоя 10:25/10:29 вызваны ответом OpenAI
+`Selected model is at capacity`. Оба исхода и причины подтверждены установленным
+history API. Более поздний ход на Sol завершился финальным ответом в **10:48**;
+сейчас он `completed`, активного хода нет. Сообщений в этот чат проверка не посылала.
+
+Обычное обновление с проверенным восстановлением сохранило native PID **2548**
+(запущен 08:16:20) и текущий activeTurnId. После перезапуска первый history read
+показывал `unknown`; read-only «Проверить» вернул `running`, `activitySource=hub`
+и тот же ход, без native resume/interrupt. Веб был недоступен около пяти минут
+из-за полной checkpoint-процедуры — это отдельный пункт аудита обновлений.
+
+Полный результат: [RELIABILITY_AUDIT_2026-10-01.md](RELIABILITY_AUDIT_2026-10-01.md).
+Определённые отказы редактора GPT, избыточные admission-блокировки и зависимость
+готовности отправки от каталога исправлены последующим `ac3acbc` (см. выше).
+Readiness/пакет браузера Companion и сокращение окна обновления остаются в очереди.
+Занятый broker и FileLaunch остаются
+отдельным незавершённым переносом, как отмечено ниже.
+
+Доказательства: `.local/reliability-deploy/`, `.local/qa-codex-status/`, серверные
+`verification-55fc9a3` и `deployment-55fc9a3.json` в state каталоге Hub.
+
+## Исправление продолжения чатов и инструментов — текущий проход
+
+В исходниках: «Проверить» только читает состояние; reconnect восстанавливает
+принадлежность активных ходов по доказательству persistent broker. Восстановление
+истории читает точный ход страницами, вместо двадцати полных ходов. Broker умеет
+отклонить чрезмерный ответ, сохраняя нативный процесс. Принятые Steer-ответы скрыты
+из очереди, их durable receipts остаются. Новая ручная отправка GPT получает
+отдельную квитанцию и может продолжить чат после старой unknown; старая отправка
+не повторяется, прежние unsent followers автоматически не запускаются.
+
+Добавлен отдельный `codexweb_browser` (WebView2) и явное переподключение MCP
+через существующий writer. Причина недоступности vendor `iab` — отсутствующий
+desktop-owned host при работе через веб; наличие exe само по себе его не запускает.
+См. [COMPANION_BROWSER.md](COMPANION_BROWSER.md). На ПК установлен отдельный
+браузер, проверены реальная форма/снимок/ввод через MCP. Подключение существующих
+чатов и установленная активация проверены ниже; vendor `cua iab` этим не подменяется.
+
+Проверены 83 целевые Linux-проверки, Chromium/WebKit для ответов на вопросы,
+typecheck/build и Windows fixture ответа 17 MiB с сохранением native PID.
+Более поздняя проверка переподключения MCP проходит без resume/interrupt диалога.
+Аудит ограничений выполнен в последующем проходе; результат приведён выше.
+
+### Установленная активация 1 октября
+
+- Hub engine/gateway `664f7c8` обновлены штатно, оба healthy. До замены создана
+  резервная копия с проверкой восстановления. Native PID **2548** и точный
+  активный ход сохранились через обновление Hub и Companion.
+- На установленном Hub явное переподключение MCP вернуло четыре инструмента
+  `codexweb_browser`. «Проверить» сохранила тот же activeTurnId и принадлежность
+  `hub`; принятые Steer-квитанции отсутствуют в публичной очереди.
+- Независимый браузер установлен отдельно на ПК: релиз
+  `64d8d1a32c791930dd7f894afdf0fc63fe4dabd6e78b5984d831b268eaf7574d`.
+  Реальная форма, снимок, masked input и однократная отправка проверены локально;
+  маршрут **Hub → SSH → установленный browser MCP** тоже прошёл проверку.
+  Это WebView2 с собственным профилем, а не Chrome и не восстановленный vendor IAB.
+  Каталог инструментов уже подключён; набор инструментов текущего модельного
+  хода не расширяется задним числом. Окна видны на ПК/в удалённом просмотре,
+  не встроены iframe в чат. В универсальный пакет браузер пока не включён.
+- Owner native GPT активирован из
+  `26.915.31945-chat-repair-owner-664f7c8`; аккаунт готов, профиль и receipts
+  сохранены. Настоящий `prepareDispatch` новой отправки в чате со старой unknown
+  прошёл; старая квитанция неизменна, сообщений при проверке не отправлялось.
+  Member adapter и образ будущего provisioning также обновлены; незавершённый
+  личный вход участника остаётся незавершённым, его приёмка не заявляется.
+- Подписанный **Companion 0.5.2**, source `f8a5c17`, установлен штатным updater.
+  Manifest `1da2eeb5ecd9f19a83974553de73c118930471c00ebcec229091fe48b7743956`;
+  ZIP `6a4d859793658880b425e851c97e54ededf894dc187042eadb82078329165cd1`.
+  Установленное окно показывает «обновление подтверждено» и скрывается в трей.
+  Профиль, helper configs и определения Windows tasks совпали с baseline.
+
+**Осталось активировать при простое:** пакет 0.5.2 содержит защиту persistent
+broker от чрезмерных ответов, но занятый broker ещё работает из прежнего пути.
+Его отдельная миграция ждёт завершения активных native чатов. Исходники и fixture
+17 MiB проверены; установленная активация этой защиты пока не заявляется.
+Прежний FileLaunch требует завершения отдельного elevation repair; текущий
+проход его не объявляет исправленным. Физическая приёмка веба на iPhone остаётся
+за обычным использованием владельцем.
+
+Локальные протоколы и снимки до/после: `.local/chat-repair-deploy/`;
+серверные отчёты: `verification-664f7c8`, `verification-chat-fixes`,
+`verification-companion-f8a5c17` в state каталоге Hub. Основные исправления
+и выпуск сохранены и отправлены в `main`.
+
+## Текущий заход: управление исполнителями Companion 0.5.0
+
+В исходниках реализован перенос пяти demand workers и persistent Codex broker
+в неизменяемые версии Companion. Настройки, native CLI/accounts, рабочие каталоги
+и mailbox/receipts остаются на прежних местах. Меняется только действие собственной
+Limited/Interactive Windows-задачи; её остальные настройки и прежний XML сохраняются.
+Вспомогательные задачи никогда не останавливаются ради обновления. Есть проверка
+гонки запуска, отпечатка конфигурации, восстановление прерванного перехода и откат.
+Повреждённые программы восстанавливаются по новому адресу, не перезаписывая версию
+активных клиентов. Legacy bridge, отдельный Computer Use и Highest desktop-control
+сохраняют существующие независимые маршруты.
+
+Для persistent broker Hub выдаёт durable разрешение на простой только точного ПК:
+активный/неопределённый native ход, вопрос или незавершённый вызов запрещает переход.
+Разрешение сохраняется при перезапуске Hub, не блокирует GPT или ручные file operations,
+и не даёт обычному обновлению самого Hub вклиниться в переключение. После смены broker
+проверяется прежний native аккаунт; потерянные подтверждения сверяются без нового writer
+и без отправки сообщений. Подготовка и исходники не означают установленную активацию.
+
+Focused verification: 12 Node checks (точный аккаунт/ПК, сохранение uncertain turn,
+native admission и потерянные подтверждения), 7 PowerShell transaction/fault fixtures,
+33 C# checks, typecheck и web build. Установка и ожидание native простоя фиксируются
+отдельно после подписанной сборки и проверки установленного приложения.
+
+## Текущий заход: Companion 0.4.1, push и синхронизация
+
+Реализованы подписанные RSA-PSS выпуски UI, проверка архива и всех файлов,
+immutable staging, переключение независимого окна/трея с подтверждением запуска
+и возвратом к предыдущему pointer. Профиль, DPAPI grant и workers сохраняются.
+Издательский ключ хранится только вне Git на машине сборки; Hub и пакет содержат
+публичный ключ. Фоновая установка ждёт закрытия окна и завершения настройки/ввода.
+Native writer/broker и desktop Codex этим механизмом не заменяются: их перенос
+остаётся отдельной idle migration. В комплект входит проверенный helper kit;
+отсутствующие файлы собственных остановленных вспомогательных tasks могут быть
+восстановлены из подписанного пакета. Исправные demand workers не запускаются.
+Disabled/Running/foreign/unknown tasks и повышение прав требуют ручного действия.
+Попытки восстановления сохраняются на диск: 30 секунд, 2 минуты, затем 15 минут;
+повреждённый журнал не разрешает повтор. Настройки позволяют отключить обе функции.
+
+Причина исчезающих уведомлений найдена в TeamAuth: пересоздание mirrored sessions
+вызывало ON DELETE CASCADE для push subscriptions. Теперь действующие сеансы
+обновляются без удаления, а настоящая ревокация сохраняет прежнюю семантику.
+Веб больше не удаляет подписку при временно пустом ответе браузера. Сохранённое
+согласие и категории позволяют восстановить собственный endpoint после входа,
+возврата или восстановления сети; новый браузер автоматически не подписывается.
+
+Focused verification: 30 C# checks (включая реальный ConPTY), 7 PowerShell
+ownership/repair fixtures и 23 Node checks с session mirror/restart regression.
+Сборка проходит. Установка, активация Hub и физическая приёмка отмечаются ниже
+после проверки фактического результата; наличие исходников их не заменяет.
+Обычный upgrade Hub ждёт незавершённые операции GPT, не сбрасывая их receipts.
+
+Hub `56f0720` активирован обычным upgrade **30 сентября в 21:53 UTC**;
+engine/gateway healthy, сохранены private namespaces и persistent thread identities.
+UI **0.4.0**, source `56f0720`, установлен отдельно и подтвердил подпись через Hub.
+Manifest `18223694394099ff222049d1b90b6669d1a212af8ec6d9c2a205b762c917dec6`;
+267 файлов пакета. Профиль и девять task/config snapshots совпали с baseline.
+При reconnect Hub native runtime PID изменился 8248 → 13892; сохранение PID
+не заявляется, старые threads остались доступны. Workers/UI updater их не мигрировал.
+
+Дополнение исходников: **0.4.1** переводит сообщения проверки обновления;
+физическое переключение signed UI release проверяется отдельно. Push restore
+сохраняет прежние категории и согласие при ротации endpoint. Остаток native
+usage credits показан отдельно от процентов/времени сброса и reset credits,
+с exact decimal и без подмены отсутствующего баланса нулём. Дополнительная
+проверка удостоверяет, что изменение баланса не отменяет подтверждённый reset intent.
+Hub `3d7a57c` активирован обычным upgrade **30 сентября в 22:39 UTC**;
+engine/gateway healthy. Обновление заняло около шести минут, а не весь промежуток
+до следующего сообщения владельца. Push subscription и два сеанса сохранились.
+UI **0.4.1**, source `3d7a57c`, установлен штатным подписанным updater
+**1 октября в 03:54 UTC** и подтвердил запуск. Manifest
+`0530121b3b5bd6a390bc355a8bd24892202c5153491fd24a9eb6db2ad8020f5c`;
+267 файлов, exe SHA-256
+`b3d05cb9fa83da83659b878c4b84435471394fcf16afdc1b0d54716fd4c65699`.
+Окно установленного release проверено через Computer Use: версия/подтверждение,
+прежний профиль, автоматические обновления/восстановление, скрытие в трей.
+Девять task definitions, helper configs и профиль совпали до/после переключения UI;
+native PID **920** сохранился именно через это переключение. До него runtime уже
+переподключился, поэтому сохранение прежнего PID 13892 через весь Hub upgrade
+не заявляется. Приёмка уведомлений на физическом iPhone и полного мастера у друга
+остаётся отложенной, не заменяется browser fixtures.
+
+Синхронизация GPT: свежая native history читается независимо от приостановленной
+квитанции. Публичные этапы текущего ответа из другого клиента теперь видны в
+progress panel без наличия Hub job; завершённый final появляется в чате.
+Native jobs передают точный userMessageId: одинаковый текст в другой ветке
+не подтверждает старую отправку. Если текущая ветка продолжилась, старая unknown
+карточка сохраняется в раскрываемых «Предыдущих отправках» перед историей,
+не подменяя актуальный конец чата. Receipts и action OpenAI не сбрасываются;
+повтор отправки остаётся ручным. Chromium/WebKit проверяют возврат, периодическое
+обновление после временного read failure, смену ветки, draft и отсутствие sends/review.
+
+Дополнение по индикации Codex: журнал текущего чата подтверждает unknown при
+reconnect и idle до сообщения владельца в 06:49. Прежний UI скрывал status control
+в обоих случаях, но все старые commentary называл «В работе». Теперь текущий
+активный ход сохраняет spinner; unknown получает нейтральное состояние, а idle
+с последним commentary — «Codex сейчас не работает», без ложного завершения.
+Старые commentary подписаны «Ход работы». Подтверждённый нормальный session.state
+очищает старую ошибку связи: сообщение об успешном восстановлении больше не
+становится новой ошибкой. Chromium/WebKit проверяют живые переходы, историю,
+доступ к подробностям, исчезновение старой ошибки, draft и отсутствие отправок.
+Веб `2e8abb1` опубликован отдельно штатным publish-web, release ID
+`80b27cfc4305ecfb0968056a930208b6bd236f44508304537813ad9f3463bb68`.
+Gateway отдаёт этот version.json; engine instance не изменился, engine/gateway
+остались healthy на `3d7a57c`. Финальная сверка ПК снова подтвердила профиль,
+девять задач/configs и native PID 920; UI скрыт в трей. Две unknown GPT-квитанции
+и push subscription сохранены. Подмена индикации не возобновляет оборвавшийся
+model turn и не заявляет, что он работал весь промежуток до сообщения владельца.
+
+## Companion 0.3.0 — мастер Windows и ремонт компонентов
+
+Исходники: вход в Hub и DPAPI grant с проверкой серверной роли; автоматический
+пятишаговый мастер с durable enrollment/checkpoint и проверкой bootstrap;
+галочки готовности, установка программ и явный ремонт собственных остановленных
+помощников с проверкой task XML. Добавлены локальный ConPTY терминал до SSH,
+раздельные Paste/Submit и скрытый пароль, кнопки личного входа Codex/GitHub.
+Пакет включает Install.cmd и инструкцию. Повторная установка сохраняет профиль.
+Новый HTTP grant не даёт доступа к общей Hub API, чужому ПК или native accounts.
+Отзыв родительского сеанса/смена роли прекращают доступ. Управление Hub остаётся в вебе.
+
+16 C# checks включают реальный ConPTY I/O, DPAPI и различие текущего/проверенного
+шага мастера; пять task-repair checks и
+Hub integration покрывают exact-account/device, session revocation, повторное
+получение того же enrollment и частный helper repair-kit. Это не приёмка нового
+пользователя на другом физическом ПК. Исходники, установленный UI, активация Hub
+и такая приёмка отслеживаются отдельно. Автообновление и перенос native writer
+в этот этап не входят; сохранены существующие workers и direct LAN SSH владельца.
+
+Hub `93d1f87` активирован **30 сентября в 20:41 UTC** обычным upgrade после idle
+admission, с paired checkpoint и проверкой сохранённых приватных namespaces.
+Собранный образ проверен через Team Unix socket и в Chromium/WebKit с fixture
+аккаунтом. GPT receipts/ответы не сбрасывались. UI 0.3.0 установлен и проверен
+через Computer Use на аккаунте владельца: DPAPI grant после SSH SID/MachineGuid-проверки, `main-windows`
+и LAN SSH сохранены, реальный терминал выполнил проверочную команду.
+Финальный UI **0.3.0 установлен 30 сентября в 20:50 UTC**, source `d527751`,
+manifest `0d479f09ff38a8213837630c954d52692d887059783e65f7eb92fc5eb37e1d3a`.
+Все 227 файлов установленного release сверены с manifest. В окне убрано пустое
+место скрытой кнопки и добавлен полный список пяти шагов с галочками только
+пройденных проверок. На установленном exe просмотрены все четыре темы; исходные
+байты профиля classic-dark восстановлены. Галочки компонентов и локальный ввод
+проверены; UI перезапускался отдельно, DPAPI подключение восстановилось.
+Девять task definitions/config hashes и native PID **8248** / начало **14:55:17 UTC**
+сохранены. Другая активная задача тоже осталась в persistent runtime.
+
+ПК участника `pc-38f5976d-0342-4ea5-b42b-059d953f4199` проверен **20:42 UTC**:
+Tailnet peer offline, last seen **28 сентября 09:54 UTC**. Удалённая установка и
+первый полный проход мастера на его Windows не выполнены; прежние native accounts
+не затрагивались. Один win-x64 пакет с Install.cmd/README подготовлен для обоих.
+
+Остаток этого этапа — физическая приёмка полного мастера на ПК участника и
+обычное использование владельцем, включая запуск после входа в Windows.
+Исправный установленный helper намеренно не повреждался ради проверки ремонта:
+этот путь проверен focused task/ownership fixtures. Следующий отдельный этап —
+перенос native writer с idle admission и rollback. Подписанное автообновление UI
+и ограниченное восстановление вспомогательных компонентов уже реализованы
+и установлены в 0.4.1, см. текущий заход выше.
+
+## Computer Use — разрешённые операции и обновление существующего MCP
+
+**1.0.2 установлен 30 сентября в 17:41 UTC**, runtime/source SHA-256
+`414818cc4b5e7d72bc403055f8ea20ca13d1cb285dee81b052904b5c301d28c1`.
+По явному запросу разрешены настройки безопасности/приватности обычного рабочего
+стола и логины/пароли из указанных пользователем файлов/конфигураций, включая
+тестовые данные. Сняты общие запреты на терминалы и интерфейс Codex; предпочтение
+CLI/Devices/native protocol сохраняется вместе с single-writer admission.
+Scoped authorization не требует повторного согласия для каждого поля/логина.
+Добавлены клавиши WIN/LWIN/RWIN. Same-user/session, свежий снимок, фокус,
+secure desktop/elevation boundaries и запрет повторять неопределённый ввод сохранены.
+
+Найдена причина старого контракта в **AltarAppsReborn**: `current.json` обновлялся,
+но MCP configuration оставалась прежней из-за стабильного пути запуска. Native
+`config/mcpServer/reload` принимался, однако старый клиент **1.0.0** сохранялся.
+Регистрация теперь содержит несекретный `CODEXWEB_COMPUTER_USE_RELEASE` с SHA-256
+релиза, чтобы native reload видел изменение. Путь запуска остаётся стабильным;
+старые runtime directories сохраняются для действующих клиентов.
+
+После регистрации отпечатка и повторного штатного reload **30 сентября в 18:10 UTC**
+thread-scoped `mcpServerStatus/list` для `01a05159-31cb-7c50-b7e3-df8516584081`
+показал **1.0.2 / connected**, четыре инструмента и новый контракт `act` с WIN+R.
+Ни один model turn не отправлен. Для запроса временно передан только владелец
+SSH-контроллера существующего native runtime (`create:false`); Hub engine, broker,
+native PID **8248** / начало **14:55:17 UTC** и Companion UI PID **2656** сохранены.
+Hub снова подключился, обе активные задачи подтверждены persistent inspection.
+Хеши восьми остальных task definitions и обеих установленных программ проверены;
+host probe готов, версия 1.0.2. Focused protocol/key/isolation checks проходят;
+реальная смена настроек безопасности/вход в аккаунты не выполнялись. WIN+R проверен
+на уровне разбора/Win32 extended flag, отдельной GUI-проверки сочетания не было.
+Private evidence: `.local/companion-build/computer-use-policy-{before,installed,reload}.json`.
+
+## Computer Use — обычная авторизация
+
+По запросу владельца снят blanket запрет на ordinary app sign-in: он находился
+в MCP initialize instructions и в runtime-проверке `ES_PASSWORD`, которая
+блокировала также Tab/Enter. Поля логина/пароля и кнопка входа теперь используют
+обычные observation/focus checks. Разрешение не даёт доступа к password stores
+или чужим аккаунтам. Adapter не пишет input в лог; обычные MCP arguments могут
+сохраняться в conversation history, поэтому прямой ввод личных секретов остаётся
+доступным. Исправлена повторная установка: `File.Replace` использует реальный
+backup path вместо `$null`, превращавшегося в пустую строку в Windows PowerShell.
+
+**1.0.1 установлен 30 сентября в 17:09 UTC**, runtime/source SHA-256
+`d6aac4001120b9277e9f160d32567a4c448942e59efe26b0d457cca04604da3b`.
+Проверены хеши обеих установленных программ, новый MCP initialize/tools/list и
+list_windows через **Hub → owner LAN SSH → stable launcher → установленный host**.
+Реальное локальное WinForms `UseSystemPasswordChar=true` поле приняло точный
+синтетический текст, Enter и Tab; результат проверен свежими снимками, тестовое
+окно закрыто. Настоящие аккаунты/пароли не использовались. Focused protocol checks
+проходят. Восемь остальных task definitions и PID/start time основного native
+Codex, Companion UI и трёх прежних MCP clients сохранились. Старый runtime оставлен.
+Новый контракт виден новым MCP подключениям; старые clients могут сохранять
+старое initialize description, активный чат ради этого не перезапускался.
+Private evidence: `.local/companion-build/computer-use-auth-{before,installed,hub,input}.json`.
+
+## Companion — первый Windows UI/трей
+
+Согласован один Companion с правами по Hub account, трей, readiness/recovery и
+автообновление. Windows — ближайший приоритет; управление Hub остаётся в вебе.
+[Проект и этапы](COMPANION_APP.md), [текущая установка/переход](COMPANION_APP_MIGRATION.md).
+Реализован отдельный UI **0.2.0**: native окно/трей, overview Hub/ПК, read-only
+inventory девяти tasks, passive broker/Computer Use status, четыре темы,
+настройки и локальный отчёт. Автономный win-x64 пакет Avalonia 12.1.3/.NET 10.0.12;
+build SDK 10.0.401 локален, пользовательскому приложению не нужен.
+[Сборка, установка и доступное поведение](COMPANION_APP_BUILD.md).
+Compatibility spike на реальном Windows 10 Home/build 19045/125% DPI прошёл;
+9 целевых checks по SID, settings, roots, readiness и coalescing прошли.
+UI **установлен на ПК владельца 30 сентября в 16:30 UTC**, исходники пакета
+`24c20ce`, manifest `fdd9fb689a83d0326affd7b7a28b7a7da38f7a5927e448d47e7f600aecc5bd72`.
+Преднастроены нынешний Hub, `main-windows`, прямой LAN SSH и автозапуск в трее.
+Настройки сохраняются при повторной установке. На установленном UI проверены
+светлые/тёмные темы, переходы, прокрутка, сохранение отчёта, закрытие/повторное
+открытие того же процесса и выход только из UI. Исправлены найденные реальные
+дефекты перестройки темы и DACL при повторной установке.
+Installed inventory: Hub на связи, **9/9** компонентов доступны, roots прежние.
+Хеши девяти task definitions и обоих worker configs совпадают с предыдущими;
+native PID **8248**, начало **14:55:17 UTC**, сохранились. Текущий ход
+`01a0f2e9-c89b-7050-a5d4-1226ab0c9c2f` не перезапускался при установке.
+Private evidence: `.local/companion-build/{before,installed-inventory,installed,hub-continuity,ui-report}.json`.
+Реальный Windows GUI проверен через установленный Hub → SSH → Computer Use;
+обычная приёмка владельцем, вход после перезагрузки Windows и действия меню трея
+остаются последующей проверкой при использовании. Workers/accounts/projects/
+roots не мигрированы. Эта приёмка относится к 0.2.0; актуальный мастер и pairing
+0.3.0 описаны выше. Lifecycle recovery и auto-update ещё не реализованы.
+
+Мастер, pairing/roles и явный ремонт из следующего после 0.2.0 этапа теперь
+реализованы в 0.3.0; текущая установка и остаток приёмки описаны в начале файла.
+Владелец разрешил обновить уже подключённый ПК друга, сохранив его личные входы
+и настройки. После появления связи снять его собственный baseline/accounts/roots/
+task definitions; UI ставится отдельно, замена workers требует idle admission.
+Проверить уже установленные входы без переноса owner credentials.
+Private evidence: `.local/companion-build/{030-before,030-final,030-member}.json`.
+Следующий этап: автообновление и ограниченное автоматическое восстановление.
+**GPT‑6.1 Sol, Высокое (`high`)**; ждать «Продолжаем» перед началом этого этапа.
+
+## Ответы на вопросы — исправление активной передачи
+
+Автоматический Steer зависел от сохранённого браузером `canSteer` из опроса.
+Enqueue и Steer были двумя HTTP-запросами; ошибка второго скрывалась. Даже
+принятый ввод отображался под «После текущего ответа», служебный envelope
+попадал в очередь как текст.
+
+Новая операция Hub проверяет exact native call/index/title в том же чате и
+source turn, выполняет enqueue/Steer под одной admission/queue lock и одним
+durable idempotency key. Browser ownership hint больше не определяет доставку.
+Потерянное подтверждение сохраняет uncertain receipt без повтора. Другой ход
+и desktop writer не перехватываются. Queue показывает обычный вопрос/ответ и
+верно подписывает принятый ввод. Обязательный `item/tool/requestUserInput`
+режима плана остаётся отдельным single-use RPC answer.
+
+Проверено: TypeScript и production build; 21 целевой Linux-тест по вопросам,
+native plan и очереди; Chromium/WebKit с устаревшим `canSteer=false`, обычным
+вопросом, сохранённым черновиком и отдельным полным ответом режима плана.
+Plan regression подтверждает native answers и дальнейшее сохранение плана,
+без нового `turn/start`. Физический iPhone — последующая обычная приёмка.
+Код в `main` (`95fd0b5`), Hub/engine/web установлен **30 сентября в 15:19:14
+UTC** обычным guarded release, без owner force. Оба сервиса healthy, схема 30;
+публичный ID `37c2fbdd672001267f78a6680b87fb57fa521a7d4ea7e3aa1ff9b86088b011ad`
+совпадает с установленным указателем. 18 checkpoint/rollback/admission fixtures
+и проверка пары actual image/web прошли; приватная резервная копия проверена.
+`verification-95fd0b5/installed-continuity.json` подтверждает текущий owner
+thread/ход `01a0f2d0-bfe7-7bd2-95e9-2a521388ee54`: остаётся running, без нового
+`turn/start` после установки. Persistent процесс PID 8248 стартовал в 14:55:17
+UTC, до обновления Hub; его runtime и GUI task не заменялись. Public HTTPS
+и installed Companion stdio подтверждены. Последующий UI Companion описан выше;
+тот Hub release его не устанавливал.
+
+По скриншоту «Конец задачи» проверен exact owner thread: **30 сентября 14:11:56
+UTC** native ход завершился с `CODEX_ERROR`: `Selected model is at capacity.
+Please try a different model.` Это реальная остановка модели, не добровольная
+пауза агента. Следующее сообщение запустило новый ход. Вебовый separator теперь
+различает ошибку/остановку и нормальное завершение; header использует attention
+для failed/interrupted вместо обычного зелёного соединения. Чужие/старые ходы
+не перезапускаются автоматически, модель не подменяется.
+
+## Модели Codex и интерактивные вопросы — Hub/web и CLI установлены
+
+Выявлено на установленной машине: Companion закреплён на CLI **0.153.4**, чей
+`model/list` не содержит GPT-6.1-Sol. Desktop CLI **0.159.2** возвращает её вместе
+с актуальными уровнями размышления. Дополнительно веб бесконечно переиспользовал
+каталог проекта. Каталог теперь обновляется при открытии и возвращении, а также
+по видимому минутному таймеру; запросы объединены, кеш ограничен и очищается при
+выходе. Обновление каталога сохраняет текущий выбор и выполняющееся сохранение.
+
+Нативный `agentMessage.questions` ранее терялся и в импорте истории, и в живом
+потоке. Теперь вопросы сохраняют варианты/свободный ввод и отдельную кнопку
+«Ответить». Основной черновик не меняется. Асинхронный ответ использует точный
+native call/index и существующую очередь/Steer; потеря подтверждения Steer не
+создаёт повторную отправку. Завершённые ответы с ПК показываются обычным текстом,
+оригинальный envelope сохраняется в истории. Внешний writer не перехватывается:
+для машины, явно переданной desktop, остаётся обычный подтверждаемый возврат.
+
+Hub/engine/web **`e7e0be8`** установлен 30 сентября, подтверждён в **13:16 UTC**.
+Публичный ID `06db348b0e93abafd8c32f9428cf88887d83d922f19768f2f17bd67d7ee7ce20`
+совпадает с установленным указателем; оба сервиса healthy, схема 30.
+Работающий persistent Codex сохранил процесс и активный ход. Первая попытка
+`5178f80` откатилась до открытия нового gateway из-за старого номера схемы в
+web manifest. Манифест исправлен; проверка пары собранный web/engine добавлена
+в preflight установщика **до остановки сервисов** и отдельный regression test.
+
+CLI **0.159.2** полностью скопирован в постоянный immutable runtime
+`companion-persistent/runtime/c6fe824d725f02d7`; версия и хеши проверены.
+Активация завершена **30 сентября в 13:18:48 UTC**. Точный результат:
+`verification-e7e0be8/runtime-activation.json`: **`installed`**, target 0.159.2,
+`gpt-6.1-sol`, прежний аккаунт совпал; verified route Hub → SSH → installed
+Companion. Config и процесс используют новый immutable bundle, старый сохранён.
+Одноразовый installer завершился. Повторять установку CLI не требуется.
+Смена каталога не переключает модель работающего хода; корневой Hub config
+пока сохраняет старый `codex.command` как fallback, persistent launcher читает
+свою закреплённую конфигурацию. Новый общий updater должен согласовать и это.
+
+Проверено: Linux 31/31 целевых тестов, typecheck/build, реальный `model/list`
+обоих CLI, Chromium/WebKit (выбор, свободный ввод, сохранение черновиков,
+ответ с ПК, потеря подтверждения Steer, смена каталога во время PATCH).
+Просмотрены формы на телефонной/планшетной ширине. Физическая приёмка iPhone
+отложена до использования владельцем. Свидетельства установки —
+`verification-e7e0be8/installed.json` и `deployment-e7e0be8.json` на Hub.
+
+## Computer Use #166: независимый модуль установлен, проверен через маршрут веба
+
+30 сентября владелец явно разрешил независимый GUI-модуль Companion с обычным
+доступом к приложениям своей Windows-сессии. Реализован и установлен
+`codexweb_computer_use`: запуск приложения, список окон, снимок выбранного окна,
+клик, ввод Unicode, сочетания клавиш, прокрутка и перетаскивание. Отдельный
+Limited/Interactive task `CodexWebComputerUse` работает через same-user named
+pipe без сетевого порта и без зависимости от настольного Codex. Оба основных
+Companion и активные чаты не перезапускались.
+
+Источник и установка: `ops/windows/Install-ComputerUse.ps1`, стабильный
+`Start-ComputerUse.ps1` под LOCALAPPDATA/CodexWeb/computer-use и неизменяемые
+версии бинарников рядом. Проверка хешей и атомарный указатель сохраняют старые
+бинарники для уже запущенных клиентов. Регистрация MCP выполнена штатным CLI;
+приватный config.toml сохранён перед изменением. Путь не зависит от обновлений
+пакета desktop. Hub `a8c5f5c` / web `d5f9cd6` остаются без изменения.
+
+Проверено: настоящий снимок и ввод «CodexWeb работает» в отдельном тестовом
+окне; затем снимок, клик и ввод через **Hub → SSH → установленный persistent
+Companion → CLI 0.153.4 → MCP**. Повтор использованного снимка отклонён без
+дублирования текста. Финальная установка со стабильным launcher повторно
+прошла этот маршрут. Одноразовый runtime закрыт, пользовательские чаты и
+desktop не тронуты. Целевые тесты протокола/изоляции/истечения capabilities
+прошли в PowerShell 5.1 и 7 без управления рабочим столом. Дополнительно новый
+модуль запустил обычный Калькулятор, снял его окно и подтвердил ввод клавиши
+новым изображением результата.
+
+Приёмка: полный пользовательский переход обратно в PWA после закрытия desktop
+ещё не выполнен. Старый уже открытый native runtime может требовать обычного
+переподключения в простое, чтобы прочитать новый каталог MCP. Не перезапускать
+работающий чат ради каталога. Штатный `@oai/sky` не объявлять исправленным:
+после обновления desktop до **26.928.2636.0** / CLI **0.159.2** его захват всё
+ещё давал timeout на Калькуляторе и Блокноте при подтверждённом разблокированном
+экране. Новый независимый маршрут обходит эту зависимость, а не чинит бинарник
+OpenAI. Подробности: [COMPUTER_USE.md](COMPUTER_USE.md).
+
+Следующий отдельный заход после обычной приёмки владельцем — согласованная
+переработка Companion и его обновлений; рекомендуемое «Высокое» (`high`).
+
+## Установлено исправление устаревших предупреждений GPT: web `d5f9cd6`
+
+Web опубликован **2026-09-30 05:14 UTC**, Hub остаётся `a8c5f5c`.
+Публичный ID: `1da398b475d13d827bde4398df68bff6c9be4b751bf47f44a1b6e32f07999fca`.
+Engine, gateway и owner/member GPT сохранили ID и время запуска; перезапуска
+чатов не было. Свидетельство: `verification-d5f9cd6/installed.json`.
+
+В чате «Художественное описание Юри» сервер подтвердил последнюю отправку как
+`completed` с пустой ошибкой. В клиенте обнаружены отдельные причины сохранения
+устаревшего состояния: summary обновлял статус, оставляя старую ошибку; общий
+курсор переживал смену окна и мог продвинуться до проверки отменённого ответа.
+Результат явной кнопки «Проверено» также отбрасывался до следующего опроса.
+
+Курсор теперь живёт только в текущем опросе. Открытие чата и возвращение через
+visibility/pageshow/online/focus запрашивают полный ограниченный снимок статусов.
+Возвращение во время запроса объединяется в один следующий снимок; отменённый
+ответ не меняет состояние. Подтверждённый здоровый summary очищает старую ошибку,
+а ответ явной проверки применяется сразу. Неопределённые отправки, их точные
+receipts и предел трёх ошибок сохранены; видимый текст ответа не заменяет
+подтверждение доставки. Автоматических resolve/send не добавлено.
+
+8 целевых тестов, TypeScript, production build и Chromium/WebKit прошли.
+Браузерный сценарий проверил возврат во время запроса, полное обновление после
+смены чата, сохранение настоящей неопределённости, черновика и отсутствие
+автоматических мутаций. Физический iPhone остаётся для обычной приёмки владельцем.
+
+## Установлено чтение с видимой строки и сопровождение прокруткой: web `d7ddb09`
+
+Web опубликован **2026-09-29 19:28 UTC**, Hub остаётся `a8c5f5c`.
+Публичный ID: `6a474ab9a6e7d282e1e2fc492bd67e3c3143fe390cb9a08fedcbd7c6f3164967`.
+Engine, gateway и owner/member GPT сохранили ID и время запуска.
+Свидетельство: `verification-d7ddb09/installed.json`.
+
+Новый запуск озвучки текстового просмотра берёт верхнее видимое слово под панелью,
+включая середину длинного абзаца. DOM-позиции связывают показанный текст с речью;
+прокручивается только просмотрщик. Системный голос использует границы слов и
+фрагментов, фоновое аудио — приблизительное соответствие позиции записи тексту
+(сервер не выдаёт временную разметку слов). Пауза сохраняет позицию, продолжение
+не пересчитывает начало; после остановки новый запуск учитывает новую прокрутку.
+Смена файла/представления и закрытие отменяют сопровождение вместе с озвучкой.
+Справка обновлена; прежние бюджеты предпросмотра и аудио сохранены.
+
+13 целевых тестов прошли (2 серверных теста пропущены на Windows).
+Chromium/WebKit проверили старт внутри длинного абзаца, продвижение и паузу
+обоих плееров, обычный текст, смену файла и запоздалые события. Снимки:
+`.local/qa-viewer-speech/*-following.png`; физический iPhone остаётся для приёмки.
+
+## Установлена озвучка текстовых просмотрщиков: web `bf9e02d`
+
+Web опубликован **2026-09-29 17:41 UTC** отдельно от Hub `a8c5f5c`.
+Публичный web ID: `1ed7d010202294dc51884aeb04b440c78be79434d0544c2557229c21b07672ba`.
+Engine, gateway и owner/member GPT сохранили ID и время запуска; Windows helpers
+не менялись. Свидетельство: `verification-bf9e02d/installed.json`.
+
+Общий просмотрщик TXT/Markdown и других текстовых файлов использует тот же плеер
+и выбор голоса, что и чат. Доступны пауза, продолжение и остановка. Смена объекта
+файла (включая одноимённый), закрытие окна и завершение приватной сессии останавливают
+только его озвучку; запоздавшая подготовка аудио не возобновляет чтение.
+Вложенные текстовые файлы ZIP, Results, вложения, рабочие файлы и предпросмотр
+черновика получают управление через общий `ReadableFilePreview`.
+
+Текст ограничен существующим предпросмотром 64 КиБ; Markdown читается как проза,
+обычный текст не интерпретируется как разметка. Фоновое аудио сохраняет предел
+30 000 символов; системный голос доступен для более длинного предпросмотра.
+Справка обновлена. DOCX/PDF и другие нетекстовые просмотрщики в этот проход не менялись.
+
+TypeScript и production build прошли; 12 целевых тестов прошли (2 серверных теста
+пропущены на Windows). Chromium/WebKit проверили управление, смену одноимённых
+файлов, закрытие во время подготовки аудио и четыре темы на телефоне/планшете.
+Снимки: `.local/qa-viewer-speech/`. Физический iPhone отдельно не проверялся.
+
+## Установлены исправления чтения GPT: Hub `a8c5f5c`, web `6c388a7`
+
+Индикатор над «+» остаётся на время чтения истории; кнопка старой страницы
+показывает загрузку. Порции считают 20 видимых сообщений, сохраняя промежуточные
+действия отдельно от этого числа. Старый неполный кеш автоматически заполняется
+даже при неизменившейся revision. Названия из нативных entity-карточек больше не
+исчезают вместе с разметкой; существующие ссылки на источники сохранены.
+[Причины и границы](GPT_READING_FIXES_2026-09-29.md).
+
+Штатное обновление Hub завершено **2026-09-29 08:52:55 UTC**, без force;
+дополнение web опубликовано отдельно без повторного перезапуска Hub.
+Engine `947780699d90`, gateway `8b8405ac3a7e`: `codex-web-hub:a8c5f5c`, healthy.
+Публичный web ID: `6c339e0bca510d3c887b9a4c78d64477ea25f2e1f298f970c36af41c4823c6de`.
+Холодная копия: `backups/before-team-engine-a8c5f5c-1790671716984019468`.
+
+19 целевых тестов, TypeScript, Chromium/WebKit, production image smoke и 18
+проверок обновления прошли. Реальный чат вернул **20 видимых / 160 общих записей**,
+следующая страница — **20 / 57**; названия организаций и точный источник проверены.
+134 native-квитанции сохранились побайтно по digest. Native owner/member и Windows
+helpers не менялись. Свидетельства: `verification-a8c5f5c/{receipt,history-read,installed}.json`,
+`verification-6c388a7/installed.json`. Физический iPhone отдельно не проверялся.
+Установщик остаётся отдельным проходом; новые пункты очереди здесь не добавлялись.
+
+## Установлено обновление открытой истории GPT `44d55e6`
+
+При возврате в приложение/окно и по видимому 15-секундному таймеру открытый чат
+сверяется с канонической историей, включая сообщения из других приложений без
+локального задания. Cache-first показ сопровождается сверкой, одновременные
+события объединены. История/черновик/позиция чтения сохранены.
+[Изменения и границы](GPT_EXTERNAL_HISTORY_2026-09-29.md).
+
+Штатное обновление завершено **2026-09-29 08:23:54 UTC**, без force.
+Engine `0d9973ae0ba9`, gateway `ebf0f1602ee1`: `codex-web-hub:44d55e6`, healthy.
+Web pointer: `ac69547ae5d981ba548684f8168309386f99ff79153829886e5ca8f3e0f52da1`;
+публичная версия совпадает. Холодная копия:
+`backups/before-team-engine-44d55e6-1790669954889709826`.
+8 целевых тестов, TypeScript, Chromium/WebKit, готовый образ и 18 проверок
+обновления прошли. Рабочий `/messages?refresh=1` вернул 20 сообщений, stale=false.
+134 native-квитанции побайтно совпадают по digest до/после установки.
+Native owner остаётся `b334f61aa365` на `70f33e4` с прежним временем запуска;
+member runtime и Windows helpers не менялись. Свидетельства:
+`verification-44d55e6/{receipt,installed,history-read}.json`.
+Физический iPhone отдельно не проверялся; установщик остаётся отдельным проходом.
+
+## Установлено согласование каталога GPT `118d46d` (только web)
+
+Причина лишних недавних чатов: браузер бессрочно объединял старые строки с новыми
+страницами, хотя native и Hub уже возвращали правильный каталог. Теперь успешное
+обновление заменяет загруженный префикс согласованным снимком; учитываются
+пагинация, проекты, нативные pins, ошибки чтения и устаревшие ответы. История,
+черновики и квитанции не очищаются; реальные чаты не удалялись.
+[Причина, поведение и проверка](GPT_CATALOG_REFRESH_2026-09-29.md).
+
+Опубликовано **2026-09-29 04:21 UTC** штатным `publish-web.py`.
+Web pointer: `d05d8e189c361feb1b331924293bbac7c604782622a5c4893522ae3d6b787127`;
+публичный `/version.json` совпадает. Четыре целевых теста, TypeScript, production
+build и навигационные сценарии Chromium/WebKit прошли. Свидетельство:
+`verification-118d46d/installed.json`. Физический iPhone отдельно не проверялся.
+Engine/gateway/native продолжают работать на `70f33e4` с прежними ID и временем
+запуска; их контракт и процессы не менялись. Установщик остаётся следующим
+отдельным проходом, не частью этого исправления.
+
+## Установлен общий выпуск `70f33e4`: шесть согласованных пунктов
+
+Завершены исправление учёта скрытого ответа в Linux-терминале, независимые
+очереди GitHub по репозиториям, независимые подборки Issues, пакетный выбор в
+поиске Результатов и повторное использование неизменившейся истории GPT.
+65 целевых Linux-проверок прошли; старую остановленную отправку GPT не трогали.
+[Изменения и сверка issue](INDEPENDENT_WORK_2026-09-28.md).
+35 реализованных issue закрыты на GitHub; #188 дополнена точным остатком.
+Chromium/WebKit прошли сценарий выбора найденных файлов, подготовки пакета,
+вложенной отправки и возврата; проверены снимки четырёх тем и клавиатурной высоты.
+18 проверок штатного обновления также прошли.
+
+Установка завершена **2026-09-28 14:26:09 UTC**, без force. Engine `2b1d1ac56b79`
+и gateway `cd3e07777218` работают на `codex-web-hub:70f33e4`, оба healthy.
+Web pointer: `c16d03bef4c5a1e4f2013393ad77694a5cd8d9c81ed9d64ed638259a368d5f86`.
+Проверенная холодная Team-копия:
+`backups/before-team-engine-70f33e4-1790605312285757566`.
+Maintenance: idle, blockers пусты; публичный health — 200, Devices без сессии — 401.
+
+Native GPT owner/member: `26.915.31945-reuse-{owner,member}-70f33e4`.
+Фактический SHA-256 `renderer-read.mjs` в обоих контейнерах:
+`fc7b3366c83c6ba6d26f65288413b8087c104c1e29f26a46ec61cfe05247b8b2`.
+Собственный GPT перед заменой подтверждён idle; все строки квитанций сохранены
+побайтно по digest. После замены manual=false, busy=false, historyUpdates=true.
+Member runtime остаётся без привязанного аккаунта и без разрешения записи;
+шаблон создания следующих member runtime обновлён. Данные/профили не копировались
+между пользователями. Windows helpers не менялись: их контракт не затронут.
+Свидетельства: `verification-70f33e4/receipt.json`, `installed.json`,
+`native-installed.json`, журналы и отдельные backup/activation proofs.
+
+Остаток #188 — upstream full GET; его не выдаём за готовый delta transport.
+Installer/wizard и реальный вход двух пользователей в личные Linux-окружения
+остаются отдельным следующим проходом. Физическая приёмка iPhone/iPad — при
+использовании владельцем. Рекомендуемый уровень следующего прохода: Высокое (`high`).
+
+## Предыдущая установка Hub и Linux-окружений `1008874` — история
+
+Владелец выполнил `workspace-features-1008874/apply-features.py --apply` (IMG_0709).
+Новый runtime `21008971…` принят: readiness `accepted: true`, `checkedAt: 1790592433`.
+Два временных окружения прошли изоляцию, инструменты, сеть, квоты, limits и restart.
+Broker/network и новый checkpoint timer активны. Пять установленных broker-файлов
+сверены с release по SHA-256; свидетельство `verification-1008874/host-installed.json`.
+Повторять sudo-установку не требуется.
+
+После подтверждения владельца закрыта только старая owner-сессия `hub-host`
+(09:01, exact PID/birth через pidfd, Bash foreground без потомков).
+Обычный updater снял блокировку без force, создал и проверил полный Team checkpoint
+`backups/before-team-engine-1008874-1790595881856222014`, затем активировал выпуск.
+Завершение: `2026-09-28T11:49:00.495849+00:00`.
+
+Фактически engine `a80173a56851` и gateway `8df7ed966efc` — `codex-web-hub:1008874`,
+оба healthy; web pointer `b251c45a3ce96105127ea757e9f177a14862fc0bb69f88145cd25271db92c4a7`.
+`serverWorkspaces` включён с точным host binding; runtime protocol 1/schema 29,
+ownerReady true. HTTP health/version работают, workspace API без авторизации
+возвращает 401. SSH→broker из установленного engine доходит с identity владельца;
+`status` отвечает `WORKSPACE_MISSING` — личный слот ещё не создан, это не ошибка связи.
+Maintenance теперь `idle: true`, blockers пусты. Установочный doctor тоже прошёл.
+Свидетельства: `verification-1008874/activation-installed.json` и deployment receipt.
+Не запускать активацию повторно и не предлагать её как следующий этап.
+
+**Резервирование исправлено и принято на установленной системе:** найден дефект root coordinator —
+read-only bind всей state-папки мешает SQLite создать WAL/SHM после cold shutdown.
+На реальном Node/SQLite в образе воспроизведён отказ; исправленный запуск читает базу,
+SQL-запись запрещена, SHA-256 исходной базы не меняется. Rootfs остаётся read-only,
+источники CLI открываются `readOnly: true`, Hub/broker остановлены во время копии.
+6 fault checks также прошли. Исправление в `main`: `4f4dc0c`, защита установки
+root-lock от параллельного checkpoint: `cd69d64`.
+
+Владелец установил `checkpoint-fix-cd69d64/install-checkpoint.py --apply` (IMG_0710),
+завершил shell; терминал закрылся с кодом 0. Runtime/Hub этот пакет не заменяет.
+Первый автоматический запуск таймера прошёл **11:56:47–11:57:23 UTC**:
+`Result=success`, `ExecMainStatus=0`; coordinator опубликовал проверенную парную копию
+`/var/lib/codex-workspace-checkpoint/backups/checkpoint-20260928T115649-7bd1cc4d-3d55-4fde-ad80-7e94635435ae`.
+После копирования broker/network/timer активны, прежние engine/gateway IDs сохранены,
+оба healthy, HTTP health/version — 200, maintenance idle без blockers.
+Свидетельство: `verification-1008874/checkpoint-installed.json`.
+Повторная установка, активация и запуск копии не нужны.
+
+Личные слоты пока не созданы: это реальная проверка автоматического парного
+checkpoint Hub/реестра и восстановления служб, не приёмка копирования пользовательского
+диска или восстановления production-данных. Личный вход Codex/GitHub и физическая
+пользовательская приёмка остаются. Причина старого terminal blocker — пока гипотеза
+по счётчику ответов на sudo, не подтверждённый дамп tracker; исправленной не объявлять.
+
+**Следующий отдельный проход:** installer/wizard добавления новых пользователей,
+Linux в приоритете, существующий Windows-функционал сохраняется. Рекомендуемый
+уровень — Высокое (`high`). Начинать после продолжения владельца.
+
+## История подготовки — не активная очередь
+
+Ниже сохранены прежние срезы состояния. Их указания «ещё не установлено», команды
+установки и предложения следующих шагов заменены фактическим статусом выше.
+
+### Закрытый просмотр сервисов и автоматические парные копии — подготовка исходников
+
+Текущий проход добавляет браузер внутри личного rootless-окружения: защищённые
+кадры, нажатия, ввод, прокрутка, перезагрузка и закрытие из окна предпросмотра.
+Порты проекта не публикуются; cookies Hub и системный профиль браузера не передаются.
+Закрытие сохраняет приложение и родительский чат, но завершает отдельную браузерную
+сессию. Реальные Chromium и rootless Podman прошли работу с HTTP-приложением,
+вводом русского текста и управлением. Phone/keyboard/tablet проверены в четырёх темах.
+
+Добавлен root-owned таймер согласованного Hub/дискового checkpoint. Он ждёт обычного
+maintenance admission, не останавливает фоновые пользовательские процессы, проверяет
+парные копии, хранит три завершённых набора и восстанавливает службы по журналу
+после прерывания. Копия не публикуется как завершённая до проверки обеих частей.
+Восстановление пользовательских данных остаётся явной административной операцией.
+Проверки отказов/отката — на fixtures; реальный системный таймер ещё не установлен.
+
+Подготовлена отдельная guarded-активация `--enable-server-workspaces`: точное
+добавление конфигурации после Team checkpoint, проверка принятого образа и таймера,
+прежние аккаунты/машины без изменений, возврат исходной конфигурации при отказе.
+Это ещё **не включение функции на действующем Hub**.
+
+Новый runtime с Chromium имеет config ID
+`sha256:21008971b8e3a48dd82893e1874f2a8032e2c58988a9cad9186acccb719288d2`.
+Он требует одного системного обновления через Devices terminal: пакет
+`apply-features.py` проверяет точные хеши, допускает обновление только до выделения
+пользовательских слотов, не форматирует существующие диски и ставит backup timer.
+Предыдущую установку `2796e31` повторять не нужно.
+
+Фактически engine/gateway пока `6c151b5`, web `b0327b4`, runtime `6a0ac02c…`;
+`serverWorkspaces` отсутствует. Остаются системное обновление, guarded-активация,
+первый реальный парный checkpoint и вход пользователя в личные Codex/GitHub.
+#170/#198 пока целиком не закрыты; новый installer/wizard — следующий отдельный этап.
+Не предлагать Files/Git/Terminal, закрытый preview или реализацию backup timer заново.
+
+Итог выпуска: `1008874` в `main`, чистый образ `codex-web-hub:1008874` собран
+и прошёл отдельный engine/gateway smoke. Проверка действующего подключения дала
+`APP_SERVER_CONNECTED`, `CODEX_AUTHENTICATED`, `GPT_NATIVE_HEALTHY`; текущие engine
+и gateway сохранили прежние ID. Квитанция и журналы на сервере:
+`verification-1008874/receipt.json`. Новое обновление **не поставлено в очередь**.
+Активационный preflight ожидаемо отказывается принимать старый host image.
+
+Готов один проверенный пакет (dry-run и оба manifest прошли):
+
+```sh
+sudo python3 /home/abysscloud/services/codex-web/workspace-features-1008874/apply-features.py --apply
+```
+
+Запуск — через `codexweb://terminal/hub-host`, пароль только в настоящем prompt.
+Runtime archive: 660029440 bytes, SHA-256
+`ff71bed6a4b7f12f82c1afe4464a52cb0593daac8f3595bd27747394b826b41d`.
+После успешного host-шага прочитать новый readiness/timer, затем использовать
+`releases/1008874/ops/linux/upgrade-engine.py` с `--expected 6c151b5`,
+`--enable-server-workspaces`, точным config ID выше и `verification-1008874/receipt.json`.
+Обычное ожидание idle и Team rollback обязательны. Привилегированная установка
+и реальный парный checkpoint ещё не выполнены; не считать их принятыми по fixtures.
+
+## Предыдущий выпуск: прикладная интеграция проверена, выпуск собран
+
+Исходники `ba0aef9` отправлены в `main`; чистый выпуск и образ
+`codex-web-hub:ba0aef9` собраны на сервере. Отдельный engine/gateway этого образа
+прошёл запуск, авторизацию и проверку API; без host-конфигурации подключение
+окружений остаётся недоступным. Повторная проверка итоговых кнопок создания,
+подключения и запуска и осмотр phone/tablet скриншотов прошли в трёх темах.
+Образ **не установлен и не поставлен в очередь обновления**. Фактически engine
+и gateway остаются `6c151b5` (ID `e4d9a82808a6` / `a8a302224bfb`), web —
+`b0327b4`; `serverWorkspaces` в production config отсутствует. Активная работа
+и пользовательские окружения не перезапускались.
+
+Реализованы привязанный к пользователю транспорт, создание/подключение/явный запуск,
+Files/редактор/Git/настройка проекта, вложения и загрузки, Codex и интерактивный
+терминал с resize и проверкой процессов внутри контейнера. Копия конфигурации машины
+не даёт полномочий; потерянное создание сверяется без повтора; отзыв сохраняется
+до остановки. Обновление учитывает выполняющуюся подготовку окружений.
+Добавлены раздел подключений и подробная справка, метрики личной квоты.
+
+В реальном временном rootless-контейнере **того же установленного образа** прошли
+чтение/сохранение/квитанция, Git, бинарное вложение, метрики, PTY и Codex initialize.
+Выявлен и устранён отсутствующий `/workspace/home/.codex`: подготовка совместима
+с установленным образом, повтор sudo/rebuild для этого не нужен.
+11 прикладных проверок, 5 проверок offline backup/restore, прежние 21 проверки
+broker, TypeScript, тематические phone/tablet скриншоты Chromium прошли.
+Это не вход в реальный Codex/GitHub-аккаунт и не приёмка физического iPhone.
+
+`ops/workspaces/backup.py` сохраняет согласованные offline-диски, registry/receipts,
+привязки, config/image identity и hash парного Team checkpoint. Restore сохраняет
+предыдущие диски, новые receipts/отзыв, требует закрытого native admission.
+Проверка дискового восстановления — на отдельных файловых fixtures; production
+диски не останавливались и не заменялись. Автоматического полного checkpoint
+всех окружений в обычном Hub backup пока нет; не выдавать базу Hub за копию дисков.
+
+Остаются **активация выпуска**, реальный вход владельца и закрытый просмотр
+запущенных сервисов (#198), автоматическая координация дискового checkpoint с Hub.
+#170/#198 целиком не закрыты. Установщик новых пользователей ещё не начинать.
+Проверенные Files/Git/Terminal/Codex и исправление CODEX_HOME не предлагать заново.
+
+## Установленный host-пакет и принятая изоляция
+
+Владелец успешно выполнил `workspace-setup-2796e31` (IMG_0708). Отчёт на сервере
+`workspaces/host-readiness.json` проверен: `accepted: true`, `checkedAt: 1790583749`,
+два rootless-окружения, изоляция, инструменты, публичная/закрытая сеть, дисковые квоты,
+ресурсные ограничения и сохранность после stop/start прошли. Broker и network —
+`active` и `enabled`. Пять установленных Python-файлов совпадают с `main` по SHA-256;
+конфигурация закрепляет UID 1001 и правильный config digest `6a0ac02c…`.
+Повторять sudo-установку не нужно. Engine/gateway/native сохранили прежние ID.
+Прикладная интеграция выполнена в текущем проходе (выше); активация, вход
+в реальные аккаунты и закрытый preview ещё не подтверждены.
+
+Исходники `ops/workspaces` готовы для административной установки: rootless broker,
+точная авторизация запросов/квитанции, ограниченный exec-транспорт, квоты дисков,
+сетевая политика и автоматическая проверка двух временных окружений. Собран Linux-образ
+с инструментами и Codex CLI 0.158.0. Пройдена 21 целевая Python/Linux-проверка.
+Это ещё **не установленная машина в веб-интерфейсе** и не завершение #170/#198.
+Административный шаг loop mounts/systemd/nftables выполнен владельцем;
+приватный `workspaces/host-readiness.json` прочитан и подтверждён.
+Не повторять уже сделанные broker/образ/квоты как новый этап.
+[Подробности и границы проверки](SERVER_WORKSPACES_2026-09-28.md).
+Владелец выбрал Linux основным направлением, действующий Windows baseline сохраняется.
+
+Первоначальные host-исходники: `fded2b9`. Старый пакет сохранён на сервере:
+`/home/abysscloud/services/codex-web/workspace-setup-fded2b9`.
+Проверены manifest/checksums и dry-run. Владелец запустил установку 28 сентября,
+07:05 по журналу сервера: sudo подтвердил запуск, процесс завершился через две секунды.
+Тогда host-каталоги, службы и `host-readiness.json` не были созданы.
+По скриншоту IMG_0705 подтверждена причина: `cannot chdir to /home/abysscloud: Permission denied`.
+`runuser` сохранял закрытый cwd владельца. Исправлены prerequisites, установка и приёмка:
+общий запуск Podman переходит в HOME служебного пользователя и очищает унаследованное окружение.
+Ошибка Podman теперь сохраняется в коротком сообщении без двойного traceback. 17 Python-проверок прошли.
+Исходная реальная rootless-проверка prerequisites тоже не прошла (скриншот); ранее были подтверждены
+только пакеты/учётная запись/user manager. На тот момент host-приёмка ожидала sudo.
+Пакет `b0327b4` владелец выполнил: все четыре диска созданы и смонтированы,
+архив загружен, но проверка ID упала (`image not known`, IMG_0707). В manifest был
+Docker OCI index ID вместо Podman config ID. Тогда broker/network были inactive, readiness отсутствовал.
+Исправление: ID вычисляется из config внутри проверенного архива; dry-run проверяет его
+до sudo. Загрузка и точный inspect выполняются до дисков/служб. Существующие диски
+не форматируются. Реальный rootless Podman load → inspect → запуск инструментов прошёл
+в отдельном временном хранилище UID 1000; это не host-приёмка UID 1001.
+Исправление в `main`: `2796e31`. Точный пакет подготовлен, новый dry-run и хеши прошли:
+`sudo python3 /home/abysscloud/services/codex-web/workspace-setup-2796e31/apply-bundle.py --apply`.
+Старые `fded2b9`/`b0327b4` повторно не запускать. Новый системный шаг выполнен,
+его host-приёмка подтверждена; интеграция #170/#198 ещё не завершена.
+Терминал: `codexweb://terminal/hub-host`. Пароль вводится только в фактический sudo prompt.
+Пакет резервирует 64 GiB под четыре диска; живые engine/gateway/native не перезапускает.
+Продолжать интеграцию поверх установленного и проверенного host-пакета.
+
+Сопутствующее исправление терминала: свайп по выводу листает локальную историю,
+не отправляет клавиши и сохраняет позицию при новом выводе. Кнопка рядом со статусом
+возвращает вниз. Chromium (настоящая инъекция touch) и WebKit (DOM touch) прошли;
+физический iPhone остаётся на пользовательскую приёмку. Web-only `b0327b4` **установлен**:
+`02869d8723f3fb01a01505bc13ffbb47a394019a4e2ab82fe1d1c52148215af1`.
+ID/время запуска engine/gateway/native неизменны; прежние assets сохранены и сверены по хешам.
+Backup: `backups/web-before-b0327b4.json`. Терминалы не прерывались.
+Подробности: `TERMINAL_SCROLL_2026-09-28.md`.
+
+## Установлена кнопка вставки в терминале `355fb34`
+
+«Вставить» доступна рядом с командой и скрытым паролем, отправка отдельная.
+[Поведение и проверки](TERMINAL_PASTE_2026-09-28.md). Chromium/WebKit, TypeScript
+и сборка пройдены. Web ID:
+`8bf5e4936a132ea41009f558316cc73e9292c6e8830c076d3a898d7877d1eda7`.
+Публикация выполнена штатным независимым web-путём; engine/gateway остаются
+`6c151b5`, native — `25f09b8`, их ID и время запуска неизменны. Предварительно
+поставленный в очередь engine updater остановлен в состоянии `waiting` и больше
+не ожидает установки; причиной ожидания был неподтверждённый статус терминала.
+Открытые терминалы и пользовательская работа не прерывались.
+Старые и новые web-файлы проверены по хешам, прежние assets сохранены;
+квитанция отката `backups/web-before-355fb34.json`, публикация `installed`.
+Физическое поведение iOS Clipboard API владелец ещё не подтвердил.
+
+## Активный проход — Results, история GPT, серверные окружения
+
+Владелец выбрал пункты 1, 2, 4 из последнего общего списка: пакетные действия
+Results, сокращение повторного upstream-чтения истории GPT и личные изолированные
+Server Workspaces с тестовыми сервисами. Это текущая работа, а не завершённый выпуск.
+Следующий отдельный проход — установщик и мастер добавления пользователей,
+включая восстановление после сбоев на каждом шаге, встреченных у neflores.
+Старые предложения ниже не заменяют эту очередь. Уровень: Высокое (`high`).
+
+Терминальный переход из чата, мобильный ввод команд/паролей, пакетные Results
+и объединение upstream-чтений GPT реализованы и **установлены**.
+[Состав и ограничения](TERMINAL_AND_RESULT_PACKAGES_2026-09-28.md).
+Hub и gateway: `codex-web-hub:6c151b5`; web ID
+`1653a5ae959a5f58c8645044a63a2191068079bf7ad81ab5a936f5135b60ec78`.
+Обычное обновление после `idle: true`, без force, maintenance `installed`.
+Холодная Team-копия и проверка восстановления:
+`before-team-engine-6c151b5-1790572302339020109`.
+
+Native owner/member: `codex-web-gpt-native:26.915.31945-bridge-owner-25f09b8`
+и `codex-web-gpt-native:26.915.31945-bridge-member-25f09b8`; шаблон новых member
+клиентов обновлён. Контрольные суммы установленных файлов совпадают с `main`.
+Сначала установленные `history-*-6c151b5` заменены этим исправлением HTTP-моста:
+заголовки должны быть обычным объектом IPC, 304 обрабатывается как native exception.
+Реальные `readConversation` и `readHistoryUpdate` проверены после исправления;
+отправок для проверки не было, сохранённые квитанции неизменны. Windows helper
+не менялся. Терминал прошёл реальный Hub → SSH → `hub-host` → PTY → фиксированный
+`printf` → exit; временные проверочные сессии закрыты. Пакетный маршрут и основные
+каталоги/уведомления/health доступны. 38 целевых тестов и Chromium/WebKit пройдены;
+32 native-теста повторены после исправления моста. Физическая приёмка остаётся
+на использование владельцем.
+
+**Остаток текущего прохода:** серверные Workspaces ещё не доступны пользователям. По уточнению
+владельца сначала установлен терминал для административного шага. В чат выдана
+кнопка `codexweb://terminal/hub-host` и команда подготовки из выпуска `6c151b5`;
+владелец подтвердил выполнение, на сервере проверены установленные пакеты,
+отдельная служебная учётная запись, subuid/subgid, права 0700 и активная user-служба.
+Изоляция рабочего контейнера ещё не принята. Исходники lifecycle broker, дисковых
+квот и сетевой политики подготовлены (см. начало файла), их host-установка ожидает sudo.
+Остаются личная Linux-машина, backup/restore и тестовые сервисы с preview
+([подробнее](SERVER_WORKSPACES_2026-09-28.md)). Не предлагать повторно терминал,
+пакетные Results или коалесцирование как ещё не сделанные функции.
+
+## Установлен большой проход Results `68c2e31`
+
+Поиск файлов GPT/Codex, сортировка и продолжение выдачи, соседние файлы в
+просмотрщике, точный возврат к источнику и исправление повторного focus-scroll
+завершены. [Поведение и 16 целевых тестов](RESULT_SEARCH_2026-09-28.md).
+Chromium/WebKit и скриншоты четырёх тем проверены. Коммит в `main`, Hub и engine
+фактически используют `codex-web-hub:68c2e31`, maintenance `installed`.
+Web ID: `10d8504fad02413ab4f560fa6601ea2f3c5d7c87797b17604d3bb513405d2823`.
+Обычная установка после `idle: true`, без force. Холодная Team-копия и проверка
+восстановления: `before-team-engine-68c2e31-1790568250829497206`.
+Установленные маршруты поиска Codex проекта/чата и GPT Results/содержимого,
+каталог общения, уведомления и health вернули HTTP 200. Проверены только
+метаданные; новые сообщения GPT не отправлялись. Windows helper/native GPT
+контракты не менялись, owner/member остаются `e845adb`. Физическая приёмка
+iPhone/iPad и собственный вход участника по-прежнему не объявляются завершёнными.
+
+## Установлен ночной UX-выпуск `e1c9d17` (2026-09-28)
+
+Дополнено по просьбе владельца UX-поиском (#221/#228): содержимое текущего
+проекта, названия файлов Results, точные переходы, продолжение выдачи, фильтры,
+отмена устаревших запросов и быстрые команды Планы/Общение/Уведомления.
+[Описание и проверки](PROJECT_SEARCH_2026-09-28.md). Установщики отложены явно;
+это не следующая очередь данного прохода. Дополнительные 8 серверных тестов
+и Chromium/WebKit пройдены, физическая приёмка остаётся на позже.
+
+Поиск переписки, точные непрочитанные/упоминания, чтение уведомлений,
+приблизительное «В сети» и переименование группы с ревизией завершены в `67afe15`.
+[Описание и целевые проверки](COMMUNICATION_READING_2026-09-28.md).
+Второй блок поиска и команд — `e1c9d17`. Оба коммита в `main` и установлены.
+Issue #202/#205/#221/#228 и связанные trackers сверены; комментарии и изменения
+состояний на GitHub не отправлялись. Старая остановленная отправка GPT вне прохода.
+
+Фактически: Hub и engine `codex-web-hub:e1c9d17`, web ID
+`aee7c503af4b67f6b6d08aa97eb54142c9fbe78512234bcf1d85e2ab5ddb4775`.
+Обычная установка после `idle: true`, без force; maintenance `installed`.
+Холодная Team-копия и проверка восстановления:
+`before-team-engine-e1c9d17-1790546209884839554`.
+После запуска HTTP 200: conversation catalog, presence, workspace notices,
+content search и health. Предварительная проверка установленного Codex:
+SSH/Companion app-server/auth/recovery доступны. Схемы баз не изменены;
+Windows helper/native GPT контракт не менялся, owner/member остаются `e845adb`.
+20 целевых серверных тестов и две группы сценариев Chromium/WebKit пройдены.
+Проверка на физических iPhone/iPad и живой переписке двух пользователей остаётся
+приёмкой при использовании; она не подменена браузерными фикстурами.
+
+
+Предыдущий установленный выпуск `6b75d45`: управление составом групп (#202), приглашение/принятие,
+удаление/повторное приглашение, передача владения, отдельные настройки и справка.
+9 целевых тестов и Chromium/WebKit пройдены; [подробности](GROUP_MEMBERSHIP_2026-09-28.md).
+Hub и web `6b75d45` установлены через обычное ожидание idle, без force. Web ID:
+`a38e7afaeec7137af75c2ae5441120f2dbd6fe6d821f11db68406dc4098822c7`.
+После запуска каталог разговоров/приглашений, уведомления и health вернули HTTP 200.
+Холодная Team-копия и проверка восстановления выполнены. Сохранённая работа из stash
+восстановлена и завершена; не начинать её заново. Presence добавлен ночным выпуском выше.
+
+Сверка после `68c2e31` (Hub/web) и `e845adb` (native): исходники, целевые тесты и фактически запущенные версии.
+Это актуальная очередь; прежние аудиты сохраняют исторические состояния.
+GitHub-карточки прочитаны, но не изменялись.
+
+## Установлено — повторная разработка и активация не нужны
+
+| Работа | Код и проверка | Фактическая установка |
+|---|---|---|
+| Передача Results и идентичность JS-модулей | `d6933eb`, [отчёт](RESULT_HANDOFFS_AND_GPT_RECOVERY_2026-09-27.md) | Веб `3f5206b895b3b6194704cc04b1ad4ba9d821cd1171a02744b5ae10f2c9e569d1`; Hub обновлён до `bcbd2f5`, содержит эти исправления. |
+| Нативные GPT reads/delta и точные ограничения действий, #220 / часть #188 | Реализация `338ef6a` сохранена в образах hotfix `e845adb` | Owner `26.915.31945-draft-owner-e845adb`, member `26.915.31945-draft-member-e845adb`. Шаблон host provisioning тоже обновлён. Участник ещё не завершил собственный вход; установка образа не означает принятия его учётной записи. |
+| Ложный черновик после ответа с редактируемыми документами | `e845adb`, 59 тестов, Chromium/WebKit DOM-регрессия | Оба адаптера установлены, хеши изменённых модулей сверены. В проблемном чате два последовательных `prepareDispatch` успешны, без отправки сообщения. [Причина и проверка](GPT_COMPOSER_SCOPE_2026-09-27.md). |
+| Ложная блокировка обновления остановленной отправкой | `bcbd2f5`, 26 целевых тестов и новый production-image smoke | Hub `bcbd2f5`, maintenance `installed`. Обычная проверка вернула `idle: true`, `blockers: []`. GPT API: healthy, canSend, модели/каталог/deployment — HTTP 200. |
+
+[Причина, границы и проверка установки](GPT_PAUSED_MAINTENANCE_2026-09-27.md).
+Старая остановленная отправка, её квитанция и состояние паузы побайтово по
+значениям строк совпадают с холодной копией. Отправки и их повторные проверки
+не запускались. Временная занятость при живых API-запросах по-прежнему учитывается;
+остановленная квитанция больше не считается бесконечно выполняющейся работой.
+
+## Реальные остатки функционала
+
+1. **#188: объём чтения истории из upstream GPT.** Hub/browser и нативные IPC-delta
+   реализованы. Однако `ops/gpt-native/renderer-read.mjs` после истечения кэша
+   получает `/conversation/{conversation_id}` целиком. Поддерживаемый upstream
+   delta/tail-контракт пока не установлен. Следующий шаг здесь — ограниченная
+   проверка доступного контракта/замер, а не обещание ещё раз сделать кэш или
+   гарантированно убрать полный GET. Отдельная оптимизация, не срочная фича.
+2. **Пакетная работа с Results — возможный следующий UX-блок.** Поиск названий
+   GPT/Codex и последовательный просмотр завершены в текущем проходе, повторять
+   их не нужно. Сохранение/передача сейчас относятся к одному результату;
+   выбор нескольких результатов и единый пакет пока не реализованы. Это
+   предложение отдельного этапа, а не уже обещанная возможность.
+3. **#170 / остаток #198: отдельные серверные рабочие окружения и тестовые сервисы.**
+   Управляемые личные checkout, FF/merge и просмотр конфликтов уже есть.
+   Изолированные сервисы, учётки и их lifecycle — отдельный, ранее отложенный scope.
+
+## Проверка, зависимость или решение владельца
+
+- Физические iPhone/iPad: touch, клавиатура, скачивание/возврат, инженерные образцы
+  viewer. Ждёт использования владельцем; повторные браузерные прогоны это не заменят.
+- neflores: диагностика его ПК и полный цикл конкретной установки отложены владельцем.
+- #166 Computer Use: [причина и граница](COMPUTER_USE_DIAGNOSIS.md) проверены;
+  standalone Companion не создаёт desktop-owned pipe. Нужен поддерживаемый host/session
+  контракт. Не повторять смену runtime-пути и не выдавать Remote за исправление.
+- Конвертер, отдельный установщик Hub, сравнение MeshCentral, дальнейшие изменения
+  отзыва GitHub-доступа и глобальный AI-помощник не включены в текущую очередь.
+- Старые trackers #6/#157/#194/#195/#197/#207/#209 требуют согласования acceptance с
+  последующими решениями. Их открытость сама по себе не доказывает отсутствия фичи;
+  Reports, Canvas и старую модель совместных проектов не восстанавливать.
+
+## Уже реализовано — повторно не предлагать
+
+| Группа | Подтверждение |
+|---|---|
+| Управление группами, поиск общения, непрочитанные/упоминания, presence, переименование | `6b75d45` + `67afe15`, установлены в `e1c9d17`; stash — историческая копия, не остаток |
+| Проектный поиск содержимого/файлов Codex, продолжение выдачи, фильтры и команды Планы/Общение/Уведомления | `e1c9d17`, [этап](PROJECT_SEARCH_2026-09-28.md) |
+| Results → Work/Intake, локальные HTML-зависимости | `1ed3c98`, `result-work-handoffs.ts`, `preview-bundle.ts`; последующие два бага исправлены в `d6933eb` |
+| Очистка невостребованных копий Results | `2221c43`, [политика](RESULT_COPY_LIFETIME_2026-09-27.md) |
+| Файловые операции, CodeMirror, GitHub-редактор, viewers, справка | [файлы](FILE_EDITOR.md), [viewers](FILE_VIEWERS.md), `helpContent.ts`; конкретная аппаратная приёмка отдельно |
+| Command palette, общие Recent/Pinned, переназначение клавиш | `cf73b34`, [навигация](WORKSPACE_NAVIGATION_2026-09-27.md) |
+| Масштаб текста/UI, стрелки по сообщениям, attention | `PersonalScale.tsx`, `MessageNavigation.tsx`, [этап](COMFORT_ATTENTION_2026-09-27.md), последующие исправления стрелок |
+| Внутренние GitHub-переходы, Create Issue, Project Home, Work/Discuss, мастер проекта | [реализация](PROJECT_ENTRY_RUNTIME_2026-09-27.md), #172/#181/#222/#224–228 |
+| Постоянный Companion runtime #229 | Реализация/установленная проверка описаны в том же отчёте. Текущий конфиг owner-машины уже содержит `persistent: true` и launcher из `companion-persistent`; это не отсутствующая реализация. Старые legacy-сеансы и чужие ПК не объявляются автоматически переведёнными. |
+| Внутренние уведомления и отдельная вкладка ответов GPT | `0a1056b`, `3f062ff`; GitHub attention остаётся в Activity |
+
+## Следующее действие
+
+Установка GPT и исправление допуска завершены. Не предлагать их как следующий
+этап и не повторять проверки без новой проблемы. Физическая приёмка остаётся
+за владельцем при обычном использовании.
+
+Управление группами, presence, проектный поиск и поиск файлов GPT/Results
+завершены; открытые issue сверены с реализацией. Следующий предлагаемый UX-блок —
+пакетная работа с результатами: выбор нескольких файлов и единое сохранение /
+передача с сохранением точных источников. Сначала согласовать продолжение;
+рекомендуемый уровень — **Высокое (`high`)**. Это не работа текущего выпуска.
+Отложенные серверные окружения и установщики без отдельного выбора не начинать.
+
+Случай недоступного позднего DOCX владелец подтвердил как ошибку самого GPT.
+Закрыт без изменений адаптера; автоматическое сохранение GPT-файлов на Hub
+не согласовано и не входит в очередь.
