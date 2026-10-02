@@ -30,8 +30,7 @@ export function AsyncQuestions({
   const [draft, setDraft] = useState<{
     choices: string[];
     custom: string[];
-    chosen: boolean[];
-    submitted: boolean;
+    accepted: (string | null)[];
   }>(() => {
     try {
       const saved = JSON.parse(storage.getItem(key) ?? "null");
@@ -43,8 +42,13 @@ export function AsyncQuestions({
         return {
           choices: saved.choices,
           custom: saved.custom,
-          chosen: saved.chosen ?? questions.map(() => false),
-          submitted: saved.submitted === true,
+          accepted: questions.map((_, i) =>
+            typeof saved.accepted?.[i] === "string"
+              ? saved.accepted[i]
+              : saved.submitted === true
+                ? saved.choices[i] || saved.custom[i] || null
+                : null,
+          ),
         };
     } catch {
       /* The form also works without browser storage. */
@@ -52,54 +56,48 @@ export function AsyncQuestions({
     return {
       choices: questions.map((q) => q.options?.[0] ?? ""),
       custom: questions.map(() => ""),
-      chosen: questions.map(() => false),
-      submitted: false,
+      accepted: questions.map(() => null),
     };
   });
   const [sending, setSending] = useState(false),
     [error, setError] = useState("");
   const lock = useRef(false);
-  const save = (next: typeof draft) => {
-    setDraft(next);
-    try {
-      storage.setItem(key, JSON.stringify({ signature, ...next }));
-    } catch {
-      /* Optional local draft. */
-    }
+  const save = (update: typeof draft | ((current: typeof draft) => typeof draft)) => {
+    setDraft((current) => {
+      const next = typeof update === "function" ? update(current) : update;
+      try {
+        storage.setItem(key, JSON.stringify({ signature, ...next }));
+      } catch {
+        /* Optional local draft. */
+      }
+      return next;
+    });
   };
   const answered = questions.map((q, index) =>
     replies.findLast(
       (r) => r.questionItemId === questionItemId(messageId, index) && r.question === q.title,
     ),
   );
-  const completed = draft.submitted || answered.every(Boolean);
-  const acknowledged = answered.every(Boolean)
-    ? JSON.stringify(answered.map((r) => r?.answer))
-    : "";
+  const values = questions.map((_, i) => answered[i]?.answer ?? draft.accepted[i] ?? null);
+  const completed = values.every((value) => value !== null);
+  const acknowledged = JSON.stringify(answered.map((r) => r?.answer ?? null));
   useEffect(() => {
-    if (!acknowledged) return;
-    const choices: string[] = JSON.parse(acknowledged);
-    const next = {
-      choices,
-      custom: choices.map(() => ""),
-      chosen: choices.map(() => true),
-      submitted: true,
-    };
-    setDraft(next);
-    try {
-      storage.setItem(key, JSON.stringify({ signature, ...next }));
-    } catch {
-      /* Optional local state. */
-    }
+    const remote: (string | null)[] = JSON.parse(acknowledged);
+    setDraft((current) => {
+      const accepted = current.accepted.map((value, i) => remote[i] ?? value);
+      if (accepted.every((value, i) => value === current.accepted[i])) return current;
+      const next = { ...current, accepted };
+      try {
+        storage.setItem(key, JSON.stringify({ signature, ...next }));
+      } catch {
+        /* Optional local state. */
+      }
+      return next;
+    });
   }, [acknowledged, key, signature]);
-  const values = questions.map(
-    (_, i) => answered[i]?.answer ?? (draft.choices[i] || draft.custom[i] || ""),
-  );
-  const submit = async (next: typeof draft) => {
-    const selected = questions.map(
-      (_, i) => answered[i]?.answer ?? (next.choices[i] || next.custom[i] || ""),
-    );
-    if (lock.current || disabled || completed || selected.some((v) => !v.trim())) return;
+  const submit = async (index: number, next: typeof draft) => {
+    const value = next.choices[index] || next.custom[index] || "";
+    if (lock.current || disabled || values[index] !== null || !value.trim()) return;
     lock.current = true;
     setSending(true);
     setError("");
@@ -109,16 +107,17 @@ export function AsyncQuestions({
           questionReplyText(
             messageId,
             questions,
-            selected.map((value, index) => (answered[index] ? null : value)),
+            questions.map((_, i) => (i === index ? value : null)),
           ),
         )
-      )
-        save({
-          choices: selected,
-          custom: selected.map(() => ""),
-          chosen: selected.map(() => true),
-          submitted: true,
-        });
+      ) {
+        save((current) => ({
+          ...current,
+          accepted: current.accepted.map((answer, i) =>
+            i === index ? value : (values[i] ?? answer),
+          ),
+        }));
+      }
     } catch (e) {
       setError(messageOf(e));
     } finally {
@@ -126,23 +125,21 @@ export function AsyncQuestions({
       setSending(false);
     }
   };
-  const needsText = questions.some((_, i) => !answered[i] && !draft.choices[i]);
   return (
     <form
       className="async-questions"
       aria-label="Вопросы Codex"
       onSubmit={(e) => {
         e.preventDefault();
-        void submit(draft);
       }}
     >
       {questions.map((q, index) => (
         <fieldset
           key={questionItemId(messageId, index)}
-          disabled={disabled || sending || completed || !!answered[index]}
+          disabled={disabled || sending || values[index] !== null}
         >
           <legend>{q.title}</legend>
-          {completed || answered[index] ? (
+          {values[index] !== null ? (
             <p className="question-answer">{values[index]}</p>
           ) : (
             <>
@@ -159,15 +156,9 @@ export function AsyncQuestions({
                       const next = {
                         ...draft,
                         choices: draft.choices.map((v, i) => (i === index ? option : v)),
-                        chosen: draft.chosen.map((v, i) => i === index || v),
                       };
                       save(next);
-                      if (
-                        questions.every(
-                          (_, i) => answered[i] || (next.chosen[i] && next.choices[i]),
-                        )
-                      )
-                        void submit(next);
+                      void submit(index, next);
                     }}
                   />
                   <span>{option}</span>
@@ -190,17 +181,27 @@ export function AsyncQuestions({
                 </label>
               ) : null}
               {!draft.choices[index] && (
-                <AutoTextarea
-                  aria-label={`Свой ответ: ${q.title}`}
-                  value={draft.custom[index] ?? ""}
-                  maxLength={8000}
-                  onChange={(e) =>
-                    save({
-                      ...draft,
-                      custom: draft.custom.map((v, i) => (i === index ? e.target.value : v)),
-                    })
-                  }
-                />
+                <>
+                  <AutoTextarea
+                    aria-label={`Свой ответ: ${q.title}`}
+                    value={draft.custom[index] ?? ""}
+                    maxLength={8000}
+                    onChange={(e) =>
+                      save({
+                        ...draft,
+                        custom: draft.custom.map((v, i) => (i === index ? e.target.value : v)),
+                      })
+                    }
+                  />
+                  <button
+                    className="primary"
+                    type="button"
+                    disabled={!draft.custom[index]?.trim()}
+                    onClick={() => void submit(index, draft)}
+                  >
+                    Ответить
+                  </button>
+                </>
               )}
             </>
           )}
@@ -210,14 +211,6 @@ export function AsyncQuestions({
         <span className="small muted" role="status">
           Ответ передан
         </span>
-      ) : needsText || error ? (
-        <button
-          className="primary"
-          type="submit"
-          disabled={disabled || sending || values.some((v) => !v.trim())}
-        >
-          {sending ? "Отправляю…" : "Ответить"}
-        </button>
       ) : sending ? (
         <span role="status">Применяю…</span>
       ) : null}

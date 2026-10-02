@@ -43,7 +43,7 @@
   width: 100%;
   min-width: 0;
 }
-.async-questions > button {
+.async-questions button {
   justify-self: stretch;
   min-height: 44px;
 }

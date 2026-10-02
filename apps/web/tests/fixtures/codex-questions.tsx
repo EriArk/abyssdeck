@@ -37,7 +37,9 @@ function Fixture() {
   const shownQuestions =
     id === "call_multi"
       ? [questions[0], { title: "Ещё выбор?", options: ["Один", "Два"] }]
-      : questions;
+      : id === "call_mixed"
+        ? [questions[0], { title: "Что сейчас мешает?" }]
+        : questions;
   const reply = questionReplyText(id, questions, ["Да, Калькулятор виден"]);
   return (
     <main style={{ maxWidth: 740, margin: "auto", padding: 16 }}>
@@ -72,6 +74,15 @@ function Fixture() {
         }}
       >
         Несколько выборов
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setId("call_mixed");
+          setRemote(false);
+        }}
+      >
+        Выбор и текст
       </button>
       <button type="button" onClick={() => setRemote(true)}>
         Ответ с компьютера

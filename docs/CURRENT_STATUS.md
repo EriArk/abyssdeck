@@ -1,5 +1,20 @@
 # Текущий остаток — 2 октября 2026
 
+## Independent async question answers (2026-10-02, prepared)
+
+IMG_0811 exposed a regression in the immediate-choice form: an adjacent empty
+free-text question prevented the selected option from being sent. Each async
+question now submits only its own exact question identity. Accepted answers
+persist separately; reopening retains unanswered text without resending an
+accepted choice. Text answers have a button under their own field. Native Plan
+requests still require their complete response set.
+
+Validation: Chromium and WebKit mixed choice/empty-text regression, independent
+multiple choices, partial-answer remount, exact per-question envelopes, unchanged
+parent draft and full native Plan responses; production build/typecheck and
+repository checks. No Companion installation or feed change is part of this fix.
+
+
 ## Codex question replies: immediate choices and stable revisions (2026-10-02, installed)
 
 The latest TrainerOS answer receipt at 12:20:31 UTC returned `queued`; manual

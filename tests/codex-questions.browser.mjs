@@ -187,19 +187,48 @@ try {
       await expect(page.locator(".queue-text")).toHaveCount(0);
       await page.getByRole("button", { name: "Несколько выборов", exact: true }).click();
       await page.getByRole("radio", { name: "Да, Калькулятор виден", exact: true }).click();
-      assert.equal(
-        posts.filter((p) => p.path.endsWith("/question-reply")).length,
-        2,
-        "another preselected choice is not consent",
-      );
+      await expect
+        .poll(() => posts.filter((p) => p.path.endsWith("/question-reply")).length)
+        .toBe(3);
+      const firstChoice = posts.filter((p) => p.path.endsWith("/question-reply")).at(-1).body.text;
+      assert(!firstChoice.includes("Ещё выбор?"), "another preselected choice is not consent");
+      await expect(page.getByRole("radio", { name: "Два", exact: true })).toBeEnabled();
       await page.getByRole("radio", { name: "Два", exact: true }).click();
       await expect(page.locator(".async-questions [role=status]")).toHaveText("Ответ передан");
-      assert.equal(posts.filter((p) => p.path.endsWith("/question-reply")).length, 3);
+      assert.equal(posts.filter((p) => p.path.endsWith("/question-reply")).length, 4);
       assert(
         posts
           .filter((p) => p.path.endsWith("/question-reply"))
           .at(-1)
           .body.text.includes("Два"),
+      );
+      // A choice must apply even when the adjacent free-text question is empty.
+      await page.getByRole("button", { name: "Выбор и текст", exact: true }).click();
+      const mixed = page.locator(".async-questions");
+      await expect(mixed.getByRole("button", { name: "Ответить", exact: true })).toBeDisabled();
+      await mixed.getByRole("radio", { name: "Да, Калькулятор виден", exact: true }).click();
+      await expect(mixed.locator(".question-answer")).toHaveText("Да, Калькулятор виден");
+      assert.equal(posts.filter((p) => p.path.endsWith("/question-reply")).length, 5);
+      const mixedChoice = posts.filter((p) => p.path.endsWith("/question-reply")).at(-1).body.text;
+      assert(!mixedChoice.includes("Что сейчас мешает?"));
+      await mixed.getByRole("textbox").fill("История отстаёт");
+      await page.getByRole("button", { name: "Переоткрыть", exact: true }).click();
+      await expect(mixed.locator(".question-answer")).toHaveText("Да, Калькулятор виден");
+      await expect(mixed.getByRole("textbox")).toHaveValue("История отстаёт");
+      assert.equal(posts.filter((p) => p.path.endsWith("/question-reply")).length, 5);
+      await page.screenshot({
+        path: `.local/qa-codex-questions/${name}-partial-phone.png`,
+        fullPage: true,
+      });
+      await mixed.getByRole("button", { name: "Ответить", exact: true }).click();
+      await expect(mixed.locator("[role=status]")).toHaveText("Ответ передан");
+      assert.equal(posts.filter((p) => p.path.endsWith("/question-reply")).length, 6);
+      const mixedText = posts.filter((p) => p.path.endsWith("/question-reply")).at(-1).body.text;
+      assert(mixedText.includes("История отстаёт"));
+      assert(!mixedText.includes("Да, Калькулятор виден"), "accepted choice is never resent");
+      await expect(page.locator(".queue-text")).toHaveCount(0);
+      await expect(page.getByRole("textbox", { name: "Черновик сообщения" })).toHaveValue(
+        "Сохрани основной черновик",
       );
       const planChoices = page.locator(".approval").filter({ hasText: "Первый выбор плана?" });
       await expect(planChoices.getByRole("button", { name: "Ответить", exact: true })).toHaveCount(
@@ -228,7 +257,7 @@ try {
       );
       assert.equal(
         posts.filter((p) => p.path.endsWith("/question-reply")).length,
-        3,
+        6,
         "plan answers use native request response, never async envelopes or queue",
       );
       assert.deepEqual(errors, []);
