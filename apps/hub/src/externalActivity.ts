@@ -98,6 +98,25 @@ export class ExternalActivity {
   }
   apply(id: string, row: NativeActivity) {
     const old = this.store.thread(id);
+    // Disk activity may retain inProgress after its process exits. A recorded
+    // completion of this exact turn is newer evidence; polling must not revive
+    // it as external work or undo the result of a connection check.
+    if (row.status === "inProgress") {
+      const terminal = this.store.turnOutcomes(id, [row.turnId])[row.turnId]?.status;
+      if (terminal && ["completed", "interrupted", "failed"].includes(terminal)) {
+        if (old.activeTurnId === row.turnId) {
+          this.store.setStatus(id, terminal);
+          this.emit(
+            this.store.append(id, "session.state", {
+              status: terminal,
+              activeTurnId: null,
+              activitySource: old.activitySource,
+            }),
+          );
+        }
+        return;
+      }
+    }
     // The same persisted turn is not evidence of another client. After a Hub
     // reconnect only the exact runtime may confirm its live/terminal state.
     if (old.activitySource === "hub" && old.activeTurnId === row.turnId) return;

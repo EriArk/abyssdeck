@@ -10,6 +10,53 @@ import { ExternalActivity } from "../apps/hub/dist/externalActivity.js";
 import { Store } from "../apps/hub/dist/store.js";
 import { activityReader } from "../packages/machines/dist/activity.js";
 
+test("stale disk activity cannot revive a completed turn; repairs earlier regression without hiding a newer turn", async () => {
+  const store = new Store(":memory:"),
+    events = [];
+  const activity = new ExternalActivity(
+    { machines: [] },
+    store,
+    { invalidate() {} },
+    async () => "",
+    async () => false,
+    (e) => events.push(e),
+  );
+  try {
+    const t = store.createThread("p", "native", "Recovered");
+    store.append(t.id, "turn.completed", { id: "stopped", status: "interrupted" }, "stopped");
+    store.setStatus(t.id, "interrupted");
+    const now = Math.floor(Date.now() / 1000);
+    const stale = {
+      threadId: "native",
+      turnId: "stopped",
+      status: "inProgress",
+      startedAt: now,
+      updatedAt: now,
+      completedAt: 0,
+    };
+    activity.apply(t.id, stale);
+    assert.equal(store.thread(t.id).status, "interrupted");
+    assert.equal(store.thread(t.id).activitySource, "hub");
+    assert.equal(events.length, 0);
+    // Installed older versions had already marked the same stopped turn external.
+    store.db.prepare("UPDATE threads SET activitySource='external' WHERE id=?").run(t.id);
+    store.setStatus(t.id, "unknown", "stopped");
+    activity.apply(t.id, stale);
+    assert.equal(store.thread(t.id).status, "interrupted");
+    assert.equal(store.thread(t.id).activeTurnId, null);
+    activity.apply(t.id, stale);
+    assert.equal(events.length, 1, "no repeated terminal notifications");
+    activity.apply(t.id, { ...stale, turnId: "new-turn" });
+    assert.equal(store.thread(t.id).status, "running");
+    assert.equal(store.thread(t.id).activeTurnId, "new-turn");
+    activity.apply(t.id, stale);
+    assert.equal(store.thread(t.id).activeTurnId, "new-turn");
+  } finally {
+    await activity.close();
+    store.close();
+  }
+});
+
 test("closing the last browser watcher does not stop background observation", async (t) => {
   t.mock.timers.enable({ apis: ["setInterval", "Date"], now: 100000 });
   const store = new Store(":memory:");

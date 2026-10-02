@@ -287,6 +287,15 @@ test("manual continuation after recovered interruption loads the writer before s
   await f.sessions.recoverPersistent();
   assert.equal(f.store.thread(f.thread.id).status, "interrupted");
   assert.equal(f.runtime.loaded.has(f.thread.id), false);
+  f.sessions.externalActivity.apply(f.thread.id, {
+    threadId: f.thread.codexThreadId,
+    turnId: "offline-turn",
+    status: "inProgress",
+    startedAt: Date.now() / 1000,
+    updatedAt: Date.now() / 1000,
+    completedAt: 0,
+  });
+  assert.equal(f.store.thread(f.thread.id).status, "interrupted", "disk poll cannot revive it");
   assert(!calls.includes("thread/resume"), "background recovery never acquires a writer");
   assert(!calls.includes("turn/start"));
   const response = await f.send(randomUUID(), { text: "Continue after accidental stop", settings });
