@@ -41,6 +41,28 @@ class Upgrade(unittest.TestCase):
                 else:upgrade.main()
             return calls, name
 
+    def test_idle_receipt_does_not_block_but_pending_work_does(self):
+        # Run the real admission SQL against SQLite, without Docker or live files.
+        import sqlite3
+        import re
+        captured=[]
+        with patch.object(upgrade,'run',side_effect=lambda args,**kw: captured.append(kw['input'])):
+            upgrade.assert_idle('12345678-1234-4234-8234-123456789012')
+        clauses=re.findall(r"\['([a-z_]+)',\"([^\"]+)\"\]",captured[0])
+        self.assertEqual(len(clauses),4)
+        db=sqlite3.connect(':memory:')
+        for table,columns in [('gpt_jobs','status TEXT'),('gpt_native_operations','state TEXT'),
+                              ('gpt_project_operations','state TEXT'),('commands','scope TEXT,state TEXT')]:
+            db.execute('CREATE TABLE '+table+'('+columns+')')
+        def blocked():return any(db.execute('SELECT count(*) FROM '+t+' WHERE '+w).fetchone()[0] for t,w in clauses)
+        for state in ['idle','completed','cancelled','unknown']:
+            db.execute('DELETE FROM gpt_jobs');db.execute('INSERT INTO gpt_jobs VALUES(?)',(state,))
+            self.assertFalse(blocked())
+        for state in ['queued','preparing','running']:
+            db.execute('DELETE FROM gpt_jobs');db.execute('INSERT INTO gpt_jobs VALUES(?)',(state,))
+            self.assertTrue(blocked())
+        db.close()
+
     def test_active_response_is_never_stopped(self):
         calls,_=self.scenario(busy=True)
         self.assertEqual(calls,[])

@@ -44,7 +44,9 @@ def assert_idle(user_id):
 const c=JSON.parse(readFileSync('/config/config.json'));const id=USER;
 const path=c.nativeGpt?.userId===id?c.hub.databasePath:join(c.team.root,'users',id,'app.db');
 const d=new DatabaseSync(path,{readOnly:true});
-for(const [table,where] of [['gpt_jobs',"status IN ('queued','preparing','running','idle')"],['gpt_native_operations',"state IN ('preparing','running')"],['gpt_project_operations',"state='pending'"],['commands',"scope='gpt-native-workspace' AND state='pending'"]])
+// An idle receipt records an observed stopped stream, not an active writer.
+// Keep it intact; fresh native activity admission below still checks generation.
+for(const [table,where] of [['gpt_jobs',"status IN ('queued','preparing','running')"],['gpt_native_operations',"state IN ('preparing','running')"],['gpt_project_operations',"state='pending'"],['commands',"scope='gpt-native-workspace' AND state='pending'"]])
  if(d.prepare('SELECT count(*) n FROM '+table+' WHERE '+where).get().n)throw Error('ACTIVE_GPT_WORK');
 d.close();console.log('idle');""".replace('USER', json.dumps(user_id))
     run(['docker', 'exec', '-i', 'codex-web-engine', 'node', '--input-type=module', '-'], input=script, text=True, capture_output=True)
