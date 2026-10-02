@@ -862,12 +862,6 @@ export class Sessions extends EventEmitter {
     } else if (r.loaded.has(id) && r.active.has(id)) return this.store.thread(id);
     await this.externalActivity.refresh();
     const current = this.store.thread(id);
-    if (
-      !r.loaded.has(id) &&
-      current.activitySource === "external" &&
-      ["running", "waiting_approval", "unknown"].includes(current.status)
-    )
-      return current;
     // Summary avoids multi-megabyte history frames during a connection check.
     const response = await r.rpc.request("thread/turns/list", {
       threadId: t.codexThreadId,
@@ -881,10 +875,17 @@ export class Sessions extends EventEmitter {
     // A newer notification may have arrived while the read was in flight.
     if (this.store.thread(id).activeTurnId !== current.activeTurnId) return this.store.thread(id);
     if (last.status === "inProgress") {
+      // A read cannot acquire an external writer or prove it stopped.
+      if (current.activitySource === "external") return current;
       this.store.setStatus(id, "unknown", text(last.id) || current.activeTurnId);
     } else if (!last.id || ["completed", "interrupted", "failed"].includes(text(last.status))) {
       r.active.delete(id);
       this.store.setStatus(id, last.id ? text(last.status) : "idle");
+      if (
+        last.id &&
+        this.store.turnOutcomes(id, [text(last.id)])[text(last.id)]?.status !== last.status
+      )
+        this.emitEvent(id, "turn.completed", { id: last.id, status: last.status }, text(last.id));
     }
     const result = this.store.thread(id);
     this.emitEvent(id, "session.state", {
@@ -2371,10 +2372,7 @@ export class Sessions extends EventEmitter {
         const threads = projects
           .flatMap((p) => this.store.threads(p.id))
           .filter(
-            (t) =>
-              t.activitySource !== "external" &&
-              t.activeTurnId &&
-              ["unknown", "running", "waiting_approval"].includes(t.status),
+            (t) => t.activeTurnId && ["unknown", "running", "waiting_approval"].includes(t.status),
           );
         if (
           !threads.length ||

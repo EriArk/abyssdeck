@@ -30,13 +30,16 @@ namespace CodexWeb {
       readonly Stream Stream;
       readonly byte[] Buffer = new byte[65536];
       int Offset, Count;
+      public long LastBytes;
       public Frames(Stream stream) { Stream=stream; }
       public async Task<string> Next(bool drainOversized = false) {
         using(var bytes=new MemoryStream()) {
+          LastBytes=0;
           bool oversized=false;
           for(;;) {
             if(Offset==Count) { Count=await Stream.ReadAsync(Buffer,0,Buffer.Length); Offset=0; if(Count==0)throw new EndOfStreamException(); }
             int end=Offset; while(end<Count && Buffer[end]!=10)end++;
+            LastBytes+=end-Offset;
             if(bytes.Length+end-Offset>MaxFrame) { if(!drainOversized)throw new InvalidDataException("FRAME_LIMIT"); oversized=true; }
             if(!oversized)bytes.Write(Buffer,Offset,end-Offset); Offset=end;
             if(Offset<Count) { Offset++; return oversized ? null : Utf8.GetString(bytes.ToArray()).TrimEnd('\r'); }
@@ -89,14 +92,21 @@ namespace CodexWeb {
         finally { Input.Release(); }
       }
       public Dictionary<string, object> Info() {
-        lock(Gate) return new Dictionary<string, object> { {"protocol",2}, {"runtimeId",Binding}, {"instanceId",Instance}, {"pid",Child.Id}, {"active",Active.Count}, {"pending",Questions.Count}, {"turns",new Dictionary<string,string>(Active)} };
+        lock(Gate) return new Dictionary<string, object> { {"protocol",2}, {"brokerRevision",3}, {"runtimeId",Binding}, {"instanceId",Instance}, {"pid",Child.Id}, {"active",Active.Count}, {"pending",Questions.Count}, {"turns",new Dictionary<string,string>(Active)} };
       }
       public void RemoveQuestion(string key) {
         int size; if(QuestionSizes.TryGetValue(key,out size)) { QuestionBytes-=size; QuestionSizes.Remove(key); }
         Questions.Remove(key); Monitor.PulseAll(Gate);
       }
-      public void Stop() {
-        lock (Gate) { Dead = true; Monitor.PulseAll(Gate); if (Owner != null) { try { Owner.Pipe.Dispose(); } catch {} } }
+      public void Stop(string reason) {
+        lock (Gate) {
+          if(Dead)return;
+          Dead = true;
+          // Only fixed reasons/types and process metadata; never protocol content,
+          // capabilities, exception messages or stderr (which may contain input).
+          Program.Log("runtime-stop instance="+Instance+" reason="+reason+" active="+Active.Count+" pending="+Questions.Count);
+          Monitor.PulseAll(Gate); if (Owner != null) { try { Owner.Pipe.Dispose(); } catch {} }
+        }
         try { if (!Child.HasExited) Child.StandardInput.Close(); } catch {}
         if(Job!=IntPtr.Zero) { CloseHandle(Job); Job=IntPtr.Zero; }
       }
@@ -114,13 +124,13 @@ namespace CodexWeb {
       lock (RegistryLock) {
         string capability = Text(input,"capability");
         if (Runtimes.TryGetValue(capability,out runtime) && (runtime.Dead || runtime.Child.HasExited)) {
-          runtime.Dead = true;
+          runtime.Stop("stale-exit");
           Runtimes.Remove(capability);
           runtime = null;
         }
         if (runtime == null) {
           if (!(bool)input["create"]) throw new InvalidOperationException("RUNTIME_MISSING");
-          foreach(var stale in new List<string>(Runtimes.Keys)) if(Runtimes[stale].Dead || Runtimes[stale].Child.HasExited) Runtimes.Remove(stale);
+          foreach(var stale in new List<string>(Runtimes.Keys)) if(Runtimes[stale].Dead || Runtimes[stale].Child.HasExited) { Runtimes[stale].Stop("stale-exit"); Runtimes.Remove(stale); }
           if (Runtimes.Count >= 8) throw new InvalidOperationException("RUNTIME_LIMIT");
           runtime = new Runtime { Capability=capability, Binding=Text(input,"binding"), Cwd=cwd };
           runtime.Child = new Process { StartInfo = new ProcessStartInfo {
@@ -128,9 +138,12 @@ namespace CodexWeb {
             UseShellExecute=false, CreateNoWindow=true, RedirectStandardInput=true, RedirectStandardOutput=true, RedirectStandardError=true
           } };
           runtime.Job=CreateJob();
-          if (!runtime.Child.Start() || !AssignProcessToJobObject(runtime.Job,runtime.Child.Handle)) { runtime.Stop(); throw new InvalidOperationException(); }
+          if (!runtime.Child.Start() || !AssignProcessToJobObject(runtime.Job,runtime.Child.Handle)) { runtime.Stop("start-failed"); throw new InvalidOperationException(); }
           Runtimes.Add(capability,runtime);
           var r = runtime;
+          Program.Log("runtime-start instance="+r.Instance+" pid="+r.Child.Id+" brokerRevision=3");
+          r.Child.Exited += delegate { try { Program.Log("runtime-exit instance="+r.Instance+" pid="+r.Child.Id+" code="+r.Child.ExitCode); } catch {} };
+          r.Child.EnableRaisingEvents=true;
           Task.Run(async delegate { try { await r.Child.StandardError.BaseStream.CopyToAsync(Stream.Null); } catch {} });
           Task.Run(async delegate { await ReadNative(r); });
         }
@@ -156,12 +169,12 @@ namespace CodexWeb {
           if(method=="companion/terminate" && hasId) {
             object parameters; var p=frame.TryGetValue("params",out parameters)?parameters as Dictionary<string,object>:null;
             if(p==null || p.Count!=1 || !p.ContainsKey("confirm") || !(p["confirm"] is bool) || !(bool)p["confirm"])throw new InvalidDataException();
-            await controller.Send(new {id=id,result=new {closed=true}});runtime.Stop();break;
+            await controller.Send(new {id=id,result=new {closed=true}});runtime.Stop("explicit-terminate");break;
           }
           if(method=="companion/close" && hasId) {
             bool busy; lock(runtime.Gate) { busy=runtime.Active.Count != 0 || runtime.Questions.Count != 0 || runtime.Calls.Count != 0; }
             if(busy) { await controller.Send(new {id=id,error=new {code=-32001,message="RUNTIME_BUSY"}}); continue; }
-            await controller.Send(new {id=id,result=new {closed=true}}); runtime.Stop(); break;
+            await controller.Send(new {id=id,result=new {closed=true}}); runtime.Stop("idle-close"); break;
           }
           if(method=="initialize" && hasId) {
             object parameters; var requested=Json().Serialize(frame.TryGetValue("params",out parameters)?parameters:null);
@@ -206,6 +219,7 @@ namespace CodexWeb {
         while(true) {
           var raw=await frames.Next(true);
           if(raw==null) {
+            Program.Log("runtime-frame-discarded instance="+runtime.Instance+" bytes="+frames.LastBytes+" limit="+MaxFrame);
             // Reject unconfirmed controller calls, not the native process. This
             // also leaves all active turns and unanswered native requests alive.
             List<Call> calls;
@@ -261,7 +275,7 @@ namespace CodexWeb {
           }
           if(target != null && (method==null || target.Ready)) { try { await target.Send(frame); } catch { try { target.Pipe.Dispose(); } catch {} } }
         }
-      } catch { runtime.Stop(); }
+      } catch(Exception error) { runtime.Stop("native-read-"+error.GetType().Name); }
     }
     // Job lifetime follows Companion/runtime, never a controller pipe.
     static IntPtr CreateJob() {

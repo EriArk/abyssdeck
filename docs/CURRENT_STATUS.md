@@ -1,5 +1,28 @@
 # Текущий остаток — 2 октября 2026
 
+## Companion 0.5.4 and reboot recovery (#234, 2026-10-02)
+
+A prepared coordinated release fixes the interrupted AltarAppsReborn/TrainerOS
+runtime and stale external-client status. The installed tray was 0.5.3, but the
+persistent worker was still the September 27 binary (SHA-256 `55faedf5852bdf91e5c79c6cccf5ffbe0879cd27046f0d41a2ead5982ad4b5a5`)
+after a recorded migration rollback. Both observed exits coincided with cumulative
+screenshot diffs first exceeding the old 16 MiB frame ceiling (05:54:29 and
+06:56:24 UTC). The installed parser reproduces FRAME_LIMIT; the source's existing
+oversized-frame drain had not reached that worker. New lifecycle logs record only
+process/frame metadata. A real broker fixture preserves two active turns across
+a 17 MiB notification and confirms stopping one does not stop the other.
+
+Migration now waits up to 15 seconds for the accepted startup instead of rolling
+back after 500 ms. The historical rollback's precise cause was not recorded.
+Hub now reads terminal summaries even when disk discovery labelled a thread
+external, persists its exact outcome against stale polling, and includes those
+threads in bounded background recovery. Reads never resume or interrupt a writer.
+
+Source/tests are prepared; activation and live acceptance are recorded separately
+below after deployment. The owner's existing account, roots and direct LAN route
+remain; friend-device acceptance is deferred. Broader Companion design remains
+for the owner discussion, not this repair.
+
 ## Продолжение Codex после остановки и переподключения (#234)
 
 В 05:54:30 UTC общий native-процесс на ПК завершился; в 05:54:32 появился

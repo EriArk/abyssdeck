@@ -55,7 +55,19 @@ function Native-Ready {
  $owner=Invoke-CimMethod -InputObject $running[0] -MethodName GetOwnerSid -ErrorAction Stop
  if($owner.Sid -cne $expectedSid){return $false}
  $pipe=[IO.Pipes.NamedPipeClientStream]::new('.','codex-web-persistent-'+$expectedSid,[IO.Pipes.PipeDirection]::InOut)
-   try {$pipe.Connect(3000);$writer=[IO.StreamWriter]::new($pipe);$writer.AutoFlush=$true;$writer.WriteLine('PING');$reader=[IO.StreamReader]::new($pipe);$reply=$reader.ReadLineAsync();if(-not $reply.Wait(3000)){return $false};return $reply.Result -ceq 'OK'}finally{$pipe.Dispose()}
+   try {$pipe.Connect(3000);$writer=[IO.StreamWriter]::new($pipe);$writer.AutoFlush=$true;$writer.WriteLine('PING');$reader=[IO.StreamReader]::new($pipe);$reply=$reader.ReadLineAsync();if(-not $reply.Wait(3000)){return $false};return $reply.Result -ceq 'OK'}catch [TimeoutException]{return $false}catch [IO.IOException]{return $false}finally{$pipe.Dispose()}
+}
+function Wait-NativeReady([int]$TimeoutMs=15000,[int]$PollMs=250) {
+ # Task Scheduler and the PowerShell launcher may take more than 500 ms. Observe
+ # the one accepted start; never issue another Start or replace an active child.
+ $watch=[Diagnostics.Stopwatch]::StartNew()
+ do {
+  if(Native-Ready){return $true}
+  if((Own-Task).State -notin @('Ready','Running')){return $false}
+  if($watch.ElapsedMilliseconds -ge $TimeoutMs){break}
+  Start-Sleep -Milliseconds $PollMs
+ }while($watch.ElapsedMilliseconds -lt $TimeoutMs)
+ return $false
 }
 $module=Join-Path $env:LOCALAPPDATA ('CodexWeb\'+$folders[$componentId])
 $appDirectory=Join-Path $env:LOCALAPPDATA 'CodexWeb\companion-app'
@@ -104,7 +116,7 @@ try {
   # An accepted switch with a lost reply is observed, never performed twice.
   if($journal.release -ceq $releaseDigest -and $task.Actions[0].Execute -ceq $command -and $task.Actions[0].Arguments -ceq $arguments -and $task.Actions[0].WorkingDirectory -ceq $module){
    if($task.State -notin @('Ready','Running')){throw 'WORKER_TASK_NOT_READY'}
-   if($native -and -not(Native-Ready)){throw 'WORKER_ACTIVATION_FAILED'}
+   if($native -and -not(Wait-NativeReady)){throw 'WORKER_ACTIVATION_FAILED'}
    $journal.state='installed';$journal.taskDigest=Hash-Text (Task-Xml);Save-Journal;Reply 'installed';return
   }
   if($journal.state -in @('disabling','switching')){
@@ -156,7 +168,7 @@ try {
  try {
   if((Hash-Text (Task-Xml)) -cne $journal.disabledDigest -or (Get-FileHash -LiteralPath $configPath -Algorithm SHA256).Hash.ToLowerInvariant() -cne $expectedConfigHash){throw 'WORKER_TASK_CHANGED'}
   Register-ScheduledTask -TaskName $componentId -Xml $next.OuterXml -Force|Out-Null
-  if($native){Start-ScheduledTask -TaskName $componentId;Start-Sleep -Milliseconds 500;if(-not(Native-Ready)){throw 'WORKER_ACTIVATION_FAILED'}}
+  if($native){Start-ScheduledTask -TaskName $componentId;if(-not(Wait-NativeReady)){throw 'WORKER_ACTIVATION_FAILED'}}
   $task=Own-Task
   if($task.State -notin @('Ready','Running') -or $task.Actions[0].Execute -cne $command -or $task.Actions[0].Arguments -cne $arguments -or $task.Actions[0].WorkingDirectory -cne $module){throw 'WORKER_ACTIVATION_FAILED'}
   $journal.state='installed';$journal.taskDigest=Hash-Text (Task-Xml);Save-Journal;Reply 'installed'

@@ -59,6 +59,17 @@ class Fake {
    } else if(method==null && id!=null && id.Equals(question)) {
     Send(new {method="serverRequest/resolved",@params=new {threadId=thread,requestId=question}});
     Send(new {method="turn/completed",@params=new {threadId=thread,turn=new {id=turn,status="completed"}}});
+   } else if(method=="fixture/peer") {
+    Send(new {id=id,result=new {ok=true}});
+    Send(new {method="turn/started",@params=new {threadId="peer",turn=new {id="peer-turn",status="inProgress"}}});
+   } else if(method=="turn/interrupt") {
+    Send(new {id=id,result=new {ok=true}});
+    Send(new {method="turn/completed",@params=new {threadId="peer",turn=new {id="peer-turn",status="interrupted"}}});
+   } else if(method=="fixture/largeNotification") {
+    // Cumulative screenshot patches cross the frame budget although each individual
+    // patch fits. Reproduce the incident without user files or a native model call.
+    lock(gate) { Console.WriteLine("{\"method\":\"turn/diff/updated\",\"params\":{\"threadId\":\"peer\",\"diff\":\""+new string('x',17*1024*1024)+"\"}}"); Console.Out.Flush(); }
+    Send(new {method="fixture/drained",@params=new {ok=true}});
    } else if(method=="fixture/large") {
     lock(gate) { Console.WriteLine("{\"id\":"+json.Serialize(id)+",\"result\":{\"text\":\""+new string('x',17*1024*1024)+"\"}}"); Console.Out.Flush(); }
    } else if(method!=null && id!=null) Send(new {id=id,result=new {ok=true}});
@@ -81,6 +92,15 @@ class Fake {
         if ((Read-Frame $p).result.turn.status -ne 'inProgress') { throw 'Turn not started' }
         if ((Read-Frame $p).method -ne 'turn/started') { throw 'Missing start notification' }
         if ($n -eq 1) {
+            Write-Frame $p @{id=26;method='fixture/peer';params=@{}}
+            if (-not (Read-Frame $p).result.ok -or (Read-Frame $p).method -ne 'turn/started') { throw 'Second turn did not start' }
+            Write-Frame $p @{method='fixture/largeNotification';params=@{}}
+            if ((Read-Frame $p).method -ne 'fixture/drained') { throw 'Oversized diff killed the shared runtime' }
+            Write-Frame $p @{id=27;method='companion/inspect';params=@{}}
+            $proof=(Read-Frame $p).result
+            if ($proof.pid -ne $entry.pid -or $proof.active -ne 2 -or $proof.brokerRevision -ne 3) { throw 'Diff overflow lost a live turn or runtime revision' }
+            Write-Frame $p @{id=28;method='turn/interrupt';params=@{threadId='peer';turnId='peer-turn'}}
+            if (-not (Read-Frame $p).result.ok -or (Read-Frame $p).params.turn.status -ne 'interrupted') { throw 'Peer did not stop' }
             Write-Frame $p @{id=30;method='fixture/large';params=@{}}
             if ((Read-Frame $p).error.message -ne 'COMPANION_RESPONSE_TOO_LARGE') { throw 'Oversized response was not isolated' }
             Write-Frame $p @{id=31;method='companion/inspect';params=@{}}
@@ -113,6 +133,10 @@ class Fake {
     $missing = Start-ProcessHidden "$taskRoot\Bridge.exe" '--runtime ignored'; $clients.Add($missing)
     Write-Frame $missing @{binding=$entries[0].binding;capability=$entries[0].capability;cwd=$taskRoot;create=$false}
     if (-not $missing.WaitForExit(3000) -or $missing.ExitCode -ne 42) { throw 'Missing runtime was recreated or ambiguous' }
+    $log=[IO.File]::ReadAllText((Join-Path $taskRoot 'companion.log'))
+    if ($log -notmatch 'runtime-frame-discarded' -or $log -notmatch 'reason=idle-close' -or $log -notmatch 'runtime-exit') { throw 'Lifecycle evidence missing' }
+    foreach($entry in $entries) { if($log.Contains($entry.capability) -or $log.Contains($entry.binding)) { throw 'Log exposed a private capability' } }
+    Write-Output 'Oversized cumulative diff preserves two live turns; stopping one preserves the other. Lifecycle evidence contains no capability/input.'
     Write-Output 'Five persistent runtimes: detach, same PID reattach, offline approval, single controller and explicit idle close passed.'
 } finally {
     foreach ($p in $clients) { try { if (-not $p.HasExited) { $p.Kill(); $p.WaitForExit() }; $p.Dispose() } catch {} }

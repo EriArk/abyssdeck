@@ -144,7 +144,7 @@ namespace CodexWeb {
         }
       }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
     }
-    static void Log(string message) {
+    internal static void Log(string message) {
       if (LogPath == null) return;
       lock(LogLock) {
         try {

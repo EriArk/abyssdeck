@@ -216,18 +216,29 @@ test("Check observes external work without acquiring its writer; terminal checks
     assert.equal(params.itemsView, "summary");
     assert.equal(params.limit, 1);
     reads++;
-    return { data: [{ id: "offline-turn", status: "interrupted" }] };
+    return { data: [{ id: "offline-turn", status: reads === 1 ? "inProgress" : "interrupted" }] };
   };
   assert.equal((await f.sessions.resume(f.thread.id)).activitySource, "external");
-  assert.equal(reads, 0);
-  f.store.db.prepare("UPDATE threads SET activitySource='hub' WHERE id=?").run(f.thread.id);
+  assert.equal(reads, 1);
+  assert.equal(f.store.thread(f.thread.id).status, "running");
   f.store.setStatus(f.thread.id, "unknown", "offline-turn");
   assert.equal((await f.sessions.resume(f.thread.id)).status, "interrupted");
-  assert.equal(reads, 1);
+  assert.equal(reads, 2);
+  f.sessions.externalActivity.apply(f.thread.id, {
+    threadId: f.thread.codexThreadId,
+    turnId: "offline-turn",
+    status: "inProgress",
+    startedAt: Date.now() / 1000,
+    updatedAt: Date.now() / 1000,
+    completedAt: 0,
+  });
+  assert.equal(f.store.thread(f.thread.id).status, "interrupted");
+  assert.equal(f.runtime.loaded.size, 0);
   assert.equal(f.rpc.closed, false);
 });
 test("canonical completed output and results recover once without starting or resuming a turn", async (t) => {
   const f = await recoveryFixture(t);
+  f.store.db.prepare("UPDATE threads SET activitySource='external' WHERE id=?").run(f.thread.id);
   let reads = 0;
   f.rpc.request = async (method, params) => {
     if (method === "thread/turns/list") {
