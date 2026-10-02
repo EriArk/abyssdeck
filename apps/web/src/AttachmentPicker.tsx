@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { workspaceMediaUrl } from "./accountStorage.ts";
 import { api, messageOf } from "./api";
 import { DownloadLink } from "./DownloadLink";
+import { GalleryNavigation, ImageGallery } from "./ImageGallery";
 import { Icon } from "./icons";
 import type { Attachment } from "./types";
 import { uploadFile } from "./uploadFile";
@@ -163,67 +164,77 @@ export function AttachmentList({
     else dialog.current?.close();
   }, [preview]);
   if (!files.length) return null;
+  const images = files.filter((file) => file.image);
+  const previewIndex = images.findIndex((file) => file.id === preview?.id);
+  const renderAttachment = (file: Attachment) => (
+    <div className={`attachment ${file.image ? "has-image" : ""}`} key={file.id}>
+      {file.image ? (
+        <button
+          type="button"
+          className="attachment-open"
+          onClick={() => {
+            if (unavailable[file.id]) {
+              setUnavailable((v) => ({ ...v, [file.id]: false }));
+              setAttempt((v) => ({ ...v, [file.id]: (v[file.id] ?? 0) + 1 }));
+            } else setPreview(file);
+          }}
+          aria-label={`${unavailable[file.id] ? "Повторить загрузку" : "Посмотреть"} ${file.name}`}
+        >
+          {unavailable[file.id] ? (
+            <span className="image-unavailable">
+              Изображение пока недоступно. Нажми, чтобы повторить.
+            </span>
+          ) : (
+            <img
+              src={workspaceMediaUrl(
+                file.previewUrl + (attempt[file.id] ? `?retry=${attempt[file.id]}` : ""),
+              )}
+              alt=""
+              loading="lazy"
+              onError={() => setUnavailable((v) => ({ ...v, [file.id]: true }))}
+            />
+          )}
+          <span>
+            {file.name}
+            {file.bytes > 0 && <small>{fileSize(file.bytes)}</small>}
+          </span>
+        </button>
+      ) : (
+        <DownloadLink className="attachment-open" href={file.url} name={file.name}>
+          <Icon name="folder" />
+          <span>
+            {file.name}
+            {file.bytes > 0 && <small>{fileSize(file.bytes)}</small>}
+          </span>
+        </DownloadLink>
+      )}
+      {onRemove && (
+        <button
+          type="button"
+          className="icon-button"
+          aria-label={`Удалить ${file.name}`}
+          disabled={disabled}
+          onClick={() => onRemove(file.id)}
+        >
+          <Icon name="close" size={16} />
+        </button>
+      )}
+    </div>
+  );
   return (
     <>
       <fieldset
         className={`attachment-list ${onRemove ? "" : "message-attachments"}`}
         aria-label={onRemove ? "Вложения к сообщению" : "Прикреплённые файлы"}
       >
-        {files.map((file) => (
-          <div className={`attachment ${file.image ? "has-image" : ""}`} key={file.id}>
-            {file.image ? (
-              <button
-                type="button"
-                className="attachment-open"
-                onClick={() => {
-                  if (unavailable[file.id]) {
-                    setUnavailable((v) => ({ ...v, [file.id]: false }));
-                    setAttempt((v) => ({ ...v, [file.id]: (v[file.id] ?? 0) + 1 }));
-                  } else setPreview(file);
-                }}
-                aria-label={`${unavailable[file.id] ? "Повторить загрузку" : "Посмотреть"} ${file.name}`}
-              >
-                {unavailable[file.id] ? (
-                  <span className="image-unavailable">
-                    Изображение пока недоступно. Нажми, чтобы повторить.
-                  </span>
-                ) : (
-                  <img
-                    src={workspaceMediaUrl(
-                      file.previewUrl + (attempt[file.id] ? `?retry=${attempt[file.id]}` : ""),
-                    )}
-                    alt=""
-                    loading="lazy"
-                    onError={() => setUnavailable((v) => ({ ...v, [file.id]: true }))}
-                  />
-                )}
-                <span>
-                  {file.name}
-                  {file.bytes > 0 && <small>{fileSize(file.bytes)}</small>}
-                </span>
-              </button>
-            ) : (
-              <DownloadLink className="attachment-open" href={file.url} name={file.name}>
-                <Icon name="folder" />
-                <span>
-                  {file.name}
-                  {file.bytes > 0 && <small>{fileSize(file.bytes)}</small>}
-                </span>
-              </DownloadLink>
-            )}
-            {onRemove && (
-              <button
-                type="button"
-                className="icon-button"
-                aria-label={`Удалить ${file.name}`}
-                disabled={disabled}
-                onClick={() => onRemove(file.id)}
-              >
-                <Icon name="close" size={16} />
-              </button>
-            )}
-          </div>
-        ))}
+        {onRemove ? (
+          files.map(renderAttachment)
+        ) : (
+          <>
+            <ImageGallery>{images.map(renderAttachment)}</ImageGallery>
+            {files.filter((file) => !file.image).map(renderAttachment)}
+          </>
+        )}
       </fieldset>
       <dialog className="attachment-preview" ref={dialog} onCancel={() => setPreview(null)}>
         <div className="viewer-toolbar">
@@ -240,6 +251,18 @@ export function AttachmentList({
             <Icon name="close" />
           </button>
         </div>
+        {!onRemove && previewIndex >= 0 && images.length > 1 && (
+          <GalleryNavigation
+            index={previewIndex}
+            count={images.length}
+            previous={previewIndex > 0 ? () => setPreview(images[previewIndex - 1]!) : undefined}
+            next={
+              previewIndex + 1 < images.length
+                ? () => setPreview(images[previewIndex + 1]!)
+                : undefined
+            }
+          />
+        )}
         {preview && (
           <div className="viewer-image">
             <img src={workspaceMediaUrl(preview.previewUrl)} alt={preview.name} />
