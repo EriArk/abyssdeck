@@ -37,7 +37,7 @@ export function ServerWorkspace({
       } else if (workspace?.state !== "ready") {
         setWorkspace(await api<Workspace>("/team/server-workspace", { method: "POST", body: {} }));
       } else {
-        await api("/team/machines/apply", { method: "POST" });
+        await api("/team/server-workspace/connect", { method: "POST", body: {} });
         await refresh();
       }
     } catch (e) {
@@ -68,7 +68,7 @@ export function ServerWorkspace({
             {active
               ? "Подключено. При создании проекта выбери это окружение; папки проектов находятся в /workspace/projects."
               : workspace.state === "ready"
-                ? "Окружение готово. Подключение применится, когда твоя текущая работа и команды в терминале завершатся."
+                ? "Окружение готово. Подключи его, чтобы открыть терминал и создавать проекты. Текущая работа продолжится."
                 : workspace.state === "creating"
                   ? "Создание уже запрошено. Проверим его результат без повторного запуска."
                   : "Отдельные файлы и аккаунты. GitHub и Codex подключаются внутри твоего окружения."}

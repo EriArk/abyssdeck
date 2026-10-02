@@ -10,10 +10,12 @@ import type {
 import { bindMachineAuthority, projectPathAllowed, type runFileLaunch } from "@codex-web/machines";
 import {
   caseColorIds,
+  type DeviceConfig,
   type HubConfig,
   HubError,
   type HubEvent,
   lightDarkVariants,
+  type MachineConfig,
   resultCategorySchema,
   resultSearchQuerySchema,
   terminalVariants,
@@ -1120,6 +1122,33 @@ export async function createApp(
   });
   return {
     app,
+    connectServerWorkspace(machine: MachineConfig, device: DeviceConfig) {
+      options.authorizeExecution?.();
+      if (
+        machine.id !== "server-workspace" ||
+        machine.type !== "server-workspace" ||
+        device.id !== machine.id ||
+        device.workspaceMachineId !== machine.id
+      )
+        throw new HubError(409, "WORKSPACE_BINDING_INVALID", "Проверь подключение окружения.");
+      const existing = config.machines.find((m) => m.id === machine.id);
+      const existingDevice = config.devices?.find((d) => d.id === device.id);
+      if (existing || existingDevice) {
+        if (
+          existing?.type === "server-workspace" &&
+          existingDevice?.workspaceMachineId === machine.id
+        )
+          return;
+        throw new HubError(409, "WORKSPACE_BINDING_CONFLICT", "Подключение окружения изменилось.");
+      }
+      // Append the trusted owner-bound machine, preserving all existing clients,
+      // streams and object identities. Release its authority with this runtime.
+      if (options.authorizeExecution)
+        releaseAuthorities.push(bindMachineAuthority(machine, options.authorizeExecution));
+      config.machines.push(machine);
+      config.devices ??= [];
+      config.devices.push(device);
+    },
     store,
     sessions,
     auth,

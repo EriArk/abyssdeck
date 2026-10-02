@@ -633,6 +633,28 @@ export async function createTeamHub(config: HubConfig, options: Options) {
     await personal(userId);
   };
   app.get("/api/team/server-workspace", (req) => serverWorkspaces.view(actor(req)));
+  app.post("/api/team/server-workspace/connect", async (req) => {
+    z.object({}).strict().parse(req.body);
+    const userId = actor(req);
+    const current = await personal(userId);
+    registry.active(userId);
+    if (reconfiguring.has(userId))
+      throw new HubError(409, "WORKSPACE_RECONFIGURING", "Подключение уже применяется.");
+    if (
+      registry.db.prepare("SELECT value FROM team_meta WHERE key='nativeAdmission'").get()
+        ?.value === "blocked"
+    )
+      throw new HubError(
+        503,
+        "RESTORE_ADMISSION_REQUIRED",
+        "После восстановления подключения проверяет администратор сервера.",
+      );
+    const workspace = workspaceRuntime(config, registry, userId);
+    if (!workspace.machines[0] || !workspace.devices[0])
+      throw new HubError(409, "WORKSPACE_NOT_READY", "Сначала заверши создание окружения.");
+    current.runtime.connectServerWorkspace(workspace.machines[0], workspace.devices[0]);
+    return { ok: true };
+  });
   registerCompanion(
     app,
     config,

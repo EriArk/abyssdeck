@@ -119,6 +119,67 @@ async function fixture(t, options = {}, ownerLogin) {
   };
 }
 
+test("server workspace connects during active work without replacing the personal runtime", async (t) => {
+  const f = await fixture(t);
+  const ownerId = f.registry.ownerId;
+  const current = await f.personal(ownerId);
+  f.config.serverWorkspaces = {
+    ssh: { target: "fixture-host", configFile: "/fixture/ssh" },
+    keyFile: "/fixture/key",
+  };
+  const existing = {
+    id: "existing",
+    name: "Existing",
+    type: "local-linux",
+    codex: { command: "/nonexistent", shell: "powershell" },
+  };
+  current.runtime.sessions.config.machines.push(existing);
+  const thread = current.runtime.store.createThread("fixture-project", randomUUID(), "Busy");
+  current.runtime.store.db
+    .prepare("UPDATE threads SET status='running',activeTurnId='active-turn' WHERE id=?")
+    .run(thread.id);
+  const watch = await f.connect(f.owner);
+  const connect = () => f.request("/api/team/server-workspace/connect", f.owner, "POST", {});
+  assert.equal((await connect()).body.error.code, "WORKSPACE_NOT_READY");
+  f.registry.db.prepare("INSERT INTO team_server_workspaces VALUES(?,'ready',0)").run(ownerId);
+  assert.equal(
+    (await f.request("/api/team/machines/apply", f.owner, "POST", {})).body.error.code,
+    "WORKSPACE_BUSY",
+  );
+  assert.equal((await connect()).status, 200);
+  assert.equal((await connect()).status, 200);
+  assert.equal(await f.personal(ownerId), current);
+  assert.equal(watch.readyState, WebSocket.OPEN);
+  assert.equal(current.runtime.sessions.config.machines[0], existing);
+  assert.equal(current.runtime.store.thread(thread.id).activeTurnId, "active-turn");
+  assert.equal(
+    current.runtime.sessions.config.machines.filter((m) => m.id === "server-workspace").length,
+    1,
+  );
+  assert.ok(
+    (await f.request("/api/devices")).body.devices.some((d) => d.id === "server-workspace"),
+  );
+  assert.ok(
+    (await f.request("/api/machines")).body.machines.some((m) => m.id === "server-workspace"),
+  );
+  assert.equal(
+    (await f.request("/api/team/server-workspace/connect", f.friend, "POST", {})).body.error.code,
+    "WORKSPACE_NOT_READY",
+  );
+  assert.ok(
+    !(await f.request("/api/devices", f.friend)).body.devices.some(
+      (d) => d.id === "server-workspace",
+    ),
+  );
+  f.registry.db
+    .prepare("INSERT OR REPLACE INTO team_meta VALUES('nativeAdmission','blocked')")
+    .run();
+  assert.equal((await connect()).body.error.code, "RESTORE_ADMISSION_REQUIRED");
+  current.runtime.store.db
+    .prepare("UPDATE threads SET status='idle',activeTurnId=NULL WHERE id=?")
+    .run(thread.id);
+});
+
 test("chosen owner login preserves the original password, legacy lookup and existing session", async (t) => {
   const f = await fixture(t, {}, "eriark");
   const owner = f.registry.user(f.registry.ownerId);

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { chromium, expect } from "@playwright/test";
+import { chromium, expect, webkit } from "@playwright/test";
 import react from "../apps/web/node_modules/@vitejs/plugin-react/dist/index.js";
 import { build } from "../apps/web/node_modules/vite/dist/node/index.js";
 import { handoffFixture } from "./handoff-fixture.mjs";
@@ -25,7 +25,7 @@ try {
   const origin = "http://127.0.0.1:18879",
     fixture = await handoffFixture(origin, dir);
   await fixture.app.listen({ host: "127.0.0.1", port: 18879 });
-  const browser = await chromium.launch();
+  const browser = await (process.env.BROWSER === "webkit" ? webkit : chromium).launch();
   try {
     for (const theme of ["organizer", "crt-green", "hitech-2000s"]) {
       const context = await browser.newContext({
@@ -47,7 +47,7 @@ try {
           }
           return route.fulfill({ json: { available: true, state } });
         }
-        if (path.endsWith("/machines/apply")) {
+        if (path.endsWith("/server-workspace/connect")) {
           active = true;
           return route.fulfill({ json: { ok: true } });
         }
@@ -88,4 +88,6 @@ try {
 } finally {
   await rm(dir, { recursive: true, force: true });
 }
-console.log("Server workspace enrollment UI: create/apply, phone/tablet and three themes passed.");
+console.log(
+  "Server workspace enrollment UI: create/connect, phone/tablet and three themes passed.",
+);
