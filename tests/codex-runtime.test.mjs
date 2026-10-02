@@ -4,7 +4,7 @@ import test from "node:test";
 import { codexRuntimeBinding, confirmCodexRuntime } from "../apps/hub/dist/codex-runtime.js";
 import { deploymentBlockers } from "../apps/hub/dist/deployment-status.js";
 import { Store } from "../apps/hub/dist/store.js";
-import { handoffFixture } from "./handoff-fixture.mjs";
+import { handoffFixture, settings } from "./handoff-fixture.mjs";
 
 const machine = {
   id: "pc",
@@ -256,12 +256,48 @@ test("canonical completed output and results recover once without starting or re
   await f.sessions.recoverPersistent();
   assert.equal(reads, 1);
   assert.equal(f.store.thread(f.thread.id).activeTurnId, null);
+  assert.equal(f.runtime.loaded.has(f.thread.id), false, "history read does not acquire a writer");
   assert(f.store.history(f.thread.id).messages.some((m) => m.text === "Finished offline"));
   assert.equal(
     f.store.db
       .prepare("SELECT count(*) n FROM results WHERE threadId=? AND type='check'")
       .get(f.thread.id).n,
     1,
+  );
+});
+
+test("manual continuation after recovered interruption loads the writer before starting; old uncertain sends stay untouched", async (t) => {
+  const f = await recoveryFixture(t);
+  const nativeRequest = f.rpc.request.bind(f.rpc);
+  const calls = [];
+  let loaded = false;
+  f.rpc.request = async (method, params) => {
+    calls.push(method);
+    if (method === "thread/turns/list")
+      return { data: [{ id: "offline-turn", status: "interrupted" }] };
+    if (method === "thread/items/list") return { data: [] };
+    if (method === "thread/resume") loaded = true;
+    if (method === "turn/start") assert(loaded, "native refuses a thread only read from history");
+    return nativeRequest(method, params);
+  };
+  const oldKey = randomUUID();
+  f.store.db
+    .prepare("INSERT INTO commands(scope,key,digest,state,createdAt) VALUES(?,?,?,'unknown',?)")
+    .run("turn:" + f.thread.id, oldKey, "old-digest", new Date().toISOString());
+  await f.sessions.recoverPersistent();
+  assert.equal(f.store.thread(f.thread.id).status, "interrupted");
+  assert.equal(f.runtime.loaded.has(f.thread.id), false);
+  assert(!calls.includes("thread/resume"), "background recovery never acquires a writer");
+  assert(!calls.includes("turn/start"));
+  const response = await f.send(randomUUID(), { text: "Continue after accidental stop", settings });
+  assert.equal(response.statusCode, 200, response.body);
+  assert(calls.indexOf("thread/resume") < calls.indexOf("turn/start"));
+  assert.equal(calls.filter((method) => method === "turn/start").length, 1);
+  assert.equal(
+    f.store.db
+      .prepare("SELECT state FROM commands WHERE scope=? AND key=?")
+      .get("turn:" + f.thread.id, oldKey).state,
+    "unknown",
   );
 });
 test("unavailable exact turn stops after three read checks and retains uncertain state", async (t) => {

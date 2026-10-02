@@ -2438,7 +2438,6 @@ export class Sessions extends EventEmitter {
                     item,
                   });
               this.threadRecoveryAttempts.delete(recoveryKey);
-              r.loaded.add(thread.id);
               if (this.store.thread(thread.id).activeTurnId !== thread.activeTurnId) continue;
               if (exact.status === "inProgress") {
                 const proof = await r.rpc.inspectCompanion(() => this.authorizeInspection());
@@ -2452,6 +2451,9 @@ export class Sessions extends EventEmitter {
                   this.threadRecoveryAttempts.set(recoveryKey, 3);
                   continue;
                 }
+                // Canonical history is readable without loading a native writer.
+                // Only exact live runtime proof establishes ownership on recovery.
+                r.loaded.add(thread.id);
                 r.active.add(thread.id);
                 this.store.setStatus(
                   thread.id,
