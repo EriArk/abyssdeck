@@ -9,7 +9,25 @@ type Input = Record<string, unknown>[];
 type Submission = { id: string; clientUserMessageId: string; input: Input };
 const obj = (v: unknown): Record<string, unknown> =>
   v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
-const digest = (v: unknown) => createHash("sha256").update(JSON.stringify(v)).digest("hex");
+// Compare queue content, not native JSON property order or transport metadata.
+// add/list may serialize the same submission differently; input array order and
+// every input field still participate so concurrent edits cannot be overwritten.
+const digest = (v: Submission) =>
+  createHash("sha256")
+    .update(
+      JSON.stringify(
+        { id: v.id, clientUserMessageId: v.clientUserMessageId, input: v.input },
+        (_, value) =>
+          value && typeof value === "object" && !Array.isArray(value)
+            ? Object.fromEntries(
+                Object.keys(value)
+                  .sort()
+                  .map((key) => [key, value[key]]),
+              )
+            : value,
+      ),
+    )
+    .digest("hex");
 export class QueueService {
   private locks = new Set<string>();
   constructor(

@@ -133,6 +133,25 @@ export function ApprovalCard({
 }) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [custom, setCustom] = useState<Record<string, boolean>>({});
+  const answering = useRef(false);
+  const submitAnswers = (selected: Record<string, string>) => {
+    if (
+      busy ||
+      answering.current ||
+      !(approval.questions ?? []).every((q) => selected[q.id]?.trim())
+    )
+      return;
+    answering.current = true;
+    try {
+      onAnswer(approval.id, Object.fromEntries(Object.entries(selected).map(([k, v]) => [k, [v]])));
+    } finally {
+      // The parent owns the request receipt and its busy/error state.
+      queueMicrotask(() => {
+        answering.current = false;
+      });
+    }
+  };
+  const needsText = (approval.questions ?? []).some((q) => !q.options.length || custom[q.id]);
   if (approval.kind === "elicitation" && approval.elicitation)
     return (
       <ElicitationCard
@@ -149,14 +168,11 @@ export function ApprovalCard({
         <form
           onSubmit={(e: FormEvent) => {
             e.preventDefault();
-            onAnswer(
-              approval.id,
-              Object.fromEntries(Object.entries(answers).map(([k, v]) => [k, [v]])),
-            );
+            submitAnswers(answers);
           }}
         >
           {(approval.questions ?? []).map((q) => (
-            <fieldset key={q.id}>
+            <fieldset key={q.id} disabled={busy}>
               <legend>{q.question}</legend>
               {q.options.map((option) => (
                 <label className="choice" key={option.label}>
@@ -164,9 +180,22 @@ export function ApprovalCard({
                     type="radio"
                     name={q.id}
                     checked={!custom[q.id] && answers[q.id] === option.label}
-                    onChange={() => {
-                      setCustom((v) => ({ ...v, [q.id]: false }));
-                      setAnswers((v) => ({ ...v, [q.id]: option.label }));
+                    readOnly
+                    onClick={() => {
+                      if (busy || answering.current) return;
+                      const next = { ...answers, [q.id]: option.label };
+                      const customNext = { ...custom, [q.id]: false };
+                      setCustom(customNext);
+                      setAnswers(next);
+                      if (
+                        (approval.questions ?? []).every(
+                          (question) =>
+                            question.options.length &&
+                            !customNext[question.id] &&
+                            next[question.id],
+                        )
+                      )
+                        submitAnswers(next);
                     }}
                   />
                   <span>
@@ -203,14 +232,16 @@ export function ApprovalCard({
               )}
             </fieldset>
           ))}
-          <button
-            type="submit"
-            className="primary"
-            disabled={busy || !(approval.questions ?? []).every((q) => answers[q.id]?.trim())}
-          >
-            Ответить
-            <Icon name="send" />
-          </button>
+          {needsText && (
+            <button
+              type="submit"
+              className="primary"
+              disabled={busy || !(approval.questions ?? []).every((q) => answers[q.id]?.trim())}
+            >
+              Ответить
+              <Icon name="send" />
+            </button>
+          )}
         </form>
       ) : (
         <>

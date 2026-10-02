@@ -34,6 +34,10 @@ function Fixture() {
     [planResult, setPlanResult] = useState("");
   const options = useTurnSettings("p", "t", saved),
     queue = useMessageQueue("t");
+  const shownQuestions =
+    id === "call_multi"
+      ? [questions[0], { title: "Ещё выбор?", options: ["Один", "Два"] }]
+      : questions;
   const reply = questionReplyText(id, questions, ["Да, Калькулятор виден"]);
   return (
     <main style={{ maxWidth: 740, margin: "auto", padding: 16 }}>
@@ -51,6 +55,24 @@ function Fixture() {
       >
         Другой вопрос
       </button>
+      <button
+        type="button"
+        onClick={() => {
+          setId("call_click");
+          setRemote(false);
+        }}
+      >
+        Выбор одним нажатием
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setId("call_multi");
+          setRemote(false);
+        }}
+      >
+        Несколько выборов
+      </button>
       <button type="button" onClick={() => setRemote(true)}>
         Ответ с компьютера
       </button>
@@ -58,7 +80,7 @@ function Fixture() {
         key={id + remount}
         threadId="t"
         messageId={id}
-        questions={questions}
+        questions={shownQuestions}
         disabled={queue.busy}
         replies={remote ? (chatQuestionReplies(reply) ?? []) : []}
         onReply={(text) => queue.reply(text, "turn_test")}
@@ -73,7 +95,7 @@ function Fixture() {
           approval={{
             id: "plan_request",
             kind: "question",
-          description: "",
+            description: "",
             questions: [
               {
                 id: "choice",
@@ -91,6 +113,28 @@ function Fixture() {
           }}
         />
       )}
+      <ApprovalCard
+        approval={{
+          id: "plan_choices",
+          kind: "question",
+          description: "",
+          questions: [
+            {
+              id: "first",
+              question: "Первый выбор плана?",
+              options: [{ label: "Первый A" }, { label: "Первый B" }],
+            },
+            {
+              id: "second",
+              question: "Второй выбор плана?",
+              options: [{ label: "Второй A" }, { label: "Второй B" }],
+            },
+          ],
+        }}
+        busy={!!planResult}
+        onDecision={() => {}}
+        onAnswer={(id, answers) => setPlanResult(JSON.stringify({ id, answers }))}
+      />
       {planResult && <output aria-label="Ответ режима плана">{planResult}</output>}
     </main>
   );

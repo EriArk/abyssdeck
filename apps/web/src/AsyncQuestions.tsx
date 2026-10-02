@@ -27,30 +27,35 @@ export function AsyncQuestions({
 }) {
   const key = `codex-question:${threadId}:${messageId}`;
   const signature = JSON.stringify(questions);
-  const [draft, setDraft] = useState<{ choices: string[]; custom: string[]; submitted: boolean }>(
-    () => {
-      try {
-        const saved = JSON.parse(storage.getItem(key) ?? "null");
-        if (
-          saved?.signature === signature &&
-          Array.isArray(saved.choices) &&
-          Array.isArray(saved.custom)
-        )
-          return {
-            choices: saved.choices,
-            custom: saved.custom,
-            submitted: saved.submitted === true,
-          };
-      } catch {
-        /* The form also works without browser storage. */
-      }
-      return {
-        choices: questions.map((q) => q.options?.[0] ?? ""),
-        custom: questions.map(() => ""),
-        submitted: false,
-      };
-    },
-  );
+  const [draft, setDraft] = useState<{
+    choices: string[];
+    custom: string[];
+    chosen: boolean[];
+    submitted: boolean;
+  }>(() => {
+    try {
+      const saved = JSON.parse(storage.getItem(key) ?? "null");
+      if (
+        saved?.signature === signature &&
+        Array.isArray(saved.choices) &&
+        Array.isArray(saved.custom)
+      )
+        return {
+          choices: saved.choices,
+          custom: saved.custom,
+          chosen: saved.chosen ?? questions.map(() => false),
+          submitted: saved.submitted === true,
+        };
+    } catch {
+      /* The form also works without browser storage. */
+    }
+    return {
+      choices: questions.map((q) => q.options?.[0] ?? ""),
+      custom: questions.map(() => ""),
+      chosen: questions.map(() => false),
+      submitted: false,
+    };
+  });
   const [sending, setSending] = useState(false),
     [error, setError] = useState("");
   const lock = useRef(false);
@@ -74,7 +79,12 @@ export function AsyncQuestions({
   useEffect(() => {
     if (!acknowledged) return;
     const choices: string[] = JSON.parse(acknowledged);
-    const next = { choices, custom: choices.map(() => ""), submitted: true };
+    const next = {
+      choices,
+      custom: choices.map(() => ""),
+      chosen: choices.map(() => true),
+      submitted: true,
+    };
     setDraft(next);
     try {
       storage.setItem(key, JSON.stringify({ signature, ...next }));
@@ -85,33 +95,45 @@ export function AsyncQuestions({
   const values = questions.map(
     (_, i) => answered[i]?.answer ?? (draft.choices[i] || draft.custom[i] || ""),
   );
+  const submit = async (next: typeof draft) => {
+    const selected = questions.map(
+      (_, i) => answered[i]?.answer ?? (next.choices[i] || next.custom[i] || ""),
+    );
+    if (lock.current || disabled || completed || selected.some((v) => !v.trim())) return;
+    lock.current = true;
+    setSending(true);
+    setError("");
+    try {
+      if (
+        await onReply(
+          questionReplyText(
+            messageId,
+            questions,
+            selected.map((value, index) => (answered[index] ? null : value)),
+          ),
+        )
+      )
+        save({
+          choices: selected,
+          custom: selected.map(() => ""),
+          chosen: selected.map(() => true),
+          submitted: true,
+        });
+    } catch (e) {
+      setError(messageOf(e));
+    } finally {
+      lock.current = false;
+      setSending(false);
+    }
+  };
+  const needsText = questions.some((_, i) => !answered[i] && !draft.choices[i]);
   return (
     <form
       className="async-questions"
       aria-label="Вопросы Codex"
-      onSubmit={async (e) => {
+      onSubmit={(e) => {
         e.preventDefault();
-        if (lock.current || disabled || completed || values.some((v) => !v.trim())) return;
-        lock.current = true;
-        setSending(true);
-        setError("");
-        try {
-          if (
-            await onReply(
-              questionReplyText(
-                messageId,
-                questions,
-                values.map((value, index) => (answered[index] ? null : value)),
-              ),
-            )
-          )
-            save({ choices: values, custom: values.map(() => ""), submitted: true });
-        } catch (e) {
-          setError(messageOf(e));
-        } finally {
-          lock.current = false;
-          setSending(false);
-        }
+        void submit(draft);
       }}
     >
       {questions.map((q, index) => (
@@ -131,12 +153,22 @@ export function AsyncQuestions({
                     name={`${key}:${index}`}
                     value={option}
                     checked={draft.choices[index] === option}
-                    onChange={() =>
-                      save({
+                    readOnly
+                    onClick={() => {
+                      if (lock.current || disabled || completed) return;
+                      const next = {
                         ...draft,
                         choices: draft.choices.map((v, i) => (i === index ? option : v)),
-                      })
-                    }
+                        chosen: draft.chosen.map((v, i) => i === index || v),
+                      };
+                      save(next);
+                      if (
+                        questions.every(
+                          (_, i) => answered[i] || (next.chosen[i] && next.choices[i]),
+                        )
+                      )
+                        void submit(next);
+                    }}
                   />
                   <span>{option}</span>
                 </label>
@@ -178,7 +210,7 @@ export function AsyncQuestions({
         <span className="small muted" role="status">
           Ответ передан
         </span>
-      ) : (
+      ) : needsText || error ? (
         <button
           className="primary"
           type="submit"
@@ -186,7 +218,9 @@ export function AsyncQuestions({
         >
           {sending ? "Отправляю…" : "Ответить"}
         </button>
-      )}
+      ) : sending ? (
+        <span role="status">Применяю…</span>
+      ) : null}
       {error && <p role="alert">{error}</p>}
     </form>
   );

@@ -33,7 +33,8 @@ class Rpc extends EventEmitter {
     }
     if (method === "thread/queue/list") return { data: this.queue };
     if (method === "thread/queue/add") {
-      const q = { id: randomUUID(), clientUserMessageId: p.clientUserMessageId, input: p.input };
+      // Native QueuedSubmission field order from the generated protocol.
+      const q = { id: randomUUID(), input: p.input, clientUserMessageId: p.clientUserMessageId };
       this.queue.push(q);
       return { queuedSubmission: q };
     }
@@ -613,6 +614,32 @@ test("failed attachment staging preserves draft and releases both the queue and 
       f.queue.add(f.t.id, body.text, body.attachments, key),
     );
     assert.equal(f.rpc.calls.filter((c) => c.method === "thread/queue/add").length, 1);
+  } finally {
+    await f.close();
+  }
+});
+
+test("queue revisions ignore native object key order but still reject changed input", async () => {
+  const f = await setup();
+  try {
+    const item = await f.queue.add(f.t.id, "Answer", [], randomUUID());
+    const turn = f.store.thread(f.t.id).activeTurnId;
+    const native = f.rpc.queue[0];
+    native.input = [{ text: "Answer", type: "text" }];
+    native.transportMetadata = { transient: true };
+    assert.equal((await f.queue.list(f.t.id)).items[0].revision, item.revision);
+    await f.queue.change(f.t.id, item.id, item.revision, "steer", undefined, turn);
+    assert.equal(f.rpc.calls.filter((c) => c.method === "turn/steer").length, 1);
+
+    const changed = await f.queue.add(f.t.id, "Original", [], randomUUID());
+    f.rpc.queue[0].input[0].text = "Edited elsewhere";
+    await assert.rejects(
+      f.queue.change(f.t.id, changed.id, changed.revision, "steer", undefined, turn),
+      { code: "QUEUE_CHANGED" },
+    );
+    assert.equal(f.rpc.queue[0].input[0].text, "Edited elsewhere");
+    assert.equal(f.rpc.calls.filter((c) => c.method === "turn/steer").length, 1);
+    assert.equal(f.rpc.calls.filter((c) => c.method === "thread/queue/delete").length, 1);
   } finally {
     await f.close();
   }

@@ -1,5 +1,31 @@
 # Текущий остаток — 2 октября 2026
 
+## Codex question replies: native queue revision order (2026-10-02, prepared)
+
+The latest TrainerOS answer receipt at 12:20:31 UTC returned `queued`; manual
+Steer followed at 12:20:35 against the same source turn. Reproduction with the
+native generated QueuedSubmission order (`id,input,clientUserMessageId`) fails
+on the installed release: add hashes the raw object while list reorders fields,
+so the unchanged reply is wrongly rejected as QUEUE_CHANGED.
+
+Queue revisions now hash canonical object keys and the exact submission identity
+and inputs. Input array order and every input field still count; an actual edit
+continues to reject stale actions. The queue fixture now uses native field order,
+covering automatic question delivery rather than a conveniently ordered mock.
+No queued input is replayed by this fix and no Companion update is involved.
+
+Owner-selected interaction: clicking a ready-made choice immediately applies it,
+including the initially selected recommendation. Multiple-choice groups wait for
+an explicit choice in each question; free text keeps its submit button. Native
+Plan questions use the same interaction and their original request-response API.
+Preselection/restoring a draft never sends by itself; the parent draft is retained.
+
+Validation: failing regression on the previous production image, then all 15 queue
+tests passing with the fix in isolated Linux; 12 questions/native-plan tests;
+Chromium and WebKit question/free-text/Plan reply and native Plan workflow checks;
+production build/typecheck and repository checks. Activation follows verification.
+
+
 ## GPT stopped response indicator (2026-10-02, installed)
 
 Owner screenshots IMG_0808/0809 show native ChatGPT stopped reasoning while

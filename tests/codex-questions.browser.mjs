@@ -167,15 +167,55 @@ try {
         "Сохрани основной черновик",
       );
       await page.getByRole("button", { name: "Другой вопрос", exact: true }).click();
-      await expect(page.getByRole("button", { name: "Ответить", exact: true })).toBeEnabled();
+      await expect(
+        page.locator(".async-questions").getByRole("button", { name: "Ответить", exact: true }),
+      ).toHaveCount(0);
       await page.getByRole("button", { name: "Ответ с компьютера", exact: true }).click();
       await expect(page.getByRole("button", { name: "Ответить", exact: true })).toHaveCount(0);
       assert(
         !(await page.locator("main").innerText()).includes("send_user_message_question_reply"),
       );
       assert.equal(posts.filter((p) => p.path.endsWith("/question-reply")).length, 1);
+      await page.getByRole("button", { name: "Выбор одним нажатием", exact: true }).click();
+      await expect(
+        page.locator(".async-questions").getByRole("button", { name: "Ответить", exact: true }),
+      ).toHaveCount(0);
+      // Clicking even the initially checked recommendation is an explicit answer.
+      await page.getByRole("radio", { name: "Да, Калькулятор виден", exact: true }).click();
+      await expect(page.locator(".async-questions [role=status]")).toHaveText("Ответ передан");
+      assert.equal(posts.filter((p) => p.path.endsWith("/question-reply")).length, 2);
+      await expect(page.locator(".queue-text")).toHaveCount(0);
+      await page.getByRole("button", { name: "Несколько выборов", exact: true }).click();
+      await page.getByRole("radio", { name: "Да, Калькулятор виден", exact: true }).click();
+      assert.equal(
+        posts.filter((p) => p.path.endsWith("/question-reply")).length,
+        2,
+        "another preselected choice is not consent",
+      );
+      await page.getByRole("radio", { name: "Два", exact: true }).click();
+      await expect(page.locator(".async-questions [role=status]")).toHaveText("Ответ передан");
+      assert.equal(posts.filter((p) => p.path.endsWith("/question-reply")).length, 3);
+      assert(
+        posts
+          .filter((p) => p.path.endsWith("/question-reply"))
+          .at(-1)
+          .body.text.includes("Два"),
+      );
+      const planChoices = page.locator(".approval").filter({ hasText: "Первый выбор плана?" });
+      await expect(planChoices.getByRole("button", { name: "Ответить", exact: true })).toHaveCount(
+        0,
+      );
+      await planChoices.getByRole("radio", { name: "Первый B", exact: true }).click();
+      await expect(page.getByLabel("Ответ режима плана")).toHaveCount(0);
+      await planChoices.getByRole("radio", { name: "Второй A", exact: true }).click();
+      await expect(page.getByLabel("Ответ режима плана")).toHaveText(
+        JSON.stringify({
+          id: "plan_choices",
+          answers: { first: ["Первый B"], second: ["Второй A"] },
+        }),
+      );
       await page.getByRole("button", { name: "Вопрос для плана", exact: true }).click();
-      const plan = page.locator(".approval");
+      const plan = page.locator(".approval").filter({ hasText: "Детали плана?" });
       await expect(plan.getByRole("button", { name: "Ответить", exact: true })).toBeDisabled();
       await plan.getByRole("radio", { name: "B", exact: true }).check();
       await plan.getByRole("textbox", { name: "Свой ответ: Детали плана?" }).fill("Сначала проект");
@@ -188,7 +228,7 @@ try {
       );
       assert.equal(
         posts.filter((p) => p.path.endsWith("/question-reply")).length,
-        1,
+        3,
         "plan answers use native request response, never async envelopes or queue",
       );
       assert.deepEqual(errors, []);
