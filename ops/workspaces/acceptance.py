@@ -6,24 +6,64 @@ already registered or any container exists. Removes its exact disposable contain
 and test files in finally. Does not sign in, copy credentials or connect to CodexWeb.
 """
 import errno
+import fcntl
 import json
 import os
 from pathlib import Path
 import pwd
+import re
 import socket
 import sqlite3
+import stat
 import subprocess
 import uuid
 from policy import HOME, ROOT, MEMORY, CPUS, PIDS, container_name, container_args, exec_args, podman_command
 
 
+CODEX_PROBE_TARGET = '/usr/local/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex'
+CODEX_PROBE_LINKS = {'apply_patch', 'applypatch', 'codex-linux-sandbox', 'codex-execve-wrapper'}
+
+
+def clear_codex_probe_temp(slot):
+    """Remove only the verified 0.158.0 --version residue in an unclaimed slot."""
+    removed=[]
+    base=slot/'home/.codex/tmp/arg0'
+    if base.resolve()!=base or base.is_symlink() or not base.is_dir():return removed
+    for directory in list(base.iterdir())[:64]:
+        if not re.fullmatch(r'codex-arg0[A-Za-z0-9]{6}',directory.name):continue
+        if directory.is_symlink() or not directory.is_dir():continue
+        children={p.name:p for p in directory.iterdir()}
+        if not children:
+            directory.rmdir();removed.append(str(directory.relative_to(slot)));continue
+        if '.lock' not in children or not set(children)<=CODEX_PROBE_LINKS|{'.lock'}:continue
+        lock=children['.lock']
+        info=lock.lstat()
+        if not stat.S_ISREG(info.st_mode) or info.st_size!=0:continue
+        links=[p for name,p in children.items() if name!='.lock']
+        if any(not p.is_symlink() or os.readlink(p)!=CODEX_PROBE_TARGET for p in links):continue
+        fd=os.open(lock,os.O_RDWR|os.O_NOFOLLOW)
+        try:
+            current=os.fstat(fd)
+            if (info.st_dev,info.st_ino)!=(current.st_dev,current.st_ino) or current.st_size!=0:continue
+            try:fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            except BlockingIOError:continue
+            # Caller has already excluded registered users and running containers.
+            for p in links:p.unlink();removed.append(str(p.relative_to(slot)))
+            lock.unlink();removed.append(str(lock.relative_to(slot)))
+            directory.rmdir();removed.append(str(directory.relative_to(slot)))
+        finally:os.close(fd)
+    for path in [base,base.parent]:
+        try:path.rmdir();removed.append(str(path.relative_to(slot)))
+        except OSError:pass
+    return removed
+
 
 def clear_empty_scaffold(slot):
-    """Remove only empty init directories, deepest first; preserve all bytes/links."""
+    """Clear empty init directories and exact disposable CLI probe residue."""
     slot = Path(slot)
     if slot.is_symlink() or slot.resolve() != slot:
         raise RuntimeError('SLOT_PATH_CHANGED')
-    removed = []
+    removed = clear_codex_probe_temp(slot)
     for name in ['home/.local/bin','home/.local','home/.codex','home/.config','home/.cache',
                  'home','projects','integration','services']:
         path = slot / name
@@ -121,8 +161,8 @@ print(json.dumps({'isolated':True,'tools':True,'publicEgress':True,'privateEgres
             except Exception: pass
             # Only names created above, after refusing any preexisting containers.
             subprocess.run(prefix+['rm','--force',container_name(owner)],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=30)
-            # Remove only empty directories made by workspace-init. Never recursively
-            # clear a slot: unexpected data makes the later create fail closed.
+            # Remove empty init directories and exact unused CLI probe residue.
+            # Never recursively clear a slot: preserve unexpected data.
             clear_empty_scaffold(Path(ROOT)/'slots'/str(i))
 
 

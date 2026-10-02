@@ -1,8 +1,9 @@
 #!/usr/bin/python3
-"""Repair leftover empty acceptance scaffolding before the first user enrollment.
+"""Repair leftover acceptance scaffolding before the first user enrollment.
 
-Without --apply this only reports slot entries. Never removes files or links,
-formats disks, resets receipts, changes permissions or stops a service.
+Without --apply this only reports slot entries. Apply removes empty directories
+and the exact unused Codex --version launcher links/empty lock. Preserves other
+files/links; never formats disks, resets receipts, changes permissions or stops a service.
 """
 import argparse
 import json
@@ -29,7 +30,7 @@ def remaining_entries(slot, limit=64):
                 info=child.stat(follow_symlinks=False)
                 kind='directory' if stat.S_ISDIR(info.st_mode) else 'link' if stat.S_ISLNK(info.st_mode) else 'file'
                 entries.append(dict(path=str(Path(child.path).relative_to(slot)),kind=kind,bytes=info.st_size))
-                if kind=='directory' and depth<4:pending.append((Path(child.path),depth+1))
+                if kind=='directory' and depth<8:pending.append((Path(child.path),depth+1))
     return entries
 
 
