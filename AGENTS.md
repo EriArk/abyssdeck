@@ -1,5 +1,21 @@
 # AGENTS.md
 
+## Owner-requested coherent themes and adjustable panels (2026-10-02)
+
+- Develop CRT Green and Hi-Tech 2000 toward TrainerOS's continuous chassis,
+  recessed screen and frame-attached controls across the common themes, not
+  only Files. Preserve their distinct materials, existing casing choices and
+  theme identity; Organizer retains its book/paper character.
+- Side-by-side vertical panels need adjustable widths wherever they exist.
+  Reuse a shared splitter with pointer/touch/keyboard access, usable minimum
+  widths and local per-layout persistence. Narrow phone layouts retain reversible
+  single-panel navigation. Do not add panels where the workflow does not need them.
+- File preview tools should use understandable compact icons with accessible
+  labels and discoverable explanations. Keep existing shared format handlers.
+- The first deliverable is a reviewable visual concept; see
+  `polish/10-themes/device-study/README.md`. Approval of the direction is not
+  acceptance of every detail of that mockup or proof of production installation.
+
 ## Owner-requested ordinary-use feedback (2026-10-02)
 
 - Do not keep physical-device acceptance as a separate mandatory stage. Investigate
