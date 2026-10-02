@@ -26,16 +26,16 @@ PID 16688 survived deployment. Live Hub inspection/history returns AltarAppsRebo
 interrupted, no active turn/questions; subsequent background polling did not
 revive its stale external status. TrainerOS and this CodexWeb turn remain active.
 
-**Worker activation is pending, not yet accepted:** the unified package prepared
-worker release `f015dd36e3759fcdc601645fb80b34e5c1aa2bb5713b50053af1e91566ed8f45`
-(broker SHA-256 `9fc1aa45741c4918c79bb455677bce9dac284580be8aeb2eb24b42b920ce7f93`).
-Companion is waiting for current native turns to finish through normal Hub
-maintenance. The owner was asked whether to interrupt TrainerOS for this switch;
-no interruption has been authorized in response yet. A read-only watcher writes
-`.local/runtime-exit234/installed-worker.json` after checking actual process/hash
-and cleared Hub maintenance receipt. Verify that result before calling the
-persistent worker updated. The earlier standalone binary replacement script was
-superseded and never applied.
+**Worker activation verified:** Companion completed normal migration to worker
+release `f015dd36e3759fcdc601645fb80b34e5c1aa2bb5713b50053af1e91566ed8f45`.
+The running broker PID 17404 uses that managed release; its SHA-256 matches
+`9fc1aa45741c4918c79bb455677bce9dac284580be8aeb2eb24b42b920ce7f93`.
+Its native child is PID 17436, the task is Running, the Hub maintenance lease is
+released and the local pending lease file is absent. AltarAppsReborn remains
+interrupted with no active turn; TrainerOS is completed. The current CodexWeb
+turn is running on the new executor. Both Hub containers remain healthy on
+`a5511b1`. This confirms the installed worker, not just the UI version.
+The earlier standalone binary replacement script was superseded and never applied.
 
 Passed: real persistent broker oversized-frame/two-turn fixture; four startup-wait
 checks; seven migration/rollback checks; Companion app checks; eleven runtime and
