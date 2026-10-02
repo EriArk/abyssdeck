@@ -2133,8 +2133,10 @@ export function GptWorkspace({
                           files={
                             message.files.length
                               ? message.files
-                              : (currentJobs.find((job) => job.userMessageId === message.id)
-                                  ?.files ?? [])
+                              : (currentJobs.find((job) => {
+                                  const index = gptJobUser(job, messages);
+                                  return index >= 0 && messages[index]?.id === message.id;
+                                })?.files ?? [])
                           }
                         />
                       ) : (

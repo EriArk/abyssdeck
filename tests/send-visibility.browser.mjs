@@ -182,7 +182,6 @@ for (const [engine, type] of [
         );
         await expect(page.locator('[data-message="canonical-user"]')).toBeVisible();
       } else {
-        job.userMessageId = "canonical-user";
         job.status = "running";
         job.updatedAt = Date.now();
         // Native text can arrive before attachment metadata; keep the exact upload.
@@ -191,7 +190,7 @@ for (const [engine, type] of [
             id: "canonical-user",
             role: "user",
             text: job.text,
-            createdAt: Date.now() / 1000,
+            createdAt: job.createdAt / 1000,
             files: [],
           },
         ];
