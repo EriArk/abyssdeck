@@ -2,15 +2,17 @@ param([Parameter(Mandatory=$true)][string]$PackageDirectory)
 $ErrorActionPreference='Stop'
 $package=(Resolve-Path $PackageDirectory).Path
 $source=[IO.File]::ReadAllText((Join-Path $PSScriptRoot '../ops/windows/Install-Browser.ps1'))
+# Installer state-machine tests never launch a real runtime or winget.
+$source=$source.Replace("& (Join-Path `$package 'CodexWebBrowser.exe') --runtime 2>`$null", "'fixture-runtime'")
 $tokens=$null;$errors=$null
 $ast=[Management.Automation.Language.Parser]::ParseInput($source,[ref]$tokens,[ref]$errors)
 if($errors.Count){throw 'Installer parse failed'}
 $call=$ast.Find({param($a)$a -is [Management.Automation.Language.FunctionDefinitionAst] -and $a.Name -eq 'Browser-Call'},$true)
-$source=$source.Substring(0,$call.Extent.StartOffset)+'function Browser-Call {param($name) if($name -eq "shutdown_idle"){if($script:failStartup){$script:closing=2;return @{stopped=$true}};return @{stopped=$false}};if($script:failStartup){throw "fixture startup failure"};return @{ready=$true;webViewVersion="fixture"}}'+$source.Substring($call.Extent.EndOffset)
+$source=$source.Substring(0,$call.Extent.StartOffset)+'function Browser-Call {param($name) if($name -eq "shutdown_idle"){if($script:failStartup){$script:closing=2;return @{stopped=$true}};return @{stopped=$false}};if($script:failStartup){throw "fixture startup failure"};return @{ready=$true;webViewVersion="fixture";version=$script:hostVersion}}'+$source.Substring($call.Extent.EndOffset)
 $root=Join-Path $env:TEMP ('cw-browser-install-'+[Guid]::NewGuid().ToString('N'))
 $original=$env:LOCALAPPDATA;$env:LOCALAPPDATA=$root
 $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
-$script:task=$null;$script:writes=0;$script:failStartup=$false;$script:closing=0
+$script:hostVersion='1.0.1';$script:task=$null;$script:writes=0;$script:failStartup=$false;$script:closing=0
 function Get-ScheduledTask {param($TaskName,$ErrorAction) if($script:closing -gt 0){$script:closing--;if($script:closing -eq 0){$script:task.State='Ready'}};$script:task}
 function Export-ScheduledTask {param($TaskName) 'fixture-task'}
 function New-ScheduledTaskAction {param($Execute,$Argument,$WorkingDirectory) [pscustomobject]@{Execute=$Execute;Arguments=$Argument;WorkingDirectory=$WorkingDirectory}}
@@ -38,6 +40,12 @@ try{
  $result=& $run -PackageDirectory $package -SkipMcpRegistration -ExpectedSid $sid | ConvertFrom-Json
  if($result.state -ne 'waitingIdle' -or $writes -ne 2){throw 'Open browser work was interrupted'}
  'PASS busy browser retains task, pointer and profile'
+ $script:hostVersion='1.0.0'
+ $result=& $run -PackageDirectory $package -SkipMcpRegistration -ExpectedSid $sid | ConvertFrom-Json
+ if($result.state -ne 'waitingRestart' -or $writes -ne 2){throw 'Legacy browser wait misreported or active process changed'}
+ 'PASS legacy host is explicitly pending restart, never forcibly stopped'
+ $script:hostVersion='1.0.1'
+
  # Same exact package with a damaged immutable file repairs to a fresh address.
  $script:task.State='Ready'
  $old=(Get-Content $pointer -Raw|ConvertFrom-Json).release

@@ -15,7 +15,8 @@ function Get-ScheduledTask {param($TaskName,$ErrorAction)
  [pscustomobject]@{State=$(if($script:race){'Running'}elseif($data.Task.Settings.Enabled -eq 'false'){'Disabled'}else{'Ready'});Principal=[pscustomobject]@{UserId=$expectedSid;LogonType='Interactive';RunLevel='Limited'};Actions=@([pscustomobject]@{Execute=[string]$data.Task.Actions.Exec.Command;Arguments=[string]$data.Task.Actions.Exec.Arguments;WorkingDirectory=[string]$data.Task.Actions.Exec.WorkingDirectory})}
 }
 function Export-ScheduledTask {param($TaskName,$ErrorAction) $script:xml}
-function Disable-ScheduledTask {param($TaskName)
+function Disable-ScheduledTask {param($TaskName,$ErrorAction)
+ if($script:denied){throw [UnauthorizedAccessException]::new('fixture access denied')}
  if($script:xml -notmatch '<Enabled>'){$script:xml=$script:xml.Replace('<Settings>','<Settings><Enabled>false</Enabled>')}else{[xml]$data=$script:xml;$data.Task.Settings.Enabled='false';$script:xml=$data.OuterXml};$script:effects++
 }
 function Enable-ScheduledTask {param($TaskName)
@@ -73,6 +74,32 @@ try {
  try{& ([scriptblock]::Create($code))|Out-Null;throw 'Config race accepted'}catch{if($_.Exception.Message -notmatch 'WORKER_CONFIG_CHANGED'){throw}}
  if($script:effects -ne $before){throw 'Changed config caused a task effect'}
  'PASS config fingerprint race refuses mutation; accepted receipts remain exact'
+ [IO.File]::WriteAllText($config,'{"node":"fixture-runtime","private":"preserve"}')
+ Remove-Item -LiteralPath $journal
+ $script:denied=$true;$script:xml=$original;$expectedTaskDigest=Digest $original;$before=$script:effects
+ $reply=(& ([scriptblock]::Create($code)))|ConvertFrom-Json
+ if($reply.state -ne 'needsElevation' -or $script:effects -ne $before -or $script:xml -cne $original){throw 'Permission failure altered task or hid elevation requirement'}
+ 'PASS denied task management records actionable permission state without task changes'
+ $script:denied=$false
+ $reply=(& ([scriptblock]::Create($code)))|ConvertFrom-Json
+ if($reply.state -ne 'installed'){throw 'Permission repair did not resume'}
+ 'PASS permission repair reconciles original task and completes one migration'
+ $rollback=$true;$expectedTaskDigest=Digest $script:xml
+ & ([scriptblock]::Create($code))|Out-Null
+ $rollback=$false;$retry=$true;$expectedTaskDigest=Digest $script:xml
+ $reply=(& ([scriptblock]::Create($code)))|ConvertFrom-Json
+ if($reply.state -ne 'installed'){throw 'Explicit retry stayed permanently blocked'}
+ 'PASS explicit repair retries a confirmed rollback'
+ $retry=$false
+ # Historical crash after writing disabling but before denied Disable returned.
+ $old=Get-Content -LiteralPath $journal -Raw|ConvertFrom-Json
+ $old.state='disabling';$old.originalXml=$original
+ [IO.File]::WriteAllText($journal,($old|ConvertTo-Json -Compress))
+ $script:xml=$original;$expectedTaskDigest=Digest $original;$script:denied=$true;$before=$script:effects
+ $reply=(& ([scriptblock]::Create($code)))|ConvertFrom-Json
+ if($reply.state -ne 'needsElevation' -or $script:effects -ne $before){throw 'Old disabling receipt did not reconcile safely'}
+ 'PASS old disabling journal becomes explicit elevation state without replaying effects'
+
 }finally{
  $env:LOCALAPPDATA=$originalLocal
  $resolved=[IO.Path]::GetFullPath($fixtureRoot)

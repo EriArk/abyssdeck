@@ -1,5 +1,40 @@
 # Текущий остаток — 2 октября 2026
 
+## Companion 0.5.5: prepared only, installation held by owner (2026-10-02)
+
+The owner is away from the PC and explicitly deferred Companion installation,
+component switching, process restarts and publication to its automatic update
+feed. This stage changes source and builds an isolated candidate only. Installed
+0.5.4 and the verified worker below remain the last accepted runtime baseline.
+
+The overview/settings now summarize versions of the components shipped in the
+installed signed package. A UI update receipt no longer claims that all workers
+are updated. Per-component confirmation compares source and installed bytes,
+task/configuration receipts and actual readiness; old/damaged releases, rollback,
+pending Hub confirmation and missing/disabled components remain explicit.
+Repair remains reachable even when the older component is operational.
+
+The old FileLaunch `disabling` journal is reconciled against the unchanged task.
+A denied task update records `needsElevation`; its repair button invokes standard
+Windows UAC for that exact same-user Limited demand task. Cancellation preserves
+it. The elevated repair grants read/write/execute for that task to its own user,
+not full control or a higher run level. A confirmed rollback can be retried by an
+explicit repair, while automatic ticks still do not reinstall a rejected release.
+
+Browser 1.0.0 lacks `shutdown_idle`. It now reports `waitingRestart` and does not
+receive repeated unsupported shutdown requests while that old host remains live.
+The first installed transition still needs completion when the owner is home;
+this stage does not forcibly terminate the browser or its tabs. Later versions
+retain their existing idle-only transition. Healthy current browser/worker
+versions skip repeated installer launches.
+
+Validation: 19 new read-only version/readiness fixtures plus existing Companion
+checks; 11 worker migration/rollback/permission fixtures; six browser installer
+fixtures including old-host waiting; render fixtures of the actual component
+cards at 650/840 px in all four Companion themes. Visual captures are isolated
+from the installed app. Actual UAC acceptance, the first browser transition and
+friend-PC acceptance remain pending. Package activation is deliberately withheld.
+
 ## Companion 0.5.4 and reboot recovery (#234, 2026-10-02)
 
 A prepared coordinated release fixes the interrupted AltarAppsReborn/TrainerOS

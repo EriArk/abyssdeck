@@ -65,6 +65,10 @@ if($task -and $task.State -eq 'Running'){
  $same=$current -and $current.release -ceq $manifest.release -and $task.Actions[0].Execute -ceq (Join-Path $target ('runtime/'+$manifest.release+'/CodexWebBrowserHost.exe'))
  if($same){foreach($entry in $manifest.files.PSObject.Properties){try{if((Get-FileHash -LiteralPath (Join-Path $target ('runtime/'+$manifest.release+'/'+$entry.Name))).Hash -ne $entry.Value){$same=$false}}catch{$same=$false}}}
  if($same){$health=Browser-Call 'status';if($health.ready -and $health.webViewVersion){Copy-Item -LiteralPath (Join-Path $package 'Start-Browser.ps1') -Destination (Join-Path $target 'Start-Browser.ps1') -Force;Ensure-Mcp;Reply 'installed';return}}
+ # Version 1.0.0 has no idle shutdown command. Do not report that it will
+ # finish automatically or keep sending an unsupported mutation every poll.
+ $health=Browser-Call 'status'
+ if($health.version -ceq '1.0.0'){Reply 'waitingRestart';return}
  try{$shutdown=Browser-Call 'shutdown_idle'}catch{Reply 'waitingIdle';return}
  if(-not $shutdown.stopped){Reply 'waitingIdle';return}
  for($attempt=0;$attempt -lt 20;$attempt++){Start-Sleep -Milliseconds 250;$task=Get-ScheduledTask -TaskName $taskName;if($task.State -ne 'Running'){break}}

@@ -38,6 +38,19 @@ function Save-Journal {
  if(Test-Path -LiteralPath $journalPath){[IO.File]::Replace($temp,$journalPath,[NullString]::Value)}else{[IO.File]::Move($temp,$journalPath)}
 }
 function Reply([string]$state){[ordered]@{state=$state;componentId=$componentId;release=$releaseDigest}|ConvertTo-Json -Compress}
+function Allow-OwnTaskManagement {
+ if(-not $allowTaskManagement){return}
+ if($native -or -not ([Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent())).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'WORKER_ELEVATION_REQUIRED'}
+ $verified=Own-Task
+ if($verified.Actions[0].Execute -cne $command -or $verified.Actions[0].Arguments -cne $arguments){throw 'WORKER_TASK_CHANGED'}
+ $service=New-Object -ComObject 'Schedule.Service';$service.Connect()
+ $registered=$service.GetFolder('\').GetTask($componentId)
+ $descriptor=[Security.AccessControl.CommonSecurityDescriptor]::new($false,$false,$registered.GetSecurityDescriptor(4))
+ # Generic read/write/execute on this exact Limited task only; no ownership,
+ # ACL-management or full-control grant to the unelevated user.
+ $descriptor.DiscretionaryAcl.AddAccess([Security.AccessControl.AccessControlType]::Allow,[Security.Principal.SecurityIdentifier]::new($expectedSid),[int]-536870912,[Security.AccessControl.InheritanceFlags]::None,[Security.AccessControl.PropagationFlags]::None)
+ $registered.SetSecurityDescriptor($descriptor.GetSddlForm([Security.AccessControl.AccessControlSections]::Access),0)
+}
 function Native-Idle {
  $all=@(Get-CimInstance Win32_Process -ErrorAction Stop)
  $brokers=@($all|Where-Object {$_.Name -eq 'CodexWebCompanion.exe' -and $_.ExecutablePath -and ($_.ExecutablePath -ceq (Join-Path $module 'CodexWebCompanion.exe') -or $_.ExecutablePath.StartsWith($releaseRoot.TrimEnd('\')+'\',[StringComparison]::OrdinalIgnoreCase))})
@@ -112,14 +125,15 @@ try {
    Register-ScheduledTask -TaskName $componentId -Xml $journal.originalXml -Force|Out-Null
    $journal.state='rolledBack';Save-Journal;Reply 'rolledBack';return
   }
-  if($journal.release -ceq $releaseDigest -and $journal.state -ceq 'rolledBack'){Reply 'rolledBack';return}
+  if(-not $retry -and $journal.release -ceq $releaseDigest -and $journal.state -ceq 'rolledBack'){Reply 'rolledBack';return}
   # An accepted switch with a lost reply is observed, never performed twice.
   if($journal.release -ceq $releaseDigest -and $task.Actions[0].Execute -ceq $command -and $task.Actions[0].Arguments -ceq $arguments -and $task.Actions[0].WorkingDirectory -ceq $module){
    if($task.State -notin @('Ready','Running')){throw 'WORKER_TASK_NOT_READY'}
    if($native -and -not(Wait-NativeReady)){throw 'WORKER_ACTIVATION_FAILED'}
-   $journal.state='installed';$journal.taskDigest=Hash-Text (Task-Xml);Save-Journal;Reply 'installed';return
+   Allow-OwnTaskManagement
+   $journal.state='installed';$journal.configHash=$expectedConfigHash;$journal.taskDigest=Hash-Text (Task-Xml);Save-Journal;Reply 'installed';return
   }
-  if($journal.state -in @('disabling','switching')){
+  if($journal.state -in @('disabling','switching','needsElevation')){
    # Restore an interrupted admission change only if the entire XML still matches.
    $current=Task-Xml
    if((Admission-Xml $current) -ceq (Admission-Xml $journal.originalXml) -and $task.State -eq 'Disabled'){
@@ -141,7 +155,10 @@ try {
  # Exported XML serialization is normalized below after Disable. An interruption
  # between these operations must reconcile the known Enabled-only change.
  $journal.disabledDigest=Hash-Text $disabled.OuterXml;Save-Journal
- Disable-ScheduledTask -TaskName $componentId|Out-Null
+ try {Disable-ScheduledTask -TaskName $componentId -ErrorAction Stop|Out-Null} catch {
+  if($_.FullyQualifiedErrorId -match '0x80070005' -or $_.Exception.HResult -eq -2147024891){$journal.state='needsElevation';Save-Journal;Reply 'needsElevation';return}
+  throw
+ }
  $task=Own-Task
  if((Admission-Xml (Task-Xml)) -cne (Admission-Xml $original)){throw 'WORKER_TASK_CHANGED'}
  $journal.disabledDigest=Hash-Text (Task-Xml);Save-Journal
@@ -171,6 +188,7 @@ try {
   if($native){Start-ScheduledTask -TaskName $componentId;if(-not(Wait-NativeReady)){throw 'WORKER_ACTIVATION_FAILED'}}
   $task=Own-Task
   if($task.State -notin @('Ready','Running') -or $task.Actions[0].Execute -cne $command -or $task.Actions[0].Arguments -cne $arguments -or $task.Actions[0].WorkingDirectory -cne $module){throw 'WORKER_ACTIVATION_FAILED'}
+  Allow-OwnTaskManagement
   $journal.state='installed';$journal.taskDigest=Hash-Text (Task-Xml);Save-Journal;Reply 'installed'
  } catch {
   $task=Own-Task

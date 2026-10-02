@@ -22,6 +22,7 @@ public sealed class MainWindow : Window, IDisposable
     readonly RecoveryManager recovery;
     readonly WorkerManager workers;
     readonly BrowserComponent browser;
+    ComponentUpdate[] componentUpdates = [];
     bool maintaining;
     double[]? restoreOffsets;
     TextBlock updateText = new();
@@ -245,7 +246,7 @@ public sealed class MainWindow : Window, IDisposable
                 Text("Обзор показывает связь с Hub и рабочие папки. Компоненты проверяются раз в 30 секунд; кнопка проверки обновляет состояние сразу."),
                 Text("Готов по запросу — нормальное состояние: компонент запустится, когда понадобится. Занято — текущая работа продолжается."),
                 Text("После восстановления сети связь проверяется автоматически. Известный остановленный вспомогательный компонент может восстановиться сам; после повторных сбоев попытки замедляются. Сообщения, команды и действия не отправляются повторно."),
-                Text("Управляемые компоненты отмечены отдельной галочкой. Их программы хранятся по версиям, а настройки и квитанции остаются на прежнем месте. Кнопка возврата восстанавливает предыдущую версию вспомогательного компонента, когда он свободен. Codex переключается отдельно после проверки Hub."),
+                Text("Галочка версии означает сверку файлов с подписанным пакетом, настройки задачи и готовности. Общий счётчик показывает незавершённые переходы. Ремонт старой задачи может запросить подтверждение Windows; отмена сохраняет прежний компонент. Их программы хранятся по версиям, а настройки и квитанции остаются на прежнем месте. Кнопка возврата восстанавливает предыдущую версию вспомогательного компонента, когда он свободен. Codex переключается отдельно после проверки Hub."),
                 Text("Кнопка CodexWeb открывает веб. Аккаунты, приглашения и управление Hub остаются там; полная справка доступна в настройках веба."),
                 Text("Отчёт сохраняется в выбранный локальный файл. Он не содержит паролей, токенов или текста чатов.")))
             });
@@ -320,7 +321,7 @@ public sealed class MainWindow : Window, IDisposable
             await accountTask;
             if (disposed) return;
             if (expected != generation) { refreshAgain = true; return; }
-            snapshot = result; probeError = null; RenderSnapshot();
+            snapshot = result; probeError = null; await ReadComponentUpdates(); RenderSnapshot();
         }
         catch { if (!disposed) { probeError = "Проверка недоступна. Повторим автоматически; текущее состояние сохранено."; RenderSnapshot(); } }
         finally
@@ -338,7 +339,16 @@ public sealed class MainWindow : Window, IDisposable
     bool UpdateIdle => !operating && !setup.Running && !recovery.Running && !workers.Running && !refreshing
         && string.IsNullOrEmpty(passwordField.Text) && hubDraft.Trim().TrimEnd('/')==profile.HubOrigin
         && (!loginControls.IsVisible || string.IsNullOrEmpty(loginField.Text)) && connectionAddress.Text==profile.HubOrigin;
-    public async Task CheckUpdates() {await updates.Check(true);if(!disposed)RenderSnapshot();}
+    async Task ReadComponentUpdates() {
+        var current=snapshot;var expected=generation;
+        if(current is null){componentUpdates=[];return;}
+        var result=await Task.Run(()=>{
+            string? kit=null;try{kit=updates.VerifiedHelpers;}catch{}
+            return new ComponentUpdates(store).Inspect(current,kit);
+        });
+        if(!disposed && expected==generation && ReferenceEquals(snapshot,current))componentUpdates=result;
+    }
+    public async Task CheckUpdates() {await updates.Check(true);await ReadComponentUpdates();if(!disposed)RenderSnapshot();}
     void ApplyUpdate() {
         if(!UpdateIdle || !accountReady){notice="Дождись настройки и сохрани ввод перед обновлением.";RenderSnapshot();return;}
         try {updates.StartActivation(selectedPage,pages.Select(p=>p.Offset.Y).ToArray());app.Exit();}catch(Exception e){notice=e is IOException?e.Message:"Обновление пока не запустилось.";RenderSnapshot();}
@@ -353,7 +363,7 @@ public sealed class MainWindow : Window, IDisposable
                 string? workerKit=null;try {workerKit=updates.VerifiedHelpers;}catch { }
                 if(workerKit is not null){
                     var browserSource=snapshot.Inventory.Components.FirstOrDefault(c=>c.Id=="CodexWebBrowser");
-                    if(browserSource is not null)try{await browser.Ensure(browserSource,snapshot.Inventory,workerKit,true);}catch{}
+                    if(browserSource is not null && componentUpdates.FirstOrDefault(c=>c.Id==browserSource.Id)?.Current!=true)try{await browser.Ensure(browserSource,snapshot.Inventory,workerKit,true);}catch{}
                     await workers.Update(snapshot,workerKit);snapshot=await readiness.Refresh(profile);
                 }
             }
@@ -365,6 +375,7 @@ public sealed class MainWindow : Window, IDisposable
                 snapshot=recovered;
             }
             if(expected!=generation || disposed)return;
+            await ReadComponentUpdates();
             RenderSnapshot();
             if(profile.AutoUpdates && updates.State.State=="ready" && !IsVisible && UpdateIdle)ApplyUpdate();
         } catch { /* A maintenance failure never owns or restarts a native turn. */ }
@@ -383,7 +394,7 @@ public sealed class MainWindow : Window, IDisposable
     }
     void RenderSnapshot()
     {
-        updateText.Text=updates.Description;
+        updateText.Text=updates.Description+"\n"+ComponentUpdates.Summary(componentUpdates);
         updateApply.IsEnabled=updates.State.State=="ready" && !updates.Running && !operating && !setup.Running;
         overview.Children.Clear(); components.Children.Clear();
         overview.Children.Add(connectionCard);
@@ -434,6 +445,7 @@ public sealed class MainWindow : Window, IDisposable
             Text("Маршрут: " + profile.Route + (profile.DeviceId.Length > 0 ? " · " + profile.DeviceId : ""), muted: true))));
         var readyCount = s.Components.Count(x => !x.Attention && x.State is "Запущен" or "Занято" or "Готов по запросу");
         overview.Children.Add(Section(Stack(Text($"Компоненты · {readyCount} из {s.Components.Length} доступны", 20, bold: true),
+            Text(ComponentUpdates.Summary(componentUpdates),bold:true),
             Text(s.Inventory.NativeProcesses.Length > 0 ? "Codex запущен независимо от интерфейса" : "Постоянный Companion работает независимо от этого окна", muted: true),
             Row(Button("Все компоненты", () => SelectPage(1)), Button("Открыть CodexWeb", OpenWeb)))));
         if (s.Notice is not null) overview.Children.Add(Section(Text(s.Notice)));
@@ -453,10 +465,11 @@ public sealed class MainWindow : Window, IDisposable
             state.Foreground = Themes.Brush(c.Attention ? palette.Danger : palette.Accent); Grid.SetColumn(state, 1); row.Children.Add(state);
             var content = Stack(row);
             if(source.Id=="CodexWebBrowser" && browser.State.Length>0)content.Children.Add(Text(browser.State,muted:true));
-            var managed=workers.Description(source);if(managed.Length>0)content.Children.Add(Text(managed,muted:true));
+            var update=componentUpdates.FirstOrDefault(x=>x.Id==source.Id);
+            if(update is not null)content.Children.Add(Text(update.Detail,muted:true));
             var recovering=recovery.Description(source);if(recovering.Length>0)content.Children.Add(Text(recovering,muted:true));
-            if (c.Attention || c.State == "Выключен" || c.State == "Не используется" && source.Id == "CodexWebComputerUse") {
-                var repair = Button("Исправить и проверить", () => _ = RunOperation(async () => {
+            if (update?.Repair==true || c.Attention || c.State == "Выключен" || c.State == "Не используется" && source.Id == "CodexWebComputerUse") {
+                var repair = Button(update?.Elevation==true ? "Ремонт с подтверждением Windows" : "Исправить и проверить", () => _ = RunOperation(async () => {
                     if (source.Id=="CodexWebBrowser") {
                         if(!accountReady)throw new IOException("Сначала войди в Hub.");
                         await updates.Check(true);
@@ -465,15 +478,21 @@ public sealed class MainWindow : Window, IDisposable
                     } else if (profile.DeviceId.Length == 0 && (!source.Installed || !source.ExecutableExists)) {
                         if (!accountReady) { SelectPage(0); throw new IOException("Сначала войди в Hub в Обзоре."); }
                         await setup.Start();
-                    } else if(WorkerManager.Candidate(source) && updates.VerifiedHelpers is { } kit) await workers.Migrate(source,s.Inventory,kit);
+                    } else if(WorkerManager.Candidate(source) && updates.VerifiedHelpers is { } kit) {
+                        if(!accountReady)throw new IOException("Сначала войди в Hub.");
+                        if(update?.State=="unavailable" && source.State=="Ready" && source.ExecutableExists)await setup.Repair(source,s.Inventory,kit);
+                        else if(update?.Elevation==true)await workers.Elevate(source,s.Inventory,kit);
+                        else await workers.Migrate(source,s.Inventory,kit,retry:true);
+                        notice=workers.State;
+                    }
                     else await setup.Repair(source, s.Inventory);
-                    await Refresh(); })); repair.IsEnabled = !operating && !setup.Running && !maintaining && (source.State != "Running" || source.Id=="CodexWebBrowser"); content.Children.Add(repair);
+                    await Refresh(); })); repair.IsEnabled = !operating && !setup.Running && !maintaining && (source.State != "Running" || source.Id is "CodexWebBrowser" or "CodexWebCompanionPersistent"); content.Children.Add(repair);
             }
-            if(managed.StartsWith("✓") && WorkerManager.Candidate(source) && source.Id!="CodexWebCompanionPersistent") {
+            if(update?.Current==true && WorkerManager.Candidate(source) && source.Id!="CodexWebCompanionPersistent") {
                 var restore=Button("Вернуть предыдущую версию",()=>_ = RunOperation(async()=> {
                     var kit=updates.VerifiedHelpers??throw new IOException("Сначала проверь подписанное обновление.");
                     await workers.Migrate(source,s.Inventory,kit,true);notice=workers.State;await Refresh();
-                }));restore.IsEnabled=!operating && !workers.Running && source.State=="Ready";content.Children.Add(restore);
+                }));restore.IsEnabled=!operating && !maintaining && !workers.Running && source.State=="Ready";content.Children.Add(restore);
             }
             components.Children.Add(Section(content));
         }
@@ -496,6 +515,7 @@ public sealed class MainWindow : Window, IDisposable
             hub = new { origin = profile.HubOrigin, state = snapshot.HubState },
             computer = snapshot.Inventory.Computer,
             components = snapshot.Components,
+            componentUpdates,
             nativeProcesses = snapshot.Inventory.NativeProcesses,
             note = "Без паролей, токенов, текста чатов и полного содержимого конфигураций"
         };

@@ -38,22 +38,6 @@ public sealed class WorkerManager(SettingsStore settings, HubConnection? hub = n
         if(encoded.Length>16000)throw new IOException("Команда переключения слишком длинная.");
         return encoded;
     }
-    public string Description(Component component) {
-        try {
-            var path=Path.Combine(settings.Directory,"workers","state",component.Id+".json"); SettingsStore.NoLinks(path);
-            if(!File.Exists(path)) return component.Id=="CodexWebCompanionPersistent" && File.Exists(Path.Combine(settings.Directory,"workers","native-operation.json"))
-                ? "Обновление Codex ждёт подтверждённого простоя" : "";
-            if(new FileInfo(path).Length>65536)throw new IOException();
-            using var json=JsonDocument.Parse(File.ReadAllBytes(path));var value=json.RootElement;
-            if(value.GetProperty("sid").GetString()!=settings.Sid || value.GetProperty("componentId").GetString()!=component.Id)throw new IOException();
-            return value.GetProperty("state").GetString() switch {
-                "installed"=>"✓ Версия управляется Companion",
-                "rolledBack"=>"Возвращена предыдущая версия; повторное переключение отложено",
-                "waitingIdle"=>"Обновление ждёт завершения работы",
-                _=>"Проверяем результат переключения"
-            };
-        } catch { return "Журнал переключения требует проверки"; }
-    }
     public static (string Directory,string Digest) Prepare(string appDirectory,string verifiedKit,string componentId) {
         if(!Files.TryGetValue(componentId,out var names))throw new IOException("Этот компонент требует отдельного перехода.");
         SettingsStore.NoLinks(verifiedKit); SettingsStore.NoLinks(appDirectory);
@@ -98,7 +82,7 @@ public sealed class WorkerManager(SettingsStore settings, HubConnection? hub = n
         }
         return (directory,digest);
     }
-    public async Task Migrate(Component component, Inventory inventory, string verifiedKit, bool rollback = false) {
+    public async Task Migrate(Component component, Inventory inventory, string verifiedKit, bool rollback = false, bool retry = false) {
         if(Running || !Candidate(component) || inventory.Sid!=settings.Sid)throw new IOException("Сначала проверь компоненты этого пользователя.");
         Running=true;
         try {
@@ -112,7 +96,8 @@ public sealed class WorkerManager(SettingsStore settings, HubConnection? hub = n
             if(!rollback && File.Exists(journalPath) && (component.Id!="CodexWebCompanionPersistent" || !File.Exists(leasePath))) {
                 if(new FileInfo(journalPath).Length>65536)throw new IOException("Журнал перехода повреждён.");
                 using var existing=JsonDocument.Parse(File.ReadAllBytes(journalPath));var value=existing.RootElement;
-                if(value.GetProperty("sid").GetString()==settings.Sid && value.GetProperty("release").GetString()==release.Digest
+                if(value.GetProperty("sid").GetString()!=settings.Sid || value.GetProperty("componentId").GetString()!=component.Id)throw new IOException("Журнал другого компонента.");
+                if(!retry && value.GetProperty("sid").GetString()==settings.Sid && value.GetProperty("release").GetString()==release.Digest
                     && value.GetProperty("state").GetString()=="rolledBack") {State="Сохранена предыдущая версия; обновление отложено";return;}
                 if(value.GetProperty("sid").GetString()==settings.Sid && value.GetProperty("release").GetString()==release.Digest
                     && value.GetProperty("state").GetString()=="installed" && value.GetProperty("taskDigest").GetString()==component.TaskDigest
@@ -135,7 +120,7 @@ public sealed class WorkerManager(SettingsStore settings, HubConnection? hub = n
             using var stream=Assembly.GetExecutingAssembly().GetManifestResourceStream("CodexWeb.Companion.Migrate-CompanionWorker.ps1")!;
             using var reader=new StreamReader(stream);var script=await reader.ReadToEndAsync();
             static string Quoted(string value)=>"'"+value.Replace("'","''")+"'";
-            var prefix="$componentId="+Quoted(component.Id)+";$expectedSid="+Quoted(settings.Sid)+";$expectedTaskDigest="+Quoted(component.TaskDigest)
+            var prefix="$retry="+(retry?"$true":"$false")+";$allowTaskManagement=$false;$componentId="+Quoted(component.Id)+";$expectedSid="+Quoted(settings.Sid)+";$expectedTaskDigest="+Quoted(component.TaskDigest)
                 +";$expectedConfigHash="+Quoted(ReleaseVerifier.HashFile(config))+";$releaseDirectory="+Quoted(release.Directory)
                 +";$releaseDigest="+Quoted(release.Digest)+";$nativeLease="+Quoted(nativeLease)+";$rollback="+(rollback?"$true":"$false")+";";
             var start=new ProcessStartInfo(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),@"WindowsPowerShell\v1.0\powershell.exe")) {
@@ -154,7 +139,7 @@ public sealed class WorkerManager(SettingsStore settings, HubConnection? hub = n
                 if(confirmed.GetProperty("state").GetString()!="released")throw new IOException("Hub проверяет новый исполнитель.");
                 File.Delete(leasePath);
             }
-            State=result.State switch {"installed"=>"✓ Компонент обновлён", "busy"=>"Обновление ждёт завершения работы", "rolledBack"=>"Сохранена предыдущая версия", _=>"Компонент отключён пользователем"};
+            State=result.State switch {"installed"=>"✓ Компонент обновлён", "busy"=>"Обновление ждёт завершения работы", "rolledBack"=>"Сохранена предыдущая версия", "needsElevation"=>"Нужно подтверждение Windows; нажми ремонт компонента", "disabled"=>"Компонент отключён пользователем", _=>"Результат переключения ещё не подтверждён"};
         } finally {Running=false;}
     }
     public async Task Update(Snapshot snapshot, string verifiedKit) {
@@ -162,7 +147,30 @@ public sealed class WorkerManager(SettingsStore settings, HubConnection? hub = n
         foreach(var component in snapshot.Inventory.Components.Where(Candidate)) {
             if(attempts.TryGetValue(component.Id,out var last) && DateTimeOffset.UtcNow-last<TimeSpan.FromMinutes(2))continue;
             attempts[component.Id]=DateTimeOffset.UtcNow;
-            try {await Migrate(component,snapshot.Inventory,verifiedKit);} catch {State="Обновление компонента ждёт подтверждения состояния";}
+            try {
+                var health=snapshot.Components.ElementAtOrDefault(Array.IndexOf(snapshot.Inventory.Components,component));
+                var status=new ComponentUpdates(settings).Inspect(component,true,verifiedKit,health);
+                if(status.Current || status.Elevation)continue;
+                await Migrate(component,snapshot.Inventory,verifiedKit);
+            } catch {State="Обновление компонента ждёт подтверждения состояния";}
         }
+    }
+    public async Task Elevate(Component component, Inventory inventory, string verifiedKit) {
+        if(Running || component.State!="Ready" || component.Id=="CodexWebCompanionPersistent" || !Candidate(component) || inventory.Sid!=settings.Sid)throw new IOException("Проверь компонент перед ремонтом.");
+        Running=true;
+        try {
+            var release=Prepare(settings.Directory,verifiedKit,component.Id);
+            var config=Path.Combine(settings.Directory,"..",component.Folder,"config.json");SettingsStore.NoLinks(config);
+            using var stream=Assembly.GetExecutingAssembly().GetManifestResourceStream("CodexWeb.Companion.Migrate-CompanionWorker.ps1")!;
+            using var reader=new StreamReader(stream);var script=await reader.ReadToEndAsync();
+            static string Q(string v)=>"'"+v.Replace("'","''")+"'";
+            var prefix="$componentId="+Q(component.Id)+";$expectedSid="+Q(settings.Sid)+";$expectedTaskDigest="+Q(component.TaskDigest)+";$expectedConfigHash="+Q(ReleaseVerifier.HashFile(config))+";$releaseDirectory="+Q(release.Directory)+";$releaseDigest="+Q(release.Digest)+";$nativeLease='';$rollback=$false;$retry=$true;$allowTaskManagement=$true;";
+            var start=new ProcessStartInfo(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),@"WindowsPowerShell\v1.0\powershell.exe")){UseShellExecute=true,Verb="runas",WindowStyle=ProcessWindowStyle.Hidden};
+            start.Arguments="-NoLogo -NoProfile -NonInteractive -EncodedCommand "+MigrationCommand(settings.Directory,script,prefix);
+            using var process=Process.Start(start)??throw new IOException("Windows не подтвердил ремонт.");await process.WaitForExitAsync();
+            if(process.ExitCode!=0)throw new IOException("Ремонт не подтверждён. Прежние настройки и журнал сохранены.");
+            State="Windows завершил действие; проверяем компонент";
+        } catch(System.ComponentModel.Win32Exception) {throw new IOException("Разрешение Windows не получено; прежний компонент сохранён.");}
+        finally {Running=false;}
     }
 }

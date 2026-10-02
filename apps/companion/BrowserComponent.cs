@@ -26,7 +26,11 @@ public sealed class BrowserComponent(SettingsStore settings)
             var digest=ReleaseVerifier.HashFile(Path.Combine(package,"release.json"));
             var journal=Path.Combine(settings.Directory,"browser-setup.json");SettingsStore.NoLinks(journal);
             if(automatic && File.Exists(journal)) {
+                if(new FileInfo(journal).Length>8192)throw new IOException("Журнал браузера требует проверки.");
                 using var prior=JsonDocument.Parse(File.ReadAllBytes(journal));
+                if(prior.RootElement.GetProperty("release").GetString()==digest && prior.RootElement.GetProperty("state").GetString()=="waitingRestart" && component.State=="Running") {
+                    State="Браузер 1.0.0 ждёт завершения старого процесса для первого обновления";return;
+                }
                 if(prior.RootElement.GetProperty("release").GetString()==digest && prior.RootElement.GetProperty("state").GetString() is "checking" or "needsRuntime" or "failed") {
                     State="Установка браузера ожидает ручной проверки; нажми ремонт";return;
                 }
@@ -51,6 +55,7 @@ public sealed class BrowserComponent(SettingsStore settings)
             State=outcome switch {
                 "installed"=>"Версия браузера проверена",
                 "needsRuntime"=>"Нужен Microsoft WebView2 Runtime: заверши установку Windows и нажми ремонт",
+                "waitingRestart"=>"Браузер 1.0.0 ждёт завершения старого процесса для первого обновления",
                 "waitingIdle"=>"Обновление браузера ожидает завершения работы; открытые вкладки сохранены",
                 _=>throw new IOException("Установка браузера ещё не подтверждена.")
             };

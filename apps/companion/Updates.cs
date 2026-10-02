@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 
 namespace CodexWeb.Companion;
 
-public static class CompanionVersion { public const string Current = "0.5.4"; }
+public static class CompanionVersion { public const string Current = "0.5.5"; }
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record SignedUpdate(int Format, string Payload, string Signature);
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
@@ -111,7 +111,7 @@ public sealed class UpdateManager(SettingsStore settings, HubConnection hub)
         "ready" => "Проверено " + State.Version + " · установим после закрытия окна и завершения настройки",
         "activating" => "Переключаем интерфейс Companion",
         "failed" => "Обновление отложено · " + State.Error,
-        "committed" => "✓ Companion " + CompanionVersion.Current + " · обновление подтверждено",
+        "committed" => "Интерфейс Companion " + CompanionVersion.Current + " · установлен",
         _ => "Companion " + CompanionVersion.Current + " · " + (State.CheckedAt == default ? "ожидаем проверку обновлений" : "проверено " + State.CheckedAt.ToLocalTime().ToString("HH:mm"))
     };
     static string StatePath(SettingsStore settings) => Path.Combine(settings.Directory,"update-state.json");

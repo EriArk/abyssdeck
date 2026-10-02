@@ -1,6 +1,7 @@
 using System.Text.Json;
 using CodexWeb.Companion;
 
+if(args.Length==2 && args[0]=="--render") {CompanionWindowChecks.Render(args[1]);return;}
 if(args.Length==2) {
     var signed=JsonSerializer.Deserialize<SignedUpdate>(File.ReadAllBytes(args[0]),SettingsStore.Json)!;
     var trusted=ReleaseVerifier.Verify(signed);ReleaseVerifier.VerifyPackage(args[1],trusted);
@@ -11,6 +12,7 @@ Directory.CreateDirectory(temporary);
 try
 {
     void Check(bool value, string label) { if (!value) throw new Exception(label); Console.WriteLine("PASS " + label); }
+    ComponentUpdateChecks.Run(temporary,Check);
     var store = new SettingsStore(Path.Combine(temporary, "companion-app"), "fixture-sid");
     var profile = new Profile("fixture-sid", "https://fixture.example", "fixture-device", "LAN");
     store.Save(profile);

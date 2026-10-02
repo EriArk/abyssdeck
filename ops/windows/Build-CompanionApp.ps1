@@ -16,7 +16,7 @@ $probe.UseShellExecute=$false;$probe.CreateNoWindow=$true;$probe.RedirectStandar
 $process=[Diagnostics.Process]::Start($probe)
 try {
     if(-not $process.WaitForExit(15000)){throw 'Published Companion startup probe timed out.'}
-    if($process.ExitCode -ne 0 -or $process.StandardOutput.ReadToEnd().Trim() -ne '0.5.4'){throw 'Published Companion cannot start its bundled runtime.'}
+    if($process.ExitCode -ne 0 -or $process.StandardOutput.ReadToEnd().Trim() -ne '0.5.5'){throw 'Published Companion cannot start its bundled runtime.'}
 } finally {$process.Dispose()}
 foreach($name in @('Install-CompanionApp.ps1','Start-CompanionApp.ps1')) { Copy-Item -LiteralPath (Join-Path $PSScriptRoot $name) -Destination $OutputDirectory }
 & (Join-Path $PSScriptRoot 'Build-Browser.ps1') -OutputDirectory (Join-Path $OutputDirectory 'helpers/browser-package') | Out-Null
@@ -46,6 +46,6 @@ foreach ($file in Get-ChildItem -LiteralPath $OutputDirectory -File -Recurse | S
 if (-not $files.Contains('CodexWeb.Companion.exe')) { throw 'Package does not contain an executable.' }
 $revision = (& git -C $repository rev-parse HEAD).Trim()
 $sourceDirty = [bool](& git -C $repository status --porcelain)
-$manifest = [ordered]@{ format=1; product='codexweb-companion-ui'; version='0.5.4'; platform='win-x64'; sourceRevision=$revision; sourceDirty=$sourceDirty; runtime='10.0.12'; files=$files }
+$manifest = [ordered]@{ format=1; product='codexweb-companion-ui'; version='0.5.5'; platform='win-x64'; sourceRevision=$revision; sourceDirty=$sourceDirty; runtime='10.0.12'; files=$files }
 [IO.File]::WriteAllText((Join-Path $OutputDirectory 'release.json'), ($manifest | ConvertTo-Json -Depth 6), [Text.UTF8Encoding]::new($false))
 @{ package=$OutputDirectory; version=$manifest.version; manifestSha256=(Get-FileHash -LiteralPath (Join-Path $OutputDirectory 'release.json')).Hash.ToLowerInvariant(); files=$files.Count } | ConvertTo-Json -Compress
