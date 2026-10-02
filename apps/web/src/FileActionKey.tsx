@@ -26,8 +26,8 @@ export function FileActionKey({
       <Icon name={icon} size={19} />
       <span className={compact ? "file-action-label" : undefined}>{label}</span>
       {!!count && (
-        <small className="file-command-count" aria-hidden="true">
-          {count}
+        <small className={compact ? "file-command-count" : undefined} aria-hidden="true">
+          {compact ? count : ` · ${count}`}
         </small>
       )}
     </button>
