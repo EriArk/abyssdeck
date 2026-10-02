@@ -17,6 +17,26 @@ import uuid
 from policy import HOME, ROOT, MEMORY, CPUS, PIDS, container_name, container_args, exec_args, podman_command
 
 
+
+def clear_empty_scaffold(slot):
+    """Remove only empty init directories, deepest first; preserve all bytes/links."""
+    slot = Path(slot)
+    if slot.is_symlink() or slot.resolve() != slot:
+        raise RuntimeError('SLOT_PATH_CHANGED')
+    removed = []
+    for name in ['home/.local/bin','home/.local','home/.codex','home/.config','home/.cache',
+                 'home','projects','integration','services']:
+        path = slot / name
+        if path.is_symlink() or path.resolve() != path:
+            continue
+        try:
+            path.rmdir()
+            removed.append(name)
+        except OSError:
+            pass
+    return removed
+
+
 def main():
     if os.geteuid()!=0: raise RuntimeError('ROOT_REQUIRED')
     config=json.loads(Path('/etc/codex-workspaces/config.json').read_text()); uid=config['uid']
@@ -103,9 +123,7 @@ print(json.dumps({'isolated':True,'tools':True,'publicEgress':True,'privateEgres
             subprocess.run(prefix+['rm','--force',container_name(owner)],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=30)
             # Remove only empty directories made by workspace-init. Never recursively
             # clear a slot: unexpected data makes the later create fail closed.
-            for name in ['home','projects','integration','services']:
-                try: (Path(ROOT)/'slots'/str(i)/name).rmdir()
-                except OSError: pass
+            clear_empty_scaffold(Path(ROOT)/'slots'/str(i))
 
 
 if __name__=='__main__':main()
