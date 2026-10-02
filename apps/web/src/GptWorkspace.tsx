@@ -772,7 +772,7 @@ export function GptWorkspace({
   const active = currentJobs.find(isActive);
   const awaitingReply = currentJobs.find((job) => job.status === "unknown" && !job.error);
   const progressJob = currentGptProgress(currentJobs);
-  const turnProgress = gptTurnProgress(messages, progressJob);
+  const turnProgress = gptTurnProgress(messages, progressJob, currentJobs);
   const externalReply =
     !contextMessage &&
     !hasNewer &&

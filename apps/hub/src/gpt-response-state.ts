@@ -1,4 +1,5 @@
-/** A finished exact native stream is positive evidence; an old timestamp isn't. */
+/** The exact stream ending is evidence of local idle, not successful completion.
+ * The selected window's Stop button may belong to a different conversation. */
 export async function nativeResponseIdle(
   client: {
     liveDispatch?: (key: string, conversationId: string | null) => Promise<{ finished?: boolean }>;
@@ -7,12 +8,10 @@ export async function nativeResponseIdle(
   key: string,
   conversationId: string | null,
 ) {
-  if (!client.liveDispatch || !client.workspace) return false;
+  if (!client.liveDispatch) return false;
   try {
     const live = await client.liveDispatch(key, conversationId);
-    if (live.finished !== true) return false;
-    const current = await client.workspace("activity");
-    return current.ready === true && current.generating === false;
+    return live.finished === true;
   } catch {
     return false;
   }

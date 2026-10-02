@@ -70,6 +70,7 @@ try {
           status: "queued",
         },
       ];
+      let history = [];
       let cancelled = 0,
         seen = 0;
       await page.route("https://progress.test/**", async (route) => {
@@ -134,7 +135,12 @@ try {
           json = { threads: [], tasks: [], plans: [], results: [], pins: [], notes: [] };
         if (path === "/api/workspace/navigation") json = { shortcuts: {}, pinned: [], recent: [] };
         if (path.endsWith("/messages"))
-          json = { nativeId: "current-chat", title: "Current chat", items: [], nextBefore: null };
+          json = {
+            nativeId: "current-chat",
+            title: "Current chat",
+            items: history,
+            nextBefore: null,
+          };
         return route.fulfill({ json });
       });
       await page.goto("https://progress.test");
@@ -159,6 +165,52 @@ try {
       ).toBeVisible();
       assert.equal(cancelled, 0);
       assert.equal(seen, 0, "opening overview never marks an unopened answer read");
+      // A stopped response with only a recent tool step must not return as
+      // external activity when the durable outbox no longer calls it running.
+      const now = Date.now();
+      history = [
+        { id: "exact-user", role: "user", text: base.text, files: [], createdAt: now / 1000 },
+        {
+          id: "tool-step",
+          role: "assistant",
+          phase: "commentary",
+          complete: false,
+          activity: "tool",
+          text: "Working with tools",
+          files: [],
+          createdAt: now / 1000,
+        },
+      ];
+      for (const status of ["idle", "cancelled", "completed"]) {
+        jobs.splice(
+          0,
+          jobs.length,
+          {
+            ...base,
+            id: "earlier",
+            userMessageId: "exact-user",
+            createdAt: now,
+            status,
+          },
+          {
+            ...base,
+            id: "follower",
+            text: "Queued follower",
+            createdAt: now + 1,
+            status: "cancelled",
+          },
+        );
+        await page.reload();
+        await expect(page.getByText(base.text, { exact: true }).first()).toBeVisible();
+        await expect(progress).toHaveCount(0);
+        await expect(
+          page.getByRole("button", { name: "Отправить GPT", exact: true }),
+        ).toBeVisible();
+      }
+      history.push({ ...history[0], id: "new-user" }, { ...history[1], id: "new-tool" });
+      await page.reload();
+      await expect(progress).toBeVisible();
+      assert.equal(cancelled, 0, "readback never issues Stop");
       assert.deepEqual(errors, []);
       console.log(
         `${name}: earlier uncertain live response wins over queued followers; project overview preserves unread marker`,

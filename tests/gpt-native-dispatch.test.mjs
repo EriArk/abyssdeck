@@ -948,3 +948,24 @@ test("stale local dispatch progress cannot override the native idle composer", a
   await f.run();
   assert.equal(f.state.send, 1);
 });
+
+test("finished exact stream releases Hub progress while another native chat is generating", async (t) => {
+  const f = queue(t),
+    worker = f.open();
+  assert.equal((await worker.run(f.id)).status, "running");
+  f.client.liveDispatch = async (key, id) => {
+    assert.equal(key, f.id);
+    assert.equal(id, conversationId);
+    return { finished: true, items: [] };
+  };
+  f.client.workspace = async () => {
+    throw Error("must not inspect unrelated selected chat");
+  };
+  assert.equal((await worker.reconcile(f.id)).status, "idle");
+  assert.equal(f.state.sends, 1);
+  assert.equal(f.db.prepare("SELECT count(*) n FROM gpt_native_receipts").get().n, 1);
+  assert.equal(f.db.prepare("SELECT answer FROM gpt_jobs").get().answer, "Public progress");
+  f.state.readState = "completed";
+  assert.equal((await worker.reconcile(f.id)).status, "completed");
+  assert.equal(f.state.sends, 1);
+});

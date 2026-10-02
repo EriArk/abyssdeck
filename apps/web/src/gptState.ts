@@ -59,7 +59,7 @@ export function historicalGptJob(
       );
 }
 
-export function gptTurnProgress(messages: GptMessage[], job?: GptJob) {
+export function gptTurnProgress(messages: GptMessage[], job?: GptJob, receipts: GptJob[] = []) {
   const latest = messages.findLastIndex((message) => message.role === "user");
   const own = job ? gptJobUser(job, messages) : -1;
   const external =
@@ -71,10 +71,19 @@ export function gptTurnProgress(messages: GptMessage[], job?: GptJob) {
   const next = after.findIndex((message) => message.role === "user");
   const turn = next < 0 ? after : after.slice(0, next);
   const answers = turn.filter((message) => message.role === "assistant");
+  // Recent intermediate output must not resurrect a known stopped/idle turn
+  // as activity in another client. Match the actual user message, never text.
+  const settled = receipts.some(
+    (receipt) =>
+      !!receipt.userMessageId &&
+      receipt.userMessageId === messages[user]?.id &&
+      ["idle", "cancelled", "completed"].includes(receipt.status),
+  );
   return {
     external,
     userId: messages[user]?.id,
     pending:
+      !settled &&
       user >= 0 &&
       next < 0 &&
       // An old unfinished public node is not live activity. Recent output is

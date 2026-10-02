@@ -37,38 +37,37 @@ test("completion markers survive reopening and late read acknowledgements cannot
   }
 });
 
-test("native response idle requires the exact finished stream plus healthy inactive native state", async () => {
+test("exact finished response is idle independently of the selected native conversation", async () => {
   const { nativeResponseIdle } = await import("../apps/hub/dist/gpt-response-state.js");
+  let windowReads = 0;
   const client = {
-    liveDispatch: async (k, id) => {
-      assert.equal(k, "receipt");
+    liveDispatch: async (key, id) => {
+      assert.equal(key, "receipt");
       assert.equal(id, "chat");
       return { finished: true };
     },
-    workspace: async () => ({ ready: true, generating: false }),
+    workspace: async () => {
+      windowReads++;
+      return { ready: true, generating: true };
+    },
   };
   assert.equal(await nativeResponseIdle(client, "receipt", "chat"), true);
+  assert.equal(windowReads, 0, "another window cannot keep this stream running");
   assert.equal(
-    await nativeResponseIdle(
-      { ...client, workspace: async () => ({ ready: true, generating: true }) },
-      "receipt",
-      "chat",
-    ),
-    false,
+    await nativeResponseIdle({ liveDispatch: client.liveDispatch }, "receipt", "chat"),
+    true,
   );
-  assert.equal(
-    await nativeResponseIdle(
-      { ...client, liveDispatch: async () => ({ items: [] }) },
-      "receipt",
-      "chat",
-    ),
-    false,
-  );
+  for (const result of [{}, { finished: false }]) {
+    assert.equal(
+      await nativeResponseIdle({ ...client, liveDispatch: async () => result }, "receipt", "chat"),
+      false,
+    );
+  }
   assert.equal(
     await nativeResponseIdle(
       {
         ...client,
-        workspace: async () => {
+        liveDispatch: async () => {
           throw Error("offline");
         },
       },

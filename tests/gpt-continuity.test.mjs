@@ -355,3 +355,41 @@ test("older uncertain receipts stay historical while canonical history refresh i
   assert.equal(historicalGptJob(old, [], true, [old, { ...complete, status: "running" }]), false);
   assert.equal(old.status, "unknown");
 });
+
+test("settled exact receipts cannot reappear as external progress from recent commentary", () => {
+  const now = Date.now();
+  const user = { id: "user", role: "user", text: "Continue", createdAt: now / 1000, files: [] };
+  const step = {
+    id: "tool",
+    role: "assistant",
+    phase: "commentary",
+    complete: false,
+    text: "Working",
+    createdAt: now / 1000,
+    files: [],
+  };
+  for (const status of ["idle", "cancelled", "completed"]) {
+    const receipt = {
+      id: "receipt",
+      status,
+      userMessageId: user.id,
+      createdAt: now,
+      updatedAt: now,
+    };
+    assert.equal(gptTurnProgress([user, step], undefined, [receipt]).pending, false);
+    assert.equal(
+      gptTurnProgress([user, step], undefined, [{ ...receipt, userMessageId: "other" }]).pending,
+      true,
+    );
+    assert.equal(
+      gptTurnProgress([user, step], undefined, [{ ...receipt, userMessageId: undefined }]).pending,
+      true,
+    );
+    const newer = { ...user, id: "new-user", createdAt: (now + 1) / 1000 };
+    assert.equal(
+      gptTurnProgress([user, step, newer, { ...step, id: "new-step" }], undefined, [receipt])
+        .pending,
+      true,
+    );
+  }
+});

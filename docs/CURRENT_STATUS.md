@@ -1,5 +1,25 @@
 # Текущий остаток — 2 октября 2026
 
+## GPT stopped response indicator (2026-10-02, prepared)
+
+Owner screenshots IMG_0808/0809 show native ChatGPT stopped reasoning while
+CodexWeb still displays tool activity. Read-only live inspection found the older
+matching submissions already cancelled and newer work in the same conversations.
+It does not establish why OpenAI stopped the original response.
+
+Two reproducible status defects are fixed: an exact finished native stream no
+longer waits on the selected window's global Stop button (which may belong to
+another chat); and a recent intermediate message cannot resurrect a confirmed
+idle/cancelled/completed exact user receipt as external-client progress. Finished
+transport means idle, not successful completion; canonical polling and uncertain
+receipts are preserved. No send or Stop is issued by this recovery.
+
+Validation: production build/typecheck, 14 continuity/attention tests, the actual
+queue regression, Chromium/WebKit queue and stopped/idle/completed UI scenarios.
+Linux adapter tests and ordinary Hub activation are tracked in the deployment
+receipt. Companion installation and its automatic feed remain deferred by owner.
+
+
 ## Companion 0.5.5: prepared only, installation held by owner (2026-10-02)
 
 The owner is away from the PC and explicitly deferred Companion installation,
