@@ -8,7 +8,7 @@
 
 | Компонент | Состояние |
 | --- | --- |
-| Hub, engine и web | `79b3185`, установлены 2 октября в 13:05:41 UTC; healthy. Квитанции на Hub: `verification-79b3185/receipt.json`, `deployment-79b3185.json`. |
+| Hub, engine и web | `fcd3fb6`, установлены 2 октября; engine/web healthy. Квитанции на Hub: `verification-fcd3fb6/receipt.json`, `deployment-fcd3fb6.json`. |
 | Native ChatGPT | `26.928.31416-e934ed1`; адаптер обновлён после проверки native idle. Исправлено подтверждение сообщения после замены временного родителя в canonical graph; настоящий Altar job сверён как completed без повторной отправки. |
 | Windows Companion владельца | UI 0.5.6 установлен через подписанное обновление; Browser 1.0.1 обновлён до комплекта 0.5.6. FileLaunch ждёт фактического UAC; persistent worker — свободного окна обслуживания. Все девять конфигураций ПК сохранены без изменений. |
 | Server Workspaces | Host/runtime/features активированы 28 сентября. 2 октября после ремонта scaffold создан личный workspace владельца: Hub ready. Проверены файлы, инструменты и Codex initialize через Hub → SSH → broker; личный Codex пока не авторизован. |
@@ -29,6 +29,16 @@
 отсутствие ручного Steer и неизменный native Plan flow. Build/typecheck,
 34 серверных теста, 25 проверок updater и smoke производственного образа проходят.
 Это автоматические проверки; физический iPhone отдельно не объявляется проверенным.
+
+### Исправление IMG_0816 — подключение окружения
+
+Кнопка подключает готовое серверное окружение к существующей личной сессии,
+не пересоздавая её и не ожидая активные чаты/терминалы. Проверены сохранение
+активного хода и auth-watch, повторный connect, изоляция пользователей и restore
+admission: 40 Linux Team tests. Chromium/WebKit проходят при 390/1024 в трёх темах.
+Выпуск `fcd3fb6` установлен. Настоящий POST connect вернул 200, Devices содержит
+server-workspace, список активных машин сохранил main-windows и добавил окружение.
+Квитанция: `verification-fcd3fb6/live-connect.jsonl`.
 
 ## Текущая работа и условия
 
@@ -55,8 +65,8 @@
    Штатный API сверил старый creating intent: WORKSPACE_MISSING, затем state=absent.
    Новый create вернул 200/ready, повторный GET подтвердил ready. В собственном runtime
    проверены точные бинарные файлы, Git/Node/Python и Codex initialize без запуска чата.
-   Остались применение подключения к личной сессии Hub после её idle и собственный
-   codex login --device-auth. Прежняя Windows-машина и аккаунты не заменялись.
+   Добавление подключения исправлено в `fcd3fb6`: готовое окружение подключается
+   к текущей сессии без ожидания чатов. Остался собственный codex login --device-auth. Прежняя Windows-машина и аккаунты не заменялись.
    #198 (managed integration copy) остаётся отдельным продуктовым объёмом.
 
 Сверка открытых задач: [ISSUE_RECONCILIATION_2026-10-02.md](ISSUE_RECONCILIATION_2026-10-02.md).

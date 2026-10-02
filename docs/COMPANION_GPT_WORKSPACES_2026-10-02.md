@@ -72,7 +72,14 @@ HTTP 200, completed, ответ получен; исходная квитанц�
   Git 2.39.5, Node v24.21.0, Python 3.11.2, Codex 0.158.0 и app-server initialize.
   Проверка не создавала чат; собственный тестовый app-server остановлен, временный
   файл удалён. Codex login status: Not logged in. Применение машины в личной сессии
-  Hub требует завершения текущих задач (restartPersonal); Windows не переключался.
+  Hub ошибочно требовало завершения текущих задач (restartPersonal), что проявилось
+  на IMG_0816. Исправлено отдельным добавлением owner-bound машины и Devices entry
+  в существующий runtime: сохраняются клиенты, активный ход и auth-watch. Повторный
+  connect идемпотентен; чужой workspace и восстановление без admission отклоняются.
+  40 Linux Team tests и Chromium/WebKit (390/1024, три темы) проходят. `fcd3fb6`
+  установлен, engine/web healthy. Реальный connect вернул 200; activeMachineIds
+  содержит main-windows и server-workspace, Devices показывает новый Linux terminal.
+  Квитанция: verification-fcd3fb6/live-connect.jsonl. Windows не переключался.
 
 Подготовленная команда в Devices → Сервер → Терминал:
 
