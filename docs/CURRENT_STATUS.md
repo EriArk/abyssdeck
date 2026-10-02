@@ -35,6 +35,14 @@ cards at 650/840 px in all four Companion themes. Visual captures are isolated
 from the installed app. Actual UAC acceptance, the first browser transition and
 friend-PC acceptance remain pending. Package activation is deliberately withheld.
 
+The unsigned local 0.5.5 candidate was built from clean source `d095dc4`;
+all 277 inventory hashes and its bundled-runtime `--version` startup probe passed.
+Manifest SHA-256: `19c9a5e4f2b0ca4b0374c9087d4737a237c32e7d62f426b4641df41df9f5a726`.
+Evidence: `.local/companion-055-verification.json` and
+`.local/companion-055-candidate-d095dc4/`. No update-feed publication or installation
+was performed. Read-only verification still returns installed UI 0.5.4 and
+browser 1.0.0.
+
 ## Companion 0.5.4 and reboot recovery (#234, 2026-10-02)
 
 A prepared coordinated release fixes the interrupted AltarAppsReborn/TrainerOS
