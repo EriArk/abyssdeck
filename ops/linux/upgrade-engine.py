@@ -221,6 +221,7 @@ def main():
                     workspace_activation.verify_host(state, a.workspace_image)
                 status('installing', forced=int(force))
                 stopped_at = time.monotonic()
+                stages = {}
                 # No public admission after the final database-locked recheck.
                 run(['docker', 'stop', '--time', '10', 'codex-web-hub'])
                 if old_engine:
@@ -239,6 +240,8 @@ def main():
                     if db.in_transaction:
                         db.rollback()
                     db.close()
+        stages['stopMs'] = round((time.monotonic() - stopped_at) * 1000)
+        phase_started = time.monotonic()
         backup = state / ('before-engine-' + a.revision + '.sqlite')
         checkpoint = None
         try:
@@ -254,6 +257,9 @@ def main():
             run(['docker', 'start', 'codex-web-hub'])
             status('failed', code='BACKUP_FAILED')
             raise
+        stages['checkpointMs'] = round((time.monotonic() - phase_started) * 1000)
+        if prepared:
+            stages['checkpoint'] = prepared.timings
         env = state / 'deploy.env'
         previous_env = env.read_text() if env.exists() else ''
         previous_pointer = (web / 'current.json').read_text() if (web / 'current.json').exists() else None
@@ -268,11 +274,16 @@ def main():
                 atomic(state / 'config.json', activation[0])
             if workspace_config:
                 atomic(state / 'config.json', workspace_config)
+            phase_started = time.monotonic()
             run(compose + ['up', '-d', '--no-deps', '--no-build', '--wait', 'engine'])
+            stages['engineStartMs'] = round((time.monotonic() - phase_started) * 1000)
+            phase_started = time.monotonic()
             if activation:
                 run(['docker', 'exec', 'codex-web-engine', 'node', 'dist/owner-team-check.js'])
             if checkpoint:
                 engine_checkpoint.admission(state, checkpoint, workspace_activation=bool(workspace_config), prepared=prepared)
+            stages['admissionMs'] = round((time.monotonic() - phase_started) * 1000)
+            phase_started = time.monotonic()
             run(['docker', 'run', '--rm', '--network', 'none', '--read-only', '--user', '1000:1000', '--cap-drop', 'ALL',
                  '-v', str(state / 'engine') + ':/run/codex-engine:ro', '-v', str(web) + ':/releases',
                  'codex-web-hub:' + a.revision, 'node', 'dist/publish-web.js', '/web', '/releases', '/run/codex-engine/engine.sock', a.revision])
@@ -284,6 +295,7 @@ def main():
                 # later host recovery must not restore over admitted user writes.
                 engine_checkpoint.write_json(checkpoint / 'admitted.json', dict(revision=a.revision, at=time.time_ns()))
             run(compose + ['up', '-d', '--no-deps', '--no-build', '--wait', 'hub'])
+            stages['webStartMs'] = round((time.monotonic() - phase_started) * 1000)
             downtime_ms = round((time.monotonic() - stopped_at) * 1000)
             run(['python3', str(release / 'ops/linux/publish-web.py'), a.revision, '--state', str(state)])
             run(['docker', 'exec', 'codex-web-engine', 'node', 'dist/doctor.js', '--config', '/config/config.json', '--json', '--public'], stdout=subprocess.DEVNULL)
@@ -291,7 +303,7 @@ def main():
             if backup_env.exists():
                 update_env(backup_env, dict(CODEX_WEB_IMAGE='codex-web-hub:' + a.revision, CODEX_WEB_REVISION=a.revision))
             status('installed', installedAt=int(time.time()*1000))
-            atomic(state / ('deployment-' + a.revision + '.json'), dict(revision=a.revision, previousRevision=a.expected, schema=proof['schema'], healthy=True, separated=True, checkpoint=str(checkpoint) if checkpoint else None, preparationMs=preparation_ms, downtimeMs=downtime_ms, deployedAt=datetime.now(timezone.utc).isoformat(), verification=str(Path(a.verification).resolve())))
+            atomic(state / ('deployment-' + a.revision + '.json'), dict(revision=a.revision, previousRevision=a.expected, schema=proof['schema'], healthy=True, separated=True, checkpoint=str(checkpoint) if checkpoint else None, preparationMs=preparation_ms, downtimeMs=downtime_ms, stages=stages, deployedAt=datetime.now(timezone.utc).isoformat(), verification=str(Path(a.verification).resolve())))
         except Exception:
             status('failed', code='ENGINE_MAINTENANCE_FAILED')
             if not exposed:

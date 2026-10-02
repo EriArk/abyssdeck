@@ -271,6 +271,53 @@ class WarmCheckpointTest(unittest.TestCase):
         # Independent verification/rollback does not trust a persisted hash cache.
         checkpoint.verify(self.target)
 
+    def test_integrity_scans_are_reused_only_for_identical_database_files(self):
+        scans = []
+        connect = sqlite3.connect
+        def traced(path, *args, **kwargs):
+            db = connect(path, *args, **kwargs)
+            db.set_trace_callback(lambda sql: scans.append(str(path)) if sql == 'PRAGMA quick_check' else None)
+            return db
+        with patch.object(checkpoint.sqlite3, 'connect', traced):
+            prepared = checkpoint.prepare(self.state, self.target, 'aaaaaaa')
+            checkpoint.create(self.state, self.target, 'aaaaaaa', prepared=prepared)
+            checkpoint.admission(self.state, self.target, prepared=prepared)
+        self.assertEqual(len(scans), len(set(scans)), 'unchanged DB scanned more than once')
+        self.assertEqual(len(scans), 6, 'three source and three independent saved DBs')
+        self.assertNotIn('database_checks', (self.target / 'checkpoint.json').read_text())
+        self.assertIn('checkpointValidationMs', prepared.timings)
+        scans.clear()
+        with patch.object(checkpoint.sqlite3, 'connect', traced):
+            checkpoint.verify(self.target)
+        self.assertEqual(len(scans), 3, 'standalone verification must scan again')
+
+    def test_cached_integrity_invalidates_on_wal_and_same_size_mtime_changes(self):
+        path = self.team / 'team.db'
+        checks = {}
+        checkpoint.database(path, checks).close()
+        previous = path.stat()
+        with sqlite3.connect(path) as db:
+            db.execute("UPDATE team_namespaces SET userId='99999999-9999-4999-8999-999999999999' WHERE userId=?", (MEMBER,))
+        os.utime(path, ns=(previous.st_atime_ns, previous.st_mtime_ns))
+        self.assertEqual(path.stat().st_size, previous.st_size)
+        with self.assertRaisesRegex(RuntimeError, 'FOREIGN_KEY'):
+            checkpoint.database(path, checks)
+        with sqlite3.connect(path) as db:
+            db.execute("UPDATE team_namespaces SET userId=? WHERE userId='99999999-9999-4999-8999-999999999999'", (MEMBER,))
+        writer = sqlite3.connect(path)
+        try:
+            writer.execute('PRAGMA journal_mode=WAL')
+            writer.execute('PRAGMA wal_autocheckpoint=0')
+            checkpoint.database(path, checks).close()
+            before = checkpoint.fingerprint(path)
+            writer.execute("UPDATE team_namespaces SET userId='99999999-9999-4999-8999-999999999999' WHERE userId=?", (MEMBER,))
+            writer.commit()
+            self.assertEqual(checkpoint.fingerprint(path), before, 'only WAL changed')
+            with self.assertRaisesRegex(RuntimeError, 'FOREIGN_KEY'):
+                checkpoint.database(path, checks)
+        finally:
+            writer.close()
+
     def test_corrupt_warm_copy_is_replaced_and_later_tampering_is_rejected(self):
         prepared = checkpoint.prepare(self.state, self.target, 'aaaaaaa')
         saved = self.target / 'data/results/private.bin'
@@ -390,6 +437,9 @@ class UpgraderTest(unittest.TestCase):
         saved = Path(receipt['checkpoint'])
         self.assertGreaterEqual(receipt['preparationMs'], 0)
         self.assertGreaterEqual(receipt['downtimeMs'], 0)
+        for phase in ['stopMs', 'checkpointMs', 'engineStartMs', 'admissionMs', 'webStartMs']:
+            self.assertGreaterEqual(receipt['stages'][phase], 0)
+        self.assertIn('restoreRehearsalMs', receipt['stages']['checkpoint'])
         self.assertTrue((saved / 'admitted.json').exists())
         self.assertTrue((saved / 'verified.json').exists())
         self.assertEqual(json.loads((self.state / 'web-releases/maintenance.json').read_text())['state'], 'installed')

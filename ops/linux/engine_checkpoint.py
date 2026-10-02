@@ -58,20 +58,38 @@ def write_json(path, value):
         os.fsync(stream.fileno())
 
 
-def database(path):
+def database_fingerprint(path):
+    # WAL and rollback journals carry committed pages absent from the main DB.
+    # Never persist this evidence; an independent restore validates from scratch.
+    files = [path, Path(str(path) + '-wal'), Path(str(path) + '-journal')]
+    def observed(item):
+        try:
+            return fingerprint(item)
+        except FileNotFoundError:
+            return None  # A live SQLite reader can remove a now-unused WAL.
+    return tuple(observed(item) for item in files)
+
+
+def database(path, checks=None):
     canonical(path)
     require(path.is_file() and not path.is_symlink(), 'CHECKPOINT_DATABASE_MISSING')
+    before = database_fingerprint(path)
     db = sqlite3.connect(path.as_uri() + '?mode=ro', uri=True)
     try:
-        require(db.execute('PRAGMA quick_check').fetchall() == [('ok',)], 'CHECKPOINT_DATABASE_INTEGRITY')
-        require(not db.execute('PRAGMA foreign_key_check').fetchall(), 'CHECKPOINT_DATABASE_FOREIGN_KEY')
+        if checks is None or checks.get(path) != before:
+            require(db.execute('PRAGMA quick_check').fetchall() == [('ok',)], 'CHECKPOINT_DATABASE_INTEGRITY')
+            require(not db.execute('PRAGMA foreign_key_check').fetchall(), 'CHECKPOINT_DATABASE_FOREIGN_KEY')
+            if checks is not None:
+                checks.pop(path, None)
+                if database_fingerprint(path) == before:
+                    checks[path] = before
         return db
     except BaseException:
         db.close()
         raise
 
 
-def team_layout(state, config, data=None):
+def team_layout(state, config, data=None, checks=None):
     """Validate every account, including disabled and not-yet-opened namespaces."""
     data = canonical(data or state / 'data')
     configured_data = canonical(state / 'data')
@@ -85,7 +103,7 @@ def team_layout(state, config, data=None):
     require(not owner_db.is_relative_to(results) and not team.is_relative_to(results), 'CHECKPOINT_STORAGE_OVERLAP')
     relative_team = team.relative_to(configured_data)
     registry = data / relative_team / 'team.db'
-    db = database(registry)
+    db = database(registry, checks)
     try:
         owner = db.execute("SELECT value FROM team_meta WHERE key='originalOwner'").fetchone()
         require(owner and re.fullmatch(r'[a-f0-9-]{36}', owner[0]), 'CHECKPOINT_OWNER')
@@ -98,7 +116,7 @@ def team_layout(state, config, data=None):
             require(not legacy or initialized, 'CHECKPOINT_OWNER_STORAGE')
             if initialized:
                 path = owner_db.relative_to(configured_data) if legacy else relative_team / 'users' / user / 'app.db'
-                selected = database(data / path)
+                selected = database(data / path, checks)
                 selected.close()
                 databases.append(path.as_posix())
         # Exclude entire browser mounts, not just Chromium lock files. These live
@@ -110,13 +128,13 @@ def team_layout(state, config, data=None):
         db.close()
 
 
-def privacy(data, registry, expected=None):
+def privacy(data, registry, expected=None, checks=None):
     """Compare old access/binding columns even if an upgrade adds schema columns.
 
 Sessions and audit can expire/grow at boot. Their exact bytes still belong to the
 checkpoint; all durable Team access, content and operation tables must survive.
 """
-    db = database(data / registry)
+    db = database(data / registry, checks)
     try:
         tables = [row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'team_%' ORDER BY name")]
         tables = [name for name in tables if name not in ('team_sessions', 'team_audit')]
@@ -136,10 +154,10 @@ checkpoint; all durable Team access, content and operation tables must survive.
         db.close()
 
 
-def private_bindings(data, databases, expected=None):
+def private_bindings(data, databases, expected=None, checks=None):
     result = {}
     for name in databases[1:]:
-        db = database(data / name)
+        db = database(data / name, checks)
         try:
             tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
             # Existing private table presence and stable identities must survive
@@ -239,6 +257,8 @@ class PreparedCheckpoint:
         require(not self.destination.exists(), 'CHECKPOINT_TARGET_EXISTS')
         self.destination.mkdir(mode=0o700, parents=True)
         self.cache = {}
+        self.database_checks = {}
+        self.timings = {}
 
 
 class FrozenHub:
@@ -314,7 +334,7 @@ def prepare(state, destination, revision):
     prepared = PreparedCheckpoint(state, destination, revision)
     state, destination = prepared.state, prepared.destination
     config = json.loads((state / 'config.json').read_text())
-    layout = team_layout(state, config)
+    layout = team_layout(state, config, checks=prepared.database_checks)
     excluded = layout['protected'] + [name + suffix for name in layout['databases'] for suffix in ('', '-wal', '-shm')]
     # The live app may replace/remove files. A vanished source only loses this
     # warm optimization; final create re-enumerates after admission is closed.
@@ -329,7 +349,8 @@ def prepare(state, destination, revision):
     return prepared
 
 
-def verify(checkpoint, cache=None):
+def verify(checkpoint, cache=None, checks=None):
+    checks = {} if checks is None else checks
     canonical(checkpoint)
     require(not checkpoint.is_symlink(), 'CHECKPOINT_LINK')
     manifest = json.loads((checkpoint / 'checkpoint.json').read_text())
@@ -342,11 +363,11 @@ def verify(checkpoint, cache=None):
         require(name in ('config.json', 'deploy.env', 'web-pointer.json'), 'CHECKPOINT_PRIVATE_PATH')
         require(file_hash(checkpoint / name, cache) == digest, 'CHECKPOINT_CONFIG_CHECKSUM')
     config = json.loads((checkpoint / 'config.json').read_text())
-    layout = team_layout(Path(manifest['state']), config, checkpoint / 'data')
+    layout = team_layout(Path(manifest['state']), config, checkpoint / 'data', checks=checks)
     # JSON encodes database tuples as arrays.
     require(json.loads(json.dumps(layout)) == manifest['layout'], 'CHECKPOINT_MAPPING_CHANGED')
-    require(privacy(checkpoint / 'data', layout['databases'][0], manifest['privacy']) == manifest['privacy'], 'CHECKPOINT_PRIVACY_CHANGED')
-    require(private_bindings(checkpoint / 'data', layout['databases'], manifest['privateBindings']) == manifest['privateBindings'], 'CHECKPOINT_PRIVATE_IDENTITY_CHANGED')
+    require(privacy(checkpoint / 'data', layout['databases'][0], manifest['privacy'], checks=checks) == manifest['privacy'], 'CHECKPOINT_PRIVACY_CHANGED')
+    require(private_bindings(checkpoint / 'data', layout['databases'], manifest['privateBindings'], checks=checks) == manifest['privateBindings'], 'CHECKPOINT_PRIVATE_IDENTITY_CHANGED')
     return manifest
 
 
@@ -357,19 +378,27 @@ def create(state, destination, revision, prepared=None):
         prepared = PreparedCheckpoint(state, destination, revision)
     require((prepared.state, prepared.destination, prepared.revision) == (state, destination, revision), 'CHECKPOINT_PREPARATION')
     require(not (destination / 'checkpoint.json').exists(), 'CHECKPOINT_ALREADY_SEALED')
-    cache = prepared.cache
+    cache, checks = prepared.cache, prepared.database_checks
+    started = time.monotonic()
+    def phase(name):
+        nonlocal started
+        now = time.monotonic()
+        prepared.timings[name] = round((now - started) * 1000)
+        started = now
     try:
         config = json.loads((state / 'config.json').read_text())
-        layout = team_layout(state, config)
+        layout = team_layout(state, config, checks=checks)
+        phase('sourceValidationMs')
         # SQLite may remove WAL files when its final reader closes, even with
         # the engine stopped. Snapshot databases through SQLite, not file copies.
         excluded = layout['protected'] + [name + suffix for name in layout['databases'] for suffix in ('', '-wal', '-shm')]
         entries = inventory(state / 'data', excluded, cache=cache)
         require(shutil.disk_usage(destination).free > 3 * sum(item.get('bytes', 0) for item in entries.values()) + 64 * 1024 ** 2, 'CHECKPOINT_DISK_SPACE')
         sync_inventory(state / 'data', destination / 'data', entries, cache)
+        phase('fileSyncMs')
         with ExitStack() as readers:
             for name in layout['databases']:
-                source = database(state / 'data' / name)
+                source = database(state / 'data' / name, checks)
                 readers.callback(source.close)
                 target = destination / 'data' / name
                 saved = sqlite3.connect(target)
@@ -379,6 +408,7 @@ def create(state, destination, revision, prepared=None):
                 finally:
                     saved.close()
                 target.chmod(0o600)
+        phase('databaseCopyMs')
         private = {}
         for name, source in [('config.json', state / 'config.json'), ('deploy.env', state / 'deploy.env'), ('web-pointer.json', state / 'web-releases/current.json')]:
             if source.exists():
@@ -389,17 +419,20 @@ def create(state, destination, revision, prepared=None):
         require(inventory(state / 'data', excluded, cache=cache) == entries, 'CHECKPOINT_SOURCE_CHANGED')
         entries = inventory(destination / 'data', databases=layout['databases'], cache=cache)
         manifest = dict(kind='codex-web-engine-checkpoint', format=1, revision=revision, state=str(state), layout=layout, entries=entries, private=private,
-                        privacy=privacy(state / 'data', layout['databases'][0]), privateBindings=private_bindings(state / 'data', layout['databases']), createdAt=time.time_ns())
+                        privacy=privacy(state / 'data', layout['databases'][0], checks=checks), privateBindings=private_bindings(state / 'data', layout['databases'], checks=checks), createdAt=time.time_ns())
         write_json(destination / 'checkpoint.json', manifest)
-        verify(destination, cache)
+        phase('manifestMs')
+        verify(destination, cache, checks)
+        phase('checkpointValidationMs')
         # Rehearse the exact file copy used for rollback, offline and without any
         # App Server startup, migration or replay of unknown native operations.
         sync_inventory(destination / 'data', destination / 'restore-check', entries, cache)
         require(inventory(destination / 'restore-check', databases=layout['databases'], cache=cache) == inventory(destination / 'data', databases=layout['databases'], cache=cache), 'CHECKPOINT_REHEARSAL')
-        for name in layout['databases']:
-            db = database(destination / 'restore-check' / name)
-            db.close()
+        # The rehearsal is byte-identical (including DB hashes) to the validated
+        # checkpoint above. Another SQLite scan of those same bytes adds no
+        # restore evidence. Standalone restore() still starts with full verify().
         shutil.rmtree(destination / 'restore-check')
+        phase('restoreRehearsalMs')
         write_json(destination / 'verified.json', dict(restored=True, revision=revision))
         return destination
     except BaseException:
@@ -412,7 +445,8 @@ def create(state, destination, revision, prepared=None):
 def admission(state, checkpoint, workspace_activation=False, prepared=None):
     if prepared is not None:
         require((prepared.state, prepared.destination) == (canonical(state), canonical(checkpoint)), 'CHECKPOINT_PREPARATION')
-    manifest = verify(checkpoint, prepared.cache if prepared else None)
+    checks = prepared.database_checks if prepared else {}
+    manifest = verify(checkpoint, prepared.cache if prepared else None, checks)
     require(str(canonical(state)) == manifest['state'], 'CHECKPOINT_INSTALLATION')
     if workspace_activation:
         # Permit one fixed addition only. Every prior setting, account and machine
@@ -422,10 +456,10 @@ def admission(state, checkpoint, workspace_activation=False, prepared=None):
         require(json.loads((state / 'config.json').read_text()) == expected, 'CHECKPOINT_CONFIG_CHANGED')
     else:
         require(file_hash(state / 'config.json') == manifest['private']['config.json'], 'CHECKPOINT_CONFIG_CHANGED')
-    layout = team_layout(state, json.loads((state / 'config.json').read_text()))
+    layout = team_layout(state, json.loads((state / 'config.json').read_text()), checks=checks)
     require(json.loads(json.dumps(layout)) == manifest['layout'], 'CHECKPOINT_MAPPING_CHANGED')
-    require(privacy(state / 'data', layout['databases'][0], manifest['privacy']) == manifest['privacy'], 'CHECKPOINT_PRIVACY_CHANGED')
-    require(private_bindings(state / 'data', layout['databases'], manifest['privateBindings']) == manifest['privateBindings'], 'CHECKPOINT_PRIVATE_IDENTITY_CHANGED')
+    require(privacy(state / 'data', layout['databases'][0], manifest['privacy'], checks=checks) == manifest['privacy'], 'CHECKPOINT_PRIVACY_CHANGED')
+    require(private_bindings(state / 'data', layout['databases'], manifest['privateBindings'], checks=checks) == manifest['privateBindings'], 'CHECKPOINT_PRIVATE_IDENTITY_CHANGED')
 
 
 def restore(state, checkpoint):
