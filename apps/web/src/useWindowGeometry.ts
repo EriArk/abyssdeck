@@ -1,5 +1,6 @@
 import { type RefObject, useEffect } from "react";
 import { accountLocalStorage } from "./accountStorage";
+import { registerDockWindow } from "./workspaceWindowRegistry";
 import "./window-geometry.css";
 
 type Box = { x: number; y: number; width: number; height: number };
@@ -19,6 +20,7 @@ export function useWindowGeometry(
     if (!key || !open || !dialog) return;
     const heading = dialog.querySelector<HTMLElement>(":scope > header, .settings-heading");
     if (!heading) return;
+    const unregisterDock = registerDockWindow(dialog, key);
     const storageKey = `codex-window:v1:${key}`;
     let preferred: Box | null = null;
     try {
@@ -115,6 +117,7 @@ export function useWindowGeometry(
     };
     const refresh = () => {
       finish(false);
+      if (dialog.dataset.windowMinimized === "true") return;
       const active = enabled();
       dialog.dataset.windowMovable = String(active);
       for (const grip of grips) grip.hidden = !active;
@@ -246,6 +249,7 @@ export function useWindowGeometry(
     window.visualViewport?.addEventListener("scroll", refresh);
     refresh();
     return () => {
+      unregisterDock();
       finish(false);
       observer.disconnect();
       dialog.removeEventListener("pointerdown", down);

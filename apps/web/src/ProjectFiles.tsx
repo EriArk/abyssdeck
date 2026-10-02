@@ -394,6 +394,7 @@ export function ProjectFiles({
       tabIndex={-1}
       className="project-files notebook-dialog workspace-window project-tool-window"
       data-tool={mode}
+      data-window-source={projectId}
       data-selecting={selecting && mode === "files"}
       aria-label={mode === "files" ? "Файлы проекта" : "Git проекта"}
       onCancel={(e) => {

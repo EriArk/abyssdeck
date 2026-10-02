@@ -21,6 +21,7 @@ import { UsageLimits } from "./UsageLimits";
 import { UsageLimitsProvider } from "./UsageLimitsState";
 import { useProjectSwipe } from "./useProjectSwipe";
 import { useWindowGeometry } from "./useWindowGeometry";
+import { restoreWorkspaceWindow } from "./workspaceWindowRegistry";
 
 export const gptSettingsChanged = "codex-gpt-settings-changed";
 
@@ -126,6 +127,7 @@ export function WorkspaceSettings({
   useEffect(() => {
     const panel = dialog.current;
     if (open && panel) {
+      restoreWorkspaceWindow("settings");
       panel.showModal();
       panel.focus({ preventScroll: true });
     } else panel?.close();

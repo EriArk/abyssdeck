@@ -8,6 +8,7 @@ import { ProjectDeliveryHost } from "./ProjectDeliveryHost";
 import { QuickCaptureHost } from "./QuickCaptureHost";
 import { TeamProjectsHost } from "./TeamProjectsHost";
 import { applyTheme, cachedTheme } from "./theme";
+import { WindowDock } from "./WindowDock";
 import "./fonts.css";
 import "./styles.css";
 import "./workspace.css";
@@ -38,6 +39,7 @@ createRoot(root).render(
     <ProjectDeliveryHost />
     <GuiPreviewHost />
     <TeamProjectsHost />
+    <WindowDock />
   </>,
 );
 if ("serviceWorker" in navigator)

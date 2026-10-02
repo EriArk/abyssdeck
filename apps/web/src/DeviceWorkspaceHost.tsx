@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react";
+import { restoreWorkspaceWindow } from "./workspaceWindowRegistry";
 
 const Workspace = lazy(() => import("./DeviceWorkspace"));
 export const openDevices = () => window.dispatchEvent(new Event("open-device-workspace"));
@@ -11,6 +12,7 @@ export function DeviceWorkspaceHost() {
   const [target, setTarget] = useState("");
   useEffect(() => {
     const show = () => {
+        if (restoreWorkspaceWindow("devices")) return;
         setTarget("");
         setOpen(true);
       },
@@ -18,6 +20,7 @@ export function DeviceWorkspaceHost() {
     const terminal = (event: Event) => {
       const id = (event as CustomEvent).detail;
       if (typeof id !== "string" || !terminalDevice("codexweb://terminal/" + id)) return;
+      restoreWorkspaceWindow("devices");
       setTarget(id);
       setOpen(true);
     };

@@ -64,6 +64,7 @@ import { useCollaborationSpaces } from "./useCollaborationSpaces";
 import { useNavigation } from "./useNavigation";
 import { useProjectDrawer } from "./useProjectDrawer";
 import { useProjectSwipe } from "./useProjectSwipe";
+import { useViewport } from "./useViewport";
 import { useWorkspace } from "./useWorkspace";
 import {
   rememberDestination,
@@ -72,6 +73,7 @@ import {
 } from "./WorkspaceCommands";
 import { WorkspaceHelp } from "./WorkspaceHelp";
 import { WorkspaceSettings } from "./WorkspaceSettings";
+import { restoreWorkspaceWindow } from "./workspaceWindowRegistry";
 
 const GptWorkspace = lazy(() =>
   import("./GptWorkspace").then((module) => ({ default: module.GptWorkspace })),
@@ -84,52 +86,6 @@ const readPreference = (name: string, fallback: string) => {
     return fallback;
   }
 };
-function useViewport() {
-  useEffect(() => {
-    let width = window.innerWidth;
-    let tallest = window.visualViewport?.height ?? window.innerHeight;
-    let keyboard = false;
-    let frame = 0;
-    const update = () => {
-      const viewport = window.visualViewport;
-      const height = Math.min(viewport?.height ?? window.innerHeight, window.innerHeight);
-      if (Math.abs(window.innerWidth - width) > 80) {
-        width = window.innerWidth;
-        tallest = Math.max(height, window.innerHeight);
-      } else tallest = Math.max(tallest, height);
-      const editing = document.activeElement?.matches(
-        "textarea, input:not([type=checkbox]):not([type=radio]), [contenteditable=true]",
-      );
-      // Some iOS versions shrink innerHeight together with visualViewport.
-      keyboard =
-        window.innerHeight - height > 150 || (tallest - height > 150 && (!!editing || keyboard));
-      document.documentElement.style.setProperty("--app-height", `${height}px`);
-      document.documentElement.style.setProperty("--app-top", `${viewport?.offsetTop ?? 0}px`);
-      document.documentElement.dataset.keyboard = String(keyboard);
-    };
-    const schedule = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(update);
-    };
-    const observer = new ResizeObserver(schedule);
-    observer.observe(document.documentElement);
-    update();
-    window.visualViewport?.addEventListener("resize", schedule);
-    window.visualViewport?.addEventListener("scroll", schedule);
-    window.addEventListener("resize", schedule);
-    document.addEventListener("focusin", schedule);
-    document.addEventListener("focusout", schedule);
-    return () => {
-      observer.disconnect();
-      cancelAnimationFrame(frame);
-      window.visualViewport?.removeEventListener("resize", schedule);
-      window.visualViewport?.removeEventListener("scroll", schedule);
-      window.removeEventListener("resize", schedule);
-      document.removeEventListener("focusin", schedule);
-      document.removeEventListener("focusout", schedule);
-    };
-  }, []);
-}
 export default function App() {
   const [session, setSession] = useState<Session | null>(null),
     [loading, setLoading] = useState(true),
@@ -365,12 +321,16 @@ function Workspace({
   };
   selectionRef.current = { projectId, threadId };
   const [drawer, setDrawer] = useState(false),
-    [settings, setSettings] = useState(false),
+    [settings, changeSettings] = useState(false),
     [pcRemote, setPcRemote] = useState(false),
     [navCollapsed, setNavCollapsed] = useState(false),
     [rightHidden, setRightHidden] = useState(readPreference("right-hidden", "false") === "true"),
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState("");
+  const setSettings = (open: boolean) => {
+    if (open) restoreWorkspaceWindow("settings");
+    changeSettings(open);
+  };
   useEffect(() => {
     try {
       localStorage.setItem("codex-right-hidden", String(rightHidden));
@@ -432,16 +392,49 @@ function Workspace({
   }>();
   const [machinePanel, setMachinePanel] = useState(false);
   const [fileFocus, setFileFocus] = useState({ path: "", version: 0, projectId: "" });
-  const [toolWindow, setToolWindow] = useState<{
-    projectId: string;
-    mode: "files" | "git";
-  } | null>(null);
-  const projectTool = toolWindow?.projectId === projectId ? toolWindow.mode : null;
-  const setProjectTool = (mode: "files" | "git" | null, target = projectId) =>
-    setToolWindow(mode ? { projectId: target, mode } : null);
-  useEffect(() => {
-    setToolWindow((old) => (old && old.projectId !== projectId ? null : old));
-  }, [projectId]);
+  const [toolWindows, setToolWindows] = useState<
+    {
+      projectId: string;
+      projectName: string;
+      threadId?: string;
+      mode: "files" | "git";
+    }[]
+  >([]);
+  const projectTool = toolWindows.findLast((item) => item.projectId === projectId)?.mode ?? null;
+  const setProjectTool = (mode: "files" | "git" | null, target = projectId) => {
+    if (!mode) {
+      // Navigation may close a visible tool, but never discard parked work.
+      setToolWindows((old) =>
+        old.filter((item) =>
+          [
+            ...document.querySelectorAll<HTMLDialogElement>(
+              '.project-tool-window[data-window-minimized="true"]',
+            ),
+          ].some(
+            (dialog) =>
+              dialog.dataset.windowSource === item.projectId && dialog.dataset.tool === item.mode,
+          ),
+        ),
+      );
+      return;
+    }
+    if (restoreWorkspaceWindow(`project-${mode}`, target)) return;
+    const owner = projects.find((item) => item.id === target);
+    if (!owner) return;
+    setToolWindows((old) =>
+      old.some((item) => item.projectId === target && item.mode === mode)
+        ? old
+        : [
+            ...old,
+            {
+              projectId: target,
+              projectName: owner.name,
+              threadId: target === projectId ? threadId || undefined : undefined,
+              mode,
+            },
+          ],
+    );
+  };
   const [libraryRevision, setLibraryRevision] = useState(0);
   const [pendingResultTurn, setPendingResultTurn] = useState<{
     threadId: string;
@@ -1381,7 +1374,6 @@ function Workspace({
   const workspace =
     client === "gpt" ? (
       <>
-        {notebookPanel}
         {contentSearch && (
           <ContentSearch
             request={contentSearch}
@@ -1830,26 +1822,6 @@ function Workspace({
             />
           </div>
         </main>
-        {project && !project.unassigned && (
-          <>
-            {(["files", "git"] as const).map((mode) => (
-              <ProjectFiles
-                key={`${mode}:${projectId}`}
-                projectId={projectId}
-                threadId={threadId || undefined}
-                projectName={project.name}
-                mode={mode}
-                visible={projectTool === mode}
-                focus={fileFocus}
-                onBack={() => setProjectTool(null)}
-                onOpenFiles={(path) => {
-                  setFileFocus((v) => ({ path, projectId, version: v.version + 1 }));
-                  setProjectTool("files");
-                }}
-              />
-            ))}
-          </>
-        )}
         <nav className="mobile-tabs" aria-label="Разделы рабочего пространства">
           {tab("chat", "Чат", "chat")}
           {tab("results", "Результаты", "results")}
@@ -1932,7 +1904,6 @@ function Workspace({
         >
           <div className="sheet-content">{navigation}</div>
         </dialog>
-        {notebookPanel}
         {contentSearch && (
           <ContentSearch
             request={contentSearch}
@@ -1945,6 +1916,22 @@ function Workspace({
   return (
     <>
       {workspace}
+      {notebookPanel}
+      {toolWindows
+        .filter((item) => projects.some((project) => project.id === item.projectId))
+        .map((item) => (
+          <ProjectFiles
+            key={`${item.mode}:${item.projectId}`}
+            {...item}
+            visible
+            focus={fileFocus}
+            onBack={() => setToolWindows((old) => old.filter((other) => other !== item))}
+            onOpenFiles={(path) => {
+              setFileFocus((v) => ({ path, projectId: item.projectId, version: v.version + 1 }));
+              setProjectTool("files", item.projectId);
+            }}
+          />
+        ))}
       <WorkspaceCommandHost onTarget={openNotebookTarget} />
       <WorkspaceHelp topic={client === "gpt" ? "gpt" : "codex"} />
       <WorkspaceSettings

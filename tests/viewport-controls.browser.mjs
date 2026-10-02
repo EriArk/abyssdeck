@@ -101,12 +101,13 @@ for (const [engine, type] of [
             return { y: r.y, w: r.width, h: r.height, fits: n.scrollWidth <= n.clientWidth };
           }),
         );
-        assert.equal(links.length, 4);
+        // This private fixture has no shared communication/notification provider.
+        assert.equal(links.length, 3);
         assert(
           links.every(
             (l) => l.y === links[0].y && Math.abs(l.w - links[0].w) < 1 && l.h >= 44 && l.fits,
           ),
-          "Four equally spaced readable shortcuts",
+          "Equally spaced readable shortcuts",
         );
         await page.screenshot({
           path: `.local/qa-controls/${engine}/${theme}-${width}-navigation.png`,
@@ -171,7 +172,7 @@ for (const [engine, type] of [
     assert.deepEqual(errors, []);
     assert.equal(f.calls.filter((call) => call.method === "turn/start").length, 0);
     console.log(
-      `${engine}: square controls, centered rail, four shortcuts, phone/tablet keyboard pan and draft continuity`,
+      `${engine}: square controls, centered rail, shortcuts, phone/tablet keyboard pan and draft continuity`,
     );
   } finally {
     await context.close();

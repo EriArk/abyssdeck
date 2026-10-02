@@ -1,5 +1,18 @@
 # AGENTS.md
 
+## Owner-approved working-window dock (2026-10-03)
+
+- Tablet/desktop working windows minimize into one themed vertical dock beside
+  the navigation divider, below the workspace header. Overlay the existing edge;
+  do not shift the chat. The rail can collapse to a small counted tab.
+- Preserve mounted contents, draft, scroll, geometry and exact project/source.
+  Minimize a nested working-window chain together and release native modality.
+  Minimize is not Close: Devices must retain terminals without requesting release.
+- No dock or minimize button in phone layout. Return parked windows to the screen
+  when entering that layout. Compact confirmations and menus are not dock windows.
+- Follow the existing theme materials; Git design is the next separate discussion,
+  with universal viewer design after it. Do not add a file manager to Results/GitHub.
+
 ## Owner-requested coherent themes and adjustable panels (2026-10-02)
 
 - Develop CRT Green and Hi-Tech 2000 toward TrainerOS's continuous chassis,

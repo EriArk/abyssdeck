@@ -88,6 +88,22 @@ for (const [engine, type] of [
     await button("Ввести команду").click();
     const command = modal.getByRole("textbox", { name: "Команда терминала" });
     await command.fill("printf old");
+    const terminalIdentity = await modal.locator('.device-terminal').count();
+    let releases = 0;
+    const countRelease = request => { if(request.url().includes('/release') && request.method()==='POST') releases++; };
+    page.on('request', countRelease);
+    await modal.getByRole('button', {name:'Свернуть окно',exact:true}).click();
+    await expect(modal).toBeHidden();
+    await expect(composer).toBeEditable();
+    assert.equal(releases,0,'minimize never requests terminal release');
+    assert.equal(f.processes.length,1);
+    assert.equal(f.processes[0].killed,false);
+    await button('Открыть устройства').click();
+    await expect(modal).toBeVisible();
+    await expect(command).toHaveValue('printf old');
+    assert.equal(await modal.locator('.device-terminal').count(),terminalIdentity);
+    assert.equal(f.processes.length,1,'restore reuses the same terminal');
+    page.off('request',countRelease);
     await command.evaluate((e) => e.setSelectionRange(7, 10));
     await page.evaluate(() => Object.defineProperty(navigator, "clipboard", {
       configurable: true, value: { readText: async () => "hello\nprintf next" },
@@ -221,6 +237,7 @@ for (const [engine, type] of [
     await button("Отмена").click();
     assert(!f.processes[1].writes.join("").includes("CANCELLED-secret"));
     await button("Закрыть устройства").click();
+    await expect(modal).toBeHidden();
     await page.evaluate(() => window.dispatchEvent(new CustomEvent("open-device-terminal", { detail: "not-owned" })));
     await expect(modal).toBeVisible();
     await expect(modal.locator(".device-error")).toBeVisible();
