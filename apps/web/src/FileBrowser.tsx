@@ -349,7 +349,7 @@ export function FileBrowser({
               onClick={() => navigate(r.path)}
             >
               <Icon name="folder" size={18} />
-              <span>{r.name}</span>
+              <span title={r.name}>{r.name}</span>
             </button>
           ))}
           {crumbs.length > 1 && (
@@ -358,7 +358,7 @@ export function FileBrowser({
               {crumbs.slice(1).map((c) => (
                 <button type="button" key={c.path} disabled={busy} onClick={() => navigate(c.path)}>
                   <Icon name="folder" size={18} />
-                  <span>{c.name}</span>
+                  <span title={c.name}>{c.name}</span>
                 </button>
               ))}
             </>
@@ -437,7 +437,9 @@ export function FileBrowser({
                   >
                     <Icon name={entry.kind === "directory" ? "folder" : "file"} size={22} />
                     <span className="file-browser-name">
-                      {entry.name}
+                      <span className="file-browser-label" title={entry.name}>
+                        {entry.name}
+                      </span>
                       <small>
                         {entry.kind === "directory"
                           ? "Папка"

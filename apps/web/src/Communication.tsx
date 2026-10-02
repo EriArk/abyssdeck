@@ -198,7 +198,7 @@ function CommunicationWindow({
 }) {
   const ref = useRef<HTMLDialogElement>(null),
     gate = useRef(false);
-  useWorkspaceDialog(ref);
+  useWorkspaceDialog(ref, true, "communication");
   const [selected, setSelected] = useState(initial.id),
     [targets, setTargets] = useState<Record<string, { seq: number; token: string }>>(() =>
       initial.seq ? { [initial.id]: { seq: initial.seq, token: initial.token } } : {},

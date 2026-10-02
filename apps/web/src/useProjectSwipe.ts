@@ -31,6 +31,13 @@ export function useProjectSwipe(
         return;
       const target = event.target;
       if (
+        target instanceof Element &&
+        target.closest(
+          '.window-resize-grip, [data-window-movable="true"] > header, [data-window-movable="true"] .settings-heading',
+        )
+      )
+        return;
+      if (
         !(target instanceof Element) ||
         target.closest(
           direction === "open"

@@ -1,7 +1,12 @@
 import { type RefObject, useEffect } from "react";
+import { useWindowGeometry } from "./useWindowGeometry";
 
 /** One native modal lifecycle for workspace tools, independent of their data effects. */
-export function useWorkspaceDialog(ref: RefObject<HTMLDialogElement | null>, open = true) {
+export function useWorkspaceDialog(
+  ref: RefObject<HTMLDialogElement | null>,
+  open = true,
+  windowKey?: string,
+) {
   useEffect(() => {
     const dialog = ref.current;
     if (!open || !dialog) return;
@@ -20,4 +25,5 @@ export function useWorkspaceDialog(ref: RefObject<HTMLDialogElement | null>, ope
         previous.focus({ preventScroll: true });
     };
   }, [ref, open]);
+  useWindowGeometry(ref, windowKey, open);
 }

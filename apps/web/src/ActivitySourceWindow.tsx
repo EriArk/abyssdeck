@@ -29,7 +29,7 @@ export function ActivitySourceWindow({
   onClose: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  useWorkspaceDialog(dialog);
+  useWorkspaceDialog(dialog, true, "activity-source");
   const [value, setValue] = useState<GitHubWorkObservation | null>(null),
     [page, setPage] = useState(1),
     [error, setError] = useState(""),

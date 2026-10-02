@@ -45,7 +45,7 @@ export function ProjectCorePanel({
     [history, setHistory] = useState<CoreHistoryPage | null>(null),
     [version, setVersion] = useState<Core | null>(null),
     [confirm, setConfirm] = useState(false);
-  useWorkspaceDialog(dialog);
+  useWorkspaceDialog(dialog, true, "project-core");
   useEffect(() => {
     mounted.current = true;
     const abort = new AbortController();

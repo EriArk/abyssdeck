@@ -26,7 +26,7 @@ export function HelpGuide({ initial, onClose }: { initial: HelpTopic; onClose: (
   const history = useRef<Position[]>([]),
     focusArticle = useRef(false),
     focusIndex = useRef(false);
-  useWorkspaceDialog(dialog);
+  useWorkspaceDialog(dialog, true, "help");
   const article = position.id ? helpArticle(position.id) : undefined;
   const results = query.trim() ? searchHelp(query) : null;
   const open = (id: string) => {

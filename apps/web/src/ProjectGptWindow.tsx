@@ -51,7 +51,7 @@ export function ProjectGptWindow({
     else storage.removeItem(handoffKey);
   }, [handoff, handoffKey]);
   const dialog = useRef<HTMLDialogElement>(null);
-  useWorkspaceDialog(dialog);
+  useWorkspaceDialog(dialog, true, "project-gpt");
   const [data, setData] = useState<ProjectGpt | null>(null),
     [error, setError] = useState("");
   const [preparing, setPreparing] = useState(false);

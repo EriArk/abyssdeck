@@ -1,0 +1,126 @@
+/* biome-ignore-all lint/complexity/noImportantStyles: user geometry must override lazy theme size/position rules; clear the opt-in attribute to restore them */
+/* Geometry overrides theme dimensions only; the theme still supplies the complete shell. */
+:root dialog[data-window-positioned="true"] {
+  position: fixed !important;
+  inset: var(--window-y) auto auto var(--window-x) !important;
+  margin: 0 !important;
+  transform: none !important;
+  width: var(--window-width) !important;
+  height: var(--window-height) !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: none !important;
+  max-height: none !important;
+  box-sizing: border-box;
+}
+dialog[data-window-movable]:focus {
+  outline: none;
+}
+dialog[data-window-movable="true"] > header,
+dialog[data-window-movable="true"] .settings-heading {
+  cursor: grab;
+  touch-action: none;
+  flex-shrink: 0;
+}
+dialog[data-window-movable="true"] > header:focus-visible,
+dialog[data-window-movable="true"] .settings-heading:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -3px;
+}
+dialog[data-window-dragging="true"] {
+  user-select: none;
+}
+:root dialog > .window-resize-grip {
+  position: absolute;
+  z-index: 20;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  touch-action: none;
+}
+:root dialog > .window-resize-grip[hidden] {
+  display: none;
+}
+.window-resize-grip[data-direction="n"],
+.window-resize-grip[data-direction="s"] {
+  left: 20px;
+  right: 20px;
+  height: 7px;
+  cursor: ns-resize;
+}
+.window-resize-grip[data-direction="n"] {
+  top: 0;
+}
+.window-resize-grip[data-direction="s"] {
+  bottom: 0;
+}
+.window-resize-grip[data-direction="e"],
+.window-resize-grip[data-direction="w"] {
+  top: 20px;
+  bottom: 20px;
+  width: 7px;
+  cursor: ew-resize;
+}
+.window-resize-grip[data-direction="e"] {
+  right: 0;
+}
+.window-resize-grip[data-direction="w"] {
+  left: 0;
+}
+.window-resize-grip[data-direction="ne"],
+.window-resize-grip[data-direction="nw"],
+.window-resize-grip[data-direction="se"],
+.window-resize-grip[data-direction="sw"] {
+  width: 20px;
+  height: 20px;
+}
+.window-resize-grip[data-direction="ne"] {
+  right: 0;
+  top: 0;
+  cursor: nesw-resize;
+}
+.window-resize-grip[data-direction="nw"] {
+  left: 0;
+  top: 0;
+  cursor: nwse-resize;
+}
+.window-resize-grip[data-direction="se"] {
+  right: 0;
+  bottom: 0;
+  cursor: nwse-resize;
+}
+.window-resize-grip[data-direction="sw"] {
+  left: 0;
+  bottom: 0;
+  cursor: nesw-resize;
+}
+.window-resize-grip[data-direction="se"]::after {
+  content: "";
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  width: 9px;
+  height: 9px;
+  border-right: 3px double var(--window-ink, var(--ink));
+  border-bottom: 3px double var(--window-ink, var(--ink));
+  opacity: 0.6;
+}
+.window-resize-grip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -3px;
+}
+@media (pointer: coarse) {
+  .window-resize-grip[data-direction="e"],
+  .window-resize-grip[data-direction="w"] {
+    width: 10px;
+  }
+  .window-resize-grip[data-direction="n"],
+  .window-resize-grip[data-direction="s"] {
+    height: 10px;
+  }
+}

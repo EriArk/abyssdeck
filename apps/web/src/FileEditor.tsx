@@ -39,7 +39,7 @@ export default function FileEditor({
 }) {
   const dialog = useRef<HTMLDialogElement>(null),
     host = useRef<HTMLDivElement>(null);
-  useWorkspaceDialog(dialog);
+  useWorkspaceDialog(dialog, true, "file-editor");
   const editor = useRef<EditorView | null>(null),
     baseline = useRef<FileSnapshot | null>(null);
   const [loaded, setLoaded] = useState(false),

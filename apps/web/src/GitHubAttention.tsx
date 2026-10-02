@@ -327,7 +327,7 @@ export function GitHubAttentionWindow({
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
-  useWorkspaceDialog(ref);
+  useWorkspaceDialog(ref, true, "github-attention");
   return (
     <dialog
       ref={ref}

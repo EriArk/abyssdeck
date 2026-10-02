@@ -121,7 +121,7 @@ export function ProjectWorkPanel({
   const selectedScope =
     projects.items.find((p) => sk(p.scope) === scope)?.scope ??
     (sk(request.scope) === scope ? request.scope : null);
-  useWorkspaceDialog(dialog);
+  useWorkspaceDialog(dialog, true, "project-work");
   const audience = useWorkspaceAudience(
     draft?.scope ?? null,
     draft?.id ?? "plan-none",

@@ -20,6 +20,7 @@ import type { Machine, Project, Session, Theme } from "./types";
 import { UsageLimits } from "./UsageLimits";
 import { UsageLimitsProvider } from "./UsageLimitsState";
 import { useProjectSwipe } from "./useProjectSwipe";
+import { useWindowGeometry } from "./useWindowGeometry";
 
 export const gptSettingsChanged = "codex-gpt-settings-changed";
 
@@ -129,6 +130,7 @@ export function WorkspaceSettings({
       panel.focus({ preventScroll: true });
     } else panel?.close();
   }, [open]);
+  useWindowGeometry(dialog, "settings", open);
   const refresh = async (client: "codex" | "gpt") => {
     if (running.current) return;
     running.current = true;

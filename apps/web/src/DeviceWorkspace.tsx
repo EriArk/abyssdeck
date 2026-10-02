@@ -10,6 +10,7 @@ import { api } from "./api";
 import { DeviceTerminal } from "./DeviceTerminal";
 import { Icon } from "./icons";
 import { PanelDivider } from "./PanelDivider";
+import { useWindowGeometry } from "./useWindowGeometry";
 import "./devices.css";
 
 const bytes = (v: number) =>
@@ -95,6 +96,7 @@ export default function DeviceWorkspace({
     dialog.current?.focus();
     return () => dialog.current?.close();
   }, []);
+  useWindowGeometry(dialog, "devices");
   useEffect(() => {
     const controller = new AbortController();
     void api<{ devices: DeviceInfo[] }>("/devices", { signal: controller.signal })

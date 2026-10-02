@@ -1,5 +1,18 @@
 # Window and action layout
 
+Owner correction, 2 October 2026: working windows share `useWindowGeometry` through
+an explicit stable tool key. Drag only the free heading area; resize from edges and
+corners. Save committed geometry per account/browser, independently of panel widths.
+Never save viewport clamps, cancellation, a heading tap, phone layout or expanded
+viewer geometry over the preferred wide layout. Respect visualViewport bounds and
+keep Close reachable. Keyboard heading arrows move, Shift+arrows resize, Home resets;
+the southeast handle reverses move/resize via Alt. Escape during a drag cancels that
+gesture; native dialog close/dirty/terminal lifecycle remains with the tool.
+Compact confirmations, menus and drawers do not acquire desktop window controls.
+File lists stay relatively narrow; names use single-line ellipsis and a full title,
+while the preview receives the larger default pane. Container queries must handle
+a narrow desktop window as well as a narrow screen. Viewer internals follow after Git.
+
 Owner correction, 23 September 2026: Activity actions had accidental wrapping and unequal widths; the Intake launcher crowded its title and the mobile dialog was offset. These rules apply to subsequent interface work as well as these windows.
 
 - **Give each row one purpose.** Activity has an exact-source action, a pair of assistant actions, then a separated reaction/discussion group. Use grid columns and consistent gaps, not inline buttons with individual margins. Align peer actions; short visible labels may have fuller accessible names.

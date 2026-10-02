@@ -101,7 +101,7 @@ function GitHubFiles({
   onClose: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  useWorkspaceDialog(dialog);
+  useWorkspaceDialog(dialog, true, "github-files");
   const base = `/projects/${encodeURIComponent(projectId)}/github-files`,
     key = `workspace-github-file-review:${projectId}`;
   const [branch, setBranch] = useState(""),
@@ -616,7 +616,7 @@ function GitHubFileReview({
   onCancelChange: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  useWorkspaceDialog(dialog);
+  useWorkspaceDialog(dialog, true, "github-editor");
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const lock = useRef(false),

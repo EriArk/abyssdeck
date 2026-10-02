@@ -77,7 +77,7 @@ function RoomDialog({
   large?: boolean;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  useWorkspaceDialog(dialog);
+  useWorkspaceDialog(dialog, true, "brainstorm");
   return (
     <dialog
       data-help-context="brainstorm"

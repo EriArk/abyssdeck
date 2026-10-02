@@ -34,7 +34,7 @@ export function FileViewerDialog({
   const dialog = useRef<HTMLDialogElement>(null);
   const [properties, setProperties] = useState(false),
     [expanded, setExpanded] = useState(false);
-  useWorkspaceDialog(dialog);
+  useWorkspaceDialog(dialog, true, "file-viewer");
   const format = (file?.name || name).split(".").at(-1)?.toUpperCase();
   return createPortal(
     <dialog

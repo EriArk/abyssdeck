@@ -29,7 +29,7 @@ export function ResultSearch({
   onTurn?: (id: string, threadId?: string) => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  useWorkspaceDialog(dialog);
+  useWorkspaceDialog(dialog, true, "result-search");
   const [query, setQuery] = useState(""),
     [category, setCategory] = useState<ResultSearchQuery["category"]>(
       initialCategory === "files" || initialCategory === "images" ? initialCategory : "all",

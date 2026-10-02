@@ -290,7 +290,7 @@ function NotebookEditor({
     [confirmDelete, setConfirmDelete] = useState(false),
     [status, setStatus] = useState("");
   const editRef = useRef(edit);
-  useWorkspaceDialog(dialog, !!request);
+  useWorkspaceDialog(dialog, !!request, isTask ? "tasks" : "notes");
   const audience = useWorkspaceAudience(
     edit?.scope ?? null,
     edit?.id ?? "notebook-none",

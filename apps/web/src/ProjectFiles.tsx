@@ -46,7 +46,7 @@ export function ProjectFiles({
   onOpenFiles: (path: string) => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  useWorkspaceDialog(dialog, visible);
+  useWorkspaceDialog(dialog, visible, `project-${mode}`);
   const [section, setSection] = useState<"overview" | "changes" | "releases">("overview");
   const [editorPath, setEditorPath] = useState(""),
     [fileAction, setFileAction] = useState("");

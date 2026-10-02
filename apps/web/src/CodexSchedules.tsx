@@ -91,7 +91,7 @@ export function CodexScheduleWindow({
       return null;
     }
   });
-  useWorkspaceDialog(dialog);
+  useWorkspaceDialog(dialog, true, "codex-schedules");
   const load = useCallback(async () => {
     const value = await api<CodexScheduleList>(path);
     if (alive.current) setData(value);
