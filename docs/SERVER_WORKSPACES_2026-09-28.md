@@ -1,5 +1,15 @@
 # Server Workspaces — состояние установки
 
+## Личное окружение создано 2 октября
+
+После подтверждённого владельцем ремонта остатков acceptance (IMG_0815) старый
+creating intent сверён штатным API как WORKSPACE_MISSING. Новый create и повторный
+GET вернули ready. На реальном личном runtime через Hub → SSH → broker проверены
+файлы, Git/Node/Python и Codex app-server initialize. Codex пока Not logged in;
+подключение машины к личной сессии Hub применяется после завершения её активных задач.
+Точный отчёт: [Companion/GPT/Workspaces](COMPANION_GPT_WORKSPACES_2026-10-02.md).
+Ниже сохранено состояние первоначальной установки, не новая очередь работ.
+
 ## Активировано и проверено 28 сентября, 11:59 UTC
 
 Hub engine/gateway `1008874` установлен, `serverWorkspaces` включён. Runtime
