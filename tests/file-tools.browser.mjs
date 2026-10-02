@@ -64,6 +64,8 @@ for (const [engine, type] of [
     const open = async () => {
       await page.getByRole("button", { name: "Файлы проекта", exact: true }).click();
       await expect(pane).toBeVisible();
+      if (await pane.getByRole("button", { name: "Закрыть файл", exact: true }).isVisible())
+        await pane.getByRole("button", { name: "Закрыть файл", exact: true }).click();
       await pane
         .getByRole("button", { name: /^sample.ts/ })
         .first()
@@ -248,8 +250,15 @@ for (const [engine, type] of [
     await expect.poll(() => readFile(join(root, "new.md"), "utf8")).toContain("# Новый документ");
     await page.evaluate(() => {
       const original = Storage.prototype.setItem;
+      const originalPut = IDBObjectStore.prototype.put;
       window.restoreDraftStorage = () => {
         Storage.prototype.setItem = original;
+        IDBObjectStore.prototype.put = originalPut;
+      };
+      IDBObjectStore.prototype.put = function (value, key) {
+        if (this.name === "drafts" && String(key).includes("workspace-file-draft:"))
+          throw new DOMException("Full", "QuotaExceededError");
+        return originalPut.call(this, value, key);
       };
       Storage.prototype.setItem = function (key, value) {
         if (key.includes("workspace-file-draft:"))
@@ -267,6 +276,7 @@ for (const [engine, type] of [
     await expect(editor.locator(".cm-content")).toContainText("Не потерять");
     await page.evaluate(() => window.restoreDraftStorage());
     await editor.getByRole("button", { name: "Не сохранять", exact: true }).click();
+    await pane.getByRole("button", { name: "Закрыть файл", exact: true }).click();
     await pane
       .getByRole("button", { name: /^preview.html/ })
       .first()
@@ -293,6 +303,7 @@ for (const [engine, type] of [
         await route.abort("failed");
       } else await route.continue();
     });
+    await pane.getByRole("button", { name: "Закрыть файл", exact: true }).click();
     await pane.getByRole("button", { name: "Действия: new.md", exact: true }).click();
     await action.getByRole("button", { name: "Удалить", exact: true }).click();
     await expect(action).toContainText("Удалить «new.md»");

@@ -18,7 +18,6 @@ export function ProjectFilePreview({
   size?: number;
   visible: boolean;
 }) {
-  const [wide, setWide] = useState(() => matchMedia("(min-width: 900px)").matches);
   const [file, setFile] = useState<File | null>(null),
     [url, setUrl] = useState("");
   const [error, setError] = useState("");
@@ -26,16 +25,10 @@ export function ProjectFilePreview({
     previewKind({ name: path, type: "", size: size ?? 0 }),
   );
   useEffect(() => {
-    const media = matchMedia("(min-width: 900px)");
-    const change = () => setWide(media.matches);
-    media.addEventListener("change", change);
-    return () => media.removeEventListener("change", change);
-  }, []);
-  useEffect(() => {
     setFile(null);
     setUrl("");
     setError("");
-    if (!wide || !visible || !path || size === undefined || size > limit || explicit) return;
+    if (!visible || !path || size === undefined || size > limit || explicit) return;
     const controller = new AbortController();
     let objectUrl = "";
     void (async () => {
@@ -79,7 +72,7 @@ export function ProjectFilePreview({
       controller.abort();
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [projectId, path, size, visible, wide, explicit]);
+  }, [projectId, path, size, visible, explicit]);
   return (
     <aside className="inspector-preview" aria-label="Содержимое файла">
       <header>

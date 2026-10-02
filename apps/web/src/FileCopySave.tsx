@@ -4,6 +4,7 @@ import { api, messageOf } from "./api";
 import { DownloadLink } from "./DownloadLink";
 import { Icon } from "./icons";
 import { ProjectFileUpload } from "./ProjectFileUpload";
+import { ProjectFolderBrowser } from "./ProjectFolderBrowser";
 import { useWorkspaceDialog } from "./useWorkspaceDialog";
 
 /** Destination choice delegates all writes/collisions/receipts to ordinary uploads. */
@@ -28,6 +29,7 @@ export function FileCopySave({
     [grant, setGrant] = useState<{ capability: string; checkout: string } | null>(null);
   const live = useRef(true),
     binding = useRef<{ project: string; capability: string } | null>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: A different immutable file releases its previous destination grant.
   useEffect(() => {
     live.current = true;
     const abort = new AbortController();
@@ -49,8 +51,9 @@ export function FileCopySave({
         }).catch(() => {});
     };
   }, [file]);
+  const [folderReady, setFolderReady] = useState(false);
   const prepare = async () => {
-    if (busy || !project) return;
+    if (busy || !project || !folderReady) return;
     setBusy(true);
     setError("");
     try {
@@ -105,7 +108,11 @@ export function FileCopySave({
             aria-label="Проект для копии"
             value={project}
             disabled={!!grant || busy}
-            onChange={(e) => setProject(e.target.value)}
+            onChange={(e) => {
+              setProject(e.target.value);
+              setFolder("");
+              setFolderReady(false);
+            }}
           >
             <option value="">Выбери проект</option>
             {projects.map((p) => (
@@ -115,16 +122,19 @@ export function FileCopySave({
             ))}
           </select>
         </label>
-        <label>
-          Папка в проекте
-          <input
-            aria-label="Папка для копии"
-            placeholder="Корень проекта"
-            value={folder}
-            disabled={!!grant || busy}
-            onChange={(e) => setFolder(e.target.value)}
+        {project && !grant && (
+          <ProjectFolderBrowser
+            key={project}
+            projectId={project}
+            name={projects.find((p) => p.id === project)?.name ?? "Проект"}
+            disabled={busy}
+            onFolder={setFolder}
+            onReady={setFolderReady}
           />
-        </label>
+        )}
+        {project && (
+          <p className="file-copy-destination">Папка для копии: {folder || "Корень проекта"}</p>
+        )}
         {error && <p role="alert">{error}</p>}
         {grant && (
           <ProjectFileUpload
@@ -145,7 +155,7 @@ export function FileCopySave({
         <button
           className="primary"
           type="button"
-          disabled={!project || busy || !!grant}
+          disabled={!project || !folderReady || busy || !!grant}
           onClick={() => void prepare()}
         >
           {busy ? "Открываю…" : "Сохранить в проект"}

@@ -57,6 +57,16 @@ for (const [engine, type] of [
     const page = await context.newPage(),
       errors = [];
     page.on("pageerror", (e) => errors.push(e.message));
+    await page.route("**/api/machines/pc/directories?**", (route) => {
+      const path = new URL(route.request().url()).searchParams.get("path");
+      return route.fulfill({
+        json: {
+          path: path?.endsWith("/notes") ? "C:/Project/notes" : "C:/Project",
+          parent: path?.endsWith("/notes") ? "C:/Project" : null,
+          entries: path?.endsWith("/notes") ? [] : [{ name: "notes", path: "C:/Project/notes" }],
+        },
+      });
+    });
     await page.goto(origin);
     const editor = page.getByRole("textbox", { name: "Сообщение Codex" });
     await editor.fill("Parent draft retained");
@@ -84,6 +94,17 @@ for (const [engine, type] of [
     await wizard.getByRole("button", { name: /Папка на компьютере Подключить/ }).click();
     await wizard.getByLabel("Название проекта", { exact: true }).fill("Existing code");
     await wizard.getByRole("button", { name: "Далее", exact: true }).click();
+    await wizard.getByRole("button", { name: "Выбрать папку проекта", exact: true }).click();
+    const folderBrowser = wizard.getByRole("region", { name: "Навигация по файлам" });
+    await folderBrowser.getByRole("button", { name: "notes Папка", exact: true }).click();
+    await expect(folderBrowser.getByRole("navigation", { name: "Путь к папке" })).toContainText(
+      "notes",
+    );
+    await page.screenshot({ path: `.local/qa-project-setup/${engine}-folder-browser.png` });
+    await wizard.getByRole("button", { name: "Выбрать эту папку", exact: true }).click();
+    await expect(wizard.getByLabel("Папка проекта", { exact: true })).toHaveValue(
+      "C:/Project/notes",
+    );
     await wizard.getByRole("button", { name: "Проверить", exact: true }).click();
     assert.equal(inspections.at(-1).createDirectory, false);
     assert.equal(inspections.at(-1).repository.mode, "none");

@@ -69,6 +69,24 @@ for (const [engine, type] of [
     const row = (path) => popup.getByRole("region", { name: path, exact: true });
     const finish = () => popup.getByRole("button", { name: "Завершить", exact: true }).click();
     await open();
+    for (const theme of ["crt-green", "organizer", "hitech-2000s", "classic-dark"]) {
+      await page.evaluate((t) => (document.documentElement.dataset.theme = t), theme);
+      for (const [width, height] of [
+        [390, 844],
+        [390, 430],
+        [768, 1024],
+        [1366, 1024],
+      ]) {
+        await page.setViewportSize({ width, height });
+        await expect(
+          pane.getByRole("button", { name: "Закрыть файлы", exact: true }),
+        ).toBeVisible();
+        await page.screenshot({
+          path: `.local/qa-file-batch/${engine}-browser-${theme}-${width}x${height}.png`,
+        });
+      }
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
     await folder("source");
     await controls.getByRole("button", { name: /^Выбрать несколько/ }).click();
     await select("source/a.txt");
@@ -273,13 +291,17 @@ for (const [engine, type] of [
         [1366, 1024],
       ]) {
         await page.setViewportSize({ width, height });
-        const bounds = await archive.boundingBox();
-        assert(
-          bounds.x >= 0 &&
-            bounds.y >= 0 &&
-            bounds.x + bounds.width <= width + 1 &&
-            bounds.y + bounds.height <= height + 1,
-        );
+        await expect
+          .poll(async () => {
+            const bounds = await archive.boundingBox();
+            return (
+              bounds.x >= 0 &&
+              bounds.y >= 0 &&
+              bounds.x + bounds.width <= width + 1 &&
+              bounds.y + bounds.height <= height + 1
+            );
+          })
+          .toBe(true);
         await page.screenshot({
           path: `.local/qa-file-batch/${engine}-archive-${theme}-${width}x${height}.png`,
           animations: "disabled",

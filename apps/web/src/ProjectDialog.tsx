@@ -5,6 +5,7 @@ import { pageWorkspace } from "./accountStorage";
 import { accountLocalStorage as localStorage } from "./accountStorage.ts";
 import { ApiError, api, messageOf } from "./api";
 import { NewBrainstormRoom } from "./Brainstorm";
+import { FileBrowser } from "./FileBrowser";
 import { Icon } from "./icons";
 import type { Machine, Project } from "./types";
 import "./project-setup.css";
@@ -711,56 +712,24 @@ function ProjectDialogContent({
                     <Icon name="close" />
                   </button>
                 </div>
-                <div className="folder-picker-list">
-                  {machine?.allowedProjectRoots && machine.allowedProjectRoots.length > 1 && (
-                    <label className="field-label">
-                      Разрешённые папки
-                      <select
-                        aria-label="Разрешённая корневая папка"
-                        value={machine.allowedProjectRoots.includes(browse.path) ? browse.path : ""}
-                        disabled={browsing}
-                        onChange={(event) => {
-                          if (event.target.value) void openFolder(event.target.value);
-                        }}
-                      >
-                        <option value="" disabled>
-                          Перейти в другую папку…
-                        </option>
-                        {machine.allowedProjectRoots.map((root) => (
-                          <option key={root} value={root}>
-                            {root}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  )}
-                  {browse.parent && (
-                    <button
-                      type="button"
-                      disabled={browsing}
-                      onClick={() => void openFolder(browse.parent!)}
-                    >
-                      <Icon name="arrow-up" />
-                      На уровень выше
-                    </button>
-                  )}
-                  {browse.entries.map((row) => (
-                    <button
-                      type="button"
-                      key={row.path}
-                      disabled={browsing}
-                      onClick={() => void openFolder(row.path)}
-                    >
-                      <Icon name="folder" />
-                      {row.name}
-                      <Icon name="chevron" />
-                    </button>
-                  ))}
-                  {!browse.entries.length && <p>Вложенных папок нет</p>}
-                </div>
+                <FileBrowser
+                  key={machine?.id}
+                  path={browse.path}
+                  rootLabel={machine?.name ?? "Компьютер"}
+                  locations={(
+                    machine?.allowedProjectRoots ?? [machine?.projectsDirectory ?? browse.path]
+                  ).map((path) => ({ path, name: path }))}
+                  parent={browse.parent}
+                  busy={browsing}
+                  entries={browse.entries.map((row) => ({ ...row, kind: "directory" as const }))}
+                  onNavigate={(path) => void openFolder(path)}
+                  pathLabel="Путь к папке проекта"
+                  emptyLabel="Вложенных папок нет"
+                />
                 <button
                   type="button"
                   className="secondary"
+                  disabled={browsing}
                   onClick={() => {
                     setEditedPath(true);
                     setField({ workingDirectory: browse.path, createDirectory: false });

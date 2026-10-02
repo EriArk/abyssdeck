@@ -9,6 +9,7 @@ import { api, messageOf } from "./api";
 import { CopyButton } from "./CopyButton";
 import { DownloadLink } from "./DownloadLink";
 import { FileBatchActions } from "./FileBatchActions";
+import { FileBrowser } from "./FileBrowser";
 import { FileLaunch } from "./FileLaunch";
 import { FileManagerActions } from "./FileManagerActions";
 import { GitHubFilesButton } from "./GitHubFiles";
@@ -24,15 +25,6 @@ import "./workspace-window.css";
 import "./project-tools.css";
 
 const FileEditor = lazy(() => import("./FileEditor"));
-
-const fileSize = (size: number) =>
-  size < 1024
-    ? `${size} Б`
-    : size < 1048576
-      ? `${Math.ceil(size / 1024)} КБ`
-      : `${(size / 1048576).toFixed(1)} МБ`;
-const fileDate = (value: number) =>
-  new Date(value).toLocaleDateString("ru", { day: "numeric", month: "short" });
 
 export function ProjectFiles({
   projectId,
@@ -92,8 +84,6 @@ export function ProjectFiles({
     };
   }, [visible, projectId]);
   const [path, setPath] = useState(""),
-    [input, setInput] = useState(""),
-    [editingPath, setEditingPath] = useState(false),
     [search, setSearch] = useState(""),
     [filter, setFilter] = useState("");
   const [sort, setSort] = useState<"name" | "modified" | "size">("name"),
@@ -114,9 +104,8 @@ export function ProjectFiles({
     detailScope = useRef("");
   const base = `/projects/${encodeURIComponent(projectId)}`;
   const open = (next: string) => {
-    setEditingPath(false);
+    if (next !== path || offset || filter || reveal) setBusy(true);
     setPath(next);
-    setInput(next);
     setOffset(0);
     setSelected("");
     setFilter("");
@@ -127,7 +116,6 @@ export function ProjectFiles({
     if (mode !== "files" || !focus.version || focus.projectId !== projectId) return;
     const parent = focus.path.split("/").slice(0, -1).join("/");
     setPath(parent);
-    setInput(parent);
     setOffset(0);
     setFilter("");
     setSearch("");
@@ -297,14 +285,16 @@ export function ProjectFiles({
           </button>
         )}
         {mode === "git" && <CopyButton text={selected} label="Копировать путь" />}
-        <button
-          type="button"
-          className="icon-button inspector-file-close"
-          aria-label="Закрыть файл"
-          onClick={() => setSelected("")}
-        >
-          <Icon name="close" />
-        </button>
+        {mode === "git" && (
+          <button
+            type="button"
+            className="icon-button inspector-file-close"
+            aria-label="Закрыть файл"
+            onClick={() => setSelected("")}
+          >
+            <Icon name="close" />
+          </button>
+        )}
         {saved && (
           <DownloadLink href={saved.url} name={saved.name}>
             Сохранённый результат
@@ -435,7 +425,7 @@ export function ProjectFiles({
           {error}
         </p>
       )}
-      <div className="project-tool-actions">
+      <div className="project-tool-actions" data-unlocked={!!capability}>
         {mode === "git" && visible && (
           <GitHubFilesButton projectId={projectId} projectName={projectName} />
         )}
@@ -496,279 +486,162 @@ export function ProjectFiles({
           <DeliveryButton projectId={projectId} projectName={projectName} />
         )}
       </div>
-      <div className="inspector-workspace">
-        <div className="inspector-scroll" ref={scroller}>
-          {mode === "files" && visible && capability && (
-            <FileBatchActions
-              key={`${projectId}:${checkout}`}
-              projectId={projectId}
-              projectName={projectName}
-              capability={capability}
-              checkout={checkout}
-              folder={path}
-              selection={selection}
-              selecting={selecting}
-              visiblePaths={directory?.entries.map((entry) => entry.path) ?? []}
-              onSelection={setSelection}
-              onSelecting={setSelecting}
-              onDone={(operation) => {
-                if (!scopeActive.current) return;
-                setRevision((n) => n + 1);
-                setSelection((values) =>
-                  values.filter(
-                    (value) => value !== operation.path && !value.startsWith(operation.path + "/"),
-                  ),
-                );
-                if (operation.op !== "copy") {
-                  if (path === operation.path || path.startsWith(operation.path + "/"))
-                    open(operation.path.split("/").slice(0, -1).join("/"));
-                  if (selected === operation.path || selected.startsWith(operation.path + "/"))
-                    setSelected("");
-                }
-              }}
-            />
-          )}
-          {mode === "files" && (
-            <>
-              {editingPath ? (
-                <form
-                  className="inspector-path"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    open(input);
-                  }}
-                >
-                  <button
-                    type="button"
-                    className="icon-button"
-                    disabled={!path}
-                    aria-label="Папка выше"
-                    onClick={() => open(path.split("/").slice(0, -1).join("/"))}
-                  >
-                    <Icon name="arrow-up" />
-                  </button>
-                  <input
-                    aria-label="Путь в проекте"
-                    value={input}
-                    placeholder="Корень проекта"
-                    onChange={(e) => setInput(e.target.value)}
-                  />
-                  <button
-                    type="button"
-                    className="icon-button"
-                    aria-label="Отменить ввод пути"
-                    onClick={() => setEditingPath(false)}
-                  >
-                    <Icon name="close" />
-                  </button>
-                  <button type="submit" className="icon-button" aria-label="Открыть папку">
-                    <Icon name="chevron" />
-                  </button>
-                </form>
-              ) : (
-                <div className="inspector-location">
-                  <button
-                    type="button"
-                    className="icon-button"
-                    disabled={!path}
-                    aria-label="Папка выше"
-                    onClick={() => open(path.split("/").slice(0, -1).join("/"))}
-                  >
-                    <Icon name="arrow-up" />
-                  </button>
-                  <nav className="inspector-breadcrumbs" aria-label="Папки проекта">
-                    <button type="button" onClick={() => open("")} aria-label="Корень проекта">
-                      <Icon name="folder" size={16} />
-                      Корень
-                    </button>
-                    {path
-                      .split("/")
-                      .filter(Boolean)
-                      .map((part, index) => (
-                        <span
-                          key={path
-                            .split("/")
-                            .slice(0, index + 1)
-                            .join("/")}
-                        >
-                          <Icon name="chevron" size={13} />
-                          <button
-                            type="button"
-                            onClick={() =>
-                              open(
-                                path
-                                  .split("/")
-                                  .slice(0, index + 1)
-                                  .join("/"),
-                              )
-                            }
-                          >
-                            {part}
-                          </button>
-                        </span>
-                      ))}
-                  </nav>
-                  <button
-                    type="button"
-                    className="icon-button"
-                    aria-label="Ввести путь"
-                    onClick={() => {
-                      setInput(path);
-                      setEditingPath(true);
-                    }}
-                  >
-                    <Icon name="edit" size={17} />
-                  </button>
-                </div>
-              )}
-              <form
-                className="inspector-search"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  setFilter(search);
-                  setOffset(0);
-                  setReveal("");
-                  setSelected("");
-                }}
-              >
-                <input
-                  aria-label="Найти в папке"
-                  placeholder="Найти в папке…"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-                <button type="submit" className="icon-button" aria-label="Найти файл">
-                  <Icon name="search" />
-                </button>
-              </form>
-              <div className="inspector-list-tools">
-                <small>
-                  {directory
-                    ? `${directory.total ?? directory.entries.length} элементов`
-                    : "Файлы проекта"}
-                </small>
-                <select
-                  aria-label="Порядок файлов"
-                  value={sort}
-                  onChange={(e) => {
-                    setSort(e.target.value as typeof sort);
-                    setOffset(0);
-                    setReveal("");
-                    setSelected("");
-                  }}
-                >
-                  <option value="name">По имени</option>
-                  <option value="modified">По дате</option>
-                  <option value="size">По размеру</option>
-                </select>
-              </div>
-            </>
-          )}
-          {busy && (
-            <p role="status">
-              <span className="spinner" /> Загружаю…
-            </p>
-          )}
-          {mode === "files" && directory && (
-            <>
-              <ul className="inspector-list">
-                {directory.entries.map((entry) => (
-                  <li
-                    key={entry.path}
-                    data-file-path={entry.path}
-                    className={selected === entry.path ? "selected" : ""}
-                  >
-                    <div className="inspector-row">
-                      {capability && selecting && (
-                        <label className="file-batch-check">
-                          <input
-                            type="checkbox"
-                            aria-label={`Выбрать: ${entry.path}`}
-                            checked={selection.includes(entry.path)}
-                            disabled={!selection.includes(entry.path) && selection.length >= 100}
-                            onChange={(e) =>
-                              setSelection((values) =>
-                                e.target.checked
-                                  ? [...new Set([...values, entry.path])].slice(0, 100)
-                                  : values.filter((value) => value !== entry.path),
-                              )
-                            }
-                          />
-                        </label>
-                      )}
+      {mode === "files" ? (
+        <FileBrowser
+          key={projectId}
+          path={path}
+          rootLabel={projectName}
+          busy={busy}
+          entries={directory?.entries ?? []}
+          selected={selected}
+          onNavigate={open}
+          onSelect={(entry) => select(entry.path)}
+          scrollerRef={scroller}
+          search={{
+            value: search,
+            onChange: setSearch,
+            onSubmit: () => {
+              setFilter(search);
+              setOffset(0);
+              setReveal("");
+              setSelected("");
+            },
+          }}
+          sort={{
+            value: sort,
+            onChange: (value) => {
+              setSort(value);
+              setOffset(0);
+            },
+          }}
+          selection={capability && selecting ? selection : undefined}
+          onCheck={(file, checked) =>
+            setSelection((values) =>
+              checked
+                ? [...new Set([...values, file])].slice(0, 100)
+                : values.filter((v) => v !== file),
+            )
+          }
+          actions={
+            !selecting
+              ? (entry) => (
+                  <>
+                    <CopyButton text={entry.path} label={`Копировать путь ${entry.name}`} />
+                    {capability && (
                       <button
                         type="button"
-                        className="inspector-entry"
-                        aria-expanded={entry.kind === "file" ? selected === entry.path : undefined}
-                        onClick={() =>
-                          entry.kind === "directory" ? open(entry.path) : select(entry.path)
-                        }
+                        className="icon-button"
+                        aria-label={`Действия: ${entry.name}`}
+                        onClick={() => setFileAction(entry.path)}
                       >
-                        <span className={`inspector-file-icon ${entry.kind}`}>
-                          <Icon name={entry.kind === "directory" ? "folder" : "file"} />
-                        </span>
-                        <span>
-                          {entry.name}
-                          <small>
-                            {entry.kind === "file" ? fileSize(entry.size) + " · " : ""}
-                            {fileDate(entry.modifiedAt)}
-                          </small>
-                        </span>
-                        {entry.kind === "directory" && <Icon name="chevron" size={15} />}
+                        <Icon name="more" />
                       </button>
-                      {!selecting && (
-                        <CopyButton text={entry.path} label={`Копировать путь ${entry.name}`} />
-                      )}
-                      {capability && !selecting && (
-                        <button
-                          type="button"
-                          className="icon-button"
-                          aria-label={`Действия: ${entry.name}`}
-                          onClick={() => setFileAction(entry.path)}
-                        >
-                          <Icon name="more" />
-                        </button>
-                      )}
-                    </div>
-                    {selected === entry.path && selectedPanel()}
-                  </li>
-                ))}
-              </ul>
-              {!directory.entries.length && <p className="inspector-empty">Файлов не найдено</p>}
-              <div className="inspector-actions">
-                {(directory.offset ?? offset) > 0 && (
-                  <button
-                    type="button"
-                    className="secondary"
-                    onClick={() => {
-                      setOffset(Math.max(0, (directory.offset ?? offset) - 100));
-                      setReveal("");
-                      setSelected("");
-                    }}
-                  >
-                    Назад
-                  </button>
-                )}
-                {directory.nextOffset !== null && (
-                  <button
-                    type="button"
-                    className="secondary"
-                    onClick={() => {
-                      setOffset(directory.nextOffset ?? 0);
-                      setReveal("");
-                      setSelected("");
-                    }}
-                  >
-                    Ещё файлы
-                  </button>
-                )}
-              </div>
-              {directory.truncated && (
-                <small>Проверены первые 5000 записей. Открой нужную папку по пути.</small>
+                    )}
+                  </>
+                )
+              : undefined
+          }
+          tools={
+            <>
+              {visible && capability && (
+                <FileBatchActions
+                  key={`${projectId}:${checkout}`}
+                  projectId={projectId}
+                  projectName={projectName}
+                  capability={capability}
+                  checkout={checkout}
+                  folder={path}
+                  selection={selection}
+                  selecting={selecting}
+                  visiblePaths={directory?.entries.map((entry) => entry.path) ?? []}
+                  onSelection={setSelection}
+                  onSelecting={setSelecting}
+                  onDone={(operation) => {
+                    if (!scopeActive.current) return;
+                    setRevision((n) => n + 1);
+                    setSelection((values) =>
+                      values.filter(
+                        (value) =>
+                          value !== operation.path && !value.startsWith(operation.path + "/"),
+                      ),
+                    );
+                    if (operation.op !== "copy") {
+                      if (path === operation.path || path.startsWith(operation.path + "/"))
+                        open(operation.path.split("/").slice(0, -1).join("/"));
+                      if (selected === operation.path || selected.startsWith(operation.path + "/"))
+                        setSelected("");
+                    }
+                  }}
+                />
               )}
             </>
-          )}
-          {mode === "git" && (
+          }
+          preview={
+            selected ? (
+              <>
+                {selectedPanel()}
+                <ProjectFilePreview
+                  key={`${selected}:${revision}`}
+                  projectId={projectId}
+                  path={selected}
+                  size={directory?.entries.find((e) => e.path === selected)?.size}
+                  visible={visible}
+                />
+              </>
+            ) : undefined
+          }
+          onClosePreview={() => setSelected("")}
+          footer={
+            directory && (
+              <>
+                <div className="inspector-actions">
+                  {(directory.offset ?? offset) > 0 && (
+                    <button
+                      type="button"
+                      className="secondary"
+                      disabled={busy}
+                      onClick={() => {
+                        setOffset(Math.max(0, (directory.offset ?? offset) - 100));
+                        setReveal("");
+                        setSelected("");
+                      }}
+                    >
+                      Назад
+                    </button>
+                  )}
+                  {directory.nextOffset !== null && (
+                    <button
+                      type="button"
+                      className="secondary"
+                      disabled={busy}
+                      onClick={() => {
+                        setOffset(directory.nextOffset ?? 0);
+                        setReveal("");
+                        setSelected("");
+                      }}
+                    >
+                      Ещё файлы
+                    </button>
+                  )}
+                </div>
+                <small>
+                  {directory.total} записей
+                  {directory.truncated
+                    ? " · Показаны первые 5000. Открой нужную папку по пути."
+                    : ""}
+                </small>
+              </>
+            )
+          }
+        />
+      ) : (
+        <div className="inspector-workspace">
+          <div className="inspector-scroll" ref={scroller}>
+            {busy && (
+              <p role="status">
+                <span className="spinner" /> Загружаю…
+              </p>
+            )}
             <ProjectRepositoryView
               visible={visible}
               projectId={projectId}
@@ -779,18 +652,9 @@ export function ProjectFiles({
               onSection={setSection}
               changes={changeList}
             />
-          )}
+          </div>
         </div>
-        {mode === "files" && (
-          <ProjectFilePreview
-            key={`${selected}:${revision}`}
-            projectId={projectId}
-            path={selected}
-            size={directory?.entries.find((entry) => entry.path === selected)?.size}
-            visible={visible}
-          />
-        )}
-      </div>
+      )}
       {editorPath && visible && capability && (
         <Suspense fallback={<p role="status">Открываю редактор…</p>}>
           <FileEditor

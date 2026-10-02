@@ -1,0 +1,470 @@
+.file-browser {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  color: var(--ink);
+  background: var(--window-screen, var(--paper));
+  border: 1px solid var(--window-edge, var(--line));
+  border-radius: var(--radius);
+  box-shadow: var(--window-screen-shadow);
+  overflow: hidden;
+}
+.file-browser button {
+  color: inherit;
+}
+.file-browser .icon-button {
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+}
+.file-browser-navigation {
+  display: grid;
+  grid-template-columns: auto minmax(100px, 1fr) minmax(150px, 230px);
+  gap: 8px;
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+  align-items: center;
+}
+.file-browser-travel,
+.file-browser-address,
+.file-browser-search,
+.file-browser-view {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 2px;
+}
+.file-browser-address,
+.file-browser-search {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.file-browser .file-browser-address input,
+.file-browser .file-browser-search input {
+  width: 100%;
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  font: inherit;
+  font-size: 16px;
+  border: 0;
+  padding: 6px 8px;
+  background: transparent;
+  color: var(--ink);
+}
+.file-browser-address nav {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+.file-browser-address nav > span {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.file-browser-address nav button {
+  min-height: 44px;
+  padding: 4px 8px;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.file-browser [aria-current="location"] {
+  font-weight: 700;
+  color: var(--accent);
+}
+.file-browser-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+.file-browser-places {
+  flex: 0 0 175px;
+  min-width: 0;
+  border-right: 1px solid var(--line);
+  padding: 12px 8px;
+  overflow: auto;
+  background: color-mix(in srgb, var(--accent) 4%, var(--paper));
+}
+.file-browser-places strong {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  margin: 0 8px 6px;
+}
+.file-browser-places strong:not(:first-child) {
+  margin-top: 20px;
+}
+.file-browser-places button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px;
+  font-size: 13px;
+  border-radius: var(--radius);
+}
+.file-browser-places button svg {
+  flex-shrink: 0;
+}
+.file-browser-places button span {
+  overflow-wrap: anywhere;
+}
+.file-browser-places button[aria-current] {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.file-browser-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.file-browser-tools {
+  flex: none;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--line);
+}
+.file-browser-view {
+  justify-content: flex-end;
+}
+.file-browser .file-browser-view select {
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  min-width: 0;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  margin-right: auto;
+}
+.file-browser-view [aria-pressed="true"] {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.file-browser-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 0 8px 8px;
+}
+.file-browser-loading {
+  font-size: 13px;
+  margin: 8px;
+}
+.file-browser .file-browser-entries {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.file-browser-entries > li {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 65%, transparent);
+}
+.file-browser-entries > li:hover {
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+.file-browser-entries > li.selected {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow: inset 3px 0 var(--accent);
+}
+.file-browser .file-browser-entry {
+  display: flex;
+  flex: 1;
+  gap: 10px;
+  min-width: 0;
+  min-height: 58px;
+  text-align: left;
+  padding: 8px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.file-browser-entry > svg {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+.file-browser-entry > .file-browser-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+.file-browser-name small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 3px;
+}
+.file-browser-entry > .file-browser-size {
+  flex: 0 0 65px;
+  text-align: right;
+  font-size: 12px;
+  color: var(--muted);
+}
+.file-browser-date {
+  flex: 0 0 85px;
+  text-align: right;
+  font-size: 12px;
+  color: var(--muted);
+}
+.file-browser-row-actions {
+  display: flex;
+  flex-shrink: 0;
+}
+.file-browser-checkbox {
+  display: grid;
+  place-items: center;
+  min-width: 44px;
+  min-height: 44px;
+}
+.file-browser-checkbox input {
+  width: 20px;
+  min-height: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+.file-browser-detail {
+  flex: 0 0 36%;
+  min-width: 0;
+  overflow: auto;
+  border-left: 1px solid var(--line);
+  padding: 12px;
+  overscroll-behavior: contain;
+}
+.file-browser-detail > header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 12px;
+}
+.file-browser-detail > header strong {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+.file-browser-detail .inspector-selected {
+  border: 0;
+  padding: 0;
+  margin: 0 0 12px;
+}
+.file-browser-detail .inspector-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+.project-tool-window .file-browser-detail .inspector-preview {
+  display: block;
+  padding: 0;
+  overflow: visible;
+}
+.file-browser-detail .inspector-preview > header {
+  display: none;
+}
+.file-browser[data-view="icons"] .file-browser-entries {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 6px;
+  padding-top: 6px;
+}
+.file-browser[data-view="icons"] .file-browser-entries > li {
+  position: relative;
+  flex-wrap: wrap;
+  align-content: start;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.file-browser[data-view="icons"] .file-browser-entry {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  width: 100%;
+  flex-basis: 100%;
+  padding: 12px 8px;
+}
+.file-browser[data-view="icons"] .file-browser-entry > svg {
+  width: 36px;
+  height: 36px;
+}
+.file-browser[data-view="icons"] .file-browser-size {
+  flex: auto;
+  text-align: center;
+}
+.file-browser[data-view="icons"] .file-browser-date {
+  display: none;
+}
+.file-browser[data-view="icons"] .file-browser-row-actions {
+  justify-content: flex-end;
+  flex: 1;
+}
+.file-browser[data-view="icons"] .file-browser-checkbox {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+/* The common window materials supply the screen/casing; Organizer keeps paper and dividers. */
+:root[data-theme="organizer"] .file-browser-places {
+  border-right: double 3px var(--line);
+}
+:root[data-theme="organizer"] .file-browser-navigation {
+  background: color-mix(in srgb, var(--accent) 5%, var(--paper));
+}
+:root:is([data-theme="crt-green"], [data-theme="hitech-2000s"]) .file-browser-navigation {
+  box-shadow: inset 0 -2px 3px #0004;
+}
+.file-browser-places[data-open="false"] {
+  display: none;
+}
+@media (max-width: 1099px) {
+  .file-browser[data-preview="true"] .file-browser-main {
+    visibility: hidden;
+  }
+  .file-browser-places {
+    display: none;
+    position: absolute;
+    z-index: 3;
+    inset: 0 auto 0 0;
+    width: min(260px, 90%);
+    background: var(--paper);
+    box-shadow: 6px 0 16px #0005;
+  }
+  .file-browser-places[data-open="true"] {
+    display: block;
+  }
+  .file-browser-navigation {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .file-browser-search {
+    grid-column: 1 / -1;
+  }
+  .file-browser-detail {
+    position: absolute;
+    z-index: 2;
+    inset: 0;
+    background: var(--window-screen, var(--paper));
+    border: 0;
+  }
+}
+@media (max-width: 600px) {
+  .file-browser-navigation {
+    gap: 4px;
+    padding: 4px;
+    grid-template-columns: 1fr;
+  }
+  .file-browser-travel {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+  }
+  .file-browser-navigation {
+    position: relative;
+  }
+  .file-browser-address {
+    margin-top: 48px;
+  }
+  .file-browser-search {
+    position: absolute;
+    top: 4px;
+    left: 184px;
+    right: 4px;
+  }
+  .file-browser-search input {
+    font-size: 14px;
+    padding-inline: 4px;
+  }
+  .file-browser-search .icon-button {
+    flex-basis: 36px;
+    width: 36px;
+  }
+  .file-browser-date {
+    display: none;
+  }
+  .file-browser-entry > .file-browser-size {
+    flex-basis: 53px;
+    font-size: 11px;
+  }
+  .file-browser-row-actions > .copy-button {
+    display: none;
+  }
+}
+.project-tool-window[data-tool="files"] > .file-browser {
+  margin: 0 8px 8px;
+}
+.folder-picker > .file-browser {
+  height: 360px;
+}
+.file-copy-save .file-browser {
+  height: 350px;
+}
+
+.file-browser .file-batch-controls {
+  padding-inline: 0;
+}
+.file-browser .file-batch-controls button {
+  padding-inline: 6px;
+  font-size: 12px;
+}
+.file-browser .file-browser-address nav button {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.project-tool-window[data-tool="files"] > .project-tool-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.project-tool-window[data-tool="files"] > .project-tool-actions > button {
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px;
+}
+.project-tool-window[data-tool="files"]
+  > .project-tool-actions[data-unlocked="true"]
+  > button:first-child {
+  grid-column: 1 / -1;
+}
+@media (min-width: 1100px) {
+  .project-tool-window[data-tool="files"] > .project-tool-actions[data-unlocked="true"] {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+  .project-tool-window[data-tool="files"]
+    > .project-tool-actions[data-unlocked="true"]
+    > button:first-child {
+    grid-column: auto;
+  }
+}
+
+.project-tool-window[data-tool="files"] > .project-tool-actions > button {
+  font-size: 13px;
+  white-space: normal;
+  overflow-wrap: normal;
+}
+@media (max-height: 600px) {
+  .project-tool-window[data-tool="files"] > .project-tool-actions {
+    max-height: 62px;
+    overflow-y: auto;
+    flex: none;
+  }
+  .file-browser-tools {
+    max-height: 100px;
+    overflow-y: auto;
+  }
+}
+
+.file-copy-save:focus {
+  outline: none;
+}
