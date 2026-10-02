@@ -33,7 +33,9 @@ for (const [browserName, browserType] of [
       const body = "Long exported line\n".repeat(21);
       const text =
         `Before block\n\n${short}\n\nBetween blocks\n\n\`\`\`md\n${body}\`\`\`\n\nAfter block\n\n![Web thumbnail](https://images.test/web.png)\n\n[Source](https://example.org/source)` +
-        (client === "codex" ? `\n\n![Generated picture](${generated})` : "");
+        (client === "codex"
+          ? `\n\n![Generated picture](${generated})\n\n![Second picture](${generated}?second)\n\n![Third picture](${generated}?third)`
+          : "");
       const message = {
         id: "answer",
         role: "assistant",
@@ -46,6 +48,22 @@ for (const [browserName, browserType] of [
             id: "generated",
             name: "Generated picture",
             url: generated,
+            mime: "image/png",
+            image: true,
+            bytes: picture.length,
+          },
+          {
+            id: "second",
+            name: "Second picture",
+            url: generated + "?second",
+            mime: "image/png",
+            image: true,
+            bytes: picture.length,
+          },
+          {
+            id: "third",
+            name: "Third picture",
+            url: generated + "?third",
             mime: "image/png",
             image: true,
             bytes: picture.length,
@@ -183,6 +201,13 @@ for (const [browserName, browserType] of [
         await expect(generatedImage).toBeVisible();
       }).toPass({ timeout: 5000 });
       assert((await generatedImage.boundingBox()).width > 200);
+      const gallery = page.getByRole("group", { name: "Галерея изображений" });
+      await expect(gallery).toHaveCount(1);
+      await expect(gallery).toContainText("1 из 3");
+      await gallery.getByRole("button", { name: "Следующее изображение" }).click();
+      await expect(gallery).toContainText("2 из 3");
+      await expect(gallery.getByAltText("Second picture")).toBeVisible();
+
       if (client === "gpt")
         await expect(page.getByRole("button", { name: "report.txt" })).toBeVisible();
       const editor = page.getByRole("textbox", {
@@ -208,6 +233,7 @@ for (const [browserName, browserType] of [
       assert.match(reveals[0].source, /^text-block:\d+:[a-f0-9]{64}$/);
       assert.equal(reveals[0].messageId, "answer");
       await expect(page.locator(".file-preview")).toContainText("Long exported line");
+      await page.getByRole("button", { name: "Закрыть просмотр", exact: true }).click();
       await page.getByRole("button", { name: "Чат", exact: true }).click();
       await expect(editor).toHaveValue("Keep draft");
       assert.deepEqual(errors, []);

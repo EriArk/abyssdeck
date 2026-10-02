@@ -3,6 +3,7 @@ import { workspaceUrl } from "./accountStorage";
 import { DownloadLink, isDownloadUrl } from "./DownloadLink";
 import { FilePreview } from "./FilePreview";
 import { FileViewerDialog } from "./FileViewerDialog";
+import { GalleryNavigation } from "./ImageGallery";
 import { Icon } from "./icons";
 import { ResultShareButton } from "./ResultSharing";
 import { resultPreview } from "./resultPreview";
@@ -102,31 +103,7 @@ export function ResultFilePreview({
       navigation={
         (navigation || onSource) && (
           <div className="file-viewer-navigation">
-            {navigation && (
-              <nav className="file-viewer-sequence" aria-label="Загруженные файлы">
-                <button
-                  type="button"
-                  className="icon-button"
-                  aria-label="Предыдущий файл"
-                  disabled={!navigation.previous}
-                  onClick={navigation.previous}
-                >
-                  <Icon name="back" />
-                </button>
-                <small>
-                  {navigation.index + 1} / {navigation.count}
-                </small>
-                <button
-                  type="button"
-                  className="icon-button"
-                  aria-label="Следующий файл"
-                  disabled={!navigation.next}
-                  onClick={navigation.next}
-                >
-                  <Icon name="chevron" />
-                </button>
-              </nav>
-            )}
+            {navigation && <GalleryNavigation {...navigation} images={kind === "image"} />}
             {onSource && (
               <button type="button" className="secondary" onClick={onSource}>
                 <Icon name="chat" size={17} /> К сообщению

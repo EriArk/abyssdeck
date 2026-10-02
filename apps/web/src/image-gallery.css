@@ -1,0 +1,72 @@
+.image-gallery {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  margin-block: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--paper);
+}
+.image-gallery-slide {
+  display: grid;
+  place-items: center;
+  height: clamp(180px, 48dvh, 520px);
+  min-width: 0;
+  padding: 8px;
+  background: var(--window-screen, var(--paper));
+  box-shadow: var(--window-screen-shadow);
+}
+.image-gallery-slide > :is(span, p),
+.image-gallery-slide .message-generated-image,
+.image-gallery-slide button {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+}
+.message-body .image-gallery-slide img,
+.image-gallery-slide img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.image-gallery-slide .message-web-image img {
+  width: 88px;
+  height: 66px;
+}
+.image-gallery-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-height: 48px;
+  padding: 2px 8px;
+  color: var(--ink);
+  border-top: 1px solid var(--line);
+}
+.image-gallery-navigation .icon-button {
+  flex: 0 0 44px;
+  width: 44px;
+  min-height: 44px;
+}
+.image-gallery-navigation > span {
+  min-width: 6ch;
+  text-align: center;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.file-viewer-navigation .image-gallery-navigation {
+  border-top: 0;
+}
+
+.image-gallery-slide .message-generated-image > button {
+  display: grid;
+  place-items: center;
+}

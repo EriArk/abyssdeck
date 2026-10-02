@@ -14,6 +14,8 @@ import { ResultBatchActions, resultSelectable } from "./ResultBatchActions";
 import { ResultFilePreview } from "./ResultFilePreview";
 import { ResultFilters } from "./ResultFilters";
 import { ResultShareButton } from "./ResultSharing";
+import { resultPreview } from "./resultPreview";
+import { useResultImages } from "./useResultImages";
 import "./resultCategories.css";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
@@ -29,6 +31,7 @@ import { PreviewViewer } from "./PreviewViewer";
 import { TurnDetails } from "./TurnDetails";
 import type { Activity, Result } from "./types";
 export function Results({
+  galleryEndpoint,
   sourceClient,
   focusVersion = 0,
   onRetry,
@@ -54,6 +57,7 @@ export function Results({
   showWork = true,
   showReasoning = false,
 }: {
+  galleryEndpoint?: string;
   sourceClient?: "gpt" | "codex";
   focusVersion?: number;
   onRetry?: () => void;
@@ -127,6 +131,13 @@ export function Results({
     setRevealNotice(selection.item ? null : selection.error || "Открываем результат…");
   }, [selection]);
   const current = inspected && (results.find((item) => item.id === inspected.id) ?? inspected);
+  const imageSequence = useResultImages(
+    galleryEndpoint,
+    inspecting && !!current && resultPreview(current).kind === "image",
+    current,
+    results,
+    inspect,
+  );
   const gallery = results.filter(
     (item) =>
       ["file", "artifact", "image"].includes(item.type) &&
@@ -216,17 +227,19 @@ export function Results({
           <ResultFilePreview
             result={current}
             navigation={
-              position < 0
-                ? undefined
-                : {
-                    index: position,
-                    count: gallery.length,
-                    previous: position > 0 ? () => inspect(gallery[position - 1]!) : undefined,
-                    next:
-                      position + 1 < gallery.length
-                        ? () => inspect(gallery[position + 1]!)
-                        : undefined,
-                  }
+              current && resultPreview(current).kind === "image"
+                ? imageSequence
+                : position < 0
+                  ? undefined
+                  : {
+                      index: position,
+                      count: gallery.length,
+                      previous: position > 0 ? () => inspect(gallery[position - 1]!) : undefined,
+                      next:
+                        position + 1 < gallery.length
+                          ? () => inspect(gallery[position + 1]!)
+                          : undefined,
+                    }
             }
             onSource={
               current.turnId && onTurn

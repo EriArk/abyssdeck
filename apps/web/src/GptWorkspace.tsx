@@ -48,6 +48,7 @@ import {
   showGptJob,
   waitingGptJob,
 } from "./gptState";
+import { ImageGallery, rehypeImageGallery } from "./ImageGallery";
 import { IssueCollect, useIssueCode } from "./IssueDrawer";
 import { Icon } from "./icons";
 import { MarkdownTable } from "./MarkdownTable";
@@ -138,6 +139,7 @@ const Text = memo(function Text({
               : defaultUrlTransform(url)
           }
           remarkPlugins={[remarkGfm]}
+          rehypePlugins={[rehypeImageGallery]}
           components={{
             pre: code,
             table: MarkdownTable,
@@ -169,29 +171,32 @@ function ResponseResults({
   const category = files.some((file) => !file.image) ? "files" : files.length ? "images" : "demos";
   return (
     <>
+      <ImageGallery>
+        {files
+          .filter((file) => file.image && !text.includes(file.url))
+          .map((file) => (
+            <span className="message-generated-image" key={file.id}>
+              <button type="button" onClick={() => onArtifact(file.url)} aria-label={file.name}>
+                <GptImage src={file.url} alt={file.name} />
+              </button>
+            </span>
+          ))}
+      </ImageGallery>
       <div className="message-file-links">
         {files
-          .filter((file) => !text.includes(file.url))
-          .map((file) =>
-            file.image ? (
-              <span className="message-generated-image" key={file.id}>
-                <button type="button" onClick={() => onArtifact(file.url)} aria-label={file.name}>
-                  <GptImage src={file.url} alt={file.name} />
-                </button>
-              </span>
-            ) : (
-              <button
-                type="button"
-                key={file.id}
-                className="result-chip"
-                onClick={() => onArtifact(file.url)}
-              >
-                <Icon name="file" size={16} />
-                {file.name}
-                <Icon name="chevron" size={14} />
-              </button>
-            ),
-          )}
+          .filter((file) => !file.image && !text.includes(file.url))
+          .map((file) => (
+            <button
+              type="button"
+              key={file.id}
+              className="result-chip"
+              onClick={() => onArtifact(file.url)}
+            >
+              <Icon name="file" size={16} />
+              {file.name}
+              <Icon name="chevron" size={14} />
+            </button>
+          ))}
       </div>
       {demo && (
         <button type="button" className="result-chip" onClick={() => onOpen(category)}>

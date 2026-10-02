@@ -34,6 +34,7 @@ import { composerShortcut } from "./composerShortcut";
 import { terminalDevice } from "./DeviceWorkspaceHost";
 import { useDictation } from "./Dictation";
 import { GitHubLinkContext } from "./GitHubLinkContext";
+import { ImageGallery, rehypeImageGallery } from "./ImageGallery";
 import { useIssueCode } from "./IssueDrawer";
 import { Icon } from "./icons";
 import { MarkdownTable } from "./MarkdownTable";
@@ -82,6 +83,7 @@ export const MessageText = memo(function MessageText({
             : defaultUrlTransform(url)
         }
         remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeImageGallery]}
         components={{
           pre: code,
           table: MarkdownTable,
@@ -815,7 +817,7 @@ export function Chat({
                                 (next) =>
                                   next.role === "assistant" && next.turnId === message.turnId,
                               ) && (
-                              <div className="message-file-links">
+                              <ImageGallery>
                                 {results
                                   .filter(
                                     (result) =>
@@ -851,7 +853,7 @@ export function Chat({
                                       </button>
                                     </span>
                                   ))}
-                              </div>
+                              </ImageGallery>
                             )}
                         </div>
                         {message.role === "assistant" &&

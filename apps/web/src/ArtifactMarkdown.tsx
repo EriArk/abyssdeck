@@ -20,6 +20,7 @@ import { CollapsibleCode, textOf } from "./CollapsibleCode";
 import { CopyButton } from "./CopyButton";
 import { openTerminal, terminalDevice } from "./DeviceWorkspaceHost";
 import { HumanReferenceLink } from "./HumanReferences";
+import { ImageGallery } from "./ImageGallery";
 import "./message-artifacts.css";
 
 function MessageImage({
@@ -208,6 +209,12 @@ export function artifactComponents(
   resolveImage?: (source: string) => Promise<string | undefined>,
 ): Components {
   return {
+    div: ({ node, children }) =>
+      node?.properties.dataImageGallery ? (
+        <ImageGallery>{children}</ImageGallery>
+      ) : (
+        <div>{children}</div>
+      ),
     p: ({ children }) => (
       <p>
         {Children.map(children, (child) => {
