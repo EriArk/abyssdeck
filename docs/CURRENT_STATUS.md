@@ -1,6 +1,6 @@
 # Текущий остаток — 2 октября 2026
 
-## Codex question replies: native queue revision order (2026-10-02, prepared)
+## Codex question replies: immediate choices and stable revisions (2026-10-02, installed)
 
 The latest TrainerOS answer receipt at 12:20:31 UTC returned `queued`; manual
 Steer followed at 12:20:35 against the same source turn. Reproduction with the
@@ -23,7 +23,14 @@ Preselection/restoring a draft never sends by itself; the parent draft is retain
 Validation: failing regression on the previous production image, then all 15 queue
 tests passing with the fix in isolated Linux; 12 questions/native-plan tests;
 Chromium and WebKit question/free-text/Plan reply and native Plan workflow checks;
-production build/typecheck and repository checks. Activation follows verification.
+production build/typecheck and repository checks. The final candidate passed 34
+focused Linux tests, 25 upgrade/checkpoint tests and the production-image smoke.
+
+Release `71d9d89` is installed on Hub and engine (both healthy), with the matching
+web bundle, at 2026-10-02 12:38:05 UTC. Deployment proof:
+`/home/abysscloud/services/codex-web/verification-71d9d89/receipt.json`.
+Native ChatGPT retained its prior process start time; Windows Companion and its
+update feed were not changed. Automatic checkpoint retention kept three copies.
 
 
 ## GPT stopped response indicator (2026-10-02, installed)
