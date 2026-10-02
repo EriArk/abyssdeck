@@ -100,8 +100,56 @@ try {
           }
         }
       }
-      await page.setViewportSize({ width: 390, height: 844 });
+      await page.setViewportSize({ width: 1366, height: 844 });
       await fb.getByRole("button", { name: /^Документ 1.md/ }).click();
+      const divider = fb.locator(".panel-divider").last();
+      await expect(divider).toBeVisible();
+      const detail = fb.locator(".file-browser-detail");
+      const initial = (await detail.boundingBox()).width;
+      await divider.focus();
+      await divider.press("ArrowLeft");
+      await expect
+        .poll(async () => (await detail.boundingBox()).width)
+        .toBeGreaterThan(initial + 10);
+      await expect
+        .poll(async () => {
+          const h = await divider.boundingBox(),
+            d = await detail.boundingBox();
+          return Math.abs(h.x + h.width / 2 - d.x);
+        })
+        .toBeLessThan(2);
+      const handle = await divider.boundingBox();
+      await page.mouse.move(handle.x + handle.width / 2, handle.y + 50);
+      await page.mouse.down();
+      await page.mouse.move(handle.x + handle.width / 2 - 60, handle.y + 50, { steps: 5 });
+      await page.mouse.up();
+      await expect
+        .poll(async () => (await detail.boundingBox()).width)
+        .toBeGreaterThan(initial + 65);
+      const preference = await page.evaluate(() =>
+        localStorage.getItem("codex-panel:files-preview"),
+      );
+      assert(Number(preference) > initial + 65);
+      await page.setViewportSize({ width: 390, height: 844 });
+      await expect(divider).toBeHidden();
+      await expect(detail).toContainText("Содержимое выбранного файла");
+      await page.setViewportSize({ width: 1366, height: 844 });
+      await expect(divider).toBeVisible();
+      await expect
+        .poll(async () => Math.round((await detail.boundingBox()).width))
+        .toBe(Number(preference));
+      await fb.getByRole("button", { name: "Закрыть файл", exact: true }).click();
+      await fb.getByRole("button", { name: /^Документ 1.md/ }).click();
+      await expect
+        .poll(async () => Math.round((await detail.boundingBox()).width))
+        .toBe(Number(preference));
+      await divider.press("Home");
+      await expect.poll(async () => Math.round((await detail.boundingBox()).width)).toBe(250);
+      await divider.dblclick();
+      await expect
+        .poll(() => page.evaluate(() => localStorage.getItem("codex-panel:files-preview")))
+        .toBe(null);
+      await page.setViewportSize({ width: 390, height: 844 });
       await expect(fb.getByRole("region", { name: "Выбранный файл" })).toBeVisible();
       await fb.getByRole("button", { name: "Закрыть файл", exact: true }).click();
       await page.getByRole("button", { name: "Сохранить копию", exact: true }).click();

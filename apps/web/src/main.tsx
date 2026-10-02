@@ -23,6 +23,7 @@ import "./accent-colors.css";
 import "./viewport-controls.css";
 import "./workspace-window.css";
 import "./theme-variants.css";
+import "./device-chassis.css";
 
 applyTheme(cachedTheme());
 applyLayoutPreference();

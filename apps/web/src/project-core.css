@@ -57,7 +57,7 @@
   line-height: 1.5;
 }
 .core-history {
-  width: 210px;
+  width: var(--panel-width, 210px);
   flex: none;
   overflow: auto;
   padding: 12px;

@@ -70,7 +70,7 @@
 }
 .device-layout {
   display: grid;
-  grid-template-columns: 310px minmax(0, 1fr);
+  grid-template-columns: var(--panel-width, 310px) minmax(0, 1fr);
   flex: 1;
   min-height: 0;
 }

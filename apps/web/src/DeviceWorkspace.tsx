@@ -9,6 +9,7 @@ import { accountLocalStorage as localStorage } from "./accountStorage.ts";
 import { api } from "./api";
 import { DeviceTerminal } from "./DeviceTerminal";
 import { Icon } from "./icons";
+import { PanelDivider } from "./PanelDivider";
 import "./devices.css";
 
 const bytes = (v: number) =>
@@ -305,6 +306,15 @@ export default function DeviceWorkspace({
             </button>
           </nav>
           <div className="device-layout" data-page={page}>
+            <PanelDivider
+              target=".device-system"
+              peer=".device-console"
+              storageKey="devices"
+              label="Ширина сведений об устройстве"
+              min={240}
+              max={460}
+              peerMin={300}
+            />
             <section className="device-system">
               <div className="device-section-heading">
                 <h3>{current?.name}</h3>

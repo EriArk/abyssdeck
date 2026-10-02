@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { helpArticle, helpArticles, helpCategories, searchHelp } from "./helpContent";
 import { Icon } from "./icons";
+import { PanelDivider } from "./PanelDivider";
 import { useWorkspaceDialog } from "./useWorkspaceDialog";
 import { ShortcutReference } from "./WorkspaceCommands";
 import type { HelpTopic } from "./WorkspaceHelp";
@@ -111,6 +112,14 @@ export function HelpGuide({ initial, onClose }: { initial: HelpTopic; onClose: (
         </label>
       </div>
       <div className="help-layout">
+        <PanelDivider
+          target=".help-index"
+          peer=".help-content"
+          storageKey="help"
+          label="Ширина каталога справки"
+          min={200}
+          max={450}
+        />
         <nav ref={catalog} tabIndex={-1} className="help-index" aria-label="Категории справки">
           {results ? (
             <>

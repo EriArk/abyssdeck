@@ -239,6 +239,8 @@ export function ProjectFiles({
   };
   const download = (file: string) => (
     <DownloadLink
+      className={mode === "files" ? "icon-button" : "secondary"}
+      title="Открыть файл"
       href={`/api${base}/files/content?path=${encodeURIComponent(file)}${mode === "git" && staged ? "&version=index" : ""}`}
       name={file.split("/").at(-1)}
       sourceRevision={revision}
@@ -250,7 +252,7 @@ export function ProjectFiles({
       }
     >
       <Icon name="file" />
-      Открыть файл
+      <span className={mode === "files" ? "file-action-label" : undefined}>Открыть файл</span>
     </DownloadLink>
   );
   const selectedPanel = () => (
@@ -267,7 +269,8 @@ export function ProjectFiles({
         {editableFile(selected) && (
           <button
             type="button"
-            className="secondary"
+            className={mode === "files" ? "icon-button" : "secondary"}
+            title={capability ? "Редактировать" : "Разблокировать и редактировать"}
             disabled={unlocking}
             onClick={() => {
               setFileError("");
@@ -277,11 +280,13 @@ export function ProjectFiles({
             }}
           >
             <Icon name="edit" size={16} />
-            {!capability
-              ? "Разблокировать и редактировать"
-              : mode === "git" && staged
-                ? "Редактировать рабочий файл"
-                : "Редактировать"}
+            <span className={mode === "files" ? "file-action-label" : undefined}>
+              {!capability
+                ? "Разблокировать и редактировать"
+                : mode === "git" && staged
+                  ? "Редактировать рабочий файл"
+                  : "Редактировать"}
+            </span>
           </button>
         )}
         {mode === "git" && <CopyButton text={selected} label="Копировать путь" />}

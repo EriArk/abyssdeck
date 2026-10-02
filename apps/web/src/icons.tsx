@@ -1,6 +1,8 @@
 import type { CSSProperties } from "react";
 
 const paths: Record<string, string[]> = {
+  wrap: ["M3 5h18M3 10h13a4 4 0 0 1 0 8h-5m3-3-3 3 3 3M3 15h4M3 20h4"],
+  code: ["m8 5-6 7 6 7m8-14 6 7-6 7m-3-17-2 20"],
   grid: ["M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"],
   key: ["M14 3a7 7 0 0 0-6 10L2 19v3h4v-3h3v-3l2-2A7 7 0 1 0 14 3ZM17 7h.01"],
   schedule: ["M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM12 7v5l3 2"],

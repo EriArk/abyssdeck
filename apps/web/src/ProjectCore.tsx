@@ -1,3 +1,4 @@
+import { PanelDivider } from "./PanelDivider";
 import {
   type ProjectCore as Core,
   type CoreHistoryPage,
@@ -184,6 +185,16 @@ export function ProjectCorePanel({
         </p>
       )}
       <div className="core-layout" data-history={!!history}>
+        {history && (
+          <PanelDivider
+            target=".core-history"
+            peer=".core-content"
+            storageKey="core-history"
+            label="Ширина истории ядра"
+            min={180}
+            max={420}
+          />
+        )}
         {history && (
           <aside className="core-history" aria-label="История основы">
             <header>

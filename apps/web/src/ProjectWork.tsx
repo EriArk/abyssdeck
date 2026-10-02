@@ -27,6 +27,7 @@ import { CopyButton } from "./CopyButton";
 import { Icon } from "./icons";
 import { MarkdownTable } from "./MarkdownTable";
 import type { NotebookRequest } from "./Notebook";
+import { PanelDivider } from "./PanelDivider";
 import { actionLabels, ProjectActionPanel } from "./ProjectAction";
 import { sharedMutation } from "./sharedRequests";
 import { openSharedProjects } from "./TeamProjectsHost";
@@ -528,6 +529,14 @@ export function ProjectWorkPanel({
         </p>
       )}
       <div className="notebook-layout" data-editing={editing}>
+        <PanelDivider
+          target=".notebook-list"
+          peer=".notebook-editor"
+          storageKey="project-work"
+          label="Ширина списка работ"
+          min={220}
+          max={480}
+        />
         <aside
           className="notebook-list"
           aria-label={mode === "plans" ? "Список планов" : "История отчётов"}

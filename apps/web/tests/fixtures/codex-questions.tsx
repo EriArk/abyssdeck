@@ -13,6 +13,7 @@ import "../../src/fonts.css";
 import "../../src/materials.css";
 import "../../src/polymer.css";
 import "../../src/accent-colors.css";
+import "../../src/device-chassis.css";
 
 const questions = [
   {
@@ -39,7 +40,14 @@ function Fixture() {
       ? [questions[0], { title: "Ещё выбор?", options: ["Один", "Два"] }]
       : id === "call_mixed"
         ? [questions[0], { title: "Что сейчас мешает?" }]
-        : questions;
+        : id === "call_long"
+          ? [
+              {
+                title:
+                  "Odin после сбоя GPU и удалённой команды перезагрузки не возвращается в сеть. Если он сейчас рядом, можешь перезапустить его долгим нажатием Power? Flip работает; доступные проверки на нём продолжаю.",
+              },
+            ]
+          : questions;
   const reply = questionReplyText(id, questions, ["Да, Калькулятор виден"]);
   return (
     <main style={{ maxWidth: 740, margin: "auto", padding: 16 }}>
@@ -86,6 +94,15 @@ function Fixture() {
       </button>
       <button type="button" onClick={() => setRemote(true)}>
         Ответ с компьютера
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setId("call_long");
+          setRemote(false);
+        }}
+      >
+        Длинный вопрос
       </button>
       <AsyncQuestions
         key={id + remount}

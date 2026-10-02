@@ -2,6 +2,7 @@ import { type ReactNode, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { FileLaunch } from "./FileLaunch";
 import { Icon } from "./icons";
+import { PanelDivider } from "./PanelDivider";
 import { useWorkspaceDialog } from "./useWorkspaceDialog";
 import { ViewerEditButton } from "./ViewerEditButton";
 import { HelpButton } from "./WorkspaceHelp";
@@ -93,6 +94,17 @@ export function FileViewerDialog({
       </header>
       {navigation}
       <div className="file-viewer-body" data-properties={properties}>
+        {properties && (
+          <PanelDivider
+            target=".file-viewer-properties"
+            peer=".file-viewer-content"
+            storageKey="viewer-properties"
+            label="Ширина свойств файла"
+            min={180}
+            max={420}
+            trailing
+          />
+        )}
         <section className="file-viewer-content" aria-label="Содержимое файла">
           {children}
         </section>

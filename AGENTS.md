@@ -15,6 +15,8 @@
 - The first deliverable is a reviewable visual concept; see
   `polish/10-themes/device-study/README.md`. Approval of the direction is not
   acceptance of every detail of that mockup or proof of production installation.
+- The owner subsequently approved continuing into implementation. Track its source,
+  browser checks and actual web-only activation in `docs/CURRENT_STATUS.md`.
 
 ## Owner-requested ordinary-use feedback (2026-10-02)
 

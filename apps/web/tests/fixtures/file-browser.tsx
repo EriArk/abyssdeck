@@ -8,6 +8,7 @@ import "../../src/theme-variants.css";
 import "../../src/materials.css";
 import "../../src/polymer.css";
 import "../../src/accent-colors.css";
+import "../../src/device-chassis.css";
 import "../../src/project-tools.css";
 import "../../src/file-editor.css";
 

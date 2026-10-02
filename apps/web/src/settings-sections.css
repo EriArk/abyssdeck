@@ -55,7 +55,7 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 244px minmax(0, 1fr);
+  grid-template-columns: var(--panel-width, 244px) minmax(0, 1fr);
 }
 .settings-overview {
   min-height: 0;

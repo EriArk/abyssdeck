@@ -15,7 +15,7 @@
 }
 .native-workspace-layout {
   display: grid;
-  grid-template-columns: minmax(220px, 31%) minmax(0, 1fr);
+  grid-template-columns: var(--panel-width, minmax(220px, 31%)) minmax(0, 1fr);
   flex: 1;
   min-height: 0;
 }

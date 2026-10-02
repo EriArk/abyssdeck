@@ -159,7 +159,7 @@
   overscroll-behavior: contain;
 }
 :root .workspace-window .notebook-layout {
-  grid-template-columns: clamp(240px, 30%, 310px) minmax(0, 1fr);
+  grid-template-columns: var(--panel-width, clamp(240px, 30%, 310px)) minmax(0, 1fr);
 }
 :root .workspace-window :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
   box-sizing: border-box;

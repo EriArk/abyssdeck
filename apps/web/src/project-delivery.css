@@ -103,7 +103,7 @@
 }
 .delivery-columns {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(240px, 1fr);
+  grid-template-columns: minmax(0, 1.5fr) var(--panel-width, minmax(240px, 1fr));
   gap: 16px;
   align-items: start;
 }

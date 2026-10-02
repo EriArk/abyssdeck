@@ -138,7 +138,10 @@ export function AsyncQuestions({
           key={questionItemId(messageId, index)}
           disabled={disabled || sending || values[index] !== null}
         >
-          <legend>{q.title}</legend>
+          <legend className="question-accessible-title">{q.title}</legend>
+          <div className="question-title" aria-hidden="true">
+            {q.title}
+          </div>
           {values[index] !== null ? (
             <p className="question-answer">{values[index]}</p>
           ) : (

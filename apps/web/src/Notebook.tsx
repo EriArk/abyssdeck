@@ -27,6 +27,7 @@ import { CollapsibleCode } from "./CollapsibleCode";
 import { CopyButton } from "./CopyButton";
 import { Icon } from "./icons";
 import { MarkdownTable } from "./MarkdownTable";
+import { PanelDivider } from "./PanelDivider";
 import { PinnedList } from "./PinnedList";
 import { ProjectCorePanel } from "./ProjectCore";
 import { ProjectWorkPanel } from "./ProjectWork";
@@ -772,6 +773,14 @@ function NotebookEditor({
         </div>
       )}
       <div className="notebook-layout" data-editing={!!edit}>
+        <PanelDivider
+          target=".notebook-list"
+          peer=".notebook-editor"
+          storageKey={isTask ? "tasks" : "notes"}
+          label="Ширина списка"
+          min={220}
+          max={480}
+        />
         <aside className="notebook-list" aria-label={isTask ? "Список задач" : "Список заметок"}>
           <input
             type="search"

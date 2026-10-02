@@ -1,0 +1,126 @@
+/* One continuous body. Palette and finish still come from the chosen case/theme. */
+:root:is([data-theme="crt-green"], [data-theme="hitech-2000s"]) {
+  --chassis-aperture: inset 0 2px 5px #0006, 0 1px 0 var(--case-edge);
+}
+:root:is([data-theme="crt-green"], [data-theme="hitech-2000s"]) .workspace-header,
+:root:is([data-theme="crt-green"], [data-theme="hitech-2000s"]) .mobile-tabs {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+:root:is([data-theme="crt-green"], [data-theme="hitech-2000s"]) .workspace-content {
+  border: 5px solid var(--case-seam);
+  border-bottom-color: var(--case-edge);
+  border-right-color: var(--case-low);
+  border-radius: 8px;
+  box-shadow: var(--chassis-aperture);
+  background: var(--screen-material);
+}
+:root:is([data-theme="crt-green"], [data-theme="hitech-2000s"]) :is(.chat-pane, .support-pane) {
+  border-radius: 0;
+  box-shadow: none;
+  border: 0;
+}
+:root:is([data-theme="crt-green"], [data-theme="hitech-2000s"]) :is(.pane-heading, .support-tabs) {
+  border-radius: 0;
+  box-shadow: none;
+  border: 0;
+  border-bottom: 1px solid var(--case-seam);
+}
+:root:is([data-theme="crt-green"], [data-theme="hitech-2000s"])
+  :is(dialog.workspace-window, dialog.file-viewer-dialog) {
+  background: var(--case-surface);
+  border: 2px solid var(--case-seam);
+  border-radius: 18px;
+  box-shadow:
+    inset 0 1px var(--case-edge),
+    inset 0 -4px #0003,
+    0 16px 48px #0006;
+  gap: 0;
+}
+:root:is([data-theme="crt-green"], [data-theme="hitech-2000s"])
+  :is(.workspace-window, .file-viewer-dialog)
+  > :is(
+    .notebook-heading,
+    .inspector-heading,
+    .file-viewer-heading,
+    .file-viewer-footer,
+    .project-tool-actions
+  ) {
+  background: transparent;
+  box-shadow: none;
+  border: 0;
+  border-radius: 0;
+}
+:root:is([data-theme="crt-green"], [data-theme="hitech-2000s"])
+  :is(.workspace-window > .notebook-layout, .file-viewer-body, .file-browser) {
+  border: 5px solid var(--case-seam);
+  border-right-color: var(--case-low);
+  border-bottom-color: var(--case-edge);
+  border-radius: 8px;
+  box-shadow: var(--chassis-aperture);
+}
+:root:is([data-theme="crt-green"], [data-theme="hitech-2000s"])
+  :is(.file-browser-navigation, .file-browser-detail .inspector-actions, .file-text-tools) {
+  background: var(--case-surface);
+  color: var(--case-ink);
+  border: 0;
+  border-bottom: 1px solid var(--case-seam);
+  border-radius: 0;
+  box-shadow: none;
+}
+:root:is([data-theme="crt-green"], [data-theme="hitech-2000s"]) .file-browser-detail {
+  padding: 0;
+}
+:root:is([data-theme="crt-green"], [data-theme="hitech-2000s"]) .file-browser-detail > header {
+  padding: 2px 10px;
+  margin: 0;
+}
+:root:is([data-theme="crt-green"], [data-theme="hitech-2000s"])
+  .file-browser-detail
+  .inspector-actions {
+  padding: 5px 8px;
+}
+:root:is([data-theme="crt-green"], [data-theme="hitech-2000s"])
+  .file-browser
+  .file-browser-detail
+  .inspector-selected {
+  margin: 0;
+  padding: 0;
+}
+:root:is([data-theme="crt-green"], [data-theme="hitech-2000s"])
+  .file-browser-detail
+  .inspector-preview
+  .file-preview {
+  margin-top: 0;
+  border-radius: 0;
+}
+:root:is([data-theme="crt-green"], [data-theme="hitech-2000s"])
+  .file-browser-detail
+  .file-document {
+  padding: 16px;
+}
+:root:is([data-theme="crt-green"], [data-theme="hitech-2000s"])
+  :is(.file-text-tools, .file-browser-detail .inspector-actions)
+  :is(.icon-button, .copy-button, .speech-button) {
+  width: 44px;
+  height: 44px;
+  background: var(--cap-surface);
+  color: var(--cap-ink);
+  border: 1px solid var(--case-seam);
+  border-radius: 6px;
+  box-shadow: var(--cap-shadow);
+}
+:root:is([data-theme="crt-green"], [data-theme="hitech-2000s"])
+  .file-text-tools
+  .icon-button[aria-pressed="true"] {
+  background: var(--case-pressed);
+  box-shadow: var(--case-pressed-shadow);
+  border-bottom: 3px solid var(--accent);
+}
+@media (max-width: 600px) {
+  :root:is([data-theme="crt-green"], [data-theme="hitech-2000s"]) .workspace-content {
+    border-width: 3px;
+  }
+}

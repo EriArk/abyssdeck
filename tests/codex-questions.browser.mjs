@@ -260,6 +260,22 @@ try {
         6,
         "plan answers use native request response, never async envelopes or queue",
       );
+      await page.getByRole("button", { name: "Длинный вопрос", exact: true }).click();
+      const longQuestion = page.locator(".async-questions");
+      await expect(longQuestion.locator("fieldset")).toHaveCount(1);
+      await expect(longQuestion.getByRole("textbox")).toHaveCount(1);
+      for (const theme of ["crt-green", "hitech-2000s", "organizer", "classic-dark"]) {
+        await page.evaluate((t) => (document.documentElement.dataset.theme = t), theme);
+        await page.setViewportSize({ width: 390, height: 844 });
+        const field = await longQuestion.locator("fieldset").boundingBox();
+        const title = await longQuestion.locator(".question-title").boundingBox();
+        const input = await longQuestion.getByRole("textbox").boundingBox();
+        assert(title.y >= field.y + 8, "the full question is inside the border, not in its legend");
+        assert(title.y + title.height <= input.y, "title and answer do not overlap");
+        await longQuestion.screenshot({
+          path: `.local/qa-codex-questions/${name}-${theme}-long.png`,
+        });
+      }
       assert.deepEqual(errors, []);
       await page.screenshot({
         path: `.local/qa-codex-questions/${name}-answered.png`,

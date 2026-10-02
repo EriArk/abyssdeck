@@ -6,6 +6,7 @@ import { api, messageOf } from "./api";
 import { ConversationMembers, GroupInvitations } from "./ConversationMembers";
 import { useCommunicationPresence } from "./communicationPresence";
 import { Icon } from "./icons";
+import { PanelDivider } from "./PanelDivider";
 import { durableKey } from "./ResultSharing";
 import { SpaceChat } from "./SpaceChat";
 import { TeamContactPicker } from "./TeamContactPicker";
@@ -322,6 +323,14 @@ function CommunicationWindow({
         data-selected={!!current || creating}
         data-creating={creating}
       >
+        <PanelDivider
+          target=".communication-list"
+          peer=".communication-content"
+          storageKey="communication"
+          label="Ширина списка чатов"
+          min={240}
+          max={460}
+        />
         <aside className="communication-list" aria-label="Чаты и люди">
           <nav className="communication-tabs" aria-label="Раздел общения">
             <button

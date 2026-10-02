@@ -176,7 +176,10 @@ export function ApprovalCard({
         >
           {(approval.questions ?? []).map((q) => (
             <fieldset key={q.id} disabled={busy}>
-              <legend>{q.question}</legend>
+              <legend className="question-accessible-title">{q.question}</legend>
+              <div className="question-title" aria-hidden="true">
+                {q.question}
+              </div>
               {q.options.map((option) => (
                 <label className="choice" key={option.label}>
                   <input

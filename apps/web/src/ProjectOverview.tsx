@@ -17,6 +17,7 @@ import { IntakeButton } from "./IntakeWindow";
 import { IssueDrawerButton } from "./IssueDrawer";
 import { Icon } from "./icons";
 import { cleanTarget, type NotebookRequest } from "./Notebook";
+import { PanelDivider } from "./PanelDivider";
 import { PinnedList } from "./PinnedList";
 import { DeliveryButton } from "./ProjectDeliveryHost";
 import { ProjectRelays } from "./ProjectRelays";
@@ -211,6 +212,16 @@ export function ProjectOverview({
           )}
           {data && (
             <div className="project-overview-grid">
+              <PanelDivider
+                target=".overview-context"
+                peer=".overview-main"
+                storageKey="overview-context"
+                label="Ширина сведений о проекте"
+                min={240}
+                max={540}
+                peerMin={360}
+                trailing
+              />
               <div className="overview-main">
                 <section className="overview-card overview-continue" aria-label="Продолжить работу">
                   <header>

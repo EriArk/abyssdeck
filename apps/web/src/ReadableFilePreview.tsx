@@ -3,6 +3,7 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CopyButton } from "./CopyButton";
 import { visibleFileSpeech } from "./fileSpeechPosition";
+import { Icon } from "./icons";
 import { SpeechButton, useSpeechScope } from "./MessageSpeech";
 
 const markdownComponents: Components = { a: ({ children }) => <span>{children}</span> };
@@ -54,20 +55,24 @@ export function ReadableFilePreview({
         <div className="file-text-options">
           <button
             type="button"
-            className="secondary"
+            className="icon-button"
+            aria-label="Перенос строк"
+            title="Перенос строк"
             aria-pressed={wrap}
             onClick={() => setWrap(!wrap)}
           >
-            Перенос строк
+            <Icon name="wrap" />
           </button>
           {markdown && !initialRaw && (
             <button
               type="button"
-              className="secondary"
+              className="icon-button"
+              aria-label="Исходный текст"
+              title="Исходный текст"
               aria-pressed={raw}
               onClick={() => setRaw(!raw)}
             >
-              Исходный текст
+              <Icon name="code" />
             </button>
           )}
         </div>

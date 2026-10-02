@@ -13,6 +13,7 @@ import { api, messageOf } from "./api";
 import { CollapsibleCode } from "./CollapsibleCode";
 import { CopyButton } from "./CopyButton";
 import { Icon } from "./icons";
+import { PanelDivider } from "./PanelDivider";
 import { ProjectActionPanel } from "./ProjectAction";
 import type { DeliveryRequest } from "./ProjectDeliveryHost";
 import { openWorkReview } from "./WorkReviewLink";
@@ -461,6 +462,16 @@ export default function ProjectDelivery({
               </section>
             )}
             <div className="delivery-columns">
+              <PanelDivider
+                target=".delivery-side"
+                peer=".delivery-main"
+                storageKey="delivery-context"
+                label="Ширина сведений об изменениях"
+                min={240}
+                max={480}
+                peerMin={340}
+                trailing
+              />
               <div className="delivery-main">
                 {op ? (
                   <section className="delivery-card delivery-operation" data-state={op.state}>

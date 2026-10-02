@@ -285,7 +285,7 @@
 
 /* Messenger layout: quiet rows, a separate contact list and deliberate group creation. */
 .communication-body {
-  grid-template-columns: minmax(240px, 32%) minmax(0, 1fr);
+  grid-template-columns: var(--panel-width, minmax(240px, 32%)) minmax(0, 1fr);
 }
 .communication-list {
   border-right: 1px solid var(--line);

@@ -20,6 +20,7 @@ import { CopyButton } from "./CopyButton";
 import { HumanReferenceLink } from "./HumanReferences";
 import { Icon } from "./icons";
 import { MarkdownTable } from "./MarkdownTable";
+import { PanelDivider } from "./PanelDivider";
 import { SharedExecutionPanel } from "./SharedExecution";
 import { SharedFiles } from "./SharedPublication";
 import { sharedMutation, useSharedAction } from "./sharedRequests";
@@ -243,6 +244,15 @@ export function SharedMaterialEditor({
   };
   return (
     <div className="shared-editor-layout">
+      <PanelDivider
+        target=":scope > aside"
+        peer=".shared-form"
+        storageKey="shared-material"
+        label="Ширина свойств материала"
+        min={220}
+        max={440}
+        trailing
+      />
       <section className="shared-form">
         <div className="shared-toolbar">
           <button type="button" className="secondary" onClick={onBack}>

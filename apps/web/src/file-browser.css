@@ -38,6 +38,7 @@
 }
 .file-browser-address,
 .file-browser-search {
+  color: var(--ink);
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -85,7 +86,7 @@
   position: relative;
 }
 .file-browser-places {
-  flex: 0 0 175px;
+  flex: 0 0 var(--places-width, 175px);
   min-width: 0;
   border-right: 1px solid var(--line);
   padding: 12px 8px;
@@ -236,7 +237,7 @@
   accent-color: var(--accent);
 }
 .file-browser-detail {
-  flex: 0 0 36%;
+  flex: 0 0 var(--preview-width, 36%);
   min-width: 0;
   overflow: auto;
   border-left: 1px solid var(--line);
@@ -262,9 +263,9 @@
   margin: 0 0 12px;
 }
 .file-browser-detail .inspector-actions {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 .project-tool-window .file-browser-detail .inspector-preview {
   display: block;
@@ -467,4 +468,20 @@
 
 .file-copy-save:focus {
   outline: none;
+}
+
+.file-action-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.file-browser-detail .inspector-actions > .icon-button {
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  justify-content: center;
 }

@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { Icon } from "./icons";
+import { PanelDivider } from "./PanelDivider";
 import { HelpButton } from "./WorkspaceHelp";
 import "./settings-sections.css";
 
@@ -94,6 +95,14 @@ export function SettingsSections({
         </button>
       </div>
       <div className="settings-layout">
+        <PanelDivider
+          target=".settings-overview"
+          peer=".settings-content"
+          storageKey="settings"
+          label="Ширина категорий настроек"
+          min={200}
+          max={420}
+        />
         <div className="settings-overview">
           <nav ref={nav} className="settings-categories" aria-label="Категории настроек">
             {categories.map((category) => (

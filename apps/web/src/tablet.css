@@ -198,7 +198,7 @@
 }
 @media (min-width: 701px) {
   :root:not([data-layout="legacy"]) .notebook-layout {
-    grid-template-columns: clamp(238px, 27vw, 280px) minmax(0, 1fr);
+    grid-template-columns: var(--panel-width, clamp(238px, 27vw, 280px)) minmax(0, 1fr);
   }
   :root:not([data-layout="legacy"]) .notebook-heading {
     min-height: 54px;

@@ -6,6 +6,7 @@ import { api, messageOf } from "./api";
 import { Icon } from "./icons";
 import { NativeWorkspaceDialog, useWorkspaceMutation, WorkspaceReceipts } from "./NativeWorkspace";
 import type { NotebookRequest } from "./Notebook";
+import { PanelDivider } from "./PanelDivider";
 
 const timezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 const scheduleZone = (task: ScheduledTask) => {
@@ -585,6 +586,14 @@ export default function ScheduledPanel({
       <WorkspaceReceipts revision={revision} onSettled={changed} />
       {error && <p role="alert">{error}</p>}
       <div className="native-workspace-layout" data-selected={!!selected}>
+        <PanelDivider
+          target=".native-workspace-list"
+          peer=".native-workspace-editor"
+          storageKey="schedules"
+          label="Ширина списка расписаний"
+          min={220}
+          max={480}
+        />
         <aside className="native-workspace-list" aria-label="Расписания ChatGPT">
           {loading && <p role="status">Загружаем расписания…</p>}
           {!loading && !error && !items.length && <p>Расписаний пока нет.</p>}

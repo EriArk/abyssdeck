@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { Icon } from "./icons";
+import { PanelDivider } from "./PanelDivider";
 import "./file-browser.css";
 
 export type BrowserEntry = {
@@ -312,6 +313,27 @@ export function FileBrowser({
         </form>
       </div>
       <div className="file-browser-body">
+        <PanelDivider
+          target=".file-browser-places"
+          peer=".file-browser-main"
+          label="Ширина расположений"
+          storageKey="files-places"
+          variable="--places-width"
+          min={140}
+          max={300}
+        />
+        {preview && (
+          <PanelDivider
+            target=".file-browser-detail"
+            peer=".file-browser-main"
+            label="Ширина просмотра"
+            storageKey="files-preview"
+            variable="--preview-width"
+            min={250}
+            max={700}
+            trailing
+          />
+        )}
         <nav
           className="file-browser-places"
           data-open={placesOpen}

@@ -117,11 +117,13 @@ export function DownloadLink({
   sourceRevision = 0,
   preparedFile,
   initiallyOpen = false,
+  title,
 }: {
   href?: string;
   /** Exact immutable local bytes, e.g. an editor snapshot or extracted archive entry. */
   preparedFile?: File;
   initiallyOpen?: boolean;
+  title?: string;
   name?: string;
   mime?: string;
   children: ReactNode;
@@ -311,7 +313,7 @@ export function DownloadLink({
     ) : null;
   return (
     <>
-      <button type="button" className={className} onClick={() => setOpen(true)}>
+      <button type="button" className={className} title={title} onClick={() => setOpen(true)}>
         {children}
       </button>
       {open && directDownload ? (
