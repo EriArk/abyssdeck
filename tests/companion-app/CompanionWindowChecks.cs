@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Avalonia.Themes.Fluent;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using CodexWeb.Companion;
 
 // Render the real window with fixture state. No application lifetime, tray,
@@ -45,6 +46,25 @@ static class CompanionWindowChecks {
                     using var image=new RenderTargetBitmap(new PixelSize(width,690),new Vector(96,96));image.Render(control);
                     image.Save(Path.Combine(output,theme+"-"+width+".png"),new PngBitmapEncoderOptions());
                 }
+                // Exercise the actual maintenance completion on the UI dispatcher.
+                // Disable integrations in the fixture; no live account/task is touched.
+                Field("profile").SetValue(window,new Profile("fixture-sid","","fixture-device","LAN",AutoUpdates:false,AutoRecovery:false));
+                Field("accountReady").SetValue(window,true);
+                var attention=snapshot.Components.ToArray();attention[0]=attention[0] with {Attention=true};
+                Field("snapshot").SetValue(window,snapshot with {Components=attention});
+                Field("maintaining").SetValue(window,true);
+                typeof(MainWindow).GetMethod("RenderSnapshot",BindingFlags.Instance|BindingFlags.NonPublic)!.Invoke(window,null);
+                var panel=(StackPanel)Field("components").GetValue(window)!;
+                if(panel.GetVisualDescendants().OfType<Button>().Any(b=>b.IsEnabled))throw new Exception("repair enabled during maintenance");
+                Field("maintaining").SetValue(window,false);
+                var maintenance=(Task)typeof(MainWindow).GetMethod("Maintain",BindingFlags.Instance|BindingFlags.NonPublic)!.Invoke(window,null)!;
+                var deadline=DateTime.UtcNow.AddSeconds(10);
+                while(!maintenance.IsCompleted && DateTime.UtcNow<deadline){Dispatcher.UIThread.RunJobs();Thread.Sleep(5);}
+                if(!maintenance.IsCompleted)throw new Exception("fixture maintenance timed out");
+                maintenance.GetAwaiter().GetResult();Dispatcher.UIThread.RunJobs();
+                if(!panel.GetVisualDescendants().OfType<Button>().Any(b=>b.IsEnabled && (string?)b.Content=="Исправить и проверить"))
+                    throw new Exception("maintenance left repair disabled until next poll");
+                Console.WriteLine("PASS maintenance completion immediately restores repair controls: "+theme);
                 window.Hide();
             }
             Console.WriteLine("PASS rendered fixture component cards in every Companion theme at 650 and 840 pixels; no installed app launched");

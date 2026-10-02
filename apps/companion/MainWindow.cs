@@ -379,7 +379,7 @@ public sealed class MainWindow : Window, IDisposable
             RenderSnapshot();
             if(profile.AutoUpdates && updates.State.State=="ready" && !IsVisible && UpdateIdle)ApplyUpdate();
         } catch { /* A maintenance failure never owns or restarts a native turn. */ }
-        finally {maintaining=false;}
+        finally {maintaining=false;if(!disposed)RenderSnapshot();}
     }
     async Task ReadAccount(int expected)
     {
@@ -464,8 +464,8 @@ public sealed class MainWindow : Window, IDisposable
             var state = Text(!c.Attention && c.State is "Запущен" or "Занято" or "Готов по запросу" ? "✓ " + c.State : c.State, bold: true); state.VerticalAlignment = VerticalAlignment.Center;
             state.Foreground = Themes.Brush(c.Attention ? palette.Danger : palette.Accent); Grid.SetColumn(state, 1); row.Children.Add(state);
             var content = Stack(row);
-            if(source.Id=="CodexWebBrowser" && browser.State.Length>0)content.Children.Add(Text(browser.State,muted:true));
             var update=componentUpdates.FirstOrDefault(x=>x.Id==source.Id);
+            if(source.Id=="CodexWebBrowser" && update?.Current!=true && browser.State.Length>0)content.Children.Add(Text(browser.State,muted:true));
             if(update is not null)content.Children.Add(Text(update.Detail,muted:true));
             var recovering=recovery.Description(source);if(recovering.Length>0)content.Children.Add(Text(recovering,muted:true));
             if (update?.Repair==true || c.Attention || c.State == "Выключен" || c.State == "Не используется" && source.Id == "CodexWebComputerUse") {
