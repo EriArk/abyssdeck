@@ -57,8 +57,12 @@ HTTP 200, completed, ответ получен; исходная квитанц�
   broker и network active. Документация ошибочно предлагала повторную активацию.
   Один реальный первый create вернул 503, host status WORKSPACE_MISSING; intent
   сохранён как creating. Без проверки результата create не повторялся.
-  Исправление scaffold подготовлено, но privileged осмотр/ремонт ещё не выполнен.
-  После ремонта нужно reconcile creating intent штатным API и завершить создание.
+  Владелец выполнил scaffold repair (IMG_0813, 17:22): applied=true, ready=false.
+  В слотах 0/1 удалены пустые home/.local/bin, home/.local, home/.config, home/.cache;
+  home осталась. Слоты 2/3 пусты. Причина оставшегося содержимого ещё не установлена.
+  Скрипт дополнен bounded metadata report (пути/тип/размер, без чтения содержимого
+  и перехода по ссылкам); три Linux проверки отчёта и очистки прошли.
+  После диагностики и ремонта нужно reconcile creating intent штатным API и завершить создание.
 
 Подготовленная команда в Devices → Сервер → Терминал:
 

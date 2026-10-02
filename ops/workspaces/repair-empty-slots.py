@@ -9,9 +9,28 @@ import json
 import os
 from pathlib import Path
 import sqlite3
+import stat
 import subprocess
 from acceptance import clear_empty_scaffold
 from policy import HOME, ROOT, SLOTS, podman_command
+
+
+def remaining_entries(slot, limit=64):
+    """Bounded metadata only; never read file bytes or follow symbolic links."""
+    slot=Path(slot)
+    entries=[]
+    pending=[(slot,0)]
+    while pending and len(entries)<limit:
+        directory,depth=pending.pop()
+        with os.scandir(directory) as children:
+            for child in children:
+                if directory==slot and child.name=='lost+found':continue
+                if len(entries)>=limit:break
+                info=child.stat(follow_symlinks=False)
+                kind='directory' if stat.S_ISDIR(info.st_mode) else 'link' if stat.S_ISLNK(info.st_mode) else 'file'
+                entries.append(dict(path=str(Path(child.path).relative_to(slot)),kind=kind,bytes=info.st_size))
+                if kind=='directory' and depth<4:pending.append((Path(child.path),depth+1))
+    return entries
 
 
 def main():
@@ -38,7 +57,8 @@ def main():
             before=sorted(p.name for p in slot.iterdir() if p.name!='lost+found')
             removed=clear_empty_scaffold(slot) if args.apply else []
             remaining=sorted(p.name for p in slot.iterdir() if p.name!='lost+found')
-            slots.append(dict(slot=index,before=before,removed=removed,remaining=remaining))
+            slots.append(dict(slot=index,before=before,removed=removed,remaining=remaining,
+                              entries=remaining_entries(slot) if remaining else []))
         print(json.dumps(dict(applied=args.apply,ready=all(not s['remaining'] for s in slots),slots=slots)))
     finally:
         db.rollback();db.close()
