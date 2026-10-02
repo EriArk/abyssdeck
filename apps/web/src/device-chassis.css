@@ -62,7 +62,12 @@
   box-shadow: var(--chassis-aperture);
 }
 :root:is([data-theme="crt-green"], [data-theme="hitech-2000s"])
-  :is(.file-browser-navigation, .file-browser-detail .inspector-actions, .file-text-tools) {
+  :is(
+    .file-browser-navigation,
+    .file-browser-commands,
+    .file-browser-detail .inspector-actions,
+    .file-text-tools
+  ) {
   background: var(--case-surface);
   color: var(--case-ink);
   border: 0;
@@ -102,7 +107,7 @@
   padding: 16px;
 }
 :root:is([data-theme="crt-green"], [data-theme="hitech-2000s"])
-  :is(.file-text-tools, .file-browser-detail .inspector-actions)
+  :is(.file-text-tools, .file-browser-commands, .file-browser-detail .inspector-actions)
   :is(.icon-button, .copy-button, .speech-button) {
   width: 44px;
   height: 44px;

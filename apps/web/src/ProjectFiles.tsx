@@ -8,7 +8,8 @@ import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { api, messageOf } from "./api";
 import { CopyButton } from "./CopyButton";
 import { DownloadLink } from "./DownloadLink";
-import { FileBatchActions } from "./FileBatchActions";
+import { FileActionKey } from "./FileActionKey";
+import { FileBatchActions, type FileTransfer } from "./FileBatchActions";
 import { FileBrowser } from "./FileBrowser";
 import { FileLaunch } from "./FileLaunch";
 import { FileManagerActions } from "./FileManagerActions";
@@ -48,6 +49,8 @@ export function ProjectFiles({
   const dialog = useRef<HTMLDialogElement>(null);
   useWorkspaceDialog(dialog, visible, `project-${mode}`);
   const [section, setSection] = useState<"overview" | "changes" | "releases">("overview");
+  const [transfer, setTransfer] = useState<FileTransfer>();
+  const transferId = useRef(0);
   const [editorPath, setEditorPath] = useState(""),
     [fileAction, setFileAction] = useState("");
   const [capability, setCapability] = useState(""),
@@ -59,6 +62,7 @@ export function ProjectFiles({
   useEffect(() => {
     setSelecting(false);
     setSelection([]);
+    setTransfer(undefined);
   }, [projectId, capability]);
   const grant = useRef("");
   const scopeRevision = useRef(0);
@@ -408,6 +412,36 @@ export function ProjectFiles({
           <strong>{mode === "files" ? "Файлы" : "Git"}</strong>
           <small>{projectName}</small>
         </div>
+        {mode === "files" && (
+          <>
+            <FileActionKey
+              icon={capability ? "unlock" : "lock"}
+              disabled={unlocking || !!editorPath}
+              aria-pressed={!!capability}
+              label={
+                unlocking
+                  ? "Проверяю доступ…"
+                  : capability
+                    ? "Заблокировать файлы"
+                    : "Разблокировать файлы"
+              }
+              onClick={() => {
+                setError("");
+                void setFileAccess(!capability).catch((e) => {
+                  if (scopeActive.current) setError(messageOf(e));
+                });
+              }}
+            />
+            {visible && (
+              <GuiPreviewButton
+                compact
+                projectId={projectId}
+                projectName={projectName}
+                threadId={threadId}
+              />
+            )}
+          </>
+        )}
         <button
           type="button"
           className="icon-button"
@@ -431,67 +465,38 @@ export function ProjectFiles({
           {error}
         </p>
       )}
-      <div className="project-tool-actions" data-unlocked={!!capability}>
-        {mode === "git" && visible && (
-          <GitHubFilesButton projectId={projectId} projectName={projectName} />
-        )}
-        <button
-          type="button"
-          className="secondary"
-          disabled={unlocking || !!editorPath}
-          aria-pressed={!!capability}
-          onClick={() => {
-            setError("");
-            void setFileAccess(!capability).catch((e) => {
-              if (scopeActive.current) setError(messageOf(e));
-            });
-          }}
-        >
-          <Icon name="lock" size={16} />
-          {unlocking
-            ? "Проверяю доступ…"
-            : capability
-              ? "Заблокировать файлы"
-              : "Разблокировать файлы"}
-        </button>
-        {mode === "files" && visible && capability && (
-          <ProjectFileUpload
-            key={`${projectId}:${checkout}`}
-            projectId={projectId}
-            projectName={projectName}
-            capability={capability}
-            checkout={checkout}
-            folder={path}
-            onDone={() => {
-              if (scopeActive.current) setRevision((n) => n + 1);
+      {mode === "git" && (
+        <div className="project-tool-actions" data-unlocked={!!capability}>
+          {mode === "git" && visible && (
+            <GitHubFilesButton projectId={projectId} projectName={projectName} />
+          )}
+          <button
+            type="button"
+            className="secondary"
+            disabled={unlocking || !!editorPath}
+            aria-pressed={!!capability}
+            onClick={() => {
+              setError("");
+              void setFileAccess(!capability).catch((e) => {
+                if (scopeActive.current) setError(messageOf(e));
+              });
             }}
-          />
-        )}
-        {mode === "files" && visible && capability && (
-          <FileManagerActions
-            key={projectId}
-            projectId={projectId}
-            capability={capability}
-            checkout={checkout}
-            folder={path}
-            request={fileAction}
-            onConsume={() => setFileAction("")}
-            onDone={(file, edit) => {
-              if (!scopeActive.current) return;
-              setRevision((n) => n + 1);
-              setSelected(file ?? "");
-              if (file) setReveal(file.split("/").at(-1)!);
-              if (file && edit) setEditorPath(file);
-            }}
-          />
-        )}
-        {visible && (
-          <GuiPreviewButton projectId={projectId} projectName={projectName} threadId={threadId} />
-        )}
-        {mode === "git" && visible && (
-          <DeliveryButton projectId={projectId} projectName={projectName} />
-        )}
-      </div>
+          >
+            <Icon name="lock" size={16} />
+            {unlocking
+              ? "Проверяю доступ…"
+              : capability
+                ? "Заблокировать файлы"
+                : "Разблокировать файлы"}
+          </button>
+          {visible && (
+            <GuiPreviewButton projectId={projectId} projectName={projectName} threadId={threadId} />
+          )}
+          {mode === "git" && visible && (
+            <DeliveryButton projectId={projectId} projectName={projectName} />
+          )}
+        </div>
+      )}
       {mode === "files" ? (
         <FileBrowser
           key={projectId}
@@ -502,6 +507,7 @@ export function ProjectFiles({
           selected={selected}
           onNavigate={open}
           onSelect={(entry) => select(entry.path)}
+          onEntryMenu={capability && !selecting ? (entry) => setFileAction(entry.path) : undefined}
           scrollerRef={scroller}
           search={{
             value: search,
@@ -548,39 +554,79 @@ export function ProjectFiles({
               : undefined
           }
           tools={
-            <>
-              {visible && capability && (
-                <FileBatchActions
-                  key={`${projectId}:${checkout}`}
-                  projectId={projectId}
-                  projectName={projectName}
-                  capability={capability}
-                  checkout={checkout}
-                  folder={path}
-                  selection={selection}
-                  selecting={selecting}
-                  visiblePaths={directory?.entries.map((entry) => entry.path) ?? []}
-                  onSelection={setSelection}
-                  onSelecting={setSelecting}
-                  onDone={(operation) => {
-                    if (!scopeActive.current) return;
-                    setRevision((n) => n + 1);
-                    setSelection((values) =>
-                      values.filter(
-                        (value) =>
-                          value !== operation.path && !value.startsWith(operation.path + "/"),
-                      ),
-                    );
-                    if (operation.op !== "copy") {
-                      if (path === operation.path || path.startsWith(operation.path + "/"))
-                        open(operation.path.split("/").slice(0, -1).join("/"));
-                      if (selected === operation.path || selected.startsWith(operation.path + "/"))
-                        setSelected("");
-                    }
-                  }}
-                />
-              )}
-            </>
+            capability ? (
+              <>
+                {mode === "files" && visible && capability && (
+                  <ProjectFileUpload
+                    compact
+                    key={`${projectId}:${checkout}`}
+                    projectId={projectId}
+                    projectName={projectName}
+                    capability={capability}
+                    checkout={checkout}
+                    folder={path}
+                    onDone={() => {
+                      if (scopeActive.current) setRevision((n) => n + 1);
+                    }}
+                  />
+                )}
+                {mode === "files" && visible && capability && (
+                  <FileManagerActions
+                    key={projectId}
+                    projectId={projectId}
+                    capability={capability}
+                    checkout={checkout}
+                    folder={path}
+                    request={fileAction}
+                    onConsume={() => setFileAction("")}
+                    onTransfer={(op, path) => setTransfer({ id: ++transferId.current, op, path })}
+                    onDone={(file, edit) => {
+                      if (!scopeActive.current) return;
+                      setRevision((n) => n + 1);
+                      setSelected(file ?? "");
+                      if (file) setReveal(file.split("/").at(-1)!);
+                      if (file && edit) setEditorPath(file);
+                    }}
+                  />
+                )}
+
+                {visible && capability && (
+                  <FileBatchActions
+                    key={`${projectId}:${checkout}`}
+                    projectId={projectId}
+                    projectName={projectName}
+                    capability={capability}
+                    checkout={checkout}
+                    folder={path}
+                    transfer={transfer}
+                    selection={selection}
+                    selecting={selecting}
+                    visiblePaths={directory?.entries.map((entry) => entry.path) ?? []}
+                    onSelection={setSelection}
+                    onSelecting={setSelecting}
+                    onDone={(operation) => {
+                      if (!scopeActive.current) return;
+                      setRevision((n) => n + 1);
+                      setSelection((values) =>
+                        values.filter(
+                          (value) =>
+                            value !== operation.path && !value.startsWith(operation.path + "/"),
+                        ),
+                      );
+                      if (operation.op !== "copy") {
+                        if (path === operation.path || path.startsWith(operation.path + "/"))
+                          open(operation.path.split("/").slice(0, -1).join("/"));
+                        if (
+                          selected === operation.path ||
+                          selected.startsWith(operation.path + "/")
+                        )
+                          setSelected("");
+                      }
+                    }}
+                  />
+                )}
+              </>
+            ) : undefined
           }
           preview={
             selected ? (

@@ -1,6 +1,14 @@
 import type { CSSProperties } from "react";
 
 const paths: Record<string, string[]> = {
+  "file-plus": ["M14 2H5v20h14V7l-5-5Z", "M14 2v5h5M8 14h8M12 10v8"],
+  "folder-plus": ["M3 6V4h6l2 3h10v13H3V6Z", "M8 13h8M12 9v8"],
+  upload: ["M12 16V3m-5 5 5-5 5 5M3 16v5h18v-5"],
+  scissors: [
+    "M7 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM7 17a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM7 8l14 13M7 16 21 3",
+  ],
+  paste: ["M9 4H5v18h14V4h-4M9 2h6v5H9zM8 12h8M8 16h8"],
+  select: ["M3 3h18v18H3zM7 12l3 3 7-7"],
   wrap: ["M3 5h18M3 10h13a4 4 0 0 1 0 8h-5m3-3-3 3 3 3M3 15h4M3 20h4"],
   code: ["m8 5-6 7 6 7m8-14 6 7-6 7m-3-17-2 20"],
   grid: ["M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"],

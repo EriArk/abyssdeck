@@ -2,6 +2,7 @@ import type { FileRequest, FileSnapshot } from "@codex-web/shared";
 import { useEffect, useRef, useState } from "react";
 import { accountLocalStorage as storage } from "./accountStorage";
 import { ApiError, api, messageOf } from "./api";
+import { FileActionKey } from "./FileActionKey";
 import { Icon } from "./icons";
 import { useWorkspaceDialog } from "./useWorkspaceDialog";
 
@@ -11,6 +12,7 @@ export function FileManagerActions({
   checkout,
   folder,
   request,
+  onTransfer,
   onConsume,
   onDone,
 }: {
@@ -19,15 +21,13 @@ export function FileManagerActions({
   checkout: string;
   folder: string;
   request: string;
+  onTransfer: (op: "copy" | "move", path: string) => void;
   onConsume: () => void;
   onDone: (path?: string, edit?: boolean) => void;
 }) {
   const [mode, setMode] = useState<"menu" | "create" | "mkdir" | "move" | "delete" | null>(null),
     [source, setSource] = useState<FileSnapshot | null>(null),
     [name, setName] = useState(""),
-    [clipboard, setClipboard] = useState<{ source: FileSnapshot; op: "copy" | "move" } | null>(
-      null,
-    ),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const dialog = useRef<HTMLDialogElement>(null),
@@ -91,7 +91,6 @@ export function FileManagerActions({
       setRecovery(false);
       setMode(null);
       onConsume();
-      if (operation.op === "move") setClipboard(null);
       onDone(
         operation.op === "delete" || result.kind === "directory" ? undefined : result.path,
         operation.op === "create",
@@ -127,57 +126,28 @@ export function FileManagerActions({
           Проверить файловую операцию
         </button>
       )}
-      <button
+      <FileActionKey
         type="button"
-        className="secondary"
+        icon="file-plus"
+        label="Новый файл"
         disabled={busy || recovery}
         onClick={() => {
           setName("");
           setError("");
           setMode("create");
         }}
-      >
-        <Icon name="file" size={16} /> Новый файл
-      </button>
-      <button
+      />
+      <FileActionKey
         type="button"
-        className="secondary"
+        icon="folder-plus"
+        label="Новая папка"
         disabled={busy || recovery}
         onClick={() => {
           setName("");
           setError("");
           setMode("mkdir");
         }}
-      >
-        <Icon name="folder" size={16} /> Новая папка
-      </button>
-      {clipboard && (
-        <>
-          <button
-            type="button"
-            className="secondary"
-            disabled={busy || recovery}
-            onClick={() =>
-              void execute({
-                op: clipboard.op,
-                path: clipboard.source.path,
-                fingerprint: clipboard.source.fingerprint,
-                target: join(folder, clipboard.source.path.split("/").at(-1)!),
-              })
-            }
-          >
-            Вставить «{clipboard.source.path.split("/").at(-1)}»
-          </button>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="Отменить копирование или перенос"
-            onClick={() => setClipboard(null)}
-          >
-            <Icon name="close" />
-          </button>
-        </>
-      )}
+      />
       {!mode && error && (
         <p className="notice" role="alert">
           {error}
@@ -236,7 +206,7 @@ export function FileManagerActions({
             <button
               type="button"
               onClick={() => {
-                setClipboard({ source, op: "copy" });
+                onTransfer("copy", source.path);
                 close();
               }}
             >
@@ -245,7 +215,7 @@ export function FileManagerActions({
             <button
               type="button"
               onClick={() => {
-                setClipboard({ source, op: "move" });
+                onTransfer("move", source.path);
                 close();
               }}
             >

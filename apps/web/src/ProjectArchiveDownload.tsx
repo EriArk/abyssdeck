@@ -3,18 +3,21 @@ import { createPortal } from "react-dom";
 import { accountLocalStorage as storage } from "./accountStorage";
 import { ApiError, api, messageOf } from "./api";
 import { DownloadLink } from "./DownloadLink";
+import { FileActionKey } from "./FileActionKey";
 import { Icon } from "./icons";
 import { useWorkspaceDialog } from "./useWorkspaceDialog";
 
 type Task = { id: string; paths: string[] };
 type Result = { state: string; url?: string; name?: string; bytes: number };
 export function ProjectArchiveDownload({
+  compact = false,
   projectId,
   projectName,
   checkout,
   selection,
   selecting,
 }: {
+  compact?: boolean;
   projectId: string;
   projectName: string;
   checkout: string;
@@ -99,9 +102,11 @@ export function ProjectArchiveDownload({
   return (
     <>
       {(selecting || task) && (
-        <button
+        <FileActionKey
           type="button"
-          className="secondary"
+          compact={compact}
+          icon="to-bottom"
+          label={task ? "Архив ZIP" : "Скачать ZIP"}
           disabled={!task && !selection.length}
           onClick={() => {
             setOpened(true);
@@ -112,9 +117,7 @@ export function ProjectArchiveDownload({
               setResult(null);
             }
           }}
-        >
-          {task ? "Архив ZIP" : "Скачать ZIP"}
-        </button>
+        />
       )}
       {opened &&
         task &&

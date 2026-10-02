@@ -1,19 +1,20 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { accountLocalStorage as localStorage } from "./accountStorage.ts";
-import { Icon } from "./icons";
+import { FileActionKey } from "./FileActionKey";
 
 const Panel = lazy(() => import("./GuiPreviewPanel"));
 export type GuiPreviewTarget = { projectId: string; projectName: string; threadId?: string };
-export function GuiPreviewButton(target: GuiPreviewTarget) {
+export function GuiPreviewButton({
+  compact = false,
+  ...target
+}: GuiPreviewTarget & { compact?: boolean }) {
   return (
-    <button
-      type="button"
-      className="secondary"
+    <FileActionKey
+      compact={compact}
+      icon="image"
+      label="Предпросмотр приложения"
       onClick={() => window.dispatchEvent(new CustomEvent("open-gui-preview", { detail: target }))}
-    >
-      <Icon name="image" size={17} />
-      Предпросмотр приложения
-    </button>
+    />
   );
 }
 export function GuiPreviewHost() {

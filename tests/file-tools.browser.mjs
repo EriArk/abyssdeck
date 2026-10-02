@@ -54,6 +54,18 @@ for (const [engine, type] of [
     const page = await context.newPage(),
       errors = [];
     page.on("pageerror", (e) => errors.push(e.message));
+    // This fixture runs local-linux on the host. Linux download path validation
+    // cannot address a Windows drive; keep file mutations real and supply only
+    // these fixture download bytes on Windows. Linux exercises the real route.
+    if (process.platform === "win32")
+      await page.route("**/api/projects/project/files/content?*", async (route) => {
+        const path = new URL(route.request().url()).searchParams.get("path");
+        assert.ok(["sample.ts", "preview.html", "new.md"].includes(path));
+        await route.fulfill({
+          body: await readFile(join(root, path)),
+          contentType: "application/octet-stream",
+        });
+      });
     await page.goto(origin);
     const composer = page.getByLabel("Сообщение Codex", { exact: true });
     await expect(composer).toBeVisible();
@@ -86,7 +98,11 @@ for (const [engine, type] of [
       await expect(editor.locator(".cm-content")).toBeVisible();
     };
     const text = async (value) => {
-      await editor.locator(".cm-content").fill(value);
+      // CodeMirror owns its selection; exercise native keyboard replacement
+      // instead of Playwright's contenteditable fill shortcut in WebKit.
+      await editor.locator(".cm-content").click();
+      await page.keyboard.press("ControlOrMeta+A");
+      await page.keyboard.insertText(value);
     };
     f.store.db.prepare("UPDATE threads SET status='running' WHERE id=?").run(f.thread.id);
     await open();
@@ -204,6 +220,8 @@ for (const [engine, type] of [
       ]) {
         await page.setViewportSize({ width, height });
         await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme);
+        // Working windows now preserve their position; only compact dialogs
+        // are required to remain symmetrically centered after a resize.
         await expect
           .poll(async () => {
             const box = await editor.boundingBox();
@@ -211,9 +229,7 @@ for (const [engine, type] of [
               box.x >= 0 &&
               box.y >= 0 &&
               box.x + box.width <= width + 1 &&
-              box.y + box.height <= height + 1 &&
-              Math.abs(box.x - (width - box.x - box.width)) <= 2 &&
-              Math.abs(box.y - (height - box.y - box.height)) <= 2
+              box.y + box.height <= height + 1
             );
           })
           .toBe(true);

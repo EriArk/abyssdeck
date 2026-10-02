@@ -3,11 +3,13 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { accountLocalStorage as storage } from "./accountStorage";
 import { ApiError, api, messageOf } from "./api";
+import { FileActionKey } from "./FileActionKey";
 import { Icon } from "./icons";
 import { ProjectArchiveDownload } from "./ProjectArchiveDownload";
 import { useWorkspaceDialog } from "./useWorkspaceDialog";
 import "./file-batch.css";
 
+export type FileTransfer = { id: number; op: "copy" | "move"; path: string };
 type Operation = "copy" | "move" | "delete";
 type Item = {
   request: FileRequest;
@@ -32,6 +34,7 @@ export function FileBatchActions({
   visiblePaths,
   onSelection,
   onSelecting,
+  transfer,
   onDone,
 }: {
   projectId: string;
@@ -44,6 +47,7 @@ export function FileBatchActions({
   visiblePaths: string[];
   onSelection: (paths: string[]) => void;
   onSelecting: (value: boolean) => void;
+  transfer?: FileTransfer;
   onDone: (request: FileRequest) => void;
 }) {
   const [clipboard, setClipboard] = useState<{ op: Operation; sources: FileSnapshot[] } | null>(
@@ -115,15 +119,19 @@ export function FileBatchActions({
     };
   }, [key]);
   const unresolved = !!batch?.items.some((item) => !["done", "skipped"].includes(item.status));
-  const prepare = async (op: Operation) => {
-    if (running.current || unresolved || !selection.length) return;
+  const prepare = async (op: Operation, selected = selection) => {
+    if (running.current || !selected.length) return;
+    if (current.current?.items.some((item) => !["done", "skipped"].includes(item.status))) {
+      setOpened(true);
+      return;
+    }
     running.current = true;
     setBusy(true);
     setError("");
     try {
       // A selected folder already includes its selected descendants. Never act on both twice.
-      const paths = selection.filter(
-        (path) => !selection.some((parent) => parent !== path && inside(path, parent)),
+      const paths = selected.filter(
+        (path) => !selected.some((parent) => parent !== path && inside(path, parent)),
       );
       const sources: FileSnapshot[] = [];
       for (const path of paths) {
@@ -159,6 +167,14 @@ export function FileBatchActions({
       if (active.current) setBusy(false);
     }
   };
+  const transferHandler = useRef(prepare);
+  transferHandler.current = prepare;
+  const consumedTransfer = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (!transfer || consumedTransfer.current === transfer.id) return;
+    consumedTransfer.current = transfer.id;
+    void transferHandler.current(transfer.op, [transfer.path]);
+  }, [transfer]);
   const paste = () => {
     if (!clipboard || unresolved) return;
     try {
@@ -380,6 +396,7 @@ export function FileBatchActions({
     <>
       <section className="file-batch-controls" aria-label="Выбор и групповые действия">
         <ProjectArchiveDownload
+          compact
           projectId={projectId}
           projectName={projectName}
           checkout={checkout}
@@ -387,89 +404,89 @@ export function FileBatchActions({
           selecting={selecting}
         />
         <div className="file-batch-pair">
-          <button
+          <FileActionKey
             type="button"
-            className="secondary"
             aria-pressed={selecting}
             disabled={busy}
             onClick={() => onSelecting(!selecting)}
-          >
-            {selecting ? "Готово" : "Выбрать несколько"}
-            {selection.length ? ` · ${selection.length}` : ""}
-          </button>
+            icon="select"
+            label={selecting ? "Готово" : "Выбрать несколько"}
+            count={selection.length}
+          />
           {batch && (
-            <button type="button" className="secondary" onClick={() => setOpened(true)}>
-              Операция · {batch.items.filter((item) => item.status === "done").length}/
-              {batch.items.length}
-            </button>
+            <FileActionKey
+              type="button"
+              onClick={() => setOpened(true)}
+              icon="schedule"
+              label={`Операция · ${batch.items.filter((item) => item.status === "done").length}/${batch.items.length}`}
+            />
           )}
         </div>
         {selecting && (
           <>
             <div className="file-batch-pair">
-              <button
+              <FileActionKey
                 type="button"
-                className="secondary"
-                aria-label="Выбрать на странице"
                 disabled={busy}
                 onClick={() => {
                   const next = [...new Set([...selection, ...visiblePaths])];
                   if (next.length > 100) setError("Можно выбрать до 100 элементов.");
                   else onSelection(next);
                 }}
-              >
-                На странице
-              </button>
-              <button
+                icon="select"
+                label={"Выбрать на странице"}
+              />
+              <FileActionKey
                 type="button"
-                className="secondary"
                 disabled={busy || !selection.length}
                 onClick={() => onSelection([])}
-              >
-                Снять выбор
-              </button>
+                icon="close"
+                label={"Снять выбор"}
+              />
             </div>
             <div className="file-batch-trio">
-              <button
+              <FileActionKey
                 type="button"
-                className="secondary"
                 disabled={busy || unresolved || !selection.length}
                 onClick={() => void prepare("copy")}
-              >
-                Копировать
-              </button>
-              <button
+                icon="copy"
+                label={"Копировать"}
+              />
+              <FileActionKey
                 type="button"
-                className="secondary"
                 disabled={busy || unresolved || !selection.length}
                 onClick={() => void prepare("move")}
-              >
-                Вырезать
-              </button>
-              <button
+                icon="scissors"
+                label={"Вырезать"}
+              />
+              <FileActionKey
                 type="button"
-                className="secondary danger"
+                className="danger"
                 disabled={busy || unresolved || !selection.length}
                 onClick={() => void prepare("delete")}
-              >
-                Удалить
-              </button>
+                icon="trash"
+                label={"Удалить"}
+              />
             </div>
           </>
         )}
         {clipboard && (
           <div className="file-batch-pair">
-            <button type="button" className="primary" disabled={busy || unresolved} onClick={paste}>
-              Вставить сюда · {clipboard.sources.length}
-            </button>
-            <button
+            <FileActionKey
               type="button"
-              className="secondary"
+              className="primary"
+              disabled={busy || unresolved}
+              onClick={paste}
+              icon="paste"
+              label={`Вставить сюда · ${clipboard.sources.length}`}
+            />
+            <FileActionKey
+              type="button"
               disabled={busy}
               onClick={() => setClipboard(null)}
-            >
-              Отменить {clipboard.op === "copy" ? "копирование" : "перенос"}
-            </button>
+              icon="close"
+              label={`Отменить ${clipboard.op === "copy" ? "копирование" : "перенос"}`}
+            />
           </div>
         )}
         {busy && !opened && (

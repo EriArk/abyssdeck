@@ -38,6 +38,7 @@ export function FileBrowser({
   selected = "",
   onNavigate,
   onSelect,
+  onEntryMenu,
   search: remoteSearch,
   sort: remoteSort,
   selection,
@@ -61,6 +62,7 @@ export function FileBrowser({
   selected?: string;
   onNavigate: (path: string) => void;
   onSelect?: (entry: BrowserEntry) => void;
+  onEntryMenu?: (entry: BrowserEntry) => void;
   search?: { value: string; onChange: (value: string) => void; onSubmit: () => void };
   sort?: { value: Sort; onChange: (value: Sort) => void };
   selection?: string[];
@@ -312,6 +314,7 @@ export function FileBrowser({
           </button>
         </form>
       </div>
+      {tools && <div className="file-browser-commands">{tools}</div>}
       <div className="file-browser-body">
         <PanelDivider
           target=".file-browser-places"
@@ -330,7 +333,9 @@ export function FileBrowser({
             storageKey="files-preview"
             variable="--preview-width"
             min={250}
-            max={700}
+            // The neighboring list supplies the effective limit. A 700px cap
+            // could be smaller than the initial 56% pane and reverse a resize.
+            max={Number.MAX_SAFE_INTEGER}
             trailing
           />
         )}
@@ -366,7 +371,6 @@ export function FileBrowser({
         </nav>
         <div className="file-browser-main">
           <div className="file-browser-tools">
-            {tools}
             <div className="file-browser-view">
               <select
                 aria-label="Сортировка файлов"
@@ -431,6 +435,14 @@ export function FileBrowser({
                     className="file-browser-entry inspector-entry"
                     disabled={busy}
                     aria-expanded={entry.kind === "file" ? selected === entry.path : undefined}
+                    onContextMenu={
+                      onEntryMenu
+                        ? (event) => {
+                            event.preventDefault();
+                            onEntryMenu(entry);
+                          }
+                        : undefined
+                    }
                     onClick={() =>
                       entry.kind === "directory" ? navigate(entry.path) : onSelect?.(entry)
                     }

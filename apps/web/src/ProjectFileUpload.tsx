@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { accountLocalStorage as storage } from "./accountStorage";
 import { ApiError, api, messageOf } from "./api";
+import { FileActionKey } from "./FileActionKey";
 import { Icon } from "./icons";
 import { useWorkspaceDialog } from "./useWorkspaceDialog";
 import "./project-file-upload.css";
@@ -31,6 +32,7 @@ const size = (n: number) =>
     ? `${n} Б`
     : new Intl.NumberFormat("ru", { maximumFractionDigits: 1 }).format(n / 1024) + " КБ";
 export function ProjectFileUpload({
+  compact = false,
   projectId,
   projectName,
   capability,
@@ -40,6 +42,7 @@ export function ProjectFileUpload({
   initialFile,
   onDismiss,
 }: {
+  compact?: boolean;
   projectId: string;
   projectName: string;
   capability: string;
@@ -311,9 +314,13 @@ export function ProjectFileUpload({
   const pending = rows.filter((r) => !["done", "cancelled"].includes(r.status)).length;
   return (
     <>
-      <button type="button" className="secondary" onClick={() => setOpened(true)}>
-        <Icon name="file" size={16} /> Загрузить файлы{pending ? ` · ${pending}` : ""}
-      </button>
+      <FileActionKey
+        compact={compact}
+        icon="upload"
+        label="Загрузить файлы"
+        count={pending}
+        onClick={() => setOpened(true)}
+      />
       {opened &&
         createPortal(
           <dialog
