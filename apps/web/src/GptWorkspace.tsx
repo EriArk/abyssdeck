@@ -333,6 +333,13 @@ export function GptWorkspace({
       return "";
     }
   });
+  const [sendingMessage, setSendingMessage] = useState<{
+    scope: string;
+    id: string;
+    navigation: number;
+    text: string;
+    files: GptFile[];
+  } | null>(null);
   const [selected, setSelected] = useState(() =>
     projectChat ? (projectChat.nativeId ?? "") : cachedId(),
   );
@@ -960,6 +967,14 @@ export function GptWorkspace({
     const receiptScope = "gpt:" + sourceDraft;
     try {
       const key = pendingSendKey(receiptScope, signature);
+      setSendingMessage({
+        scope: sourceDraft,
+        id: key,
+        navigation: version,
+        text: value,
+        files: [...files],
+      });
+      sticky.current = true;
       const data = await api<{ job: GptJob }>(
         activityHandoff
           ? `/team/activity-handoffs/${encodeURIComponent(activityHandoff.id)}/send`
@@ -1006,6 +1021,7 @@ export function GptWorkspace({
     } catch (e) {
       if (navigationVersion.current === version) setNotice(messageOf(e));
     } finally {
+      setSendingMessage(null);
       sending.current = false;
       setBusy(false);
     }
@@ -2113,7 +2129,14 @@ export function GptWorkspace({
                         </aside>
                       )}
                       {message.role === "user" ? (
-                        <Files files={message.files} />
+                        <Files
+                          files={
+                            message.files.length
+                              ? message.files
+                              : (currentJobs.find((job) => job.userMessageId === message.id)
+                                  ?.files ?? [])
+                          }
+                        />
                       ) : (
                         <ResponseResults
                           text={message.text}
@@ -2131,6 +2154,22 @@ export function GptWorkspace({
                   </article>
                 ))}
                 {jobElements.filter((element) => !historicalJobs.has(String(element.key)))}
+                {sendingMessage?.scope === draftScope &&
+                  sendingMessage.navigation === navigationVersion.current &&
+                  !currentJobs.some((job) => job.id === sendingMessage.id && !job.summaryOnly) && (
+                    <article className="message user" data-sending-message>
+                      <div className="message-header">
+                        <span className="avatar">Я</span>
+                        <b>Вы</b>
+                        <small role="status">Отправляется</small>
+                        <CopyButton text={sendingMessage.text} />
+                      </div>
+                      <div className="message-body">
+                        <Text value={sendingMessage.text} />
+                        <Files files={sendingMessage.files} />
+                      </div>
+                    </article>
+                  )}
                 {reviews
                   .filter(
                     (r) =>

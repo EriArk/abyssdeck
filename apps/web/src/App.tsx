@@ -49,6 +49,7 @@ import { ActivityPane } from "./Results";
 import { applyTheme, cachedTheme, hydrateCaseColors, hydrateThemeVariants } from "./theme";
 import type {
   Activity,
+  Attachment,
   History,
   Machine,
   Project,
@@ -495,7 +496,14 @@ function Workspace({
       !resultOverlay,
     () => setDrawer(true),
   );
-  const { state, older, reconnect, refresh } = useWorkspace(threadId);
+  const {
+    state,
+    older,
+    reconnect,
+    refresh,
+    sending: showSending,
+    sent: settleSending,
+  } = useWorkspace(threadId);
   useNotificationPresence(
     "codex",
     threadId,
@@ -802,6 +810,7 @@ function Workspace({
     text: string,
     settings: TurnSettings,
     attachments: string[],
+    displayFiles: Attachment[] = [],
   ): Promise<boolean> => {
     if (busy || sendingRef.current) return false;
     sendingRef.current = true;
@@ -812,18 +821,23 @@ function Workspace({
     setNotice("");
     const signature = JSON.stringify({ threadId, text, settings, attachments });
     const scope = "codex:" + threadId;
+    let displayKey = "";
     try {
       const key = pendingSendKey(scope, signature);
-      await api(`/threads/${threadId}/turns`, {
+      displayKey = "sending:" + key;
+      showSending(threadId, displayKey, text, displayFiles);
+      const accepted = await api<{ turnId: string }>(`/threads/${threadId}/turns`, {
         method: "POST",
         key,
         body: { text, settings, attachments },
       });
       completePendingSend(scope, key);
+      settleSending(threadId, displayKey, accepted.turnId);
       // Metadata refresh cannot turn an acknowledged send into a failed send.
       void loadThreads(projectId, threadId).catch(() => {});
       return true;
     } catch (error) {
+      if (displayKey) settleSending(threadId, displayKey);
       if (error instanceof ApiError && error.code === "MACHINE_RELEASED") throw error;
       setWriteBlocked(error instanceof ApiError && error.code === "THREAD_IN_USE");
       setSendError(messageOf(error));

@@ -48,7 +48,7 @@ import { taskEndLabel, turnFailureMessage } from "./turnOutcome";
 import { useCompletionPosition } from "./useCompletionPosition";
 import "./taskBoundary.css";
 import { ElicitationCard } from "./ElicitationCard";
-import type { Approval, Message, Result, TurnSettings } from "./types";
+import type { Approval, Attachment, Message, Result, TurnSettings } from "./types";
 import { UpdateNotice } from "./UpdateNotice";
 import type { ChatState } from "./useWorkspace";
 import { useWebHandoff } from "./WebHandoff";
@@ -330,7 +330,12 @@ export function Chat({
   results: Result[];
   focusTurn: string;
   focusMessage?: string;
-  onSend: (text: string, settings: TurnSettings, attachments: string[]) => Promise<boolean>;
+  onSend: (
+    text: string,
+    settings: TurnSettings,
+    attachments: string[],
+    displayFiles?: Attachment[],
+  ) => Promise<boolean>;
   onStop: () => void;
   onOlder: () => Promise<void>;
   onCreate: () => void;
@@ -587,7 +592,7 @@ export function Chat({
       await handoff.run((returned) =>
         active && !external && !returned && !pendingRetry
           ? queue.add(value, fileIds)
-          : onSend(value, selection, fileIds),
+          : onSend(value, selection, fileIds, attachments.files),
       )
     ) {
       saveDraft("");
@@ -697,6 +702,11 @@ export function Chat({
                           <span className="avatar">{message.role === "user" ? "Я" : "C"}</span>
                           <strong>{message.role === "user" ? "Вы" : "Codex"}</strong>
                           <time>{time(message.createdAt)}</time>
+                          {message.sendState && (
+                            <small role="status">
+                              {message.sendState === "sending" ? "Отправляется" : "Отправлено"}
+                            </small>
+                          )}
                           {message.phase === "plan" && <span className="badge">План</span>}
                           {message.phase === "commentary" && (
                             <span className="small muted">
@@ -712,7 +722,7 @@ export function Chat({
                                 text={message.text}
                               />
                             )}
-                            {onCapture && message.text.trim() && (
+                            {onCapture && !message.sendState && message.text.trim() && (
                               <button
                                 type="button"
                                 className="icon-button"
@@ -811,10 +821,10 @@ export function Chat({
                               })),
                             ]}
                           />
-                            {message.role === "assistant" &&
-                              message.phase !== "commentary" &&
-                              !message.questions?.length &&
-                              !/!\[[^\]]*\]\(/.test(message.text) &&
+                          {message.role === "assistant" &&
+                            message.phase !== "commentary" &&
+                            !message.questions?.length &&
+                            !/!\[[^\]]*\]\(/.test(message.text) &&
                             !state.messages
                               .slice(index + 1)
                               .some(

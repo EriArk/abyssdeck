@@ -61,6 +61,35 @@ test("fresh device receives complete snapshot without inheriting another convers
   assert.deepEqual(mergeHistorySnapshot(state, snapshot).messages, snapshot.messages);
 });
 
+test("acknowledged send survives a lagging history until its exact turn and files appear", () => {
+  const pending = {
+    ...message("sending:receipt", "Again", 0),
+    role: "user",
+    turnId: "new-turn",
+    sendState: "accepted",
+    attachments: [{ id: "photo" }],
+  };
+  const state = { ...snapshot, messages: [pending], revision: 0 };
+  const old = { ...pending, id: "old-user", turnId: "old-turn", sendState: undefined };
+  const lagging = { ...snapshot, lastSeq: 20, messages: [old] };
+  assert.deepEqual(
+    mergeHistorySnapshot(state, lagging).messages.map((m) => m.id),
+    ["old-user", pending.id],
+  );
+  const native = { ...old, id: "native-user", turnId: pending.turnId };
+  assert.deepEqual(mergeHistorySnapshot(state, { ...lagging, messages: [native] }).messages, [
+    native,
+  ]);
+  // A different attachment in the same turn is not this submission.
+  assert.equal(
+    mergeHistorySnapshot(state, {
+      ...lagging,
+      messages: [{ ...native, attachments: [{ id: "other" }] }],
+    }).messages.length,
+    2,
+  );
+});
+
 test("turn outcomes survive late history and older-page merges without replacing newer completion", () => {
   const state = {
     ...snapshot,

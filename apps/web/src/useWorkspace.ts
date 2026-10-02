@@ -2,7 +2,7 @@ import { chatQuestions } from "@codex-web/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { workspaceSocket } from "./accountStorage.ts";
 import { api, messageOf } from "./api";
-import { mergeHistorySnapshot, mergeTurnOutcomes } from "./historyState";
+import { mergeHistorySnapshot, mergeTurnOutcomes, sameSubmittedMessage } from "./historyState";
 import type { Approval, Attachment, History, HubEvent, Message, TurnSettings } from "./types";
 export interface ChatState extends History {
   loading: boolean;
@@ -172,6 +172,17 @@ export function useWorkspace(threadId: string) {
             };
             messages =
               index >= 0 ? messages.map((m, i) => (i === index ? item : m)) : [...messages, item];
+            if (event.type === "user.message") {
+              // A repeated prompt is a separate send. One event replaces at
+              // most one echo, even when the turn-start event has not arrived.
+              const echo = messages.findLastIndex(
+                (m) =>
+                  m.sendState &&
+                  sameSubmittedMessage(m, item) &&
+                  (!m.turnId || !item.turnId || m.turnId === item.turnId),
+              );
+              if (echo >= 0) messages = messages.filter((_, i) => i !== echo);
+            }
           }
           if (event.type === "thread.settings")
             thread = { ...thread, settings: p.settings as TurnSettings };
@@ -350,6 +361,42 @@ export function useWorkspace(threadId: string) {
     }
   }, [threadId, update]);
   return {
+    sending: (id: string, key: string, text: string, attachments: Attachment[]) =>
+      update(id, (s) => ({
+        ...s,
+        messages: [
+          ...s.messages.filter((m) => m.id !== key),
+          {
+            id: key,
+            turnId: null,
+            role: "user",
+            phase: "",
+            text,
+            attachments,
+            sendState: "sending",
+            firstSeq: 0,
+            lastSeq: 0,
+            createdAt: new Date().toISOString(),
+          },
+        ],
+      })),
+    sent: (id: string, key: string, turnId?: string) =>
+      update(id, (s) => ({
+        ...s,
+        messages: s.messages.flatMap((m) =>
+          m.id !== key
+            ? [m]
+            : !turnId ||
+                s.messages.some(
+                  (native) =>
+                    !native.sendState &&
+                    native.turnId === turnId &&
+                    sameSubmittedMessage(m, native),
+                )
+              ? []
+              : [{ ...m, turnId, sendState: "accepted" as const }],
+        ),
+      })),
     state: cache[threadId] ?? empty,
     older,
     reconnect: () => setEpoch((n) => n + 1),

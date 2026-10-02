@@ -212,7 +212,9 @@ try {
         .getByRole("button", { name: "Отправить GPT", exact: true })
         .tap();
       await expect.poll(() => submissions).toBe(1);
+      await expect(chat.locator("[data-sending-message]")).toContainText("Delayed new submission");
       await newChat();
+      await expect(chat.locator("[data-sending-message]")).toHaveCount(0);
       releaseSend();
       await expect(
         page
