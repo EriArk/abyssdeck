@@ -1,5 +1,13 @@
 # Window and action layout
 
+Owner correction, 3 October 2026: side panels extend the continuous workspace
+body, rather than adding a second case or an unrelated recessed box. Animate
+explicit wide-layout disclosure, never drag/keyboard/viewport sizing. Keep mounted
+state and make collapsed controls inert only in the wide layout. Use a short grip
+and local focus feedback instead of a full-height colored separator. Respect
+reduced motion. Window motion must not distort saved geometry, replay input or
+replace the owning window's dirty/terminal/close lifecycle.
+
 Owner correction, 2 October 2026: working windows share `useWindowGeometry` through
 an explicit stable tool key. Drag only the free heading area; resize from edges and
 corners. Save committed geometry per account/browser, independently of panel widths.

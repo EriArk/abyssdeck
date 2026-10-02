@@ -1,3 +1,5 @@
+import { animateWindowExit } from "./windowMotion";
+
 type Entry = {
   id: number;
   key: string;
@@ -92,7 +94,7 @@ export function registerDockWindow(dialog: HTMLDialogElement, key: string) {
     event.stopImmediatePropagation();
   };
   dialog.addEventListener("close", suppressClose, true);
-  const minimize = () => {
+  const commitMinimize = () => {
     if (innerWidth <= 600 || !dialog.open) return;
     const group: Entry[] = [];
     let current: Entry | undefined = entry;
@@ -120,6 +122,22 @@ export function registerDockWindow(dialog: HTMLDialogElement, key: string) {
     publish();
     window.dispatchEvent(new CustomEvent("workspace-dock-focus", { detail: entry.id }));
   };
+  let exit: Animation | null = null;
+  const minimize = () => {
+    if (exit || innerWidth <= 600 || !dialog.open) return;
+    exit = animateWindowExit(dialog);
+    if (!exit) return commitMinimize();
+    const animation = exit;
+    void animation.finished
+      .then(() => {
+        if (entries.has(dialog)) commitMinimize();
+        animation.cancel();
+        exit = null;
+      })
+      .catch(() => {
+        exit = null;
+      });
+  };
   const nativeMinimize = () => {
     suppressedCloses++;
     dialog.close();
@@ -135,6 +153,7 @@ export function registerDockWindow(dialog: HTMLDialogElement, key: string) {
   });
   renamed.observe(heading, { childList: true, subtree: true, characterData: true });
   return () => {
+    exit?.cancel();
     renamed.disconnect();
     button.remove();
     dialog.removeEventListener("close", suppressClose, true);

@@ -66,6 +66,7 @@ import { useProjectDrawer } from "./useProjectDrawer";
 import { useProjectSwipe } from "./useProjectSwipe";
 import { useViewport } from "./useViewport";
 import { useWorkspace } from "./useWorkspace";
+import { useWorkspacePanels } from "./useWorkspacePanels";
 import {
   rememberDestination,
   useWorkspaceCommandSource,
@@ -475,6 +476,7 @@ function Workspace({
   const [rightWidth, setRightWidth] = useState(Number(readPreference("right-width", "0")));
   const root = useRef<HTMLDivElement>(null),
     drawerDialog = useProjectDrawer(drawer);
+  useWorkspacePanels(root, navCollapsed, rightHidden, client === "codex");
   useProjectSwipe(drawerDialog, drawer, () => setDrawer(false), "close");
   useProjectSwipe(
     root,

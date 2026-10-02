@@ -21,6 +21,7 @@ import { ProjectFilePreview } from "./ProjectFilePreview";
 import { ProjectFileUpload } from "./ProjectFileUpload";
 import { ProjectRepositoryView } from "./ProjectRepositoryView";
 import { useWorkspaceDialog } from "./useWorkspaceDialog";
+import { useWindowDismiss } from "./windowMotion";
 import "./project-files.css";
 import "./workspace-window.css";
 import "./project-tools.css";
@@ -48,6 +49,7 @@ export function ProjectFiles({
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   useWorkspaceDialog(dialog, visible, `project-${mode}`);
+  const dismiss = useWindowDismiss(dialog);
   const [section, setSection] = useState<"overview" | "changes" | "releases">("overview");
   const [transfer, setTransfer] = useState<FileTransfer>();
   const transferId = useRef(0);
@@ -403,7 +405,7 @@ export function ProjectFiles({
       aria-label={mode === "files" ? "Файлы проекта" : "Git проекта"}
       onCancel={(e) => {
         e.preventDefault();
-        onBack();
+        dismiss(onBack);
       }}
     >
       <header className="inspector-heading notebook-heading">
@@ -455,7 +457,7 @@ export function ProjectFiles({
           type="button"
           className="icon-button"
           aria-label={mode === "files" ? "Закрыть файлы" : "Закрыть Git"}
-          onClick={onBack}
+          onClick={() => dismiss(onBack)}
         >
           <Icon name="close" />
         </button>

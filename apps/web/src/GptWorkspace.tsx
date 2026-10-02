@@ -12,6 +12,7 @@ import type {
   ResultItem,
 } from "@codex-web/shared";
 import { isGptChatMessage, projectContextEnd, projectContextStart } from "@codex-web/shared";
+import type { CSSProperties } from "react";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Markdown, { defaultUrlTransform } from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -59,6 +60,7 @@ import { NavigationFooter } from "./NavigationFooter";
 import { NavigationHeader } from "./NavigationHeader";
 import type { NotebookRequest, WorkspaceDestination } from "./Notebook";
 import { type NotificationTarget, useNotificationPresence } from "./Notifications";
+import { PaneDivider } from "./PaneDivider";
 import { PinnedList } from "./PinnedList";
 import { ProjectOverviewModal } from "./ProjectOverviewModal";
 import { clearAcknowledgedSend, completePendingSend, pendingSendKey } from "./pendingSend";
@@ -69,6 +71,7 @@ import { useGptAttention } from "./useGptAttention";
 import { useGptHistory } from "./useGptHistory";
 import { useProjectDrawer } from "./useProjectDrawer";
 import { useProjectSwipe } from "./useProjectSwipe";
+import { useWorkspacePanels } from "./useWorkspacePanels";
 import { useThreadReviews, WorkReviewLink } from "./WorkReviewLink";
 import { rememberDestination, useWorkspaceCommandSource } from "./WorkspaceCommands";
 import { WorkspaceLinks } from "./WorkspaceLinks";
@@ -370,12 +373,21 @@ export function GptWorkspace({
     [ready, setReady] = useState(false),
     [rightHidden, setRightHidden] = useState(false);
   const [navCollapsed, setNavCollapsed] = useState(false);
+  const [rightWidth, setRightWidth] = useState(() => {
+    try {
+      const saved = Number(localStorage.getItem("gpt-right-width"));
+      return saved >= 28 && saved <= 55 ? saved : 34;
+    } catch {
+      return 34;
+    }
+  });
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const root = useRef<HTMLDivElement>(null),
     drawerRef = useProjectDrawer(drawer),
     input = useRef<HTMLInputElement>(null),
     messageList = useRef<HTMLDivElement>(null),
     userScrollUntil = useRef(0);
+  useWorkspacePanels(root, navCollapsed, rightHidden);
   const selectedRef = useRef(selected),
     sending = useRef(false),
     draftLoaded = useRef(""),
@@ -1764,6 +1776,7 @@ export function GptWorkspace({
       }
       data-view={view}
       data-right-hidden={rightHidden}
+      style={{ "--right-width": `${rightWidth}%` } as CSSProperties}
       ref={root}
     >
       {!projectChat && (
@@ -2433,6 +2446,17 @@ export function GptWorkspace({
             </form>
           </div>
         </section>
+        <PaneDivider
+          value={rightWidth}
+          onChange={(value) => {
+            setRightWidth(value);
+            try {
+              localStorage.setItem("gpt-right-width", String(value));
+            } catch {
+              /* Optional preference. */
+            }
+          }}
+        />
         <div className="support-pane gpt-results">
           <ResultFeed
             focusId={workspaceResult}

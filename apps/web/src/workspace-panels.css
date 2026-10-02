@@ -1,0 +1,139 @@
+/* A joint in one body, with a short grip instead of a luminous full-height rule. */
+:root .workspace .pane-divider,
+:root .workspace .pane-divider:active,
+:root .workspace .pane-divider:focus-visible {
+  background: transparent;
+  border: 0;
+  outline: none;
+}
+:root .panel-divider:hover,
+:root .panel-divider:focus-visible {
+  background: transparent;
+  outline: none;
+}
+.pane-divider:is(:hover, :focus-visible, :active)::after,
+.panel-divider:is(:hover, :focus-visible, :active)::after {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--soft);
+}
+@media (min-width: 1100px) {
+  :root .workspace:not([data-remote-immersive="true"]) > .desktop-nav {
+    border-right: 0;
+  }
+  :root .workspace:not([data-remote-immersive="true"]) > .workspace-content > .support-pane {
+    border-left: 0;
+    flex-shrink: 0;
+  }
+  :root .workspace[data-right-hidden="true"] > .workspace-content > .support-pane {
+    display: flex;
+    width: 0;
+    min-width: 0;
+    padding-inline: 0;
+    border-inline: 0;
+    visibility: hidden;
+    overflow: hidden;
+  }
+  :root .workspace[data-right-hidden="true"] > .workspace-content > .pane-divider {
+    display: block;
+    width: 0;
+    min-width: 0;
+    visibility: hidden;
+  }
+  :root .workspace[data-panels-moving="true"] > .desktop-nav,
+  :root .workspace[data-panels-moving="true"] > .workspace-content > .support-pane {
+    overflow: clip;
+    visibility: visible;
+  }
+  :root .workspace[data-panels-moving="true"] > .workspace-content > .support-pane > * {
+    min-width: 310px;
+  }
+  /* Navigation and Results extend the existing case. Only their content is a screen. */
+  :root:is([data-theme="crt-green"], [data-theme="hitech-2000s"])
+    .workspace:not([data-remote-immersive="true"])
+    > .desktop-nav {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    margin: 0;
+    padding-inline: 5px 10px;
+  }
+  :root:is([data-theme="crt-green"], [data-theme="hitech-2000s"])
+    .workspace.nav-collapsed
+    > .desktop-nav {
+    padding-inline: 0;
+  }
+  :root:is([data-theme="crt-green"], [data-theme="hitech-2000s"])
+    .workspace:not([data-remote-immersive="true"])
+    > .workspace-content {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  :root:is([data-theme="crt-green"], [data-theme="hitech-2000s"])
+    .workspace:not([data-remote-immersive="true"])
+    > .workspace-content
+    > :is(.chat-pane, .gpt-chat) {
+    border: 4px solid var(--case-seam);
+    border-bottom-color: var(--case-edge);
+    border-right-color: var(--case-low);
+    border-radius: 7px;
+    box-shadow: var(--chassis-aperture);
+    background: var(--screen-material);
+  }
+  :root:is([data-theme="crt-green"], [data-theme="hitech-2000s"])
+    .workspace:not([data-remote-immersive="true"])
+    > .workspace-content
+    > .support-pane {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  :root:is([data-theme="crt-green"], [data-theme="hitech-2000s"])
+    .workspace[data-right-hidden="true"]
+    > .workspace-content
+    > .support-pane {
+    border-inline: 0;
+  }
+  :root:is([data-theme="crt-green"], [data-theme="hitech-2000s"])
+    .workspace
+    > .workspace-content
+    > .pane-divider {
+    width: 12px;
+    min-width: 12px;
+  }
+  :root:is([data-theme="crt-green"], [data-theme="hitech-2000s"])
+    .workspace[data-right-hidden="true"]
+    > .workspace-content
+    > .pane-divider {
+    width: 0;
+    min-width: 0;
+  }
+  :root .workspace > .workspace-content > .pane-divider::after {
+    left: calc(50% - 1.5px);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .workspace[data-panels-moving="true"] > .desktop-nav {
+      transition: padding 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  /* Clip/opacity deliberately do not change the geometry measured for dragging/saving. */
+  :root
+  dialog:is(.workspace-window, .file-viewer-dialog, .settings-dialog, .devices-workspace)[open] {
+    animation: workspace-window-reveal 170ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+}
+@keyframes workspace-window-reveal {
+  from {
+    opacity: 0;
+    clip-path: inset(8px 0 round 12px);
+  }
+  to {
+    opacity: 1;
+    clip-path: inset(0 round 12px);
+  }
+}

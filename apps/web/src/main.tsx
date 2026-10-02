@@ -25,6 +25,7 @@ import "./viewport-controls.css";
 import "./workspace-window.css";
 import "./theme-variants.css";
 import "./device-chassis.css";
+import "./workspace-panels.css";
 
 applyTheme(cachedTheme());
 applyLayoutPreference();

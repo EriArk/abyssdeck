@@ -6,6 +6,7 @@ import { PanelDivider } from "./PanelDivider";
 import { useWorkspaceDialog } from "./useWorkspaceDialog";
 import { ViewerEditButton } from "./ViewerEditButton";
 import { HelpButton } from "./WorkspaceHelp";
+import { useWindowDismiss } from "./windowMotion";
 import "./file-viewer.css";
 import "./workspace-window.css";
 
@@ -35,6 +36,7 @@ export function FileViewerDialog({
   const [properties, setProperties] = useState(false),
     [expanded, setExpanded] = useState(false);
   useWorkspaceDialog(dialog, true, "file-viewer");
+  const dismiss = useWindowDismiss(dialog);
   const format = (file?.name || name).split(".").at(-1)?.toUpperCase();
   return createPortal(
     <dialog
@@ -47,7 +49,7 @@ export function FileViewerDialog({
       onCancel={(event) => {
         event.preventDefault();
         event.stopPropagation();
-        onClose();
+        dismiss(onClose);
       }}
     >
       <header className="file-viewer-heading">
@@ -86,7 +88,7 @@ export function FileViewerDialog({
             type="button"
             className="icon-button"
             aria-label="Закрыть просмотр"
-            onClick={onClose}
+            onClick={() => dismiss(onClose)}
           >
             <Icon name="close" />
           </button>

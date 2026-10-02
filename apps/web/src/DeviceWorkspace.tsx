@@ -11,6 +11,7 @@ import { DeviceTerminal } from "./DeviceTerminal";
 import { Icon } from "./icons";
 import { PanelDivider } from "./PanelDivider";
 import { useWindowGeometry } from "./useWindowGeometry";
+import { useWindowDismiss } from "./windowMotion";
 import "./devices.css";
 
 const bytes = (v: number) =>
@@ -32,6 +33,7 @@ export default function DeviceWorkspace({
 }) {
   const dialog = useRef<HTMLDialogElement>(null),
     actionDialog = useRef<HTMLDialogElement>(null);
+  const dismiss = useWindowDismiss(dialog);
   const [devices, setDevices] = useState<DeviceInfo[]>([]),
     [selected, setSelected] = useState(() => {
       if (terminalDeviceId) return terminalDeviceId;
@@ -68,7 +70,7 @@ export default function DeviceWorkspace({
           api(`/device-terminals/${id}/release`, { method: "POST", timeoutMs: 10000 }),
         ),
       );
-      onClose();
+      dismiss(onClose);
     } catch (e) {
       setError((e as Error).message);
       setClosing(false);

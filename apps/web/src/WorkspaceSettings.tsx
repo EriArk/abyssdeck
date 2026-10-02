@@ -21,6 +21,7 @@ import { UsageLimits } from "./UsageLimits";
 import { UsageLimitsProvider } from "./UsageLimitsState";
 import { useProjectSwipe } from "./useProjectSwipe";
 import { useWindowGeometry } from "./useWindowGeometry";
+import { useWindowDismiss } from "./windowMotion";
 import { restoreWorkspaceWindow } from "./workspaceWindowRegistry";
 
 export const gptSettingsChanged = "codex-gpt-settings-changed";
@@ -120,10 +121,11 @@ export function WorkspaceSettings({
   onRefreshCodex: () => Promise<void>;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const dismiss = useWindowDismiss(dialog);
   const [refreshing, setRefreshing] = useState("");
   const [notice, setNotice] = useState("");
   const running = useRef(false);
-  useProjectSwipe(dialog, open, onClose, "close");
+  useProjectSwipe(dialog, open, () => dismiss(onClose), "close");
   useEffect(() => {
     const panel = dialog.current;
     if (open && panel) {
@@ -158,12 +160,15 @@ export function WorkspaceSettings({
       tabIndex={-1}
       className="settings-dialog settings-browser"
       aria-label="Настройки"
-      onCancel={onClose}
+      onCancel={(event) => {
+        event.preventDefault();
+        dismiss(onClose);
+      }}
     >
       <UsageLimitsProvider machines={machines} open={open}>
         <SettingsSections
           open={open}
-          onClose={onClose}
+          onClose={() => dismiss(onClose)}
           overview={(visible) => <UsageLimits machines={machines} open={visible} />}
           sections={{
             appearance: (visible) => (
