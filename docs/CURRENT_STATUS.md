@@ -18,10 +18,33 @@ Hub now reads terminal summaries even when disk discovery labelled a thread
 external, persists its exact outcome against stale polling, and includes those
 threads in bounded background recovery. Reads never resume or interrupt a writer.
 
-Source/tests are prepared; activation and live acceptance are recorded separately
-below after deployment. The owner's existing account, roots and direct LAN route
-remain; friend-device acceptance is deferred. Broader Companion design remains
-for the owner discussion, not this repair.
+Release `a5511b1` is installed on Hub/engine; both containers are healthy.
+Companion 0.5.4 is installed and running from the signed package manifest
+`f02c18bf9f30da4f4bc2500e8fe81b520d8e0410caff5f759bd61d5b7041ef52`.
+The exact owner profile and all captured component configs are unchanged; native
+PID 16688 survived deployment. Live Hub inspection/history returns AltarAppsReborn
+interrupted, no active turn/questions; subsequent background polling did not
+revive its stale external status. TrainerOS and this CodexWeb turn remain active.
+
+**Worker activation is pending, not yet accepted:** the unified package prepared
+worker release `f015dd36e3759fcdc601645fb80b34e5c1aa2bb5713b50053af1e91566ed8f45`
+(broker SHA-256 `9fc1aa45741c4918c79bb455677bce9dac284580be8aeb2eb24b42b920ce7f93`).
+Companion is waiting for current native turns to finish through normal Hub
+maintenance. The owner was asked whether to interrupt TrainerOS for this switch;
+no interruption has been authorized in response yet. A read-only watcher writes
+`.local/runtime-exit234/installed-worker.json` after checking actual process/hash
+and cleared Hub maintenance receipt. Verify that result before calling the
+persistent worker updated. The earlier standalone binary replacement script was
+superseded and never applied.
+
+Passed: real persistent broker oversized-frame/two-turn fixture; four startup-wait
+checks; seven migration/rollback checks; Companion app checks; eleven runtime and
+related external/handoff/maintenance tests; production-image tests, repository
+checks and Chromium/WebKit image smoke. Pre-upgrade checkpoint retention kept
+three verified copies. Evidence: local `.local/runtime-exit234/`, server
+`verification-a5511b1` and `verification-companion-a5511b1`.
+The owner's existing account, roots and direct LAN route remain; friend-device
+acceptance is deferred. Broader Companion design remains for the owner discussion.
 
 ## Продолжение Codex после остановки и переподключения (#234)
 
