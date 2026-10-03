@@ -236,8 +236,9 @@ test("gateway restart retains terminal process/buffer and never replays input or
 test("UI publication is atomic, retains old assets, rejects incompatible schema and rolls back failed postcheck", async () => {
   const f = await gatewayFixture();
   try {
+    const engine = await engineInfo(f.socketPath);
     const before = currentRelease(f.releaseRoot),
-      instance = (await engineInfo(f.socketPath)).instance;
+      instance = engine.instance;
     const source = join(f.root, "next");
     mkdirSync(join(source, "assets"), { recursive: true });
     const id = "b".repeat(64);
@@ -247,7 +248,7 @@ test("UI publication is atomic, retains old assets, rejects incompatible schema 
     writeFileSync(join(source, "assets", "second.js"), "// second");
     writeFileSync(
       join(source, "engine-compat.json"),
-      JSON.stringify({ protocol: 1, minSchema: 29, maxSchema: 29 }),
+      JSON.stringify({ protocol: 1, minSchema: engine.schema + 1, maxSchema: engine.schema + 1 }),
     );
     await assert.rejects(
       () =>
@@ -257,7 +258,7 @@ test("UI publication is atomic, retains old assets, rejects incompatible schema 
     assert.equal(currentRelease(f.releaseRoot).id, before.id);
     writeFileSync(
       join(source, "engine-compat.json"),
-      JSON.stringify({ protocol: 1, minSchema: 28, maxSchema: 28 }),
+      JSON.stringify({ protocol: 1, minSchema: engine.schema, maxSchema: engine.schema }),
     );
     await assert.rejects(
       () =>
