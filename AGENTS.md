@@ -1,5 +1,18 @@
 # AGENTS.md
 
+## Owner-approved viewer direction and format tools (2026-10-03)
+
+- The owner approved the shared viewer chassis proposal. View and edit are modes
+  of the same window, retaining theme, geometry, exact source, draft and position;
+  editing adds contextual tools rather than opening another editor window.
+- Preserve all existing format capabilities. Images and Markdown are examples,
+  not the entire scope: choose useful tools for every supported format. See
+  `docs/FILE_WORKSPACE_TOOLS.md` for the current inventory and proposed extensions.
+- Distinguish viewing, annotations and actual structure/content editing. Do not
+  expose placeholder controls or claim DOCX/XLSX/CAD/media editing from a preview
+  extractor, rendered PDF or raster export. Preserve originals and existing save
+  receipts/conflict checks. Track source, prototype and deployment separately.
+
 ## Owner-corrected Git file entry (2026-10-03)
 
 - Git opens Files in a separate window using the same shared file manager already

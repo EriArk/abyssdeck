@@ -15,11 +15,19 @@
       </div>
       <div class="vs-group vs-format-tools" aria-label="Инструменты формата"></div>
       <div class="vs-group vs-file-tools" aria-label="Действия с файлом">
-        <button type="button" data-action="edit" aria-label="Редактировать копию" data-tooltip="Редактировать копию" hidden><i data-lucide="pencil"></i></button>
+        <button type="button" data-action="edit" aria-label="Редактировать копию" aria-pressed="false" data-tooltip="Редактировать копию"><i data-lucide="pencil"></i></button>
         <button type="button" data-action="share" aria-label="Поделиться" data-tooltip="Поделиться"><i data-lucide="share-2"></i></button>
         <button type="button" data-action="save" aria-label="Сохранить файл" data-tooltip="Сохранить файл"><i data-lucide="download"></i></button>
         <button type="button" data-action="properties" aria-label="Свойства файла" aria-pressed="false" data-tooltip="Свойства"><i data-lucide="info"></i></button>
       </div>
+    </div>
+    <div class="vs-mode-rail" hidden>
+      <div class="vs-group" aria-label="Режим файла">
+        <button type="button" data-action="view" aria-pressed="false"><i data-lucide="eye" aria-hidden="true"></i>Просмотр</button>
+        <button type="button" data-action="write" aria-pressed="true"><i data-lucide="pencil" aria-hidden="true"></i>Правка</button>
+      </div>
+      <span class="vs-draft-state" role="status">Копия · без изменений</span>
+      <button type="button" data-action="saveDraft" aria-label="Сохранить копию" data-tooltip="Сохранить копию"><i data-lucide="save" aria-hidden="true"></i></button>
     </div>
     <div class="vs-body">
       <main class="vs-screen" aria-label="Содержимое файла"></main>
@@ -78,6 +86,19 @@
 #cw-viewer-study .vs-popover p{font-size:13px}
 #cw-viewer-study textarea{width:100%;height:280px;resize:vertical;font:16px/1.6 ui-monospace,monospace;background:var(--vs-paper);color:var(--vs-ink);border:1px solid var(--vs-edge);padding:12px}
 #cw-viewer-study .vs-case[data-expanded="true"] .vs-screen{min-height:460px}
+#cw-viewer-study .vs-mode-rail{display:flex;align-items:center;gap:8px;padding:5px;background:var(--vs-key);color:var(--vs-ink);border-radius:5px 5px 0 0}
+#cw-viewer-study .vs-draft-state{flex:1;text-align:right;font-size:11px;color:var(--vs-dim)}
+#cw-viewer-study .vs-format-tools{flex-wrap:wrap}
+#cw-viewer-study .vs-annotation{position:relative;width:100%;max-width:510px}
+#cw-viewer-study .vs-annotation>svg{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
+#cw-viewer-study .vs-annotation[data-editing="false"]>svg{pointer-events:none}
+#cw-viewer-study .vs-annotation path{fill:none;stroke:#ffd45c;stroke-width:14;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:.5}
+#cw-viewer-study .vs-annotation path[data-tool="pen"]{stroke:#ef7658;stroke-width:3;stroke-opacity:1}
+#cw-viewer-study .vs-annotation .vs-sheet{width:100%;margin:auto}
+#cw-viewer-study .vs-screen{transition:padding .18s;justify-content:flex-start}
+#cw-viewer-study .vs-screen:has(textarea){padding:8px}
+#cw-viewer-study .vs-book{align-self:stretch;white-space:pre-wrap;overflow-wrap:anywhere}
+@media(max-width:430px){#cw-viewer-study .vs-mode-rail{flex-wrap:wrap}#cw-viewer-study .vs-draft-state{min-width:70px}#cw-viewer-study .vs-mode-rail button{font-size:12px}}
 @media(max-width:650px){#cw-viewer-study .vs-wide{display:none}#cw-viewer-study .vs-toolbar{display:grid;grid-template-columns:1fr auto}#cw-viewer-study .vs-format-tools{grid-row:2;grid-column:1/-1;justify-content:center;border-top:1px solid var(--vs-edge);padding-top:6px}#cw-viewer-study .vs-file-navigation{border:0;padding:0}#cw-viewer-study .vs-body{position:relative}#cw-viewer-study .vs-properties{position:absolute;inset:0 0 0 auto;width:min(260px,100%);z-index:2;box-shadow:-5px 0 15px #0005}#cw-viewer-study .vs-screen{padding:12px;min-height:350px}#cw-viewer-study .vs-book{font-size:18px}#cw-viewer-study .vs-heading{padding-inline:3px}}
 @media(prefers-reduced-motion:reduce){#cw-viewer-study *{transition:none!important}}
 </style>
@@ -85,7 +106,10 @@
 (()=>{
 const root=document.getElementById('cw-viewer-study'),shell=root.querySelector('.vs-case'),screen=root.querySelector('.vs-screen'),tools=root.querySelector('.vs-format-tools');
 const files=[{name:'git-workspace.png',format:'PNG',kind:'image'},{name:'viewer-notes.pdf',format:'PDF',kind:'document'},{name:'chapter.md',format:'MD',kind:'book'}];
-let draftText='';
+let draftText=null;
+const sessions=files.map(()=>({active:false,dirty:false,marks:{},redo:{},tool:'marker'}));
+const textHistory=[],textRedo=[];
+let textSelection=[0,0],textScroll=0;
 const settings={theme:'green'},state={index:0,zoom:100,page:1,properties:false,source:false,editing:false};
 const saved=window.openai?.widgetState?.privateContent;
 if(saved&&Number.isInteger(saved.index)&&saved.index>=0&&saved.index<3)state.index=saved.index;
@@ -93,13 +117,66 @@ if(['green','2000','organizer','dark'].includes(saved?.theme))settings.theme=sav
 const icon=(action,label,name)=>`<button type="button" class="cursor-interaction" data-action="${action}" aria-label="${label}" data-tooltip="${label}"><i data-lucide="${name}" aria-hidden="true"></i></button>`;
 const bookText='Глава первая\n\nК вечеру мастерская опустела. На столе остались чертежи, карандаш и маленький экран с последней открытой страницей.\n\nОн убрал лишние инструменты. Теперь ничто не отвлекало от самой работы.';
 function remember(){window.openai?.setWidgetState?.({modelContent:{viewerFormat:files[state.index].format,theme:settings.theme,properties:state.properties},privateContent:{index:state.index,theme:settings.theme}})?.catch(()=>{});}
+function popover(title,text){root.querySelector('.vs-pop-title').textContent=title;root.querySelector('.vs-pop-text').textContent=text;root.querySelector('.vs-popover').hidden=false;}
+function editText(action){
+ const input=screen.querySelector('textarea');if(!input)return;
+ const before=input.value,from=input.selectionStart,to=input.selectionEnd,selected=before.slice(from,to);
+ if(action==='undo'){if(!textHistory.length)return;textRedo.push(before);draftText=textHistory.pop();}
+ else if(action==='redo'){if(!textRedo.length)return;textHistory.push(before);draftText=textRedo.pop();}
+ else{
+  const wrappers={bold:['**','**'],italic:['_','_'],link:['[','](https://)'],code:['`','`']};
+  const pair=wrappers[action];
+  const insert=pair?pair[0]+(selected||'текст')+pair[1]:({heading:'## ',list:'- ',check:'- [ ] '}[action]||'')+(selected||'текст');
+  textHistory.push(before);textRedo.length=0;draftText=before.slice(0,from)+insert+before.slice(to);textSelection=[from,from+insert.length];
+ }
+ sessions[state.index].dirty=true;render();screen.querySelector('textarea')?.focus();
+}
+function renderMode(f){
+ const s=sessions[state.index],rail=root.querySelector('.vs-mode-rail');
+ rail.hidden=!s.active;
+ root.querySelector('[data-action="edit"]').hidden=s.active;
+ root.querySelector('[data-action="view"]').setAttribute('aria-pressed',String(!state.editing));
+ root.querySelector('[data-action="write"]').setAttribute('aria-pressed',String(state.editing));
+ root.querySelector('.vs-draft-state').textContent='Копия · '+(s.dirty?'изменена':'без изменений');
+ if(f.kind==='book'&&s.active&&!state.source&&!state.editing){
+  screen.innerHTML='<article class="vs-book"></article>';screen.querySelector('article').textContent=draftText??bookText;
+ }
+ if(f.kind==='book'&&state.editing){
+  tools.innerHTML=icon('heading','Заголовок','heading-2')+icon('bold','Полужирный','bold')+icon('italic','Курсив','italic')+icon('list','Список','list')+icon('check','Задача','list-checks')+icon('link','Ссылка','link')+icon('code','Код','code')+icon('undo','Отменить изменение','undo-2')+icon('redo','Повторить изменение','redo-2');
+  const input=screen.querySelector('textarea');input.value=draftText??bookText;
+  input.setSelectionRange(...textSelection);input.scrollTop=textScroll;
+  input.onselect=()=>{textSelection=[input.selectionStart,input.selectionEnd];};
+  input.onscroll=()=>{textScroll=input.scrollTop;};
+  input.oninput=()=>{textHistory.push(draftText??bookText);textRedo.length=0;draftText=input.value;s.dirty=true;root.querySelector('.vs-draft-state').textContent='Копия · изменена';};
+ }
+ if(f.kind!=='book'){
+  const key=f.kind==='document'?state.page:0,marks=s.marks[key]??=[];
+  const wrapper=document.createElement('div');wrapper.className='vs-annotation';wrapper.dataset.editing=String(state.editing);
+  while(screen.firstChild)wrapper.append(screen.firstChild);screen.append(wrapper);
+  const ns='http://www.w3.org/2000/svg',svg=document.createElementNS(ns,'svg');
+  svg.setAttribute('viewBox','0 0 500 340');svg.setAttribute('preserveAspectRatio','none');svg.setAttribute('role','img');svg.setAttribute('aria-label','Разметка копии');
+  const paint=mark=>{const p=document.createElementNS(ns,'path');p.setAttribute('d',mark.d);p.dataset.tool=mark.tool;svg.append(p);return p;};
+  marks.forEach(paint);wrapper.append(svg);
+  if(state.editing){
+   tools.innerHTML=icon('marker','Маркер','highlighter')+icon('pen','Перо','pencil')+icon('undo','Отменить изменение','undo-2')+icon('redo','Повторить изменение','redo-2')+(f.kind==='document'?icon('pagePrevious','Предыдущая страница','chevron-left')+`<span>${state.page} / 4</span>`+icon('pageNext','Следующая страница','chevron-right'):'');
+   tools.querySelector(`[data-action="${s.tool}"]`).setAttribute('aria-pressed','true');
+   tools.querySelector('[data-action="undo"]').disabled=!marks.length;tools.querySelector('[data-action="redo"]').disabled=!(s.redo[key]?.length);
+   let drawing=null,path=null;
+   const point=e=>{const r=svg.getBoundingClientRect();return `${Math.max(0,Math.min(500,(e.clientX-r.left)*500/r.width)).toFixed(1)} ${Math.max(0,Math.min(340,(e.clientY-r.top)*340/r.height)).toFixed(1)}`;};
+   svg.onpointerdown=e=>{if(e.button!==0||drawing)return;e.preventDefault();svg.setPointerCapture(e.pointerId);drawing={tool:s.tool,d:'M '+point(e)};path=paint(drawing);};
+   svg.onpointermove=e=>{if(!drawing)return;drawing.d+=' L '+point(e);path.setAttribute('d',drawing.d);};
+   svg.onpointerup=e=>{if(!drawing)return;drawing.d+=' L '+point(e);marks.push(drawing);s.redo[key]=[];s.dirty=true;drawing=null;render();};
+   svg.onpointercancel=()=>{path?.remove();drawing=null;};
+  }
+ }
+}
 function render(){
  const f=files[state.index];shell.dataset.theme=settings.theme;
  root.querySelector('.vs-title strong').textContent=f.name;
  root.querySelector('.vs-file-number').textContent=`${state.index+1} / ${files.length}`;
  root.querySelector('[data-action="previous"]').disabled=state.index===0;root.querySelector('[data-action="next"]').disabled=state.index===files.length-1;
  root.querySelector('.vs-properties').hidden=!state.properties;root.querySelector('.vs-prop-name').textContent=f.name;root.querySelector('.vs-prop-format').textContent=f.format;
- root.querySelector('.vs-file-tools [data-action="properties"]').setAttribute('aria-pressed',String(state.properties));root.querySelector('[data-action="edit"]').hidden=f.kind!=='book';
+ root.querySelector('.vs-file-tools [data-action="properties"]').setAttribute('aria-pressed',String(state.properties));
  root.querySelector('.vs-status-format').textContent=state.editing?'Копия · черновик':f.format+(f.kind==='image'?' · 1366 × 1000':'');
  if(f.kind==='image'){
   tools.innerHTML=icon('minus','Уменьшить','zoom-out')+`<span>${state.zoom}%</span>`+icon('plus','Увеличить','zoom-in')+icon('fit','Вписать изображение','scan');
@@ -110,9 +187,10 @@ function render(){
  }else{
   tools.innerHTML=icon('source',state.source?'Режим чтения':'Исходный текст',state.source?'book-open':'code')+icon('reading','Настройки чтения','type')+icon('speech','Озвучивание','volume-2');
   if(state.editing){screen.innerHTML='<textarea aria-label="Черновик копии"></textarea>';screen.querySelector('textarea').value=draftText||bookText;screen.querySelector('textarea').oninput=e=>{draftText=e.target.value;};}
-  else if(state.source){screen.innerHTML='<pre style="white-space:pre-wrap;align-self:stretch"></pre>';screen.querySelector('pre').textContent='# '+bookText;}
+  else if(state.source){screen.innerHTML='<pre style="white-space:pre-wrap;align-self:stretch"></pre>';screen.querySelector('pre').textContent=draftText??'# '+bookText;}
   else screen.innerHTML='<article class="vs-book"><h2>Глава первая</h2><p>К вечеру мастерская опустела. На столе остались чертежи, карандаш и маленький экран с последней открытой страницей.</p><p>Он убрал лишние инструменты. Теперь ничто не отвлекало от самой работы.</p></article>';
  }
+ renderMode(f);
  if(f.kind==='document'){tools.querySelector('[data-action="pagePrevious"]').disabled=state.page===1;tools.querySelector('[data-action="pageNext"]').disabled=state.page===4;}
  root.querySelector('.vs-restore').textContent='Открыть просмотр · '+f.name;
  if(globalThis.lucide)lucide.createIcons({attrs:{width:18,height:18}});
@@ -127,7 +205,15 @@ root.addEventListener('click',e=>{
  else if(a==='pagePrevious')state.page=Math.max(1,state.page-1);
  else if(a==='pageNext')state.page=Math.min(4,state.page+1);
  else if(a==='source'&&b.closest('.vs-format-tools'))state.source=!state.source;
- else if(a==='edit')state.editing=!state.editing;
+ else if(a==='edit'||a==='write'){sessions[state.index].active=true;state.editing=true;state.source=false;}
+ else if(a==='view'){state.editing=false;state.source=false;}
+ else if(a==='marker'||a==='pen')sessions[state.index].tool=a;
+ else if(['heading','bold','italic','link','list','check','code','undo','redo'].includes(a)){
+  if(files[state.index].kind==='book'){editText(a);return;}
+  const s=sessions[state.index],key=files[state.index].kind==='document'?state.page:0,marks=s.marks[key]??=[],redo=s.redo[key]??=[];
+  if(a==='undo'&&marks.length)redo.push(marks.pop());if(a==='redo'&&redo.length)marks.push(redo.pop());s.dirty=true;
+ }
+ else if(a==='saveDraft'){popover('Сохранить копию','В приложении здесь будет выбор: скачать копию или сохранить в выбранную папку. В этом макете правки остаются только в примере; исходный файл не меняется.');return;}
  else if(a==='expand')shell.dataset.expanded=String(shell.dataset.expanded!=='true');
  else if(a==='minimize'||a==='close'){shell.hidden=true;root.querySelector('.vs-restore').hidden=false;}
  else if(a==='dismiss'){root.querySelector('.vs-popover').hidden=true;return;}
