@@ -17,6 +17,14 @@ An interrupted attempt retains its private lease/inspection journal under the
 release verification directory and requires inspection before rerunning; never
 clear a lease belonging to another manual recovery session.
 
+Adapter overlay copies must be readable by the non-root runtime user (for example,
+`COPY --chmod=0644`). Before acquiring the lease or stopping the client, the upgrader
+checks renderer imports in the target image as that user, without network or profile.
+For the owner's genuinely hung client, the October 3 recovery authorization allows
+`--owner-recovery-reason REASON` to bypass native activity admission. This host-only
+option does not bypass Hub writer checks, binding checks, leases or rollback; it must
+not be added to ordinary automatic updates or invoked merely for slow history.
+
 An unactivated enrollment profile can be updated while its writer is disabled;
 this neither signs in nor activates it. When the operator has observed the selected
 chat and its Stop indicator is stale, `--completed-turn CONVERSATION NODE` accepts
