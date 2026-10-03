@@ -80,6 +80,12 @@ const historySchema = z
 /** Private typed native transport. Dispatch requires the host's disposable-chat
  * canary allowlist; this client never selects the main GptService provider. */
 export class NativeGptReadClient {
+  private observed?: { code: string | null };
+  private healthEpoch = 0;
+  /** Last ordinary operation outcome; reading it never contacts the renderer. */
+  doctorObservation() {
+    return this.observed;
+  }
   private independentReads = false;
   private historyUpdates = false;
   private nativeInstance = "";
@@ -194,8 +200,22 @@ export class NativeGptReadClient {
     });
     if (key) this.reads.set(key, task);
     this.drain(admittedLane);
+    const instance = this.nativeInstance;
+    const healthEpoch = this.healthEpoch;
     try {
-      return await task;
+      const value = await task;
+      if (instance === this.nativeInstance && healthEpoch === this.healthEpoch)
+        this.observed = { code: null };
+      return value;
+    } catch (error) {
+      if (instance === this.nativeInstance && healthEpoch === this.healthEpoch)
+        this.observed = {
+          code:
+            error instanceof Error && /^NATIVE_[A-Z_]+$/.test(error.message)
+              ? error.message
+              : "NATIVE_UNAVAILABLE",
+        };
+      throw error;
     } finally {
       if (key && this.reads.get(key) === task) this.reads.delete(key);
     }
@@ -251,7 +271,19 @@ export class NativeGptReadClient {
                 String(input.operation),
               )
             ? 120000
-            : 25000,
+            : [
+                  "readModels",
+                  "readCatalog",
+                  "readPins",
+                  "readProjects",
+                  "readProject",
+                  "readProjectConversations",
+                  "readConversation",
+                  "readConversationGraph",
+                  "readHistoryUpdate",
+                ].includes(String(input.operation))
+              ? 80000
+              : 25000,
       );
       const signal = cancellation ? AbortSignal.any([deadline, cancellation]) : deadline;
       const req = request(
@@ -484,6 +516,8 @@ export class NativeGptReadClient {
     this.independentReads = value.independentReads === true;
     this.historyUpdates = value.historyUpdates === true;
     if (this.nativeInstance !== value.instanceId || value.manual) {
+      this.observed = undefined;
+      this.healthEpoch++;
       this.historyProjection.clear();
       this.invalidateReads();
     }

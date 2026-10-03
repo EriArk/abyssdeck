@@ -31,7 +31,10 @@ type ApiOptions = {
 export async function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
   const controller = new AbortController();
   const write = !!options.method && options.method !== "GET";
-  const timeout = options.timeoutMs ?? (options.raw ? 180000 : write ? 135000 : 30000);
+  const slowGptRead =
+    !write && /^\/gpt\/(?:status|models|catalog|projects|conversations)(?:[/?]|$)/.test(path);
+  const timeout =
+    options.timeoutMs ?? (options.raw ? 180000 : write ? 135000 : slowGptRead ? 90000 : 30000);
   let expired = false;
   const abort = () => controller.abort(options.signal?.reason);
   options.signal?.addEventListener("abort", abort, { once: true });

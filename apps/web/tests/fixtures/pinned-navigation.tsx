@@ -1,4 +1,5 @@
 import { createRoot } from "react-dom/client";
+import type { ThreadActivity } from "../../../../packages/shared/src/index";
 import { GptWorkspace } from "../../src/GptWorkspace";
 import { ProjectNavigation } from "../../src/ProjectNavigation";
 import type { SpacesController } from "../../src/useCollaborationSpaces";
@@ -10,7 +11,7 @@ import "../../src/compact.css";
 import "../../src/materials.css";
 import "../../src/polymer.css";
 
-const threads = Array.from({ length: 6 }, (_, i) => ({
+const threads: ThreadActivity[] = Array.from({ length: 6 }, (_, i) => ({
   id: "pin" + i,
   projectId: "project",
   title: "Закреплённый " + i,
@@ -32,6 +33,16 @@ threads.push({
   status: "running",
 });
 const root = document.getElementById("root");
+const doctor = location.search.includes("doctor");
+if (doctor)
+  threads.push({
+    ...threads[0]!,
+    id: "doctor",
+    projectId: "source",
+    title: "Bridge Doctor",
+    pinned: false,
+    bridgeDoctor: true,
+  });
 if (!root) throw Error("Missing root");
 createRoot(root).render(
   location.search.includes("gpt") ? (
@@ -55,6 +66,9 @@ createRoot(root).render(
           } as unknown as SpacesController
         }
         projects={[
+          ...(doctor
+            ? [{ id: "source", name: "CodexWeb", machineName: "PC", remoteAvailable: false }]
+            : []),
           {
             id: "project",
             name: "Без проекта",
@@ -64,7 +78,10 @@ createRoot(root).render(
           },
         ]}
         activity={{ projects: [], threads, library: [] }}
-        threadGroups={{ project: threads }}
+        threadGroups={{
+          project: threads.filter((t) => t.projectId === "project"),
+          source: threads.filter((t) => t.projectId === "source"),
+        }}
         projectId="project"
         threadId=""
         busy={false}

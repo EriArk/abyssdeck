@@ -37,6 +37,7 @@ export interface Project {
   remoteAvailable: boolean;
 }
 export interface Thread {
+  bridgeDoctor?: boolean;
   pinned?: boolean;
   id: string;
   projectId: string;

@@ -24,7 +24,8 @@ export async function nativeRead(request, load = () => nativeModule(), runtime =
  if(request.cursor!=null&&(typeof request.cursor!=='string'||request.cursor.length>4000))fail('INVALID_CURSOR');
  if(request.projectId!=null&&!projectId(request.projectId))fail('INVALID_PROJECT');
  if(request.revision!=null&&(request.operation!=='readHistoryUpdate'||!/^[a-f0-9]{64}$/.test(request.revision)))fail('INVALID_REQUEST');
- const signal = AbortSignal.timeout(15000);
+ // Ordinary library/history reads can be slow. One bounded request, never a retry.
+ const signal = AbortSignal.timeout(['readModels','readCatalog','readPins','readProjects','readProject','readProjectConversations','readConversation','readConversationGraph','readHistoryUpdate'].includes(request.operation)?60000:15000);
  const bounded = promise => new Promise((resolve, reject) => {
   const abort = () => reject(Error('NATIVE_TIMEOUT'));
   signal.addEventListener('abort', abort, {once:true});

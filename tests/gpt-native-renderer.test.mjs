@@ -7,6 +7,24 @@ import { nativeRead } from "../ops/gpt-native/renderer-read.mjs";
 const conversationId = "10000000-0000-4000-8000-000000000001";
 const id = (n) => `20000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 
+test("slow history outlives the former 15-second deadline without a second request", async () => {
+  const f = fixture(),
+    accountFingerprint = await f.binding();
+  const original = f.service.kWt.safeGet;
+  f.service.kWt.safeGet = async (...args) => {
+    await new Promise((resolve) => setTimeout(resolve, 16000));
+    assert.equal(args[1].signal.aborted, false);
+    return original(...args);
+  };
+  const result = await f.read({
+    operation: "readConversation",
+    conversationId,
+    accountFingerprint,
+  });
+  assert.equal(result.conversationId, conversationId);
+  assert.equal(f.calls.length, 1);
+});
+
 test("updated native build retains account binding and reports its actual version", async () => {
   const f = fixture();
   const before = await f.binding();
@@ -1045,21 +1063,35 @@ test("receipt proof ignores unrelated large turns and retains a large exact fina
   assert.equal(result.messages[0].text, "answer ".repeat(180000));
 });
 
-
 test("persisted receipt reconciles native replacement of a vanished transient parent", async () => {
-  const f=fixture(), accountFingerprint=await f.binding();
-  f.node(2,"accepted prompt",{id:id(90),author:{role:"user"}});
-  f.node(3,"finished answer",{end_turn:true});
-  const request={operation:"readSubmission",conversationId,accountFingerprint,userMessageId:id(90),
-    parentId:id(99),text:"accepted prompt",intentPersisted:true};
-  const result=await f.read(request);
-  assert.equal(result.state,"completed");
-  assert.deepEqual(result.messages.map(m=>m.text),["finished answer"]);
-  await assert.rejects(f.read({...request,intentPersisted:false}),/SUBMISSION_MISMATCH/);
-  await assert.rejects(f.read({...request,newChat:true}),/SUBMISSION_MISMATCH/);
-  await assert.rejects(f.read({...request,parentId:id(3)}),/SUBMISSION_MISMATCH/);
-  await assert.rejects(f.read({...request,text:"changed"}),/SUBMISSION_MISMATCH/);
-  assert.equal((await f.read({...request,userMessageId:id(98)})).state,"unknown");
-  f.node(4,"later user",{author:{role:"user"}});f.node(5,"later answer",{end_turn:true});
-  assert.deepEqual((await f.read(request)).messages.map(m=>m.text),["finished answer"]);
+  const f = fixture(),
+    accountFingerprint = await f.binding();
+  f.node(2, "accepted prompt", { id: id(90), author: { role: "user" } });
+  f.node(3, "finished answer", { end_turn: true });
+  const request = {
+    operation: "readSubmission",
+    conversationId,
+    accountFingerprint,
+    userMessageId: id(90),
+    parentId: id(99),
+    text: "accepted prompt",
+    intentPersisted: true,
+  };
+  const result = await f.read(request);
+  assert.equal(result.state, "completed");
+  assert.deepEqual(
+    result.messages.map((m) => m.text),
+    ["finished answer"],
+  );
+  await assert.rejects(f.read({ ...request, intentPersisted: false }), /SUBMISSION_MISMATCH/);
+  await assert.rejects(f.read({ ...request, newChat: true }), /SUBMISSION_MISMATCH/);
+  await assert.rejects(f.read({ ...request, parentId: id(3) }), /SUBMISSION_MISMATCH/);
+  await assert.rejects(f.read({ ...request, text: "changed" }), /SUBMISSION_MISMATCH/);
+  assert.equal((await f.read({ ...request, userMessageId: id(98) })).state, "unknown");
+  f.node(4, "later user", { author: { role: "user" } });
+  f.node(5, "later answer", { end_turn: true });
+  assert.deepEqual(
+    (await f.read(request)).messages.map((m) => m.text),
+    ["finished answer"],
+  );
 });

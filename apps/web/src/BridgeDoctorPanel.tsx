@@ -140,7 +140,7 @@ export function BridgeDoctorPanel({
           Автодиагностика GPT
         </label>
         <label>
-          Проект диагностики
+          Рабочая папка диагностики
           <select
             aria-label="Проект Bridge Doctor"
             value={data.association.projectId}

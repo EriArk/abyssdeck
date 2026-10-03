@@ -85,6 +85,7 @@ test("seen completion survives restart; stale acknowledgements and duplicate com
     store.setStatus(t.id, "running", "third");
     store.close();
     store = new Store(join(directory, "app.db"));
+    store.recoverRuntimeState(); // The execution owner, not a read-only handle, declares restart.
     assert.equal(store.thread(t.id).status, "unknown");
     assert.equal(store.navigation(["p"]).projects[0].unread, 0, "A disconnect is not a completion");
   } finally {

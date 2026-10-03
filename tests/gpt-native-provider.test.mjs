@@ -519,6 +519,7 @@ test("native connection recovers automatically from a transient catalog failure 
   service.compatibilityFailure = true;
   assert.equal((await service.connection(true)).canSend, false);
   broken = false;
+  service.native.retry.until = 0;
   assert.equal((await service.connection(true)).state, "healthy");
   assert.equal((await service.connection()).canSend, true);
   assert.equal(f.state.sends, 0);
@@ -588,6 +589,7 @@ test("busy catalog refresh preserves verified instance; cold, restarted and manu
   instance = "two";
   assert.equal((await provider.connection()).canSend, false);
   busy = false;
+  provider.retry.until = 0;
   assert.equal((await provider.connection()).canSend, true);
   manual = true;
   assert.equal((await provider.connection()).canSend, false);
@@ -622,6 +624,7 @@ test("upstream cooldown does not become disconnected or erase verified account r
   assert.equal(cold.state, "busy");
   assert.equal(cold.canSend, false);
   limited = false;
+  provider.retry.until = 0;
   assert.equal((await provider.connection()).state, "healthy");
 });
 

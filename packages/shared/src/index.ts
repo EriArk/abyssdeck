@@ -197,6 +197,7 @@ export type HubConfig = z.infer<typeof configSchema>;
 export type MachineConfig = HubConfig["machines"][number];
 export type ProjectConfig = HubConfig["projects"][number];
 export interface ThreadActivity {
+  bridgeDoctor?: boolean;
   id: string;
   projectId: string;
   title: string;

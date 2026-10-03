@@ -52,6 +52,11 @@ type Association = {
   revision: number;
 };
 const busyStates = ["running", "starting", "waiting_approval", "unknown"];
+function incidentFingerprint(state: SafeState) {
+  // A Hub rollout is context, not a new provider fault.
+  const { revision: _revision, ...fault } = state;
+  return createHash("sha256").update(JSON.stringify(fault)).digest("hex");
+}
 export function doctorState(raw: unknown, revision: string): SafeState {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, any>,
     v =
@@ -284,7 +289,7 @@ export class BridgeDoctor {
       this.candidate = null;
       return null;
     }
-    const fingerprint = createHash("sha256").update(JSON.stringify(s)).digest("hex");
+    const fingerprint = incidentFingerprint(s);
     if (this.candidate?.fingerprint !== fingerprint)
       this.candidate = { fingerprint, since: now, count: 0 };
     this.candidate.count++;
@@ -293,10 +298,24 @@ export class BridgeDoctor {
           "SELECT value FROM bridge_doctor_incidents WHERE fingerprint=? ORDER BY lastSeen DESC LIMIT 1",
         )
         .get(fingerprint),
-      previous = old ? (JSON.parse(String(old.value)) as Incident) : null;
+      previous = old
+        ? (JSON.parse(String(old.value)) as Incident)
+        : (this.db
+            .prepare("SELECT value FROM bridge_doctor_incidents ORDER BY lastSeen DESC LIMIT 512")
+            .all()
+            .map((row) => JSON.parse(String(row.value)) as Incident)
+            .find(
+              (i) =>
+                i.projectId === a.projectId && incidentFingerprint(i.diagnostics) === fingerprint,
+            ) ?? null);
     if (previous && previous.state !== "recovered") {
-      if (now - previous.lastSeen < 10000) return previous;
-      return this.save({ ...previous, lastSeen: now, occurrences: previous.occurrences + 1 });
+      if (previous.fingerprint === fingerprint && now - previous.lastSeen < 10000) return previous;
+      return this.save({
+        ...previous,
+        fingerprint,
+        lastSeen: now,
+        occurrences: previous.occurrences + 1,
+      });
     }
     if (this.candidate.count < 3 || now - this.candidate.since < 45000) return null;
     // Bound pathological contract churn without deleting earlier evidence or spending repeated model turns.
@@ -557,7 +576,15 @@ export class BridgeDoctor {
     }
   }
   async pulse() {
-    if (this.pending || this.stopped || !this.gpt.available()) return;
+    const association = this.association();
+    if (
+      this.pending ||
+      this.stopped ||
+      !association.enabled ||
+      !association.projectId ||
+      !this.gpt.available()
+    )
+      return;
     const work = (async () => {
       let raw: unknown = null;
       try {

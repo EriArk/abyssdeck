@@ -81,6 +81,10 @@ export function ProjectNavigation({
   const selected = projects.find((p) => p.id === projectId);
   const projectActivity = new Map(activity.projects.map((p) => [p.id, p]));
   const threadActivity = new Map(activity.threads.map((t) => [t.id, t]));
+  const doctorSelected = threadActivity.get(threadId)?.bridgeDoctor === true;
+  useEffect(() => {
+    if (doctorSelected) setSection("threads");
+  }, [doctorSelected]);
   const summary = (p: Project): ProjectActivity =>
     projectActivity.get(p.id) ?? {
       id: p.id,
@@ -140,6 +144,10 @@ export function ProjectNavigation({
     );
   }
   const spaceMode = spaces.enabled && spaces.mode === "spaces";
+  const doctorThreads = Object.values(groups)
+    .flat()
+    .filter((t) => t.bridgeDoctor);
+  for (const id of Object.keys(groups)) groups[id] = groups[id]!.filter((t) => !t.bridgeDoctor);
   const selectedSpace = spaces.catalog.spaces.find((s) => s.id === spaces.selectedId);
   const sharedIds = new Set(
     spaces.catalog.spaces.flatMap((s) => s.projects.map((p) => p.personalProjectId)),
@@ -325,15 +333,24 @@ export function ProjectNavigation({
                 <small>
                   {standalone.reduce(
                     (sum, p) => sum + (groups[p.id]?.length ?? p.threadCount ?? 0),
-                    0,
+                    doctorThreads.length,
                   )}
                 </small>
               </span>
               <ActivityBadge
                 counts
-                active={standalone.reduce((sum, p) => sum + summary(p).active, 0)}
-                waiting={standalone.reduce((sum, p) => sum + summary(p).waiting, 0)}
-                unread={standalone.reduce((sum, p) => sum + summary(p).unread, 0)}
+                active={standalone.reduce(
+                  (sum, p) => sum + summary(p).active,
+                  doctorThreads.filter(threadActive).length,
+                )}
+                waiting={standalone.reduce(
+                  (sum, p) => sum + summary(p).waiting,
+                  doctorThreads.filter((t) => detail(t).status === "waiting_approval").length,
+                )}
+                unread={standalone.reduce(
+                  (sum, p) => sum + summary(p).unread,
+                  doctorThreads.filter((t) => hasUnreadCompletion(detail(t))).length,
+                )}
               />
             </button>
           </nav>
@@ -512,8 +529,7 @@ export function ProjectNavigation({
             <div className="nav-label">Без проекта</div>
             <section className="standalone-thread-list" aria-label="Диалоги без проекта">
               <PinnedList
-                items={standalone
-                  .flatMap((p) => groups[p.id] ?? [])
+                items={[...doctorThreads, ...standalone.flatMap((p) => groups[p.id] ?? [])]
                   .filter((t) => matches(t.title))
                   .sort(
                     (a, b) =>
@@ -545,7 +561,9 @@ export function ProjectNavigation({
                 </button>
               ))}
             </section>
-            {!standalone.length && <p className="nav-empty">Чатов без проекта пока нет.</p>}
+            {!standalone.length && !doctorThreads.length && (
+              <p className="nav-empty">Чатов без проекта пока нет.</p>
+            )}
           </section>
         )}
       </div>

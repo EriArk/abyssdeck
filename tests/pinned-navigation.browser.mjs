@@ -276,6 +276,17 @@ try {
         ).toBeVisible();
         await page.keyboard.press("Escape");
         assert.deepEqual(writes, [], "navigation recovery must never send or mutate native chats");
+        if (mode === "codex") {
+          await page.goto(origin + "/?doctor");
+          await page.getByRole("button", { name: /^Проекты/ }).click();
+          await expect(page.getByRole("button", { name: /^Bridge Doctor/ })).toHaveCount(0);
+          await page.getByRole("button", { name: /^Диалоги/ }).click();
+          const doctor = page.getByRole("button", { name: /^Bridge Doctor/ });
+          await expect(doctor).toBeVisible();
+          await doctor.click();
+          assert.equal(await page.locator("body").getAttribute("data-selected"), "doctor");
+          await page.screenshot({ path: `.local/qa-pinned/${engine}-doctor.png` });
+        }
         await context.close();
         console.log(
           engine +

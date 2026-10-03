@@ -75,7 +75,10 @@ interface Approval {
 }
 export class Sessions extends EventEmitter {
   assertWorkThread(id: string) {
-    if (this.store.db.prepare("SELECT diagnostic FROM threads WHERE id=?").get(id)?.diagnostic)
+    if (
+      this.store.db.prepare("SELECT diagnostic FROM threads WHERE id=?").get(id)?.diagnostic &&
+      !doctorThread(this.store, id)
+    )
       throw new HubError(409, "UTILITY_THREAD", "Открой технический чат через его окно проекта.");
   }
   authorizeExecution: () => void = () => {};
@@ -1606,7 +1609,9 @@ export class Sessions extends EventEmitter {
   ): Promise<Record<string, unknown>> {
     let committing = false;
     try {
-      const maintenance = diagnostic && !!internal?.maintenance && doctorThread(this.store, id);
+      const manualDoctor = !diagnostic && doctorThread(this.store, id);
+      const maintenance =
+        manualDoctor || (diagnostic && !!internal?.maintenance && doctorThread(this.store, id));
       const repair = maintenance && internal?.maintenance === "bridge-repair";
       if (
         internal?.maintenance &&

@@ -1,5 +1,15 @@
 # AGENTS.md
 
+## Owner-requested quiet Bridge Doctor and independent chat (2026-10-03)
+
+- Doctor background checks use local adapter health and ordinary operation outcomes,
+  without upstream GPT probes. Slow/loading reads are not compatibility incidents.
+  Coalesce in-flight reads, allow slow responses and back off transient readiness failures.
+- Show the associated Doctor in Dialogs, outside project chat lists, and allow owner
+  messages. Retain its exact association, private history, execution root and receipts.
+  Other diagnostic threads remain protected. Hub updates must not resend an existing
+  incident merely because the Hub revision changed.
+
 ## Owner-requested unified reasoning and work (2026-10-03)
 
 - Omit content-free progress labels such as writing/thinking from Results reasoning.

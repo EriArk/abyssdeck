@@ -576,6 +576,8 @@ function Workspace({
       }
     : undefined;
   const selectedThread = threads.find((t) => t.id === threadId);
+  const doctorSelected =
+    navigationState.state.threads.find((t) => t.id === threadId)?.bridgeDoctor === true;
   const selectedThreadTitle =
     navigationState.state.threads.find((t) => t.id === threadId)?.title ?? selectedThread?.title;
   const action = async <T,>(fn: () => Promise<T>): Promise<T | undefined> => {
@@ -1446,7 +1448,7 @@ function Workspace({
             type="button"
             className="header-project overview-trigger"
             aria-label={spaceHome ? "Обзор пространства" : "Обзор текущего проекта"}
-            disabled={!spaceHome && (!project || project.unassigned)}
+            disabled={doctorSelected || (!spaceHome && (!project || project.unassigned))}
             onClick={() =>
               spaceHome
                 ? selectedSpace
@@ -1456,17 +1458,21 @@ function Workspace({
             }
           >
             <span>
-              <Icon name="folder" size={17} />
-              {spaceHome
-                ? (selectedSpace?.title ?? "Общие пространства")
-                : (project?.name ?? "Рабочее пространство")}
+              <Icon name={doctorSelected ? "chat" : "folder"} size={17} />
+              {doctorSelected
+                ? "Bridge Doctor"
+                : spaceHome
+                  ? (selectedSpace?.title ?? "Общие пространства")
+                  : (project?.name ?? "Рабочее пространство")}
             </span>
             <small>
-              {spaceHome
-                ? "Выберите проект"
-                : view === "overview"
-                  ? "Обзор проекта"
-                  : (selectedThreadTitle ?? "Выбери диалог")}
+              {doctorSelected
+                ? "Диагностика GPT"
+                : spaceHome
+                  ? "Выберите проект"
+                  : view === "overview"
+                    ? "Обзор проекта"
+                    : (selectedThreadTitle ?? "Выбери диалог")}
             </small>
           </button>
           <div className="header-connection">

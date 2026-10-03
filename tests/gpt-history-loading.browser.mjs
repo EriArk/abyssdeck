@@ -210,8 +210,10 @@ try {
       await expect(
         page.getByRole("button", { name: "Загружаем сообщения…", exact: true }),
       ).toBeDisabled();
-      await page.clock.fastForward(12000);
+      const pendingReads = reads;
+      await page.clock.fastForward(45000);
       await expect(indicator).toBeInViewport();
+      assert.equal(reads, pendingReads, "slow history remains one in-flight request");
       hold = undefined;
       release();
       await expect(page.locator(".gpt-message-scroll article.message")).toHaveCount(40);

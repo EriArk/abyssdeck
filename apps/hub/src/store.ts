@@ -219,6 +219,8 @@ export class Store {
     this.changes.emit("navigation");
   }
   navigation(projectIds: string[]): NavigationState {
+    const doctorRow = this.db.prepare("SELECT value FROM bridge_doctor_config WHERE id=1").get();
+    const doctor = doctorRow ? JSON.parse(String(doctorRow.value)) : null;
     const projects = new Map<string, ProjectActivity>(
       projectIds.map((id) => [
         id,
@@ -231,9 +233,14 @@ export class Store {
       )
       .all() as unknown as ThreadActivity[];
     const groups = new Map<string, ThreadActivity[]>();
+    const serviceThreads: ThreadActivity[] = [];
     for (const thread of rows) {
       const project = projects.get(thread.projectId);
       if (!project) continue;
+      if (doctor?.threadId === thread.id && doctor.projectId === thread.projectId) {
+        serviceThreads.push({ ...thread, bridgeDoctor: true });
+        continue;
+      }
       const active = isActiveThread(thread.status);
       project.active += Number(active);
       project.unread += Number(hasUnreadCompletion(thread));
@@ -248,9 +255,10 @@ export class Store {
     // Full counts, bounded metadata per project, never conversation contents.
     return {
       projects: [...projects.values()],
-      threads: [...groups.values()].flatMap((list) =>
-        list.sort(compareThreadActivity).slice(0, 200),
-      ),
+      threads: [
+        ...serviceThreads,
+        ...[...groups.values()].flatMap((list) => list.sort(compareThreadActivity).slice(0, 200)),
+      ],
     };
   }
   markSeen(id: string, completedSeq: number): void {

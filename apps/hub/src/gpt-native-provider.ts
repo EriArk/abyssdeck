@@ -37,7 +37,7 @@ export interface NativeGptWorkspace {
     | "uploadFile"
     | "uploadFilePath"
   > &
-    Partial<Pick<NativeGptReadClient, "historyGraph">>;
+    Partial<Pick<NativeGptReadClient, "historyGraph" | "doctorObservation">>;
   transcribe?: (bytes: Buffer, signal: AbortSignal, mime: string) => Promise<string>;
   projects?: { has(id: string): boolean };
   conversations: { has(id: string): boolean };
@@ -53,14 +53,29 @@ export class NativeGptProvider {
   private verified?: { instance: string; until: number };
   private checking?: { instance: string; task: Promise<void> };
   private rateLimited = false;
+  private retry?: { instance: string; until: number; failures: number };
   constructor(readonly workspace: NativeGptWorkspace) {}
   async doctorReport() {
+    let local = true;
     try {
-      const connection = await this.connection();
+      const status = await this.workspace.client.status();
+      local = false;
+      const observed = this.workspace.client.doctorObservation?.();
+      if (!status.manual && observed?.code) throw Error(observed.code);
+      // Local heartbeat is not account readiness. Unknown/loading is not a fault.
+      const state = status.manual
+        ? "attention"
+        : status.busy
+          ? "busy"
+          : observed
+            ? "healthy"
+            : "starting";
       return {
-        ...connection,
+        state,
         provider: "native",
-        doctorObstruction: connection.state === "attention" ? "owner" : "clear",
+        canRead: state === "healthy",
+        canSend: false,
+        doctorObstruction: status.manual ? "owner" : "clear",
       };
     } catch (error) {
       const code =
@@ -74,12 +89,24 @@ export class NativeGptProvider {
           "NATIVE_RATE_LIMITED",
           "NATIVE_BUSY",
           "NATIVE_ACCOUNT_UNAVAILABLE",
+          "NATIVE_TIMEOUT",
+          "NATIVE_READ_UNAVAILABLE",
+          "NATIVE_DISCONNECTED",
+          "NATIVE_CANCELLED",
         ].includes(error.message)
           ? error.message
           : "NATIVE_UNAVAILABLE";
       const state = ["NATIVE_UNSUPPORTED_BUILD", "NATIVE_INCOMPATIBLE"].includes(code)
         ? "incompatible"
-        : ["NATIVE_RATE_LIMITED", "NATIVE_BUSY"].includes(code)
+        : [
+              "NATIVE_RATE_LIMITED",
+              "NATIVE_BUSY",
+              "NATIVE_TIMEOUT",
+              "NATIVE_READ_UNAVAILABLE",
+              "NATIVE_DISCONNECTED",
+              "NATIVE_CANCELLED",
+              ...(!local ? ["NATIVE_UNAVAILABLE"] : []),
+            ].includes(code)
           ? "busy"
           : [
                 "NATIVE_ACCOUNT_MISMATCH",
@@ -115,6 +142,9 @@ export class NativeGptProvider {
       this.verified = undefined;
       this.checking = undefined;
       this.rateLimited = false;
+      this.retry = undefined;
+    } else if (this.retry?.instance === status.instanceId && this.retry.until > Date.now()) {
+      waiting = this.verified?.instance !== status.instanceId;
     } else if (this.verified?.instance !== status.instanceId || this.verified.until <= Date.now()) {
       if (this.checking?.instance !== status.instanceId) {
         const task = this.workspace.client.models().then(() => {
@@ -124,6 +154,7 @@ export class NativeGptProvider {
             // need a separate upstream model read every minute.
             this.verified = { instance: status.instanceId, until: Date.now() + 15 * 60000 };
             this.rateLimited = false;
+            this.retry = undefined;
           }
         });
         this.checking = { instance: status.instanceId, task };
@@ -134,10 +165,25 @@ export class NativeGptProvider {
       } catch (error) {
         if (
           !(error instanceof Error) ||
-          !["NATIVE_BUSY", "NATIVE_RATE_LIMITED"].includes(error.message)
+          ![
+            "NATIVE_BUSY",
+            "NATIVE_RATE_LIMITED",
+            "NATIVE_TIMEOUT",
+            "NATIVE_READ_UNAVAILABLE",
+            "NATIVE_UNAVAILABLE",
+            "NATIVE_DISCONNECTED",
+          ].includes(error.message)
         )
           throw error;
         this.rateLimited = error.message === "NATIVE_RATE_LIMITED";
+        if (this.checking === check) {
+          const failures = this.retry?.instance === status.instanceId ? this.retry.failures + 1 : 1;
+          this.retry = {
+            instance: status.instanceId,
+            failures,
+            until: Date.now() + Math.min(300000, 30000 * 2 ** Math.min(failures - 1, 4)),
+          };
+        }
         // A busy catalog refresh does not revoke a previously verified account.
         // Cold/new instances still require their own successful check; actual
         // dispatch independently validates account, model and native readiness.

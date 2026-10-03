@@ -203,13 +203,16 @@ test("native Doctor distinguishes compatibility from cooldown and authentication
     ["NATIVE_UNSUPPORTED_BUILD", "incompatible"],
     ["NATIVE_RATE_LIMITED", "busy"],
     ["NATIVE_ACCOUNT_MISMATCH", "login_required"],
-    ["private token https://secret", "unavailable"],
+    ["NATIVE_TIMEOUT", "busy"],
+    ["NATIVE_READ_UNAVAILABLE", "busy"],
+    ["private token https://secret", "busy"],
   ]) {
     const provider = new NativeGptProvider({
       client: {
         status: async () => ({ instanceId: "one", manual: false }),
+        doctorObservation: () => ({ code }),
         models: async () => {
-          throw Error(code);
+          assert.fail("Doctor must not request models");
         },
       },
     });
@@ -217,6 +220,81 @@ test("native Doctor distinguishes compatibility from cooldown and authentication
     assert.equal(doctorState(raw, "abcdef123").state, state);
     assert(!JSON.stringify(raw).includes("secret"));
   }
+});
+
+test("Doctor is passive during slow ordinary reads and disabled means no heartbeat", async (t) => {
+  const { doctor, gpt, advance } = await fixture(t);
+  let reads = 0;
+  const provider = new NativeGptProvider({
+    client: {
+      status: async () => ({ instanceId: "one", manual: false }),
+      models: async () => {
+        reads++;
+        throw Error("NATIVE_TIMEOUT");
+      },
+    },
+  });
+  gpt.doctorReport = () => provider.doctorReport();
+  for (let n = 0; n < 30; n++) {
+    advance(60000);
+    await doctor.pulse();
+  }
+  assert.equal(reads, 0);
+  assert.equal(doctor.list().length, 0);
+  const a = doctor.association();
+  doctor.configure(false, a.projectId, a.revision);
+  gpt.doctorReport = async () => assert.fail("disabled Doctor must not probe");
+  await doctor.pulse();
+});
+
+test("same incident survives Hub revision change including legacy fingerprints", async (t) => {
+  const { f, doctor, fault, now, advance, gpt } = await fixture(t);
+  const first = fault();
+  f.store.db
+    .prepare("UPDATE bridge_doctor_incidents SET fingerprint=?,value=? WHERE id=?")
+    .run(
+      "legacy-hash",
+      JSON.stringify({ ...first, fingerprint: "legacy-hash", delivery: "sent" }),
+      first.id,
+    );
+  const next = new BridgeDoctor(f.sessions, gpt, now, "1234567");
+  advance(60001);
+  const same = next.observe(report("degraded"));
+  assert.equal(same.id, first.id);
+  assert.equal(same.delivery, "sent");
+  assert.equal(next.list().length, 1);
+});
+
+test("owner can write to the associated Doctor alongside project work; other utility chats stay protected", async (t) => {
+  const { f, doctor } = await fixture(t);
+  const request = f.rpc.request.bind(f.rpc);
+  f.rpc.request = (method, params) =>
+    method === "thread/start"
+      ? Promise.resolve({ thread: { id: randomUUID(), historyMode: "paginated" } })
+      : request(method, params);
+  await f.release();
+  new ProjectContext(f.sessions, {}).adopt(
+    { client: "codex", projectId: "project", name: "Project" },
+    f.thread.id,
+  );
+  const thread = f.store.createThread("project", randomUUID(), "Bridge Doctor");
+  doctor.bind(thread.id);
+  const selection = { model: "qa-model", effort: "high", mode: "default", access: "workspace" };
+  await f.sessions.startTurn(f.thread.id, "project work", selection);
+  const sent = await f.app.inject({
+    method: "POST",
+    url: `/api/threads/${thread.id}/turns`,
+    headers: { ...f.headers, "idempotency-key": randomUUID() },
+    payload: { text: "Additional symptom from owner", settings: selection },
+  });
+  assert.equal(sent.statusCode, 200, sent.body);
+  assert.equal(f.calls.filter((c) => c.method === "turn/start").length, 2);
+  const nav = f.store.navigation(["project"]);
+  assert.equal(nav.threads.find((t) => t.id === thread.id).bridgeDoctor, true);
+  assert.equal(nav.projects[0].active, 1, "Doctor does not inflate project work counts");
+  const other = f.store.createThread("project", randomUUID(), "Utility");
+  f.store.db.prepare("UPDATE threads SET diagnostic=1 WHERE id=?").run(other.id);
+  assert.throws(() => f.sessions.assertWorkThread(other.id), /технический/);
 });
 
 test("healthy observation suppresses stale queued incidents immediately and exact creation receipt restores association", async (t) => {
