@@ -13,7 +13,7 @@ spec.loader.exec_module(upgrade)
 
 
 class Upgrade(unittest.TestCase):
-    def scenario(self, busy=False, fail_start=False, enrolled=True):
+    def scenario(self, busy=False, fail_start=False, enrolled=True, recovery=False, hub_busy=False, fail_image=False):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder);profile=root/'profile';profile.mkdir();(profile/'native-adapter').mkdir()
             (profile/('native-adapter/binding.json' if enrolled else 'native-adapter/enrollment.json')).write_text(json.dumps({'userId':'12345678-1234-4234-8234-123456789012'}))
@@ -25,18 +25,22 @@ class Upgrade(unittest.TestCase):
             def run(args,**kw):
                 nonlocal starts
                 calls.append(args)
+                if fail_image and args[:2]==['docker','run']:
+                    raise subprocess.CalledProcessError(1,args)
                 if args[:2]==['docker','start']:
                     starts+=1
                     if fail_start and starts==1:raise subprocess.CalledProcessError(1,args)
             def request(name,operation,**fields):
                 if operation=='status':return {'manual':False,'writesEnabled':enrolled,'instanceId':'new' if starts else 'old'}
                 if operation=='workspace':
+                    self.assertFalse(recovery, 'authorized hung-client recovery must not wait on the broken renderer')
                     self.assertTrue(enrolled, 'an unactivated profile has no bound workspace')
                     return {'ready':True,'generating':busy}
                 return {}
             argv=['upgrade','--name',name,'--expected','codex-web-gpt-native:before','--image','codex-web-gpt-native:after','--profile',str(profile),'--state',str(root),'--revision','abcdef0']
-            with patch.object(sys,'argv',argv),patch.object(upgrade,'inspect',return_value=old),patch.object(upgrade,'output',return_value=''),patch.object(upgrade,'assert_idle'),patch.object(upgrade,'request',side_effect=request),patch.object(upgrade,'run',side_effect=run):
-                if busy or fail_start:
+            if recovery:argv += ['--owner-recovery-reason','Owner requested recovery of an unresponsive renderer']
+            with patch.object(sys,'argv',argv),patch.object(upgrade,'inspect',return_value=old),patch.object(upgrade,'output',return_value=''),patch.object(upgrade,'assert_idle',side_effect=RuntimeError('ACTIVE_GPT_WORK') if hub_busy else None),patch.object(upgrade,'request',side_effect=request),patch.object(upgrade,'run',side_effect=run):
+                if (busy and not recovery) or fail_start or hub_busy or fail_image:
                     with self.assertRaises((RuntimeError,subprocess.CalledProcessError)):upgrade.main()
                 else:upgrade.main()
             return calls, name
@@ -66,6 +70,22 @@ class Upgrade(unittest.TestCase):
     def test_active_response_is_never_stopped(self):
         calls,_=self.scenario(busy=True)
         self.assertEqual(calls,[])
+
+    def test_owner_recovery_bypasses_only_native_idle(self):
+        calls,_=self.scenario(busy=True,recovery=True)
+        self.assertTrue(any(c[:2]==['docker','stop'] for c in calls))
+        calls,_=self.scenario(busy=True,recovery=True,hub_busy=True)
+        self.assertEqual(calls,[])
+
+    def test_owner_recovery_keeps_rollback(self):
+        calls,name=self.scenario(recovery=True,fail_start=True)
+        self.assertIn(['docker','rename',name+'-before-abcdef0',name],calls)
+
+    def test_unreadable_image_never_stops_live_client(self):
+        calls,_=self.scenario(recovery=True,fail_image=True)
+        self.assertEqual(len(calls),1)
+        self.assertEqual(calls[0][:2],['docker','run'])
+        self.assertIn('none',calls[0])
 
     def test_success_preserves_profile_and_isolation(self):
         calls,_=self.scenario()

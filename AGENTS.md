@@ -1,5 +1,16 @@
 # AGENTS.md
 
+## Owner-authorized recovery restart of broken GPT (2026-10-03)
+
+- The owner permits restarting the server GPT client when it is genuinely hung or
+  broken, including when native idle cannot be verified or its Stop indicator is
+  stale. Do not ask again for this recovery permission. This narrowly supersedes
+  the unfinished-provider-work restart prohibition for that recovery operation.
+- Slow history alone does not justify a restart. Ordinary updates retain idle
+  admission. Keep recovery explicit and scoped to the affected native client;
+  preserve its profile, account binding, history and uncertain receipts. Never
+  replay input or restart unrelated services, the PC or Companion as a side effect.
+
 ## Owner-requested quiet Bridge Doctor and independent chat (2026-10-03)
 
 - Doctor background checks use local adapter health and ordinary operation outcomes,

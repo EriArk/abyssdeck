@@ -99,12 +99,18 @@ def main():
         parser.add_argument('--' + key, required=True)
     parser.add_argument('--completed-turn', nargs=2, metavar=('CONVERSATION', 'NODE'),
                         help='Exact canonical final for the operator-observed selected chat with a stale Stop indicator')
+    parser.add_argument('--owner-recovery-reason',
+                        help='Explicit owner-authorized recovery of a hung client; bypass native idle only, retain Hub writer admission')
     args = parser.parse_args()
     with ExitStack() as locks:
         return replace(args, locks)
 
 
 def replace(args, locks):
+    recovery = args.owner_recovery_reason
+    if recovery is not None:
+        if not recovery.strip() or len(recovery) > 500:
+            raise ValueError('RECOVERY_REASON_REQUIRED')
     assert re.fullmatch(r'codex-web-gpt-(?:native-lab|[a-f0-9-]{36})', args.name)
     assert re.fullmatch(r'[a-f0-9]{7,40}', args.revision)
     if args.completed_turn:
@@ -137,13 +143,19 @@ def replace(args, locks):
     before = request(args.name, 'status')
     if before['manual']: raise RuntimeError('EXISTING_MANUAL_OWNER')
     assert_idle(user_id)
-    if enrolled:
+    if enrolled and not recovery:
         assert_native_idle(args.name, args.completed_turn)
-    elif before['writesEnabled']:
+    elif not enrolled and before['writesEnabled']:
         raise RuntimeError('UNBOUND_PROFILE_HAS_WRITER')
+    # Check module access/imports as the real runtime user before touching the
+    # live profile. Release archives can carry restrictive host file modes.
+    run(['docker', 'run', '--rm', '--network', 'none', '--user', c['User'],
+         '--entrypoint', 'node', args.image, '/opt/native/adapter/renderer.mjs'],
+        stdout=subprocess.DEVNULL)
     lease = str(uuid.uuid4())
     request(args.name, 'beginManual', leaseId=lease)
-    (proof / 'lease.json').write_text(json.dumps({'lease': lease, 'before': before, 'previous': prior}))
+    (proof / 'lease.json').write_text(json.dumps({'lease': lease, 'before': before, 'previous': prior,
+                                               'ownerRecoveryReason': recovery}))
 
     def end_lease():
         for _ in range(40):
