@@ -102,6 +102,7 @@ window.addEventListener("private-session-ended", () => {
           key.startsWith("workspace-file-copy:") ||
           key.startsWith("workspace-image-draft:") ||
           key.startsWith("workspace-pdf-draft:") ||
+          key.startsWith("workspace-xlsx-draft:") ||
           key.startsWith("workspace-file-draft:"))
       )
         accountLocalStorage.removeItem(key);

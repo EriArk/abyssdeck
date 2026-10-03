@@ -6,6 +6,7 @@ import { FileViewerDialog } from "./FileViewerDialog";
 import { Icon } from "./icons";
 import type { OfficeBlock, OfficeDocument } from "./officePackage";
 import type { ArchiveEntry } from "./packageArchive";
+import XlsxWorkspace from "./XlsxWorkspace";
 import "./package-preview.css";
 
 type Reply = {
@@ -83,13 +84,23 @@ function ExtractedFile({ file, onClose }: { file: File; onClose: () => void }) {
     </FileViewerDialog>
   );
 }
-export default function PackageFilePreview({ file }: { file: File }) {
+export default function PackageFilePreview({
+  file,
+  source,
+  full = false,
+}: {
+  file: File;
+  source?: string;
+  full?: boolean;
+}) {
   const { result, busy, read } = usePackage(file);
   const [folder, setFolder] = useState(""),
     [search, setSearch] = useState(""),
     [sort, setSort] = useState("name"),
     [page, setPage] = useState(0),
     [opened, setOpened] = useState<File | null>(null);
+  if (result.office?.kind === "xlsx")
+    return <XlsxWorkspace file={file} source={source} enabled={full} doc={result.office} />;
   if (result.office) return <OfficePreview doc={result.office} />;
   const entries = result.entries ?? [],
     folders = new Set<string>();

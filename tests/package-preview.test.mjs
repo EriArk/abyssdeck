@@ -95,8 +95,8 @@ test("XLSX follows workbook relationship order, sparse coordinates and cached fo
   );
   assert.equal(doc.pages[0].rows.length, 106);
   assert.deepEqual(doc.pages[0].rows[0].cells, [
-    { column: 1, value: "Материалы", formula: undefined },
-    { column: 3, value: "42", formula: "SUM(C2:C3)" },
+    { column: 1, value: "Материалы", formula: undefined, type: "s" },
+    { column: 3, value: "42", formula: "SUM(C2:C3)", type: "n" },
   ]);
   assert.equal(doc.pages[1].rows[0].number, 7);
   assert.equal(doc.pages[1].rows[0].cells[0].column, 2);

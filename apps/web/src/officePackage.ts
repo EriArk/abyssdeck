@@ -9,12 +9,19 @@ export type OfficeBlock =
   | { kind: "image"; media: number };
 export type OfficePage = {
   name: string;
+  path?: string;
+  protected?: boolean;
+  reserved?: string[];
   blocks: OfficeBlock[];
-  rows?: { number: number; cells: { column: number; value: string; formula?: string }[] }[];
+  rows?: {
+    number: number;
+    cells: { column: number; value: string; formula?: string; type?: string }[];
+  }[];
   columns?: number;
 };
 export type OfficeDocument = {
   kind: "docx" | "xlsx";
+  readOnlyReason?: string;
   pages: OfficePage[];
   media: { bytes: Uint8Array<ArrayBuffer>; type: string }[];
   truncated: boolean;
@@ -28,6 +35,11 @@ function descendants(node: Xml, name: string): Xml[] {
 }
 function text(node?: Xml): string {
   return node ? node.value + node.children.map(text).join("") : "";
+}
+function spreadsheetText(value: string): string {
+  return value.replace(/_x([0-9a-f]{4})_/gi, (_, code: string) =>
+    String.fromCharCode(Number.parseInt(code, 16)),
+  );
 }
 function xml(bytes: Uint8Array): Xml {
   const input = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
@@ -216,13 +228,13 @@ export function readOffice(bytes: Uint8Array, kind: OfficeDocument["kind"]): Off
     const part = "word/document.xml";
     doc.pages.push({ name: "Документ", blocks: blocks(getXml(part), relationships(part)) });
   } else {
+    if (entries.some((e) => e.name.startsWith("_xmlsignatures/")))
+      doc.readOnlyReason = "Подписанная книга доступна только для просмотра.";
     const part = "xl/workbook.xml",
       book = getXml(part),
       rels = relationships(part);
     const shared = byName.has("xl/sharedStrings.xml")
-      ? descendants(getXml("xl/sharedStrings.xml"), "si").map((s) =>
-          descendants(s, "t").map(text).join(""),
-        )
+      ? descendants(getXml("xl/sharedStrings.xml"), "si")
       : [];
     const sheets = descendants(book, "sheet");
     if (sheets.length > 100) doc.truncated = true;
@@ -233,11 +245,24 @@ export function readOffice(bytes: Uint8Array, kind: OfficeDocument["kind"]): Off
       if (!path) throw Error("Ссылка на лист повреждена.");
       const page: OfficePage = {
         name: sheet.attrs.name ?? "Лист",
+        path,
         blocks: [],
         rows: [],
         columns: 0,
       };
-      for (const row of descendants(getXml(path), "row")) {
+      const sheetXml = getXml(path);
+      page.protected = descendants(sheetXml, "sheetProtection").length > 0;
+      page.reserved = [
+        ...descendants(sheetXml, "mergeCell").map((c) => c.attrs.ref ?? ""),
+        ...descendants(sheetXml, "f").map((c) => c.attrs.ref ?? ""),
+      ].filter(Boolean);
+      const sheetRels = relationships(path);
+      for (const table of descendants(sheetXml, "tablePart")) {
+        const target = sheetRels.get(table.attrs["r:id"] ?? table.attrs.id ?? "");
+        if (target)
+          page.reserved.push(...descendants(getXml(target), "table").map((t) => t.attrs.ref ?? ""));
+      }
+      for (const row of descendants(sheetXml, "row")) {
         const cells: NonNullable<OfficePage["rows"]>[number]["cells"] = [];
         if (page.rows!.length >= 5000 || cellCount >= 50000) {
           doc.truncated = true;
@@ -257,11 +282,28 @@ export function readOffice(bytes: Uint8Array, kind: OfficeDocument["kind"]): Off
             continue;
           }
           let value = text(first(cell, "v"));
-          if (cell.attrs.t === "s") value = shared[Number(value)] ?? "";
-          if (cell.attrs.t === "inlineStr") value = descendants(cell, "t").map(text).join("");
+          const sharedNode = cell.attrs.t === "s" ? shared[Number(value)] : undefined;
+          if (cell.attrs.t === "s")
+            value = spreadsheetText(
+              sharedNode ? descendants(sharedNode, "t").map(text).join("") : "",
+            );
+          if (cell.attrs.t === "inlineStr")
+            value = spreadsheetText(descendants(cell, "t").map(text).join(""));
           if (cell.attrs.t === "b") value = value === "1" ? "TRUE" : "FALSE";
           const formula = first(cell, "f");
-          cells.push({ column, value, formula: formula ? text(formula) : undefined });
+          if (
+            cell.attrs.cm ||
+            cell.attrs.vm ||
+            descendants(cell, "r").length ||
+            (sharedNode && descendants(sharedNode, "r").length)
+          )
+            page.reserved.push(cell.attrs.r ?? "");
+          cells.push({
+            column,
+            value,
+            formula: formula ? text(formula) : undefined,
+            type: cell.attrs.t ?? "n",
+          });
           page.columns = Math.max(page.columns ?? 0, column);
         }
         page.rows!.push({ number: Number(row.attrs.r) || page.rows!.length + 1, cells });

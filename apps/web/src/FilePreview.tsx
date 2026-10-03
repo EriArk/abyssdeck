@@ -124,7 +124,7 @@ export function FilePreview({
           </Suspense>
         ) : kind === "package" ? (
           <Suspense fallback={<p role="status">Открываю файл…</p>}>
-            <PackagePreview key={file.name + file.lastModified} file={file} />
+            <PackagePreview key={objectUrl} file={file} source={source} full={full} />
           </Suspense>
         ) : kind === "image" && full ? (
           <Suspense fallback={<ImageViewport url={objectUrl} name={file.name} />}>

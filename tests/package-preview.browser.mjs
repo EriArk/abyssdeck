@@ -81,7 +81,7 @@ try {
         await page.getByRole("button", { name: /Документы Папка/ }).tap();
         await page.getByRole("button", { name: /план.md/ }).tap();
         await expect(page.getByRole("dialog")).toHaveCount(2);
-        await expect(page.locator(".readable-file")).toContainText("Текст из архива");
+        await expect(page.locator(".reader-file-preview")).toContainText("Текст из архива");
         await expect(page.getByRole("button", { name: /Редактировать/ })).toBeVisible();
         const download = page.waitForEvent("download");
         await page.getByRole("link", { name: "Скачать", exact: true }).tap();
@@ -106,7 +106,8 @@ try {
         await expect(page.locator(".office-sheet")).toContainText("Материалы");
         await page.getByLabel("Формула C1").tap();
         await expect(page.locator(".office-formula code")).toHaveText("=SUM(C2:C3)");
-        await page.getByRole("button", { name: "Следующая страница" }).tap();
+        await page.getByRole("button", { name: "Следующие строки" }).tap();
+        await page.getByRole("button", { name: "Следующие строки" }).tap();
         await expect(page.locator(".office-sheet")).toContainText("Позиция 105");
         await page.getByLabel("Лист", { exact: true }).selectOption("1");
         await expect(page.locator(".office-sheet")).toContainText("Второй лист");
@@ -125,17 +126,12 @@ try {
             ["wide", { width: 1366, height: 1024 }],
           ]) {
             await page.setViewportSize(viewport);
-            await open(layout === "tablet" ? "xlsx" : "docx");
+            // DOCX now uses fixed PDF pages and has its own docx-preview.browser suite.
+            // Keep package worker/layout coverage on the XLSX handler in this suite.
+            await open("xlsx");
             await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme);
-            await expect(
-              page.locator(layout === "tablet" ? ".office-sheet" : ".office-document"),
-            ).toContainText(layout === "tablet" ? "Материалы" : "План проекта");
-            if (layout !== "tablet") {
-              await expect
-                .poll(() => page.locator(".office-image").evaluate((img) => img.naturalWidth))
-                .toBe(1);
-              await page.getByLabel("Размер текста").selectOption("125");
-            }
+            await expect(page.locator(".office-sheet")).toContainText("Материалы");
+            await page.getByLabel("Размер текста").selectOption("125");
             const bounds = await page.getByRole("dialog").boundingBox();
             assert(
               bounds.x >= 0 &&

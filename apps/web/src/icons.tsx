@@ -1,6 +1,8 @@
 import type { CSSProperties } from "react";
 
 const paths: Record<string, string[]> = {
+  undo: ["M9 5 3 10l6 5M3 10h11a7 7 0 0 1 7 7v3"],
+  redo: ["m15 5 6 5-6 5M21 10H10a7 7 0 0 0-7 7v3"],
   "table-header": ["M3 3h18v18H3zM3 9h18M9 9v12M15 9v12M3 15h18M6 6h12"],
   heading: ["M5 4v16M19 4v16M5 12h14"],
   bold: ["M6 3h7a4 4 0 0 1 0 8H6V3Zm0 8h8a5 5 0 0 1 0 10H6V11Z"],
