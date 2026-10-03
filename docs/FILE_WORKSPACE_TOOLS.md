@@ -344,10 +344,14 @@ DOCX использует тот же фиксированный PDF-просм�
 телефон и малая высота окна. `pdf-reading.test.mjs` — Unicode/смещения и отмена
 потока. `document-tools.browser.mjs` сохраняет регрессии CSV и PDF-разметки,
 векторного экспорта, комментариев, исходных байтов и черновиков. TypeScript/build,
-scoped Biome и help проверяются перед публикацией.
+scoped Biome и help прошли.
 
 [Снимки с описаниями](../polish/05-files/pdf-reading/README.md).
-Установленная версия и подтверждение публикации — в `CURRENT_STATUS.md`.
+Реализация `305974a` установлена web-only publisher. Manifest
+`ce59b4473f31cee052ffa3e90cd8102dfe183384a104bc7fb2a641bb5b56584b`;
+HTTP-байты PDF JS/CSS, worker, экспорта разметки и DOCX совпали с manifest.
+Доказательство: `verification-305974a/web-check.json`; Engine/Hub/GPT сохранили
+процессы во время публикации. Companion не менялся. Подробнее — `CURRENT_STATUS.md`.
 Следующий предлагаемый шаг — ZIP: множественный выбор и сохранение выбранных
 файлов через общий процесс. Поиск, папки и сортировка в ZIP уже реализованы.
 GPT-6 Astra, Высокое (`high`); после продолжения владельца.
