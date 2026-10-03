@@ -20,6 +20,8 @@ export default function PdfMarkup({
   zoom,
   ready,
   children,
+  readingTools,
+  navigation,
 }: {
   file: File;
   source?: string;
@@ -29,6 +31,8 @@ export default function PdfMarkup({
   zoom: number;
   ready: boolean;
   children: ReactNode;
+  readingTools?: ReactNode;
+  navigation?: ReactNode;
 }) {
   const [draft, setDraft] = useState<Draft>({ version: 1, marks: [], index: 0 }),
     [key, setKey] = useState("");
@@ -194,52 +198,55 @@ export default function PdfMarkup({
   );
   return (
     <>
-      {enabled && (
+      {(enabled || readingTools) && (
         <div className="file-format-tools">
-          <div className="format-tool-row" role="toolbar" aria-label="Разметка PDF">
-            <div className="pdf-toolbar-group">
-              <button
-                type="button"
-                className="icon-button"
-                aria-label={editing ? "Просмотр PDF" : "Разметить PDF"}
-                title={editing ? "Просмотр PDF" : "Разметить PDF"}
-                disabled={!key || busy}
-                aria-pressed={editing}
-                onClick={() => setEditing(!editing)}
-              >
-                <Icon name={editing ? "file" : "edit"} />
-              </button>
-              <button
-                type="button"
-                className="icon-button"
-                aria-label="Отменить разметку PDF"
-                title="Отменить"
-                disabled={!draft.index || busy}
-                onClick={() => setDraft((d) => ({ ...d, index: d.index - 1 }))}
-              >
-                <Icon name="back" />
-              </button>
-              <button
-                type="button"
-                className="icon-button"
-                aria-label="Повторить разметку PDF"
-                title="Повторить"
-                disabled={draft.index === draft.marks.length || busy}
-                onClick={() => setDraft((d) => ({ ...d, index: d.index + 1 }))}
-              >
-                <Icon name="chevron" />
-              </button>
-              <button
-                type="button"
-                className="icon-button"
-                aria-label="Сохранить копию PDF"
-                title="Сохранить копию PDF"
-                disabled={!draft.index || busy}
-                onClick={() => void exportCopy()}
-              >
-                <Icon name="save" />
-              </button>
-            </div>
+          <div className="format-tool-row" role="toolbar" aria-label="Инструменты PDF">
+            {readingTools}
+            {enabled && (
+              <div className="pdf-toolbar-group">
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label={editing ? "Просмотр PDF" : "Разметить PDF"}
+                  title={editing ? "Просмотр PDF" : "Разметить PDF"}
+                  disabled={!key || busy}
+                  aria-pressed={editing}
+                  onClick={() => setEditing(!editing)}
+                >
+                  <Icon name={editing ? "file" : "edit"} />
+                </button>
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label="Отменить разметку PDF"
+                  title="Отменить"
+                  disabled={!draft.index || busy}
+                  onClick={() => setDraft((d) => ({ ...d, index: d.index - 1 }))}
+                >
+                  <Icon name="back" />
+                </button>
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label="Повторить разметку PDF"
+                  title="Повторить"
+                  disabled={draft.index === draft.marks.length || busy}
+                  onClick={() => setDraft((d) => ({ ...d, index: d.index + 1 }))}
+                >
+                  <Icon name="chevron" />
+                </button>
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label="Сохранить копию PDF"
+                  title="Сохранить копию PDF"
+                  disabled={!draft.index || busy}
+                  onClick={() => void exportCopy()}
+                >
+                  <Icon name="save" />
+                </button>
+              </div>
+            )}
             {editing && (
               <>
                 <div className="pdf-toolbar-group">
@@ -312,6 +319,7 @@ export default function PdfMarkup({
           )}
         </div>
       )}
+      {navigation}
       <div className="pdf-sheet-scroll">
         <div className="pdf-sheet-stage" style={{ width: `${zoom}%`, minWidth: "100%" }}>
           {children}
