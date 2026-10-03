@@ -16,128 +16,97 @@
   border-radius: var(--radius-lg, 14px);
   box-shadow: 0 20px 90px #0006;
 }
+
 .devices-workspace::backdrop {
   background: #0007;
   backdrop-filter: blur(4px);
 }
-.devices-heading {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 56px;
-  padding: 4px 12px 4px 20px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--line);
-}
-.devices-heading h2 {
-  font-size: 20px;
-  margin: 0;
-  flex: 1;
-}
-.devices-heading .icon-button {
-  border: 0;
-  box-shadow: none;
-}
-.device-picker {
-  display: flex;
-  gap: 8px;
-  padding: 12px 18px;
-  border-bottom: 1px solid var(--line);
-  overflow-x: auto;
-  flex-shrink: 0;
-}
-.device-picker button {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  text-align: left;
-  min-width: 140px;
-  padding: 8px 14px;
-  border-radius: var(--radius);
-  border: 1px solid var(--line);
-  background: var(--surface);
-}
-.device-picker button.selected {
-  border-color: var(--accent);
-  background: var(--soft);
-}
-.device-picker small,
-.device-os small {
-  display: block;
-  font-size: 12px;
-  color: var(--muted);
-  margin-top: 2px;
-}
+
 .device-layout {
   display: grid;
   grid-template-columns: var(--panel-width, 310px) minmax(0, 1fr);
   flex: 1;
   min-height: 0;
 }
+
 .device-system {
   overflow: auto;
   padding: 12px 18px 24px;
   border-right: 1px solid var(--line);
 }
+
 .device-section-heading {
   display: flex;
   align-items: center;
   gap: 8px;
 }
+
 .device-section-heading h3 {
   flex: 1;
   margin: 0;
   font-size: 18px;
 }
+
 .device-section-heading > span {
   font-size: 12px;
   color: var(--muted);
 }
+
 .devices-workspace .online {
   color: var(--accent);
 }
+
 .device-os {
   font-size: 15px;
   margin: 8px 0 18px;
 }
+
 .device-specs {
   font-size: 13px;
   margin: 0;
 }
+
 .device-specs > div {
   display: flex;
   justify-content: space-between;
   gap: 12px;
   margin: 9px 0;
 }
+
 .device-specs dt {
   color: var(--muted);
   flex-shrink: 0;
 }
+
 .device-specs dd {
   margin: 0;
   text-align: right;
   overflow-wrap: anywhere;
 }
+
 .device-system h4 {
   font-size: 13px;
   margin: 22px 0 12px;
   color: var(--muted);
 }
+
 .device-meter {
   margin: 14px 0;
   font-size: 12px;
 }
+
 .device-meter > span {
   display: flex;
   justify-content: space-between;
   gap: 8px;
   overflow-wrap: anywhere;
 }
+
 .device-meter b {
   font-weight: 400;
   flex-shrink: 0;
 }
+
 .device-meter meter {
   width: 100%;
   height: 6px;
@@ -146,16 +115,20 @@
   border-radius: 4px;
   background: var(--line);
 }
+
 .device-meter meter::-webkit-meter-bar {
   background: var(--line);
   border: 0;
 }
+
 .device-meter meter::-webkit-meter-optimum-value {
   background: var(--accent);
 }
+
 .device-meter meter::-moz-meter-bar {
   background: var(--accent);
 }
+
 .device-sensor {
   font-size: 13px;
   display: flex;
@@ -163,33 +136,21 @@
   gap: 10px;
   margin: 8px 0;
 }
+
 .device-sensor span {
   overflow-wrap: anywhere;
   min-width: 0;
 }
+
 .device-sensor b {
   white-space: nowrap;
 }
+
 .device-muted {
   font-size: 13px;
   color: var(--muted);
 }
-.device-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  border-top: 1px solid var(--line);
-  margin-top: 22px;
-  padding-top: 16px;
-}
-.device-actions button {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 13px;
-  min-height: 44px;
-  padding: 6px 10px;
-}
+
 .device-console {
   display: flex;
   flex-direction: column;
@@ -197,20 +158,7 @@
   min-height: 0;
   background: var(--paper);
 }
-.device-console-heading {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--line);
-}
-.device-console-heading select {
-  border: 0;
-  flex: 1;
-  min-width: 0;
-  background: transparent;
-  font-size: 14px;
-}
+
 .device-terminal {
   display: flex;
   flex-direction: column;
@@ -218,17 +166,7 @@
   min-height: 0;
   min-width: 0;
 }
-.device-terminal-status {
-  display: flex;
-  align-items: center;
-  font-size: 12px;
-  color: var(--muted);
-  padding: 0 8px 0 16px;
-  min-height: 40px;
-}
-.device-terminal-status span {
-  flex: 1;
-}
+
 .device-terminal-screen {
   flex: 1;
   min-height: 0;
@@ -238,50 +176,38 @@
   touch-action: pan-x pinch-zoom;
   overscroll-behavior: contain;
 }
+
 .device-terminal-screen .xterm {
   height: 100%;
 }
+
 .device-terminal-screen .xterm-helper-textarea {
   font-size: 16px !important;
 }
-.device-terminal-keys {
-  display: flex;
-  gap: 4px;
-  overflow-x: auto;
-  padding: 6px 10px;
-  border-top: 1px solid var(--line);
-  flex-shrink: 0;
-}
-.device-terminal-keys button {
-  min-width: 44px;
-  min-height: 44px;
-  padding: 6px;
-  font-size: 13px;
-  border: 0;
-  background: var(--surface);
-}
+
 .device-terminal-empty {
   margin: auto;
   text-align: center;
   padding: 24px;
   color: var(--muted);
 }
+
 .device-terminal-empty button {
   padding: 8px 16px;
   min-height: 44px;
 }
-.device-mobile-tabs {
-  display: none;
-}
+
 .device-error {
   padding: 10px 18px;
   color: var(--danger);
   font-size: 14px;
   flex-shrink: 0;
 }
+
 .device-empty {
   padding: 20px;
 }
+
 .device-action-backdrop {
   position: absolute;
   inset: 0;
@@ -292,6 +218,7 @@
   padding: 20px;
   z-index: 4;
 }
+
 .device-action-dialog {
   width: min(420px, 100%);
   max-height: 100%;
@@ -302,10 +229,12 @@
   padding: 20px;
   box-shadow: 0 12px 50px #0005;
 }
+
 .device-action-dialog h3 {
   margin: 0 0 18px;
   font-size: 18px;
 }
+
 .device-action-dialog label {
   display: flex;
   flex-direction: column;
@@ -313,35 +242,42 @@
   margin: 12px 0;
   font-size: 14px;
 }
+
 .device-action-dialog input,
 .device-action-dialog select {
   width: 100%;
   min-height: 44px;
   font-size: 16px;
 }
+
 .device-action-dialog .device-checkbox {
   flex-direction: row;
   align-items: center;
 }
+
 .device-checkbox input {
   width: 20px;
   min-height: 20px;
 }
+
 .device-action-dialog p {
   font-size: 14px;
   line-height: 1.5;
   color: var(--muted);
 }
+
 .device-action-dialog footer {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
   margin-top: 20px;
 }
+
 .device-action-dialog footer button {
   min-height: 44px;
   padding: 7px 14px;
 }
+
 .device-loading {
   position: fixed;
   inset: 30%;
@@ -349,100 +285,40 @@
   padding: 24px;
   z-index: 100;
 }
-[data-theme="hitech-2000s"] .devices-heading,
-[data-theme="hitech-2000s"] .device-console-heading {
-  background: linear-gradient(#f9fcff, #cbd5de 48%, #eff6fa 52%, #b3c3ce);
-}
-[data-theme="organizer"] .device-system {
-  background-image: linear-gradient(
-    90deg,
-    transparent 11px,
-    #b9676630 11px,
-    #b9676630 12px,
-    transparent 12px
-  );
-}
-[data-theme="crt-green"] .devices-workspace {
-  box-shadow:
-    inset 0 0 24px #43ff6b07,
-    0 16px 80px #0008;
-}
-@media (max-width: 700px) {
-  .devices-workspace {
-    inset: 0;
-    width: 100%;
-    height: var(--app-height, 100dvh);
-    border: 0;
-    border-radius: 0;
-    padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-  .devices-heading {
-    min-height: 48px;
-    padding-left: 16px;
-  }
-  .device-picker {
-    padding: 8px 12px;
-  }
-  .device-picker button {
-    min-width: 128px;
-    padding: 6px 12px;
-  }
-  .device-mobile-tabs {
-    display: flex;
-    border-bottom: 1px solid var(--line);
-  }
-  .device-mobile-tabs button {
-    flex: 1;
-    min-height: 44px;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    border-bottom: 2px solid transparent;
-  }
-  .device-mobile-tabs button[aria-pressed="true"] {
-    border-bottom-color: var(--accent);
-    color: var(--accent);
-  }
-  .device-layout {
-    display: flex;
-  }
-  .device-layout[data-page="info"] .device-console,
-  .device-layout[data-page="terminal"] .device-system {
-    display: none;
-  }
-  .device-system,
-  .device-console {
-    width: 100%;
-    border: 0;
-  }
-  .device-terminal-screen {
-    padding-left: 8px;
-    padding-right: 6px;
-  }
-  .device-terminal-keys {
-    gap: 2px;
-    padding: 4px;
-  }
-  .device-terminal-keys button {
-    flex: 1;
-    min-width: 36px;
-  }
-  .device-action-backdrop {
-    padding: 12px;
-  }
-}
 
 .device-terminal-screen .xterm-viewport {
   background: var(--paper) !important;
 }
-.device-terminal-entry { padding: 8px; border-top: 1px solid var(--line); flex: none; }
-.device-terminal-entry label { display: grid; gap: 6px; font-size: 13px; }
-.device-terminal-entry input { width: 100%; min-height: 44px; box-sizing: border-box; }
-.device-terminal-entry > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
-.device-terminal-entry button { min-height: 44px; }
-.device-terminal-keys { flex-wrap: nowrap; flex: none; overflow-x: auto; }
-.device-terminal-keys button { flex: 0 0 auto; min-width: 44px; }
+
+.device-terminal-entry {
+  padding: 8px;
+  border-top: 1px solid var(--line);
+  flex: none;
+}
+
+.device-terminal-entry label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.device-terminal-entry input {
+  width: 100%;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.device-terminal-entry > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.device-terminal-entry button {
+  min-height: 44px;
+}
+
 .device-action-backdrop {
   position: fixed;
   inset: 0;
@@ -456,29 +332,388 @@
   color: var(--ink);
   overflow: auto;
 }
+
 .device-action-backdrop::backdrop {
   background: #0008;
 }
+
 .device-action-dialog {
   width: 100%;
 }
+
 .devices-workspace .icon-button {
   color: var(--ink);
 }
-@media (max-width: 700px) {
-  .devices-workspace {
-    top: var(--app-top, 0px);
-    bottom: auto;
+
+/* Devices share the window casing; the system and console form one inset screen. */
+:root[data-theme] .devices-workspace {
+  width: min(1200px, calc(100% - 40px));
+  height: calc(100dvh - 40px);
+  max-width: none;
+  max-height: none;
+  container-type: inline-size;
+  padding: 6px;
+  gap: 0;
+  border: 1px solid var(--window-edge);
+  border-radius: 16px;
+  background: var(--window-shell);
+  box-shadow: var(--window-frame-shadow);
+  color: var(--ink);
+}
+:root[data-theme] .devices-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  min-height: 52px;
+  padding: 2px 6px 4px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--window-ink);
+}
+.devices-heading h2 {
+  flex: 1;
+  margin: 0;
+  min-width: 0;
+  font-size: 18px;
+}
+:root[data-theme]
+  .devices-workspace
+  :is(.devices-heading, .device-picker, .device-terminal-keys)
+  button {
+  flex-shrink: 0;
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid var(--window-edge);
+  border-radius: 8px;
+  background: var(--window-key);
+  color: var(--window-key-ink);
+  box-shadow: var(--window-key-shadow);
+}
+:root[data-theme] .device-picker {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 10px;
+  border: 0;
+  overflow: visible;
+  color: var(--window-ink);
+}
+.device-choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  max-width: 390px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: var(--window-screen-shadow);
+}
+.device-choice > svg {
+  flex: none;
+}
+:root[data-theme] .device-choice select {
+  appearance: auto;
+  flex: 1;
+  min-width: 0;
+  width: 0;
+  min-height: 44px;
+  padding: 4px 0;
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+  background: var(--paper);
+  color: var(--ink);
+  text-overflow: ellipsis;
+  font-size: 14px;
+}
+.device-updated {
+  flex: 1;
+  text-align: right;
+  font-size: 12px;
+}
+:root[data-theme] .device-layout {
+  grid-template-columns: var(--panel-width, 240px) minmax(0, 1fr);
+  margin: 0 4px 4px;
+  border: 3px solid var(--window-edge);
+  border-radius: 8px;
+  background: var(--window-screen);
+  box-shadow: var(--window-screen-shadow);
+  overflow: hidden;
+}
+:root[data-theme] .device-system {
+  border: 0;
+  padding: 8px 14px 20px;
+}
+:root[data-theme] .device-console {
+  border-left: 6px solid var(--window-shell);
+  background: transparent;
+}
+.device-section-heading {
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.device-section-heading h3 {
+  font-size: 14px;
+}
+.device-section-heading > span {
+  font-size: 11px;
+}
+.device-specs dt {
+  flex-shrink: 1;
+}
+.device-specs > div {
+  gap: 8px;
+}
+.device-meter > span {
+  flex-wrap: wrap;
+}
+:root[data-theme] .device-console-heading {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 48px;
+  flex: none;
+  padding: 2px 4px;
+  background: transparent;
+  color: var(--ink);
+}
+:root[data-theme] .device-console-heading select {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  appearance: auto;
+  padding: 4px;
+  width: 0;
+  min-height: 44px;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: none;
+}
+.device-terminal-status {
+  display: flex;
+  align-items: center;
+  flex: 0 1 auto;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  font-size: 11px;
+  max-width: 180px;
+}
+.device-terminal-status > span {
+  overflow-wrap: anywhere;
+}
+.device-terminal-status button {
+  flex-shrink: 0;
+}
+.device-console-heading .icon-button {
+  min-width: 44px;
+  min-height: 44px;
+}
+.device-restore {
+  display: none;
+}
+.device-mobile-tabs {
+  display: none;
+}
+.device-os small {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+@container (min-width: 641px) {
+  .device-mobile-tabs {
+    display: none;
   }
-  [data-keyboard="true"] .devices-workspace {
+  .device-layout[data-page] .device-system {
+    display: block;
+  }
+  .device-layout[data-page] .device-console {
+    display: flex;
+  }
+  .device-layout[data-collapsed="true"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .device-layout[data-page][data-collapsed="true"] .device-system {
+    display: none;
+  }
+  .device-layout[data-collapsed="true"] .device-console {
+    border-left: 0;
+  }
+  .device-layout[data-collapsed="true"] .device-restore {
+    display: inline-flex;
+  }
+}
+.device-menu {
+  position: relative;
+  flex: none;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.device-menu-items {
+  position: absolute;
+  z-index: 12;
+  top: calc(100% + 4px);
+  right: 0;
+  width: 280px;
+  max-width: calc(100cqw - 32px);
+  padding: 6px;
+  margin: 0;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 8px 24px #0005;
+}
+.device-menu-items .device-actions {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  gap: 4px;
+}
+:root[data-theme] .devices-workspace .device-menu-items button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  text-align: left;
+  white-space: normal;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  box-shadow: none;
+}
+:root[data-theme] .devices-workspace .device-menu-items button:hover {
+  background: var(--soft);
+}
+.device-menu-items .device-muted {
+  margin: 6px;
+}
+:root[data-theme] .device-terminal-keys {
+  display: flex;
+  flex: none;
+  flex-wrap: nowrap;
+  background: var(--window-shell);
+  color: var(--window-ink);
+  border: 0;
+  gap: 6px;
+  padding: 6px;
+  overflow: visible;
+}
+.device-terminal-keys button {
+  padding: 6px 8px;
+}
+.device-terminal-entry {
+  overflow-y: auto;
+  max-height: 65%;
+  background: var(--paper);
+}
+.device-terminal-entry textarea { width: 100%; }
+.device-terminal-extra {
+  padding-top: 0;
+}
+.device-error {
+  background: var(--paper);
+  overflow: auto;
+  max-height: 100px;
+}
+@container (max-width: 640px) {
+  .device-updated {
+    display: none;
+  }
+  .device-choice {
+    max-width: none;
+  }
+  .devices-heading {
+    gap: 6px;
+  }
+  .device-mobile-tabs {
+    display: flex;
+    flex: none;
+    margin: 0 4px 6px;
+    border: 0;
+    color: var(--window-ink);
+  }
+  .device-mobile-tabs button {
+    flex: 1;
+    min-height: 44px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    box-shadow: none;
+  }
+  .device-mobile-tabs button[aria-pressed="true"] {
+    background: var(--window-pressed);
+    box-shadow: inset 0 -3px var(--accent);
+    color: var(--window-ink);
+  }
+  :root[data-theme] .device-layout {
+    display: flex;
+  }
+  .device-layout[data-page="info"] .device-console,
+  .device-layout[data-page="terminal"] .device-system {
+    display: none;
+  }
+  :root[data-theme] .device-system,
+  :root[data-theme] .device-console {
+    width: 100%;
+    border: 0;
+  }
+  .device-collapse,
+  .device-restore {
+    display: none;
+  }
+  .device-terminal-status {
+    max-width: 96px;
+  }
+  :root[data-theme] .device-console-heading {
+    gap: 0;
+    padding: 2px;
+  }
+  :root[data-theme] .device-terminal-keys {
+    gap: 2px;
+    padding: 4px 2px;
+  }
+  :root[data-theme] .device-terminal-keys button {
+    flex: 1;
+    padding: 6px 2px;
+    font-size: 12px;
+  }
+  .device-terminal-screen {
+    padding-inline: 6px;
+  }
+}
+@media (max-width: 700px) {
+  :root[data-theme] .devices-workspace {
+    inset: var(--app-top, 0px) 0 auto;
+    width: 100%;
+    height: var(--app-height, 100dvh);
+    padding: max(4px, env(safe-area-inset-top)) 4px max(4px, env(safe-area-inset-bottom));
+    border-radius: 12px;
+  }
+  :root[data-theme][data-keyboard="true"] .devices-workspace {
     padding-bottom: 0;
   }
 }
-@media (max-width: 700px) and (max-height: 560px) {
-  .devices-workspace:has(.device-layout[data-page="terminal"]) .device-picker,
-  .devices-workspace:has(.device-layout[data-page="terminal"]) .device-mobile-tabs {
-    display: none;
+@media (max-height: 560px) {
+  @container (max-width: 640px) {
+    .devices-workspace:has(.device-layout[data-page="terminal"]) .device-picker,
+    .devices-workspace:has(.device-layout[data-page="terminal"]) .device-mobile-tabs {
+      display: none;
+    }
   }
-  .device-terminal-status { min-height: 24px; flex: none; }
-  .device-terminal-entry { max-height: 65%; overflow-y: auto; }
 }

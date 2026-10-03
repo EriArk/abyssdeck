@@ -1,6 +1,6 @@
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { AutoTextarea } from "./AutoTextarea";
 import { workspaceSocket } from "./accountStorage.ts";
 import { ApiError, api } from "./api";
@@ -8,7 +8,21 @@ import { Icon } from "./icons";
 import { terminalFormInput } from "./terminalInput";
 import "@xterm/xterm/css/xterm.css";
 
-export function DeviceTerminal({ id, onExit }: { id: string; onExit: () => void }) {
+export function DeviceTerminal({
+  id,
+  onExit,
+  sessionPicker,
+  actions,
+  initialCommand = "",
+  onCommandChange,
+}: {
+  id: string;
+  onExit: () => void;
+  sessionPicker?: ReactNode;
+  actions?: ReactNode;
+  initialCommand?: string;
+  onCommandChange?: (value: string) => void;
+}) {
   const host = useRef<HTMLElement>(null),
     termRef = useRef<Terminal | null>(null),
     socketRef = useRef<WebSocket | null>(null),
@@ -25,7 +39,14 @@ export function DeviceTerminal({ id, onExit }: { id: string; onExit: () => void 
   const [pasting, setPasting] = useState(false);
   const [pasteHint, setPasteHint] = useState("");
   const [entry, setEntry] = useState<"command" | "password" | null>(null);
-  const [command, setCommand] = useState("");
+  const [command, updateCommand] = useState(initialCommand);
+  const [extraKeys, setExtraKeys] = useState(false);
+  const setCommand = (value: string) => {
+    updateCommand(value);
+    onCommandChange?.(value);
+  };
+  // The lifecycle, not a value read, invalidates clipboard promises.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: switching input/session/connection invalidates late clipboard reads.
   useEffect(() => {
     pasteRequest.current++;
     setPasting(false);
@@ -77,25 +98,41 @@ export function DeviceTerminal({ id, onExit }: { id: string; onExit: () => void 
     term.open(host.current);
     termRef.current = term;
     const screen = host.current;
-    const reading = () => setReadingHistory(term.buffer.active.viewportY < term.buffer.active.baseY);
+    const reading = () =>
+      setReadingHistory(term.buffer.active.viewportY < term.buffer.active.baseY);
     const scroll = term.onScroll(reading);
     const parsed = term.onWriteParsed(reading);
-    let gesture: { id: number; x: number; y: number; line: number; height: number; moved: boolean } | undefined;
+    let gesture:
+      | { id: number; x: number; y: number; line: number; height: number; moved: boolean }
+      | undefined;
     const touchStart = (event: TouchEvent) => {
       gesture = undefined;
       if (event.touches.length !== 1 || (event.target as Element).closest(".scrollbar")) return;
       const point = event.touches[0];
       const height = screen.querySelector(".xterm-screen")?.getBoundingClientRect().height ?? 0;
       if (!point || !height) return;
-      gesture = { id: point.identifier, x: point.clientX, y: point.clientY,
-        line: term.buffer.active.viewportY, height: height / term.rows, moved: false };
+      gesture = {
+        id: point.identifier,
+        x: point.clientX,
+        y: point.clientY,
+        line: term.buffer.active.viewportY,
+        height: height / term.rows,
+        moved: false,
+      };
     };
     const touchMove = (event: TouchEvent) => {
-      if (!gesture || event.touches.length !== 1) { gesture = undefined; return; }
+      if (!gesture || event.touches.length !== 1) {
+        gesture = undefined;
+        return;
+      }
       const point = event.touches[0];
       if (!point || point.identifier !== gesture.id) return;
       const dy = gesture.y - point.clientY;
-      if (!gesture.moved && (Math.abs(dy) < 6 || Math.abs(dy) < Math.abs(gesture.x - point.clientX))) return;
+      if (
+        !gesture.moved &&
+        (Math.abs(dy) < 6 || Math.abs(dy) < Math.abs(gesture.x - point.clientX))
+      )
+        return;
       gesture.moved = true;
       // xterm 6's custom scrollbar handles the rail, but does not provide touch
       // panning across the output. Scroll only the local buffer, never emit keys.
@@ -104,7 +141,10 @@ export function DeviceTerminal({ id, onExit }: { id: string; onExit: () => void 
       term.scrollToLine(Math.max(0, Math.round(gesture.line + dy / gesture.height)));
     };
     const touchEnd = (event: TouchEvent) => {
-      if (gesture?.moved) { event.preventDefault(); event.stopImmediatePropagation(); }
+      if (gesture?.moved) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
       gesture = undefined;
     };
     screen.addEventListener("touchstart", touchStart, { capture: true, passive: true });
@@ -316,25 +356,34 @@ export function DeviceTerminal({ id, onExit }: { id: string; onExit: () => void 
   };
   return (
     <div className="device-terminal">
-      <div className="device-terminal-status">
-        <span className={connected ? "online" : ""}>{status}</span>
-        {readingHistory && (
-          <button type="button" className="icon-button" aria-label="К последнему выводу"
-            title="К последнему выводу" onClick={() => termRef.current?.scrollToBottom()}>
-            <Icon name="arrow-down" size={17} />
-          </button>
-        )}
-        {failed && (
-          <button
-            type="button"
-            className="icon-button"
-            title="Подключиться снова"
-            aria-label="Подключиться снова"
-            onClick={() => retryRef.current()}
-          >
-            <Icon name="refresh" size={17} />
-          </button>
-        )}
+      <div className="device-console-heading">
+        {sessionPicker}
+        <div className="device-terminal-status">
+          <span className={connected ? "online" : ""}>{status}</span>
+          {readingHistory && (
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="К последнему выводу"
+              title="К последнему выводу"
+              onClick={() => termRef.current?.scrollToBottom()}
+            >
+              <Icon name="arrow-down" size={17} />
+            </button>
+          )}
+          {failed && (
+            <button
+              type="button"
+              className="icon-button"
+              title="Подключиться снова"
+              aria-label="Подключиться снова"
+              onClick={() => retryRef.current()}
+            >
+              <Icon name="refresh" size={17} />
+            </button>
+          )}
+        </div>
+        {actions}
       </div>
       <section className="device-terminal-screen" ref={host} aria-label="Терминал устройства" />
       {entry && (
@@ -351,7 +400,7 @@ export function DeviceTerminal({ id, onExit }: { id: string; onExit: () => void 
             if (!connected || socketRef.current?.readyState !== 1) return;
             const value = entry === "password" ? (secretRef.current?.value ?? "") : command;
             if (secretRef.current) secretRef.current.value = "";
-            setCommand("");
+            if (entry === "command") setCommand("");
             setEntry(null);
             input(terminalFormInput(value));
           }}
@@ -445,19 +494,47 @@ export function DeviceTerminal({ id, onExit }: { id: string; onExit: () => void 
         </button>
         {[
           ["Enter", "\r"],
-          ["Esc", "\u001b"],
-          ["Tab", "\t"],
           ["Ctrl C", "\u0003"],
-          ["↑", "\u001b[A"],
-          ["↓", "\u001b[B"],
-          ["←", "\u001b[D"],
-          ["→", "\u001b[C"],
         ].map(([label, key]) => (
           <button type="button" key={label} disabled={!connected} onClick={() => input(key ?? "")}>
             {label}
           </button>
         ))}
+        <button
+          type="button"
+          aria-label="Другие клавиши"
+          title="Другие клавиши"
+          aria-expanded={extraKeys}
+          onClick={() => setExtraKeys((v) => !v)}
+        >
+          <Icon name={extraKeys ? "arrow-down" : "arrow-up"} size={18} />
+        </button>
       </div>
+      {extraKeys && (
+        <div
+          className="device-terminal-keys device-terminal-extra"
+          role="toolbar"
+          aria-label="Дополнительные клавиши терминала"
+        >
+          {[
+            ["Esc", "\u001b"],
+            ["Tab", "\t"],
+            ["↑", "\u001b[A"],
+            ["↓", "\u001b[B"],
+            ["←", "\u001b[D"],
+            ["→", "\u001b[C"],
+          ].map(([label, key]) => (
+            <button
+              type="button"
+              key={label}
+              disabled={!connected}
+              onClick={() => input(key ?? "")}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

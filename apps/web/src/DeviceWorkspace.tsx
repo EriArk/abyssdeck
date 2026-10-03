@@ -4,15 +4,84 @@ import type {
   DeviceSnapshot,
   DeviceTerminalInfo,
 } from "@codex-web/shared";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { accountLocalStorage as localStorage } from "./accountStorage.ts";
 import { api } from "./api";
 import { DeviceTerminal } from "./DeviceTerminal";
 import { Icon } from "./icons";
 import { PanelDivider } from "./PanelDivider";
 import { useWindowGeometry } from "./useWindowGeometry";
+import { HelpButton } from "./WorkspaceHelp";
 import { useWindowDismiss } from "./windowMotion";
 import "./devices.css";
+
+function DeviceMenu({
+  label,
+  children,
+  disabled,
+}: {
+  label: string;
+  children: ReactNode;
+  disabled?: boolean;
+}) {
+  const root = useRef<HTMLFieldSetElement>(null);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const focusTarget =
+      root.current?.querySelector<HTMLElement>(".device-menu-items button:not(:disabled)") ??
+      root.current;
+    focusTarget?.focus();
+    const outside = (event: PointerEvent) => {
+      if (!root.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", outside);
+    return () => document.removeEventListener("pointerdown", outside);
+  }, [open]);
+  return (
+    <fieldset
+      className="device-menu"
+      aria-label={label}
+      ref={root}
+      tabIndex={-1}
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && open) {
+          event.preventDefault();
+          event.stopPropagation();
+          setOpen(false);
+          root.current?.querySelector<HTMLButtonElement>("button")?.focus();
+        }
+      }}
+    >
+      <button
+        type="button"
+        className="icon-button"
+        aria-label={label}
+        title={label}
+        aria-expanded={open}
+        disabled={disabled}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <Icon name="more" />
+      </button>
+      {open && (
+        // biome-ignore lint/a11y/useKeyWithClickEvents: native button activation bubbles here, including keyboard clicks.
+        <fieldset
+          className="device-menu-items"
+          aria-label={label}
+          onClick={(event) => {
+            if ((event.target as HTMLElement).closest("button")) {
+              setOpen(false);
+              root.current?.querySelector<HTMLButtonElement>("button")?.focus();
+            }
+          }}
+        >
+          {children}
+        </fieldset>
+      )}
+    </fieldset>
+  );
+}
 
 const bytes = (v: number) =>
   v >= 1024 ** 4
@@ -45,12 +114,53 @@ export default function DeviceWorkspace({
     });
   const [snapshot, setSnapshot] = useState<DeviceSnapshot>(),
     [sessions, setSessions] = useState<DeviceTerminalInfo[]>([]),
-    [terminal, setTerminal] = useState("");
-  const [page, setPage] = useState<"info" | "terminal">(terminalDeviceId ? "terminal" : "info"),
+    [terminal, updateTerminal] = useState("");
+  const views = useRef(new Map<string, { page: "info" | "terminal"; terminal: string }>());
+  const drafts = useRef(new Map<string, string>());
+  const snapshots = useRef(new Map<string, DeviceSnapshot>());
+  const rememberSnapshot = useCallback((id: string, value: DeviceSnapshot) => {
+    const previous = snapshots.current.get(id);
+    const next =
+      !value.online && previous?.os
+        ? { ...previous, online: false, checkedAt: value.checkedAt, error: value.error }
+        : value;
+    snapshots.current.set(id, next);
+    setSnapshot(next);
+  }, []);
+  const [page, updatePage] = useState<"info" | "terminal">(terminalDeviceId ? "terminal" : "info"),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [refresh, setRefresh] = useState(0),
-    [action, setAction] = useState<"restart" | "shutdown" | "mount" | null>(null);
+    [action, setAction] = useState<"restart" | "shutdown" | "mount" | "end" | null>(null);
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem("codex-device-summary-collapsed") === "true";
+    } catch {
+      return false;
+    }
+  });
+  const setPage = (value: "info" | "terminal") => {
+    views.current.set(selected, {
+      terminal: views.current.get(selected)?.terminal ?? terminal,
+      page: value,
+    });
+    updatePage(value);
+  };
+  const setTerminal = (value: string) => {
+    views.current.set(selected, {
+      page: views.current.get(selected)?.page ?? page,
+      terminal: value,
+    });
+    updateTerminal(value);
+  };
+  const toggleSummary = () => {
+    setCollapsed((v) => {
+      try {
+        localStorage.setItem("codex-device-summary-collapsed", String(!v));
+      } catch {}
+      return !v;
+    });
+  };
   const [source, setSource] = useState(""),
     [mountName, setMountName] = useState(""),
     [protocol, setProtocol] = useState<"smb" | "nfs">("smb"),
@@ -83,7 +193,11 @@ export default function DeviceWorkspace({
   useEffect(() => {
     if (terminalDeviceId) {
       setSelected(terminalDeviceId);
-      setPage("terminal");
+      views.current.set(terminalDeviceId, {
+        page: "terminal",
+        terminal: views.current.get(terminalDeviceId)?.terminal ?? "",
+      });
+      updatePage("terminal");
     }
   }, [terminalDeviceId]);
   useEffect(() => {
@@ -116,10 +230,11 @@ export default function DeviceWorkspace({
     return () => controller.abort();
   }, [terminalDeviceId]);
   useEffect(() => {
-    setSnapshot(undefined);
+    setSnapshot(snapshots.current.get(selected));
     setSessions([]);
     setLoadedDevice("");
-    setTerminal("");
+    updateTerminal("");
+    updatePage(views.current.get(selected)?.page ?? "info");
     setAction(null);
     setError("");
     if (!selected) return;
@@ -127,15 +242,23 @@ export default function DeviceWorkspace({
       localStorage.setItem("codex-device", selected);
     } catch {}
     const controller = new AbortController();
+    let reading = false;
     const read = () => {
-      if (document.hidden) return;
+      if (document.hidden || reading) return;
+      reading = true;
       void api<DeviceSnapshot>(`/devices/${selected}/snapshot`, {
         signal: controller.signal,
         timeoutMs: 20000,
       })
-        .then(setSnapshot)
+        .then((value) => {
+          if (controller.signal.aborted) return;
+          rememberSnapshot(selected, value);
+        })
         .catch((e) => {
           if (!controller.signal.aborted) setError(e.message);
+        })
+        .finally(() => {
+          reading = false;
         });
     };
     read();
@@ -145,9 +268,11 @@ export default function DeviceWorkspace({
       signal: controller.signal,
     })
       .then((r) => {
+        if (controller.signal.aborted) return;
         setSessions(r.terminals);
+        const saved = r.terminals.find((t) => t.id === views.current.get(selected)?.terminal);
         const open = r.terminals.find((t) => t.state === "open");
-        setTerminal(open?.id ?? "");
+        updateTerminal(saved?.id ?? open?.id ?? "");
         setLoadedDevice(selected);
       })
       .catch((e) => {
@@ -158,7 +283,7 @@ export default function DeviceWorkspace({
       clearInterval(timer);
       document.removeEventListener("visibilitychange", read);
     };
-  }, [selected]);
+  }, [selected, rememberSnapshot]);
   useEffect(() => {
     if (!selected || refresh === 0) return;
     const controller = new AbortController();
@@ -169,14 +294,15 @@ export default function DeviceWorkspace({
       }),
     ])
       .then(([s, t]) => {
-        setSnapshot(s);
+        if (controller.signal.aborted) return;
+        rememberSnapshot(selected, s);
         setSessions(t.terminals);
       })
       .catch((e) => {
         if (!controller.signal.aborted) setError(e.message);
       });
     return () => controller.abort();
-  }, [refresh, selected]);
+  }, [refresh, selected, rememberSnapshot]);
   const create = useCallback(
     async (value: DeviceAction) => {
       if (!current || busy || closing) return;
@@ -199,8 +325,9 @@ export default function DeviceWorkspace({
         pending.current = null;
         if (selection.current === id) {
           setSessions((v) => [result, ...v.filter((t) => t.id !== result.id)].slice(0, 12));
-          setTerminal(result.id);
-          setPage("terminal");
+          views.current.set(id, { page: "terminal", terminal: result.id });
+          updateTerminal(result.id);
+          updatePage("terminal");
           setAction(null);
         }
       } catch (e) {
@@ -217,6 +344,7 @@ export default function DeviceWorkspace({
     setError("");
     try {
       await api(`/device-terminals/${terminal}`, { method: "DELETE" });
+      setAction(null);
       setRefresh((v) => v + 1);
     } catch (e) {
       setError((e as Error).message);
@@ -237,9 +365,64 @@ export default function DeviceWorkspace({
     automatic.current = terminalDeviceId;
     if (!terminal) void create({ kind: "shell" });
   }, [terminalDeviceId, selected, loadedDevice, current, busy, terminal, create]);
+  const sessionPicker = (
+    <>
+      <button
+        type="button"
+        className="icon-button device-restore"
+        aria-label="Показать сведения"
+        title="Показать сведения"
+        onClick={toggleSummary}
+      >
+        <Icon name="chevron" size={18} />
+      </button>
+      <select
+        aria-label="Сессия терминала"
+        value={terminal}
+        onChange={(e) => setTerminal(e.target.value)}
+      >
+        <option value="">Терминалы</option>
+        {sessions.map((t) => (
+          <option key={t.id} value={t.id}>
+            {t.title} ·{" "}
+            {new Date(t.createdAt).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+            {t.state === "closed" ? " · завершён" : ""}
+          </option>
+        ))}
+      </select>
+    </>
+  );
+  const terminalActions = (
+    <>
+      <button
+        type="button"
+        className="icon-button"
+        disabled={busy || closing || !current}
+        aria-label="Новый терминал"
+        title="Новый терминал"
+        onClick={() => void create({ kind: "shell" })}
+      >
+        <Icon name="plus" />
+      </button>
+      <DeviceMenu key={terminal} label="Действия терминала" disabled={busy || closing || !terminal}>
+        <button
+          type="button"
+          disabled={sessions.find((t) => t.id === terminal)?.state !== "open"}
+          onClick={() => setAction("end")}
+        >
+          <Icon name="stop" size={18} />
+          Завершить терминал
+        </button>
+      </DeviceMenu>
+    </>
+  );
   return (
     <dialog
       className="devices-workspace"
+      data-help-context="terminal-input"
       ref={dialog}
       tabIndex={-1}
       aria-label="Устройства"
@@ -251,6 +434,7 @@ export default function DeviceWorkspace({
       <header className="devices-heading">
         <Icon name="terminal" />
         <h2>Устройства</h2>
+        <HelpButton topic="terminal-input" />
         <button
           type="button"
           className="icon-button"
@@ -262,31 +446,78 @@ export default function DeviceWorkspace({
         </button>
       </header>
       <nav className="device-picker" aria-label="Выбор устройства">
-        {devices.map((d) => (
-          <button
-            type="button"
-            key={d.id}
-            className={d.id === selected ? "selected" : ""}
-            aria-pressed={d.id === selected}
-            disabled={busy}
-            onClick={() => {
-              setSelected(d.id);
-              setPage("info");
-            }}
+        <label className="device-choice">
+          <Icon name={current?.platform === "windows" ? "remote" : "server"} size={20} />
+          <select
+            aria-label="Устройство"
+            value={selected}
+            disabled={busy || closing}
+            title={current?.name}
+            onChange={(e) => setSelected(e.target.value)}
           >
-            <Icon name={d.platform === "windows" ? "remote" : "server"} />
-            <span>
-              {d.name}
-              <small>
+            {!current && <option value={selected}>Выбери устройство</option>}
+            {devices.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name} ·{" "}
                 {d.platform === "windows"
                   ? "Windows"
                   : d.platform === "linux"
                     ? "Linux"
                     : "Android"}
-              </small>
-            </span>
-          </button>
-        ))}
+              </option>
+            ))}
+          </select>
+        </label>
+        <span className="device-updated">
+          {snapshot
+            ? `${snapshot.online ? "Обновлено" : "Проверено"} ${new Date(snapshot.checkedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+            : ""}
+        </span>
+        <button
+          type="button"
+          className="icon-button"
+          title="Обновить устройство"
+          aria-label="Обновить устройство"
+          onClick={() => setRefresh((v) => v + 1)}
+        >
+          <Icon name="refresh" />
+        </button>
+        <DeviceMenu
+          key={selected}
+          label="Действия устройства"
+          disabled={busy || closing || !current}
+        >
+          <div className="device-actions">
+            {current?.mounts && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setAction("mount");
+                  setMountName(current.platform === "windows" ? "Z" : "share");
+                }}
+              >
+                <Icon name="folder" size={18} />
+                Сетевой диск
+              </button>
+            )}
+            {current?.power && (
+              <>
+                <button type="button" disabled={busy} onClick={() => setAction("restart")}>
+                  <Icon name="rotate" size={18} />
+                  Перезагрузка
+                </button>
+                <button type="button" disabled={busy} onClick={() => setAction("shutdown")}>
+                  <Icon name="power" size={18} />
+                  Выключение
+                </button>
+              </>
+            )}
+          </div>
+          {current && !current.power && !current.mounts && (
+            <p className="device-muted">Для этой машины нет дополнительных действий.</p>
+          )}
+        </DeviceMenu>
       </nav>
       {error && (
         <div className="device-error" role="alert">
@@ -309,33 +540,37 @@ export default function DeviceWorkspace({
               Терминал
             </button>
           </nav>
-          <div className="device-layout" data-page={page}>
+          <div className="device-layout" data-page={page} data-collapsed={collapsed}>
             <PanelDivider
               target=".device-system"
               peer=".device-console"
               storageKey="devices"
               label="Ширина сведений об устройстве"
-              min={240}
-              max={460}
+              min={200}
+              max={380}
               peerMin={300}
             />
             <section className="device-system">
               <div className="device-section-heading">
-                <h3>{current?.name}</h3>
+                <h3>Система</h3>
                 <span className={snapshot?.online ? "online" : ""}>
                   {snapshot ? (snapshot.online ? "В сети" : "Недоступно") : "Проверяем…"}
                 </span>
                 <button
                   type="button"
-                  className="icon-button"
-                  aria-label="Обновить устройство"
-                  onClick={() => setRefresh((v) => v + 1)}
+                  className="icon-button device-collapse"
+                  aria-label="Свернуть сведения"
+                  title="Свернуть сведения"
+                  onClick={toggleSummary}
                 >
-                  <Icon name="refresh" size={18} />
+                  <Icon name="back" size={18} />
                 </button>
               </div>
-              {snapshot?.online ? (
+              {snapshot?.os ? (
                 <>
+                  {!snapshot.online && (
+                    <p className="device-muted">Нет связи. Последние доступные сведения.</p>
+                  )}
                   <p className="device-os">
                     {snapshot.os}
                     <small>
@@ -412,88 +647,41 @@ export default function DeviceWorkspace({
               ) : (
                 snapshot && <p>{snapshot.error}</p>
               )}
-              <div className="device-actions">
-                {current?.mounts && (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => {
-                      setAction("mount");
-                      setMountName(current.platform === "windows" ? "Z" : "share");
-                    }}
-                  >
-                    <Icon name="folder" size={18} />
-                    Сетевой диск
-                  </button>
-                )}
-                {current?.power && (
-                  <>
-                    <button type="button" disabled={busy} onClick={() => setAction("restart")}>
-                      <Icon name="refresh" size={18} />
-                      Перезагрузка
-                    </button>
-                    <button type="button" disabled={busy} onClick={() => setAction("shutdown")}>
-                      <Icon name="power" size={18} />
-                      Выключение
-                    </button>
-                  </>
-                )}
-              </div>
             </section>
             <section className="device-console">
-              <div className="device-console-heading">
-                <select
-                  aria-label="Сессия терминала"
-                  value={terminal}
-                  onChange={(e) => setTerminal(e.target.value)}
-                >
-                  <option value="">Терминалы</option>
-                  {sessions.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.title} ·{" "}
-                      {new Date(t.createdAt).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                      {t.state === "closed" ? " · завершён" : ""}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  className="icon-button"
-                  disabled={busy}
-                  aria-label="Новый терминал"
-                  onClick={() => void create({ kind: "shell" })}
-                >
-                  <Icon name="plus" />
-                </button>
-                {sessions.find((t) => t.id === terminal)?.state === "open" && (
-                  <button
-                    type="button"
-                    className="icon-button"
-                    disabled={busy}
-                    aria-label="Завершить терминал"
-                    onClick={() => void end()}
-                  >
-                    <Icon name="stop" size={18} />
-                  </button>
-                )}
-              </div>
               {terminal ? (
-                <DeviceTerminal id={terminal} onExit={() => setRefresh((v) => v + 1)} />
+                <DeviceTerminal
+                  key={terminal}
+                  id={terminal}
+                  initialCommand={drafts.current.get(terminal) ?? ""}
+                  onCommandChange={(value) => {
+                    if (value) drafts.current.set(terminal, value);
+                    else drafts.current.delete(terminal);
+                  }}
+                  sessionPicker={sessionPicker}
+                  actions={terminalActions}
+                  onExit={() => setRefresh((v) => v + 1)}
+                />
               ) : (
-                <div className="device-terminal-empty">
-                  <Icon name="terminal" size={40} />
-                  <p>{current?.platform === "windows" ? "PowerShell на ПК" : "Терминал сервера"}</p>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void create({ kind: "shell" })}
-                  >
-                    {busy ? "Открываем…" : "Открыть терминал"}
-                  </button>
-                </div>
+                <>
+                  <div className="device-console-heading">
+                    {sessionPicker}
+                    {terminalActions}
+                  </div>
+                  <div className="device-terminal-empty">
+                    <Icon name="terminal" size={40} />
+                    <p>
+                      {current?.platform === "windows" ? "PowerShell на ПК" : "Терминал сервера"}
+                    </p>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void create({ kind: "shell" })}
+                    >
+                      {busy ? "Открываем…" : "Открыть терминал"}
+                    </button>
+                  </div>
+                </>
               )}
             </section>
           </div>
@@ -515,6 +703,10 @@ export default function DeviceWorkspace({
             className="device-action-dialog"
             onSubmit={(e) => {
               e.preventDefault();
+              if (action === "end") {
+                void end();
+                return;
+              }
               void create(
                 action === "mount"
                   ? {
@@ -534,7 +726,9 @@ export default function DeviceWorkspace({
                 ? "Подключить сетевой диск"
                 : action === "restart"
                   ? "Перезагрузить"
-                  : "Выключить"}{" "}
+                  : action === "end"
+                    ? "Завершить терминал"
+                    : "Выключить"}{" "}
               · {current.name}
             </h3>
             {action === "mount" ? (
@@ -579,7 +773,11 @@ export default function DeviceWorkspace({
                 {current.platform === "windows" && <p>Диск подключится для удалённой сессии ПК.</p>}
               </>
             ) : (
-              <p>Работающие программы и задачи на этом устройстве будут остановлены.</p>
+              <p>
+                {action === "end"
+                  ? "Сессия терминала и запущенная в ней команда будут завершены."
+                  : "Работающие программы и задачи на этом устройстве будут остановлены."}
+              </p>
             )}
             <footer>
               <button type="button" disabled={busy} onClick={() => setAction(null)}>
@@ -596,7 +794,9 @@ export default function DeviceWorkspace({
                     ? "Подключить"
                     : action === "restart"
                       ? "Перезагрузить"
-                      : "Выключить"}
+                      : action === "end"
+                        ? "Завершить"
+                        : "Выключить"}
               </button>
             </footer>
           </form>

@@ -11,6 +11,7 @@ export type HelpTopic =
   | "results"
   | "files"
   | "editor"
+  | "terminal-input"
   | "shared"
   | "brainstorm"
   | "activity";
@@ -23,6 +24,7 @@ const isTopic = (value: unknown): value is HelpTopic =>
     "results",
     "files",
     "editor",
+    "terminal-input",
     "shared",
     "brainstorm",
     "activity",

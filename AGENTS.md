@@ -1,5 +1,17 @@
 # AGENTS.md
 
+## Owner-approved Devices layout (2026-10-03)
+
+- The owner approved implementing the Devices study with “Продолжаем”. Use the
+  shared themed casing, compact machine selection, adjustable/collapsible system
+  summary alongside the terminal on wide layouts and System/Terminal tabs in
+  narrow windows. Keep device actions separate from session actions in compact menus.
+- Preserve existing terminal rendering, transport, input, close/release and dock
+  lifecycles. Restore each device's selected tab/session and keep command drafts
+  isolated by terminal; never retain passwords or replay input on navigation.
+- Track source, browser evidence and actual web publication separately. Do not
+  restart engine, GPT or Companion for this compatible presentation change.
+
 ## Owner-authorized recovery restart of broken GPT (2026-10-03)
 
 - The owner permits restarting the server GPT client when it is genuinely hung or
