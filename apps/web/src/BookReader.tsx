@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { accountLocalStorage as storage } from "./accountStorage";
 import { api } from "./api";
 import type { ReadingDocument } from "./bookReader/document";
+import { type ReaderLocation, type ReaderMatch, validLocation } from "./bookReader/navigation";
 import type { Position, SpeechPage, VoiceInfo } from "./bookReader/page-voice";
 import {
   type Anchor,
@@ -14,7 +15,9 @@ import {
 } from "./bookReader/pages";
 import { PrivatePageVoice, speechTransport } from "./bookReader/speech";
 import { BrowserSpeech, chunks, VoiceController } from "./bookReader/voice-reader";
+import { Icon } from "./icons";
 import { claimSpeech } from "./MessageSpeech";
+import { ReaderNavigation } from "./ReaderNavigation";
 import "./book-reader.css";
 
 type Preferences = { size: number; line: number; rate: number; engine: "server" | "browser" };
@@ -37,11 +40,14 @@ type Controls = {
   play(): void;
   stop(): void;
   configure(prefs: Preferences): void;
+  position(): ReaderLocation & { excerpt: string };
+  jump(location: ReaderLocation, hit?: ReaderMatch): Promise<boolean>;
 };
 export function BookReader({ document: book }: { document: ReadingDocument }) {
   const root = useRef<HTMLDivElement>(null),
     viewport = useRef<HTMLDivElement>(null),
-    article = useRef<HTMLElement>(null);
+    article = useRef<HTMLElement>(null),
+    highlight = useRef<HTMLDivElement>(null);
   const controls = useRef<Controls | null>(null);
   const [prefs, setPrefs] = useState(preferences),
     [settings, setSettings] = useState(false);
@@ -54,6 +60,7 @@ export function BookReader({ document: book }: { document: ReadingDocument }) {
     voice: "idle",
     error: "",
   });
+  const [navigation, setNavigation] = useState<"search" | "bookmarks" | null>(null);
   const initialPrefs = useRef(prefs);
   initialPrefs.current = prefs;
   useEffect(() => {
@@ -108,8 +115,38 @@ export function BookReader({ document: book }: { document: ReadingDocument }) {
       p.layout(null);
       return { viewport: v, article: a, blocks: b, pages: p, dispose: () => v.remove() };
     };
+    let hit: ReaderMatch | undefined;
+    const paintHit = () => {
+      const layer = highlight.current;
+      if (!layer) return;
+      layer.replaceChildren();
+      if (!hit || hit.chapter !== chapter || loading) return;
+      const range = anchorRange(hit.anchor, hit.anchor.char, blocks);
+      const end = anchorRange(hit.end, hit.end.char, blocks);
+      if (!range || !end) return;
+      range.setEnd(end.endContainer, end.endOffset);
+      const box = pane.getBoundingClientRect();
+      for (const rect of Array.from(range.getClientRects()).slice(0, 200)) {
+        if (
+          rect.right <= box.left ||
+          rect.left >= box.right ||
+          rect.bottom <= box.top ||
+          rect.top >= box.bottom
+        )
+          continue;
+        const mark = document.createElement("i");
+        Object.assign(mark.style, {
+          left: `${rect.left - box.left}px`,
+          top: `${rect.top - box.top}px`,
+          width: `${rect.width}px`,
+          height: `${rect.height}px`,
+        });
+        layer.append(mark);
+      }
+    };
     const update = () => {
       if (disposed) return;
+      paintHit();
       const position = index.position(chapter, pages?.spreadStart || 0);
       const end = pages ? pages.spreadEnd - pages.spreadStart : 0;
       setState({
@@ -238,7 +275,16 @@ export function BookReader({ document: book }: { document: ReadingDocument }) {
       if (pos?.book === book.id && pos.chapter === chapter) anchor = pos.anchor;
       anchor = pages.layout(anchor);
       update();
-      return { book: book.id, chapter, ...pages.bounds(), layout: key() };
+      const bounds = pages.bounds();
+      return {
+        book: book.id,
+        chapter,
+        ...bounds,
+        anchor: { ...anchor },
+        empty:
+          bounds.empty || (anchor.block === bounds.end.block && anchor.char === bounds.end.char),
+        layout: key(),
+      };
     };
     const nextPage = async (previous: SpeechPage): Promise<SpeechPage | null> => {
       if (disposed || previous.layout !== key()) return null;
@@ -411,8 +457,41 @@ export function BookReader({ document: book }: { document: ReadingDocument }) {
         }
         if (!voice) setupVoice();
         claimSpeech(owner);
-        if (voiceStatus === "idle" || voiceStatus === "ended") anchor = pages.firstAnchor();
         voice?.play();
+      },
+      position: () => ({
+        chapter,
+        anchor: { ...anchor },
+        excerpt: (
+          blocks[anchor.block]?.text.slice(anchor.char, anchor.char + 180) ||
+          book.titles[chapter] ||
+          ""
+        )
+          .replace(/\s+/gu, " ")
+          .trim(),
+      }),
+      jump: async (location, match) => {
+        if (disposed || sessionEnded || loading || !validLocation(location, book.titles.length))
+          return false;
+        const was = voiceStatus;
+        voice?.stop();
+        if (location.chapter !== chapter && !(await load(location.chapter, location.anchor)))
+          return false;
+        if (
+          disposed ||
+          sessionEnded ||
+          !pages ||
+          !blocks[location.anchor.block] ||
+          location.anchor.char > blocks[location.anchor.block]!.text.length
+        )
+          return false;
+        hit = match;
+        anchor = pages.layout(location.anchor);
+        update();
+        save();
+        if (was === "playing" || was === "loading") voice?.play();
+        else if (was === "paused") voiceState("paused");
+        return true;
       },
       configure: (next) => {
         const switched = next.engine !== currentPrefs.engine;
@@ -488,6 +567,26 @@ export function BookReader({ document: book }: { document: ReadingDocument }) {
         >
           Aa
         </button>
+        <button
+          type="button"
+          className="icon-button"
+          aria-label="Поиск по книге"
+          title="Поиск по книге"
+          aria-expanded={navigation === "search"}
+          onClick={() => setNavigation(navigation === "search" ? null : "search")}
+        >
+          <Icon name="search" />
+        </button>
+        <button
+          type="button"
+          className="icon-button"
+          aria-label="Закладки книги"
+          title="Закладки"
+          aria-expanded={navigation === "bookmarks"}
+          onClick={() => setNavigation(navigation === "bookmarks" ? null : "bookmarks")}
+        >
+          <Icon name="results" />
+        </button>
       </div>
       {settings && (
         <div className="reader-settings">
@@ -556,7 +655,17 @@ export function BookReader({ document: book }: { document: ReadingDocument }) {
       </small>
       <div ref={viewport} className="reader-scroll" aria-busy={state.busy}>
         <article ref={article} />
+        <div ref={highlight} className="reader-search-highlight" aria-hidden="true" />
       </div>
+      <ReaderNavigation
+        key={book.id}
+        book={book}
+        mode={navigation}
+        busy={state.busy}
+        onClose={() => setNavigation(null)}
+        position={() => controls.current?.position()}
+        jump={(at, match) => controls.current?.jump(at, match) ?? Promise.resolve(false)}
+      />
       <nav className="reader-bottom" aria-label="Страницы книги">
         <button
           type="button"

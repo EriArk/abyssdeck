@@ -12,7 +12,7 @@
 }
 .reader-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 44px 44px;
+  grid-template-columns: minmax(0, 1fr) repeat(4, 44px);
   gap: 6px;
   padding: 6px;
   flex: none;
@@ -197,3 +197,51 @@
   flex: 1;
   min-height: 0;
 }
+
+/* Search/bookmarks overlay the page; opening them never changes speech page geometry. */
+.reader-navigation {
+  position: absolute;
+  inset: 58px 6px 58px;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 8px;
+  gap: 6px;
+  background: var(--screen, var(--surface));
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--control-radius, 6px);
+  box-shadow: var(--screen-shadow, inset 0 1px 4px #0004);
+}
+.reader-navigation-heading, .reader-search-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+.reader-search-form input { min-width: 0; width: 100%; min-height: 44px; }
+.reader-navigation > small { flex: none; padding-inline: 4px; }
+.reader-navigation-list { min-height: 0; flex: 1; overflow: auto; overscroll-behavior: contain; }
+.reader-navigation .reader-navigation-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  padding: 10px;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  box-shadow: none;
+  overflow-wrap: anywhere;
+}
+.reader-navigation-entry span { font-size: .9em; }
+.reader-navigation-entry:hover { background: var(--hover); }
+.reader-bookmark-row { display: grid; grid-template-columns: minmax(0, 1fr) 44px; align-items: center; gap: 6px; }
+.reader-bookmark-add { display: flex; align-items: center; justify-content: center; gap: 8px; flex: none; }
+.reader-search-highlight { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.reader-search-highlight i { position: absolute; background: var(--accent, var(--ink)); opacity: .3; }
