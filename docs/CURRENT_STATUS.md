@@ -26,7 +26,7 @@ TypeScript/build, scoped Biome и 18 Linux-проверок (включая пр
 исходные скачивания, ZIP, вложенную отправку, источник и сохранение раскрытия.
 Это автоматизированные проверки контролируемых данных, не физическая проверка iPad.
 Выпуск `b3c8666` установлен штатным engine-upgrader поверх `9d148c1` после idle admission
-и проверенного checkpoint. Engine и gateway healthy; HTTP entry и все 28 CSS совпали
+и проверенного checkpoint. Engine и gateway healthy; HTTP entry и все CSS совпали
 по SHA-256. Manifest `07c252f8b03ec1d3d3495563f70d01c3f17e6c19758b129e0dc1aca9690bf0c1`.
 68 остальных сервисов сохранили ID/образ/время запуска; Companion не менялся.
 Подготовка checkpoint шла до остановки; перерыв веб-доступа составил 49,3 с.
