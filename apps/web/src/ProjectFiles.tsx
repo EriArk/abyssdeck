@@ -96,6 +96,18 @@ export function ProjectFiles({
     [reveal, setReveal] = useState(""),
     [offset, setOffset] = useState(0),
     [revision, setRevision] = useState(0);
+  useEffect(() => {
+    const saved = (event: Event) => {
+      const source = (event as CustomEvent).detail?.source;
+      if (
+        typeof source === "string" &&
+        source.startsWith(`/api/projects/${projectId}/files/content?`)
+      )
+        setRevision((value) => value + 1);
+    };
+    window.addEventListener("workspace-file-saved", saved);
+    return () => window.removeEventListener("workspace-file-saved", saved);
+  }, [projectId]);
   const [directory, setDirectory] = useState<ProjectDirectory | null>(null),
     [git, setGit] = useState<ProjectGit | null>(null),
     [selected, setSelected] = useState("");
@@ -251,11 +263,6 @@ export function ProjectFiles({
       name={file.split("/").at(-1)}
       sourceRevision={revision}
       editLabel={capability ? "Редактировать" : "Разблокировать и редактировать"}
-      onEdit={
-        editableFile(file) && !(mode === "git" && staged)
-          ? (signal) => editFile(file, signal)
-          : undefined
-      }
     >
       <Icon name="file" />
       <span className={mode === "files" ? "file-action-label" : undefined}>Открыть файл</span>

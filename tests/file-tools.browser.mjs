@@ -11,6 +11,7 @@ for (const [engine, type] of [
   ["chromium", chromium],
   ["webkit", webkit],
 ]) {
+  if (process.env.BROWSER && process.env.BROWSER !== engine) continue;
   const origin = "http://127.0.0.1:18873",
     f = await handoffFixture(origin),
     root = await mkdtemp(join(tmpdir(), "file-editor-browser-"));
@@ -71,7 +72,7 @@ for (const [engine, type] of [
     await expect(composer).toBeVisible();
     await composer.fill("Сохранить чат");
     const pane = page.locator(".project-files[open]"),
-      editor = page.locator(".file-editor[open]"),
+      editor = page.locator(".file-editor-embedded"),
       viewer = page.locator(".file-viewer-dialog[open]");
     const open = async () => {
       await page.getByRole("button", { name: "Файлы проекта", exact: true }).click();
@@ -102,7 +103,17 @@ for (const [engine, type] of [
       // instead of Playwright's contenteditable fill shortcut in WebKit.
       await editor.locator(".cm-content").click();
       await page.keyboard.press("ControlOrMeta+A");
-      await page.keyboard.insertText(value);
+      if (value.includes("\n\n")) {
+        // WebKit's insertText truncates multiline content after an empty-document
+        // replacement. Enter the actual line breaks through keyboard events.
+        await page.keyboard.press("Backspace");
+        const lines = value.split("\n");
+        for (let index = 0; index < lines.length; index++) {
+          if (index) await page.keyboard.press("Enter");
+          if (lines[index]) await page.keyboard.insertText(lines[index]);
+        }
+      } else if (value) await page.keyboard.insertText(value);
+      else await page.keyboard.press("Backspace");
     };
     f.store.db.prepare("UPDATE threads SET status='running' WHERE id=?").run(f.thread.id);
     await open();
@@ -120,9 +131,9 @@ for (const [engine, type] of [
     await viewer.getByRole("button", { name: "Редактировать", exact: true }).click();
     await expect(editor.locator(".cm-lineNumbers")).toBeVisible();
     await text("export const value = 2;\n");
-    await editor.getByRole("button", { name: "Предпросмотр", exact: true }).click();
-    await expect(viewer).toHaveCount(2);
-    const draftPreview = viewer.filter({ hasText: "Предпросмотр черновика" });
+    await editor.getByRole("button", { name: "Просмотр", exact: true }).click();
+    await expect(viewer).toHaveCount(1);
+    const draftPreview = viewer.locator(".file-editor-preview:not([hidden])");
     await expect(draftPreview).toContainText("value = 2");
     assert.equal(await readFile(join(root, "sample.ts"), "utf8"), "export const value = 1;\r\n");
     const draftDownload = page.waitForEvent("download");
@@ -131,9 +142,14 @@ for (const [engine, type] of [
       await readFile(await (await draftDownload).path(), "utf8"),
       "export const value = 2;\r\n",
     );
-    await page.keyboard.press("Escape");
+    await editor.getByRole("button", { name: "Правка", exact: true }).click();
     await expect(viewer).toHaveCount(1);
     await expect(editor).toBeVisible();
+    await expect(editor.locator(".cm-content")).toContainText("value = 2");
+    // The actual editor instance and Undo history survive the preview switch.
+    await editor.getByRole("button", { name: "Отменить изменение", exact: true }).click();
+    await expect(editor.locator(".cm-content")).toContainText("value = 1");
+    await editor.getByRole("button", { name: "Повторить изменение", exact: true }).click();
     await expect(editor.locator(".cm-content")).toContainText("value = 2");
     await editor.getByRole("button", { name: "Сохранить", exact: true }).click();
     await expect
@@ -240,7 +256,12 @@ for (const [engine, type] of [
         });
       }
     await text("unsaved");
-    await editor.getByRole("button", { name: "Закрыть редактор", exact: true }).click();
+    await viewer.getByRole("button", { name: "Свернуть окно", exact: true }).click();
+    await expect(editor).toBeHidden();
+    await page.getByRole("button", { name: /Восстановить: sample.ts/ }).click();
+    await expect(editor.locator(".cm-content")).toHaveText("unsaved");
+    await expect(viewer).toHaveCount(1);
+    await viewer.getByRole("button", { name: "Закрыть просмотр", exact: true }).click();
     await expect(editor.locator(".file-editor-close")).toBeVisible();
     await editor.getByRole("button", { name: "Не сохранять", exact: true }).click();
     await pane.getByRole("button", { name: "Закрыть файлы", exact: true }).click();
@@ -256,8 +277,13 @@ for (const [engine, type] of [
     await action.getByRole("button", { name: "Создать", exact: true }).click();
     await expect(editor).toBeVisible();
     await expect(editor.locator(".cm-content")).toBeVisible();
+    await text("");
+    await editor.getByRole("button", { name: "Просмотр", exact: true }).click();
+    await expect(viewer).toHaveCount(1);
+    await editor.getByRole("button", { name: "Правка", exact: true }).click();
+    await expect(editor.locator(".cm-content")).toHaveText("");
     await text("# Новый документ\n\nНесохранённый **текст**.\n");
-    await editor.getByRole("button", { name: "Предпросмотр", exact: true }).click();
+    await editor.getByRole("button", { name: "Просмотр", exact: true }).click();
     await expect(viewer.getByRole("heading", { name: "Новый документ" })).toBeVisible();
     assert.equal(await readFile(join(root, "new.md"), "utf8"), "");
     await viewer.getByRole("button", { name: "К редактору", exact: true }).click();
@@ -299,7 +325,7 @@ for (const [engine, type] of [
       .click();
     await edit();
     await text("<h1>Черновик HTML</h1>");
-    await editor.getByRole("button", { name: "Предпросмотр", exact: true }).click();
+    await editor.getByRole("button", { name: "Просмотр", exact: true }).click();
     await expect(viewer.locator("iframe")).toHaveAttribute("sandbox", "allow-scripts");
     await expect(
       viewer.frameLocator("iframe").getByRole("heading", { name: "Черновик HTML" }),

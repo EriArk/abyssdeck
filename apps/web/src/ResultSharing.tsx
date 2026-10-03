@@ -5,12 +5,13 @@ import type {
   SharedResultCard,
   TeamContact,
 } from "@codex-web/shared";
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { pageWorkspace, accountLocalStorage as storage, workspaceMediaUrl } from "./accountStorage";
 import { api, messageOf } from "./api";
 import { DownloadLink } from "./DownloadLink";
 import { FileViewerDialog } from "./FileViewerDialog";
+import { CompactFileActions } from "./fileWorkspaceContext";
 import { IntakeWindow } from "./IntakeWindow";
 import { Icon } from "./icons";
 import { ResultFilePreview } from "./ResultFilePreview";
@@ -20,6 +21,7 @@ import type { WorkResultTarget } from "./WorkResultHandoffs";
 import "./communication.css";
 
 export function ResultShareButton({ result }: { result: ResultItem }) {
+  const compact = useContext(CompactFileActions);
   const [open, setOpen] = useState(false);
   if (
     !pageWorkspace ||
@@ -30,10 +32,20 @@ export function ResultShareButton({ result }: { result: ResultItem }) {
     return null;
   return (
     <>
-      <button type="button" className="secondary" onClick={() => setOpen(true)}>
-        Отправить
+      <button
+        type="button"
+        className={compact ? "icon-button" : "secondary"}
+        aria-label="Отправить"
+        title="Отправить"
+        onClick={() => setOpen(true)}
+      >
+        {compact ? <Icon name="send" /> : "Отправить"}
       </button>
-      {open && <ResultShareWindow result={result} onClose={() => setOpen(false)} />}
+      {open && (
+        <CompactFileActions.Provider value={false}>
+          <ResultShareWindow result={result} onClose={() => setOpen(false)} />
+        </CompactFileActions.Provider>
+      )}
     </>
   );
 }

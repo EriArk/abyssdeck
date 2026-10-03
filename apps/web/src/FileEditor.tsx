@@ -7,27 +7,18 @@ import { EditorView, keymap } from "@codemirror/view";
 import type { FileSnapshot } from "@codex-web/shared";
 import { tags } from "@lezer/highlight";
 import { basicSetup } from "codemirror";
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ApiError, api, messageOf } from "./api";
 import { FileCopySave } from "./FileCopySave";
 import { FileEditorPreview } from "./FileEditorPreview";
+import { FileViewerDialog } from "./FileViewerDialog";
+import { CompactFileActions, FileWorkspaceContext } from "./fileWorkspaceContext";
 import { githubDraftStorage } from "./githubDraftStorage";
 import { Icon } from "./icons";
-import { useWorkspaceDialog } from "./useWorkspaceDialog";
-import { HelpButton } from "./WorkspaceHelp";
 import "./file-editor.css";
 
-export default function FileEditor({
-  projectId,
-  capability,
-  projectName,
-  path,
-  onClose,
-  onSaved,
-  copy,
-  reviewSave,
-}: {
+type EditorProps = {
   projectId: string;
   capability: string;
   projectName: string;
@@ -36,10 +27,45 @@ export default function FileEditor({
   onSaved: () => void;
   copy?: { file: File; source: string };
   reviewSave?: (file: File) => void | Promise<void>;
-}) {
-  const dialog = useRef<HTMLDialogElement>(null),
-    host = useRef<HTMLDivElement>(null);
-  useWorkspaceDialog(dialog, true, "file-editor");
+};
+
+export default function FileEditor(props: EditorProps) {
+  const workspace = useContext(FileWorkspaceContext);
+  const setEditing = workspace?.setEditing;
+  useEffect(() => {
+    setEditing?.(true);
+    return () => setEditing?.(false);
+  }, [setEditing]);
+  const content = (
+    <CompactFileActions.Provider value={false}>
+      <EditorContents {...props} />
+    </CompactFileActions.Provider>
+  );
+  if (workspace) return workspace.editorHost ? createPortal(content, workspace.editorHost) : null;
+  return (
+    <FileViewerDialog
+      name={props.path}
+      file={props.copy?.file}
+      editProvided
+      description={props.copy ? "Редактируемая копия" : `${props.projectName} · Рабочая копия`}
+      onClose={props.onClose}
+    >
+      {content}
+    </FileViewerDialog>
+  );
+}
+
+function EditorContents({
+  projectId,
+  capability,
+  path,
+  onClose,
+  onSaved,
+  copy,
+  reviewSave,
+}: EditorProps) {
+  const host = useRef<HTMLDivElement>(null);
+  const workspace = useContext(FileWorkspaceContext);
   const editor = useRef<EditorView | null>(null),
     baseline = useRef<FileSnapshot | null>(null);
   const [loaded, setLoaded] = useState(false),
@@ -50,7 +76,14 @@ export default function FileEditor({
     [wrap, setWrap] = useState(false),
     [conflict, setConflict] = useState<FileSnapshot | null>(null),
     [preview, setPreview] = useState<File | null>(null),
+    [viewing, setViewing] = useState(false),
     [copyToSave, setCopyToSave] = useState<File | null>(null);
+  useEffect(() => {
+    if (viewing) return;
+    // Every return path must remeasure after the hidden editor becomes visible.
+    const frame = requestAnimationFrame(() => editor.current?.requestMeasure());
+    return () => cancelAnimationFrame(frame);
+  }, [viewing]);
   const wrapping = useRef(new Compartment()),
     syntax = useRef(new Compartment()),
     endings = useRef(new Compartment());
@@ -325,78 +358,99 @@ export default function FileEditor({
       window.removeEventListener("pagehide", persist);
     };
   }, []);
-  const close = () => {
+  const finishClose = useRef(onClose);
+  const close = (complete = onClose) => {
     if (saving.current) return;
+    finishClose.current = complete;
     if (dirty || pending.current) setClosing(true);
-    else onClose();
+    else complete();
   };
-  return createPortal(
-    <dialog
-      ref={dialog}
-      tabIndex={-1}
-      className="workspace-window file-editor"
+  const requestClose = useRef(close);
+  requestClose.current = close;
+  const guard = workspace?.closeGuard;
+  useEffect(() => {
+    if (!guard) return;
+    const handler = (complete: () => void) => requestClose.current(complete);
+    guard.current = handler;
+    return () => {
+      if (guard.current === handler) guard.current = null;
+    };
+  }, [guard]);
+  const showPreview = () => {
+    const text = (baseline.current?.bom ? "\ufeff" : "") + current();
+    // Keep the existing preview/controller mounted if the text did not change.
+    if (previewText.current !== text || !preview) {
+      previewText.current = text;
+      setPreview(new File([text], path.split("/").at(-1) || path, { type: "text/plain" }));
+    }
+    setViewing(true);
+  };
+  const previewText = useRef<string | null>(null);
+  return (
+    <section
+      className="file-editor file-editor-embedded"
       data-help-context="editor"
       aria-label={`Редактор ${path}`}
-      onCancel={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        close();
-      }}
     >
-      <header className="panel-heading">
-        <Icon name="file" />
-        <div>
-          <strong title={path}>
-            {path}
-            {dirty ? " *" : ""}
-          </strong>
-          <small>{copy ? "Редактируемая копия" : `${projectName} · Рабочая копия`}</small>
-        </div>
-        <HelpButton topic="editor" />
-        <button
-          type="button"
-          className="icon-button"
-          aria-label="Закрыть редактор"
-          disabled={busy}
-          onClick={close}
-        >
-          <Icon name="close" />
-        </button>
-      </header>
-      <div className="file-editor-toolbar">
-        <div className="file-editor-primary-actions">
+      <div className="file-editor-mode">
+        <fieldset className="file-editor-modes" aria-label="Режим файла">
           <button
             type="button"
-            className="primary"
-            disabled={!loaded || (!copy && !dirty && !pending.current) || busy}
-            onClick={() => void save()}
+            className="secondary"
+            aria-pressed={viewing}
+            disabled={!loaded}
+            onClick={showPreview}
           >
-            {busy
-              ? "Сохраняю…"
-              : reviewSave
-                ? "Проверить изменения"
-                : copy
-                  ? "Сохранить как…"
-                  : "Сохранить"}
+            <Icon name="file" />
+            Просмотр
           </button>
           <button
             type="button"
             className="secondary"
-            disabled={!loaded}
-            onClick={() => {
-              setPreview(
-                new File(
-                  [baseline.current?.bom ? "\ufeff" : "", current()],
-                  path.split("/").at(-1) || path,
-                  { type: "text/plain" },
-                ),
-              );
-            }}
+            aria-pressed={!viewing}
+            onClick={() => setViewing(false)}
           >
-            Предпросмотр
+            <Icon name="edit" />
+            Правка
+          </button>
+        </fieldset>
+        <small role="status">
+          {copy ? "Копия · " : ""}
+          {dirty ? "Изменено" : "Без изменений"}
+        </small>
+        <button
+          type="button"
+          className="icon-button"
+          aria-label="Закрыть редактор"
+          title="Завершить правку"
+          disabled={busy}
+          onClick={() => close()}
+        >
+          <Icon name="check" />
+        </button>
+      </div>
+      <div className="file-editor-toolbar">
+        <div className="file-editor-primary-actions">
+          <button
+            type="button"
+            className="icon-button"
+            aria-label={
+              busy
+                ? "Сохраняю…"
+                : reviewSave
+                  ? "Проверить изменения"
+                  : copy
+                    ? "Сохранить как…"
+                    : "Сохранить"
+            }
+            title={reviewSave ? "Проверить изменения" : copy ? "Сохранить как…" : "Сохранить"}
+            disabled={!loaded || (!copy && !dirty && !pending.current) || busy}
+            onClick={() => void save()}
+          >
+            <Icon name={reviewSave ? "check" : "save"} />
           </button>
         </div>
-        <div className="file-editor-text-actions">
+        <div className="file-editor-text-actions" hidden={viewing}>
           <button
             type="button"
             className="icon-button"
@@ -423,7 +477,9 @@ export default function FileEditor({
           </button>
           <button
             type="button"
-            className="secondary"
+            className="icon-button"
+            aria-label="Перенос строк"
+            title="Перенос строк"
             aria-pressed={wrap}
             onClick={() => {
               setWrap(!wrap);
@@ -432,7 +488,7 @@ export default function FileEditor({
               });
             }}
           >
-            Перенос строк
+            <Icon name="wrap" />
           </button>
         </div>
       </div>
@@ -497,7 +553,12 @@ export default function FileEditor({
         </details>
       )}
       {!loaded && !error && <p role="status">Открываю файл…</p>}
-      <div className="file-editor-host" ref={host} />
+      <div className="file-editor-host" ref={host} hidden={viewing} />
+      {preview && (
+        <div className="file-editor-preview" hidden={!viewing}>
+          <FileEditorPreview file={preview} onClose={() => setViewing(false)} />
+        </div>
+      )}
       {closing && (
         <div className="file-editor-close" role="alert">
           <p>Сохранить изменения перед закрытием?</p>
@@ -507,7 +568,7 @@ export default function FileEditor({
             disabled={busy}
             onClick={async () => {
               await save();
-              if (!pending.current && current() === baseline.current?.text) onClose();
+              if (!pending.current && current() === baseline.current?.text) finishClose.current();
             }}
           >
             Сохранить и закрыть
@@ -524,7 +585,7 @@ export default function FileEditor({
                 return;
               }
               baseline.current = null;
-              onClose();
+              finishClose.current();
             }}
           >
             Не сохранять
@@ -536,7 +597,7 @@ export default function FileEditor({
             type="button"
             className="secondary"
             onClick={async () => {
-              if (await persist()) onClose();
+              if (await persist()) finishClose.current();
             }}
           >
             Закрыть с черновиком
@@ -556,12 +617,10 @@ export default function FileEditor({
             setDirty(current() !== text);
             persist();
             setCopyToSave(null);
-            if (closing && current() === text) onClose();
+            if (closing && current() === text) finishClose.current();
           }}
         />
       )}
-      {preview && <FileEditorPreview file={preview} onClose={() => setPreview(null)} />}
-    </dialog>,
-    document.body,
+    </section>
   );
 }

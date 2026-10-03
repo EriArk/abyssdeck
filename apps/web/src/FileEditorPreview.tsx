@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { DownloadLink } from "./DownloadLink";
 import { FilePreview } from "./FilePreview";
-import { FileViewerDialog } from "./FileViewerDialog";
 
 /** A frozen draft snapshot; previewing never invokes a file write. */
 export function FileEditorPreview({ file, onClose }: { file: File; onClose: () => void }) {
@@ -13,25 +12,18 @@ export function FileEditorPreview({ file, onClose }: { file: File; onClose: () =
     return () => URL.revokeObjectURL(value);
   }, [file]);
   return (
-    <FileViewerDialog
-      name={file.name}
-      file={file}
-      draft
-      onClose={onClose}
-      actions={
-        <>
-          <button type="button" className="secondary" onClick={onClose}>
-            К редактору
-          </button>
-          {url && (
-            <DownloadLink preparedFile={file} directDownload>
-              Скачать черновик
-            </DownloadLink>
-          )}
-        </>
-      }
-    >
-      <FilePreview file={file} objectUrl={url} full />
-    </FileViewerDialog>
+    <>
+      <div className="file-editor-preview-actions">
+        <button type="button" className="secondary" onClick={onClose}>
+          К редактору
+        </button>
+        {url && (
+          <DownloadLink preparedFile={file} directDownload>
+            Скачать черновик
+          </DownloadLink>
+        )}
+      </div>
+      {url && <FilePreview file={file} objectUrl={url} full />}
+    </>
   );
 }

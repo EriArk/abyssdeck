@@ -1,8 +1,10 @@
 import { editableFile } from "@codex-web/shared";
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useContext, useEffect, useRef, useState } from "react";
 import { workspaceUrl } from "./accountStorage";
 import { api, messageOf } from "./api";
 import { isDownloadUrl } from "./DownloadLink";
+import { CompactFileActions } from "./fileWorkspaceContext";
+import { Icon } from "./icons";
 
 const FileEditor = lazy(() => import("./FileEditor"));
 
@@ -10,11 +12,14 @@ export function ViewerEditButton({
   name,
   source,
   file,
+  label = "Редактировать",
 }: {
   name: string;
   source?: string;
   file?: File | null;
+  label?: string;
 }) {
+  const compact = useContext(CompactFileActions);
   const [target, setTarget] = useState<{
       projectId: string;
       path: string;
@@ -24,6 +29,7 @@ export function ViewerEditButton({
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const generation = useRef(0);
+  const identity = source ?? file;
   const active = useRef(true),
     lock = useRef(false),
     grant = useRef<{ projectId: string; capability: string } | null>(null);
@@ -43,7 +49,7 @@ export function ViewerEditButton({
           body: { unlock: false, capability: g.capability },
         }).catch(() => {});
     };
-  }, [source]);
+  }, [identity]);
   if (!editableFile(file?.name ?? name) || (!source && !file)) return null;
   const edit = async () => {
     if (lock.current) return;
@@ -122,8 +128,16 @@ export function ViewerEditButton({
   };
   return (
     <>
-      <button className="secondary" type="button" disabled={busy} onClick={() => void edit()}>
-        {busy ? "Открываю редактор…" : "Редактировать"}
+      <button
+        className={compact ? "icon-button" : "secondary"}
+        type="button"
+        hidden={!!target}
+        aria-label={label}
+        title={label}
+        disabled={busy}
+        onClick={() => void edit()}
+      >
+        {compact ? <Icon name="edit" /> : busy ? "Открываю редактор…" : label}
       </button>
       {error && <span role="alert">{error}</span>}
       {target && (

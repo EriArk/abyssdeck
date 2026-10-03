@@ -1,9 +1,10 @@
 import { isFileSource } from "@codex-web/shared";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { workspaceUrl } from "./accountStorage.ts";
 import { FilePreview } from "./FilePreview";
 import { FileViewerDialog } from "./FileViewerDialog";
+import { CompactFileActions } from "./fileWorkspaceContext";
 import { Icon } from "./icons";
 import { useWorkspaceDialog } from "./useWorkspaceDialog";
 import { ViewerEditButton } from "./ViewerEditButton";
@@ -29,15 +30,24 @@ function BrowserDownload({
   className?: string;
   children: ReactNode;
 }) {
+  const compact = useContext(CompactFileActions);
   return (
     <a
-      className={className}
+      className={compact ? "icon-button" : className}
+      title={compact ? "Скачать файл" : undefined}
       href={href}
       download={standalone() ? undefined : name}
       target="_blank"
       rel="noopener noreferrer"
     >
-      {children}
+      {compact ? (
+        <>
+          <Icon name="arrow-down" />
+          <span className="file-action-label">{children}</span>
+        </>
+      ) : (
+        children
+      )}
     </a>
   );
 }
@@ -134,6 +144,7 @@ export function DownloadLink({
   editLabel?: string;
   sourceRevision?: number;
 }) {
+  const compact = useContext(CompactFileActions);
   const [open, setOpen] = useState(initiallyOpen),
     [file, setFile] = useState<File | null>(null),
     [objectUrl, setObjectUrl] = useState(""),
@@ -313,8 +324,20 @@ export function DownloadLink({
     ) : null;
   return (
     <>
-      <button type="button" className={className} title={title} onClick={() => setOpen(true)}>
-        {children}
+      <button
+        type="button"
+        className={compact ? "icon-button" : className}
+        title={title ?? (compact ? "Скачать файл" : undefined)}
+        onClick={() => setOpen(true)}
+      >
+        {compact ? (
+          <>
+            <Icon name="arrow-down" />
+            <span className="file-action-label">{children}</span>
+          </>
+        ) : (
+          children
+        )}
       </button>
       {open && directDownload ? (
         <SaveDialog name={direct?.name || file?.name || name} onClose={() => setOpen(false)}>
@@ -346,6 +369,7 @@ export function DownloadLink({
             file={file}
             source={href}
             editProvided={!!onEdit}
+            editLabel={editLabel}
             onClose={() => setOpen(false)}
             actions={
               <>
@@ -379,8 +403,15 @@ export function DownloadLink({
                   </button>
                 )}
                 {file && shareable ? (
-                  <button type="button" className="secondary" disabled={sharing} onClick={share}>
-                    Сохранить / поделиться
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label="Сохранить / поделиться"
+                    title="Сохранить / поделиться"
+                    disabled={sharing}
+                    onClick={share}
+                  >
+                    <Icon name="send" />
                   </button>
                 ) : downloadHref ? (
                   <BrowserDownload href={downloadHref} name={file?.name || name}>
@@ -470,7 +501,9 @@ function SaveDialog({
           <Icon name="close" />
         </button>
       </header>
-      <div className="result-save-body">{children}</div>
+      <div className="result-save-body">
+        <CompactFileActions.Provider value={false}>{children}</CompactFileActions.Provider>
+      </div>
     </dialog>,
     document.body,
   );

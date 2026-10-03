@@ -56,8 +56,7 @@
   place-items: center;
 }
 .file-viewer-window-controls {
-  display: grid;
-  grid-template-columns: repeat(4, 44px);
+  display: flex;
   gap: 6px;
 }
 .file-viewer-window-controls button {
@@ -530,4 +529,90 @@
 .shared-file-actions > * {
   min-width: 0;
   min-height: 44px;
+}
+
+/* One chassis: file commands sit above the screen; content controllers stay mounted. */
+.file-workspace-rail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+  padding: 6px;
+  flex: none;
+  color: var(--window-ink);
+}
+.file-workspace-rail:empty {
+  display: none;
+}
+.file-workspace-rail:not(:has(button:not([hidden]), a, [role="alert"])) {
+  display: none;
+}
+.file-workspace-rail .file-viewer-navigation {
+  padding: 0;
+  flex: 1;
+}
+.file-workspace-rail .file-viewer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  margin-left: auto;
+  gap: 6px;
+}
+.file-workspace-rail .icon-button {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+}
+.file-viewer-actions .file-action-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.file-workspace-rail .file-viewer-actions > [hidden] {
+  display: none;
+}
+.file-viewer-original,
+.file-viewer-editor {
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.file-viewer-original[hidden],
+.file-viewer-editor[hidden] {
+  display: none;
+}
+.file-viewer-original > .file-preview {
+  max-height: none;
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+.file-viewer-footer {
+  padding: 5px 8px 0;
+  min-height: 28px;
+}
+@media (max-width: 600px) {
+  .file-viewer-body {
+    position: relative;
+  }
+  .file-viewer-body[data-properties="true"] {
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .file-viewer-properties {
+    position: absolute;
+    inset: 0 0 0 auto;
+    width: min(290px, 92%);
+    z-index: 5;
+    background: var(--window-screen);
+    border-left: 1px solid var(--line);
+    box-shadow: -8px 0 24px #0005;
+  }
 }

@@ -168,7 +168,7 @@ try {
         errors = [];
       page.on("pageerror", (e) => errors.push(e.message));
       await page.goto(origin);
-      const editor = page.locator(".file-editor[open]"),
+      const editor = page.locator(".file-editor-embedded"),
         copy = page.locator(".file-copy-save[open]"),
         viewer = page.locator(".file-viewer-dialog[open]");
       await page.getByRole("button", { name: "Открыть отчёт", exact: true }).click();
@@ -233,10 +233,18 @@ try {
           ["wide", 1366, 1024],
         ]) {
           await page.setViewportSize({ width: w, height: h });
-          const box = await review.boundingBox();
-          assert(
-            box.x >= 0 && box.y >= 0 && box.x + box.width <= w + 1 && box.y + box.height <= h + 1,
-          );
+          await expect
+            .poll(async () => {
+              const box = await review.boundingBox();
+              return (
+                box &&
+                box.x >= 0 &&
+                box.y >= 0 &&
+                box.x + box.width <= w + 1 &&
+                box.y + box.height <= h + 1
+              );
+            })
+            .toBe(true);
           await page.screenshot({ path: `.local/qa-manual-edit/${engine}-${theme}-${label}.png` });
         }
       }
@@ -266,13 +274,18 @@ try {
             ["wide", 1366, 1024],
           ]) {
             await page.setViewportSize({ width, height });
-            const box = await review.boundingBox();
-            assert(
-              box.x >= 0 &&
-                box.y >= 0 &&
-                box.x + box.width <= width + 1 &&
-                box.y + box.height <= height + 1,
-            );
+            await expect
+              .poll(async () => {
+                const box = await review.boundingBox();
+                return (
+                  box &&
+                  box.x >= 0 &&
+                  box.y >= 0 &&
+                  box.x + box.width <= width + 1 &&
+                  box.y + box.height <= height + 1
+                );
+              })
+              .toBe(true);
             await page.screenshot({
               path: `.local/qa-manual-edit/${engine}-pr-${theme}-${label}.png`,
             });

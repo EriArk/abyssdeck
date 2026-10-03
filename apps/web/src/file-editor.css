@@ -188,6 +188,117 @@
 .file-editor .notice {
   margin: 0;
 }
+.file-editor-embedded {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  gap: 6px;
+  color: var(--ink);
+}
+.file-editor-mode {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  flex: none;
+  background: var(--window-shell);
+  color: var(--window-ink);
+}
+.file-editor-mode small {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.file-editor-mode > button {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  flex: none;
+}
+.file-editor-modes {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  display: flex;
+  gap: 4px;
+  flex: none;
+}
+.file-editor-modes button {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.file-editor-embedded .file-editor-toolbar {
+  padding: 0 8px;
+}
+.file-editor-embedded .file-editor-toolbar {
+  display: flex;
+  justify-content: space-between;
+}
+.file-editor-embedded .file-editor-primary-actions {
+  display: flex;
+}
+.file-editor-embedded .file-editor-text-actions {
+  display: flex;
+}
+.file-editor-embedded .file-editor-toolbar .icon-button {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+}
+.file-editor-embedded .file-editor-host {
+  border: 0;
+  border-radius: 0;
+}
+.file-editor-embedded [hidden] {
+  display: none !important;
+}
+.file-editor-preview {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.file-editor-preview > .file-preview {
+  flex: 1;
+  max-height: none;
+}
+.file-editor-preview-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 8px;
+  flex: none;
+}
+.file-editor-embedded button {
+  color: var(--window-key-ink);
+  background: var(--window-key);
+  box-shadow: var(--window-key-shadow);
+}
+.file-editor-modes button[aria-pressed="true"] {
+  background: var(--window-pressed);
+  box-shadow: var(--window-pressed-shadow);
+}
+@media (max-width: 600px) {
+  .file-editor-mode {
+    flex-wrap: wrap;
+  }
+  .file-editor-mode small {
+    order: 3;
+    flex-basis: 100%;
+  }
+  .file-editor-mode > button {
+    margin-left: auto;
+  }
+}
 @media (max-width: 600px) {
   :root[data-theme] dialog.workspace-window.file-editor {
     width: calc(100vw - 8px);

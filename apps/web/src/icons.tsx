@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 
 const paths: Record<string, string[]> = {
+  save: ["M4 3h13l4 4v14H3V3h1ZM7 3v6h9V3M7 21v-8h10v8"],
   "file-plus": ["M14 2H5v20h14V7l-5-5Z", "M14 2v5h5M8 14h8M12 10v8"],
   "folder-plus": ["M3 6V4h6l2 3h10v13H3V6Z", "M8 13h8M12 9v8"],
   upload: ["M12 16V3m-5 5 5-5 5 5M3 16v5h18v-5"],

@@ -1,12 +1,14 @@
 import { type FileLaunchPrepared, runnableFile } from "@codex-web/shared";
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useContext, useEffect, useState } from "react";
 import { ApiError, api } from "./api";
+import { CompactFileActions } from "./fileWorkspaceContext";
 import { Icon } from "./icons";
 
 const Panel = lazy(() => import("./FileLaunchPanel"));
 
 /** Inspection prepares an exact capability, but never launches. All entry points use this control. */
 export function FileLaunch({ name, source }: { name: string; source?: string }) {
+  const compact = useContext(CompactFileActions);
   const [prepared, setPrepared] = useState<FileLaunchPrepared>(),
     [open, setOpen] = useState(false);
   const [failure, setFailure] = useState(false),
@@ -41,12 +43,14 @@ export function FileLaunch({ name, source }: { name: string; source?: string }) 
     <>
       <button
         type="button"
-        className="secondary"
+        className={compact ? "icon-button" : "secondary"}
+        aria-label="Запустить и показать"
+        title="Запустить и показать"
         disabled={!prepared && !failure}
         onClick={() => setOpen(true)}
       >
         <Icon name="play" size={17} />
-        Запустить и показать
+        {!compact && "Запустить и показать"}
       </button>
       {open && (
         <Suspense fallback={<span role="status">Открываем запуск…</span>}>
