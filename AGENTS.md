@@ -1,5 +1,13 @@
 # AGENTS.md
 
+## Owner-requested settings usage overview (2026-10-04)
+
+- Show Codex limits and remaining credits on the settings home screen in both
+  clients, scoped to the selected machine. Keep the detailed limits/reset page.
+  Hidden overview/pages do not poll. This supersedes the detail-only placement.
+- Personal Linux installation is deferred by the owner; do not run its setup
+  while completing this settings correction.
+
 ## Owner-approved independent personal Linux (2026-10-03)
 
 - Personal server environments are for invited close friends and employees, not

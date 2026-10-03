@@ -49,10 +49,12 @@ export function SettingsSections({
   open,
   onClose,
   pages,
+  overview,
 }: {
   open: boolean;
   onClose: () => void;
   pages: SettingsPage[];
+  overview?: (visible: boolean, go: (id: string) => void) => ReactNode;
 }) {
   const [selected, setSelected] = useState<string | null>(null),
     [search, setSearch] = useState(false),
@@ -188,6 +190,7 @@ export function SettingsSections({
           max={300}
         />
         <div className="settings-overview">
+          {overview?.(open && !detail, go)}
           <nav ref={nav} className="settings-categories" aria-label="Категории настроек">
             {pages
               .filter((p) => !p.parent)

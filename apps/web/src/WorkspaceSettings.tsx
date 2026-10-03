@@ -568,7 +568,33 @@ export function WorkspaceSettings({
         dismiss(onClose);
       }}
     >
-      <SettingsSections open={open} onClose={() => dismiss(onClose)} pages={pages} />
+      <SettingsSections
+        open={open}
+        onClose={() => dismiss(onClose)}
+        pages={pages}
+        overview={(visible, go) =>
+          machine && (
+            <div className="settings-usage-summary" hidden={!visible}>
+              {machines.length > 1 && (
+                <label className="settings-machine-choice">
+                  Лимиты для устройства
+                  <select value={machine.id} onChange={(e) => setMachineId(e.target.value)}>
+                    {machines.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              <UsageLimitsProvider machines={selectedMachines} open={visible}>
+                <UsageLimits machines={selectedMachines} open={false} />
+              </UsageLimitsProvider>
+              <SettingsLink title="Лимиты и кредиты" onClick={() => go("limits")} />
+            </div>
+          )
+        }
+      />
     </dialog>
   );
 }

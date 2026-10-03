@@ -77,6 +77,11 @@ for (const [engine, type] of [
       errors = [],
       gptWrites = [];
     let remoteAvailable = true;
+    const usageReads = [];
+    page.on("request", (request) => {
+      if (/\/api\/machines\/[^/]+\/limits$/.test(new URL(request.url()).pathname))
+        usageReads.push(request.url());
+    });
     page.on("pageerror", (e) => errors.push(e.message));
     await page.route(/\/api\/projects(?:\?|$)/, async (route) => {
       const response = await route.fetch(),
@@ -119,9 +124,51 @@ for (const [engine, type] of [
       .getByRole("region", { name: "Лимиты Codex: PC", exact: true })
       .filter({ visible: true });
     const openSettings = async () => {
+      const viewport = page.viewportSize();
       await navigation();
       await button("Настройки").click();
-      await category("limits");
+      const summary = settings.locator(".settings-usage-summary");
+      for (let i = 0; i < 5 && !(await summary.isVisible()); i++) {
+        await settings
+          .getByRole("button", { name: /^(Назад в настройках|Все категории настроек)$/ })
+          .click();
+      }
+      await expect(summary).toBeVisible();
+      await expect(
+        summary
+          .getByText(f.state.consumes.length ? "100% осталось" : "37% осталось", { exact: true })
+          .first(),
+      ).toBeVisible();
+      await expect(summary.locator(".usage-credit-balance strong")).toHaveText("125.50");
+      await expect(summary.getByRole("button", { name: "Активировать", exact: true })).toHaveCount(
+        0,
+      );
+      await mkdir(`.local/qa-shared-settings/${engine}`, { recursive: true });
+      for (const width of [390, 1366]) {
+        await page.setViewportSize({ width, height: width === 390 ? 844 : 1024 });
+        for (const theme of ["crt-green", "hitech-2000s", "organizer", "classic-dark"]) {
+          await page.evaluate((t) => {
+            document.documentElement.dataset.theme = t;
+          }, theme);
+          await expect(summary.locator(".usage-credit-balance strong")).toBeVisible();
+          await expect
+            .poll(async () => {
+              const rect = await settings.boundingBox();
+              return rect && rect.x >= 0 && rect.x + rect.width <= width + 1;
+            })
+            .toBeTruthy();
+          assert(await summary.evaluate((el) => el.scrollWidth <= el.clientWidth + 1));
+          await page.screenshot({
+            path: `.local/qa-shared-settings/${engine}/overview-${width}-${theme}.png`,
+          });
+        }
+      }
+      await page.setViewportSize(viewport);
+      await page.evaluate(() => {
+        document.documentElement.dataset.theme = "crt-green";
+      });
+      await summary.getByRole("button", { name: "Лимиты и кредиты", exact: true }).click();
+      await expect(summary).toBeHidden();
     };
     const category = async (id) => {
       const title = { limits: "Лимиты и кредиты", connections: "ChatGPT", library: "Архивы" }[id];
@@ -142,6 +189,10 @@ for (const [engine, type] of [
       window.settingsElement = el;
     });
     await button("Закрыть настройки").click();
+    const hiddenReads = usageReads.length;
+    await page.evaluate(() => window.dispatchEvent(new Event("codex-usage-changed")));
+    await page.waitForTimeout(200);
+    assert.equal(usageReads.length, hiddenReads, "closed settings must not refresh limits");
     await navigation();
     await button("Переключиться на GPT").click();
     const gpt = page.getByRole("textbox", { name: "Сообщение GPT" });
