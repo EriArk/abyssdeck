@@ -12,6 +12,7 @@ This reconciles existing approvals; it adds no permission gate or new capability
 
 | Workflow | Current owner decision | Earlier scope it replaces |
 | --- | --- | --- |
+| Personal server environment and Companion | [October 3 personal Linux decision](PERSONAL_LINUX.md): independent Linux for invited friends/employees, SSH/SFTP through Tailscale, packages/services; Companion maintains the device and its separate capabilities | Codex-centred read-only runtime as the complete product, coupling environment use to chats, and the old blanket ban on user SSH; host/Windows management stays private |
 | Files from Git | [October 3 correction](../AGENTS.md#owner-corrected-git-file-entry-2026-10-03): separate window using the existing shared file manager and exact repository/source context | Earlier blanket exclusion from Git/GitHub; Results remain a feed, no second Git-only manager |
 | Ordinary app login and authorization | [Computer Use](COMPUTER_USE.md#use): requested login/password input, explicitly supplied or designated account credentials, including test fixtures; scoped authorization persists | Blanket authentication/password-input ban; manual-only login wording |
 | Windows GUI access | [Independent Computer Use](COMPUTER_USE.md) through the actor's interactive session and private Companion route, without per-app allowlists | D17's original fixed-App-Server-only release; not the no-public-listener boundary |

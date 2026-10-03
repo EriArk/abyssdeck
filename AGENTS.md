@@ -1,5 +1,29 @@
 # AGENTS.md
 
+## Owner-approved independent personal Linux (2026-10-03)
+
+- Personal server environments are for invited close friends and employees, not
+  public registration. Provide independent Linux, SSH/SFTP with personal keys,
+  packages, persistent services/files and bounded resources. Codex is optional;
+  chats and browser/PC activity must not gate ordinary environment use.
+- The user is administrator inside an unprivileged system container, never on
+  the host. Keep host/private networks, other users, management sockets and raw
+  devices inaccessible. Public SSH and deliberately published user services are
+  authorized exceptions to the old 443-only rule; Windows/native APIs stay private.
+- Prepare Incus alongside the existing Podman workspaces. Preserve their disks,
+  credentials, bindings and running work. Do not silently migrate or delete them.
+  Separate source checks, real-host isolation acceptance and user activation.
+- Nested Docker, public routing and migration need verified implementation, not
+  weakened containment or a claim that the old Codex runtime is a general server.
+  See docs/PERSONAL_LINUX.md for the approved scope and installation gate.
+- Owner clarified that remote SSH uses VPN/Tailscale, not router port forwarding.
+  Admit the user's key to their guest only; do not grant access to the host or
+  the rest of the Tailnet. HTTPS service publication is a separate explicit action.
+- Companion is the general device integration and maintenance application:
+  connection, files, terminal, services, optional integrations, updates and bounded
+  recovery. Codex readiness/login cannot gate unrelated capabilities. Server
+  services and direct SSH remain independent of Hub/desktop availability.
+
 ## Owner-approved settings structure (2026-10-03)
 
 - Implement the approved settings study as short pages in the same themed window:
