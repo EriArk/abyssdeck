@@ -16,8 +16,15 @@
 
 Проверены Chromium/WebKit, четыре темы, сохранение/восстановление, точные CSV-байты,
 Unicode-комментарии и повторное открытие PDF-копии. Прежние file-tools, manual-edit
-и file-preview прошли. Unit/help, TypeScript/build и scoped Biome прошли. Установка этого шага пока не заявляется; текущая установочная версия
-приведена в предыдущем разделе ниже.
+и file-preview прошли. Unit/help, TypeScript/build и scoped Biome прошли. Установлен веб-выпуск `4f6ac34`, manifest
+`3c939ddd9b0c8a6e7673cb94c75057c685e8bcc5554b38eff2eaab256bc5bec0`.
+Web-only publisher подтвердил установку; HTTP Hub отдал тот же manifest и новые
+DelimitedTable/PdfFilePreview/pdfAnnotations chunks. Процессы Hub/Engine/GPT
+сохранили образы и время старта на момент публикации; Companion не менялся.
+Доказательство: `verification-4f6ac34/web-check.json` на сервере. Это проверка
+через HTTP самого Hub; отдельная проверка внешнего HTTPS-входа не заявляется.
+Исходники и документация отправлены в `main` (реализация `c745c44`, компоновка
+`b0da579`, сохранение чтения CSV и единиц PDF `4f6ac34`).
 
 Следующий предлагаемый шаг — XLSX: диапазоны, копирование и правка значений
 с сохранением исходной книги. Рекомендация: GPT-6 Astra, Высокое (`high`),
