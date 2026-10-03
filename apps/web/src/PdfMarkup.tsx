@@ -337,7 +337,7 @@ export default function PdfMarkup({
                   tool,
                   points: [point(e)],
                   color,
-                  width: width / viewport.scale,
+                  width: width / (viewport.scale * viewport.userUnit),
                   text: caption.trim(),
                 };
                 if (tool === "comment") {
@@ -395,7 +395,7 @@ export default function PdfMarkup({
                     }
                     fill="none"
                     stroke={mark.color}
-                    strokeWidth={mark.width * viewport.scale}
+                    strokeWidth={mark.width * viewport.scale * viewport.userUnit}
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     opacity={mark.tool === "marker" ? 0.35 : 1}

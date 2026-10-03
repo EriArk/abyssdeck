@@ -1,10 +1,12 @@
 // biome-ignore-all lint/suspicious/noArrayIndexKey: Cell coordinates are stable identities; filtering never changes their source row.
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { AutoTextarea } from "./AutoTextarea";
 import "./file-format-tools.css";
 import { cellChange, detectDelimiter, parseDelimited } from "./delimitedText";
 import { Icon } from "./icons";
 import "./delimited-table.css";
+
+const Reader = lazy(() => import("./ReaderFilePreview"));
 
 export function DelimitedTable({
   text,
@@ -216,6 +218,7 @@ export function DelimitedTable({
   );
 }
 export default function DelimitedFilePreview({ file }: { file: File }) {
+  const [reading, setReading] = useState(false);
   const [text, setText] = useState<string | null>(null),
     [error, setError] = useState("");
   useEffect(() => {
@@ -233,11 +236,34 @@ export default function DelimitedFilePreview({ file }: { file: File }) {
       live = false;
     };
   }, [file]);
-  return error ? (
+  const table = error ? (
     <p role="alert">{error}</p>
   ) : text === null ? (
     <p role="status">Открываю таблицу…</p>
   ) : (
     <DelimitedTable text={text} name={file.name} />
+  );
+  return (
+    <div className="delimited-preview">
+      <div className="format-tool-row" role="toolbar" aria-label="Режим CSV/TSV">
+        <button
+          type="button"
+          className="icon-button"
+          title={reading ? "Таблица CSV/TSV" : "Читать CSV/TSV как текст"}
+          aria-label={reading ? "Таблица CSV/TSV" : "Читать CSV/TSV как текст"}
+          onClick={() => setReading(!reading)}
+        >
+          <Icon name={reading ? "grid" : "file"} />
+        </button>
+      </div>
+      <div className="delimited-preview-mode" hidden={reading}>
+        {table}
+      </div>
+      {reading && (
+        <Suspense fallback={<p role="status">Открываю читалку…</p>}>
+          <Reader file={file} />
+        </Suspense>
+      )}
+    </div>
   );
 }

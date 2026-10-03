@@ -93,6 +93,18 @@
 .file-editor-table[hidden] {
   display: none;
 }
+.delimited-preview,
+.delimited-preview-mode {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.delimited-preview-mode[hidden] {
+  display: none;
+}
 
 .delimited-table > .file-pages {
   position: static;

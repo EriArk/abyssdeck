@@ -165,7 +165,7 @@ export function FilePreview({
           >
             <PdfPreview key={objectUrl} file={file} source={source} annotate={full} />
           </Suspense>
-        ) : kind === "text" && /\.(csv|tsv)$/i.test(file.name) ? (
+        ) : kind === "text" && full && /\.(csv|tsv)$/i.test(file.name) ? (
           <Suspense fallback={<p role="status">Открываю таблицу…</p>}>
             <DelimitedPreview key={objectUrl} file={file} />
           </Suspense>

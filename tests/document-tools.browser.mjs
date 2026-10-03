@@ -20,6 +20,7 @@ for (const rotation of [0, 90]) {
   const p = doc.addPage([400, 300]);
   p.setCropBox(20, 30, 340, 240);
   p.setRotation(degrees(rotation));
+  if (rotation === 90) p.node.set(PDFName.of("UserUnit"), doc.context.obj(2));
   p.drawText("Original searchable text", { font, x: 40, y: 180, size: 18 });
 }
 const pdf = Buffer.from(await doc.save());
@@ -100,6 +101,12 @@ try {
         await page.setViewportSize({ width: 1024, height: 768 });
       };
       await open("table.csv");
+      await expect(page.getByRole("table")).toContainText("900719925474099312345");
+      await button("Читать CSV/TSV как текст").click();
+      await expect(page.locator(".reader-file-preview")).toContainText("Читать");
+      await button("Исходный текст").click();
+      await expect(page.locator(".reader-file-preview")).toContainText("900719925474099312345");
+      await button("Таблица CSV/TSV").click();
       await expect(page.getByRole("table")).toContainText("900719925474099312345");
       await button("Редактировать").click();
       const editor = page.locator(".file-editor-embedded"),
