@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 
 const paths: Record<string, string[]> = {
+  "table-header": ["M3 3h18v18H3zM3 9h18M9 9v12M15 9v12M3 15h18M6 6h12"],
   heading: ["M5 4v16M19 4v16M5 12h14"],
   bold: ["M6 3h7a4 4 0 0 1 0 8H6V3Zm0 8h8a5 5 0 0 1 0 10H6V11Z"],
   italic: ["M10 3h10M4 21h10M15 3 9 21"],

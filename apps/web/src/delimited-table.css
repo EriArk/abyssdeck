@@ -1,0 +1,105 @@
+.delimited-table {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  color: var(--ink);
+}
+.delimited-scroll {
+  overflow: auto;
+  min-height: 100px;
+  flex: 1;
+  max-height: 65vh;
+}
+.delimited-table table {
+  border-collapse: collapse;
+  width: 100%;
+  font: inherit;
+}
+.delimited-table th,
+.delimited-table td {
+  border: 1px solid var(--line);
+  padding: 0;
+  min-width: 7em;
+  max-width: 24em;
+  text-align: left;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.delimited-table th {
+  background: var(--screen);
+  padding: 0.4rem;
+}
+.delimited-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.delimited-table th:first-child {
+  min-width: 3em;
+  width: 3em;
+}
+.delimited-table td > button,
+.delimited-table th > button {
+  color: inherit;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  font: inherit;
+  text-align: left;
+  padding: 0.5rem;
+  width: 100%;
+  min-height: 44px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.delimited-table input[type="search"] {
+  min-width: 0;
+  flex: 1;
+  width: 12em;
+}
+.table-cell-editor {
+  flex: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: end;
+  gap: 0.4rem;
+  padding: 0.5rem;
+}
+.table-cell-editor label {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.table-cell-editor textarea {
+  font: inherit;
+  color: var(--ink);
+  background: var(--screen);
+  min-width: 0;
+  width: 100%;
+  min-height: 4lh;
+  max-height: 8lh;
+  resize: vertical;
+}
+
+.file-editor-table {
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+.file-editor-table[hidden] {
+  display: none;
+}
+
+.delimited-table > .file-pages {
+  position: static;
+  flex: none;
+}
+@media (max-height: 500px) {
+  .delimited-table[data-editing="true"] > :is(.format-tool-row, .delimited-scroll, .file-pages) {
+    display: none;
+  }
+}

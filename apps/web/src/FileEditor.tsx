@@ -10,10 +10,11 @@ import { basicSetup } from "codemirror";
 import { useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ApiError, api, messageOf } from "./api";
+import { DelimitedTable } from "./DelimitedTable";
 import { FileCopySave } from "./FileCopySave";
 import { FileEditorPreview } from "./FileEditorPreview";
-import { FileViewerDialog } from "./FileViewerDialog";
 import { FileTextTools } from "./FileTextTools";
+import { FileViewerDialog } from "./FileViewerDialog";
 import { CompactFileActions, FileWorkspaceContext } from "./fileWorkspaceContext";
 import { githubDraftStorage } from "./githubDraftStorage";
 import { Icon } from "./icons";
@@ -65,6 +66,9 @@ function EditorContents({
   copy,
   reviewSave,
 }: EditorProps) {
+  const tabular = /\.(csv|tsv)$/i.test(path);
+  const [tableMode, setTableMode] = useState(tabular),
+    [tableText, setTableText] = useState("");
   const host = useRef<HTMLDivElement>(null);
   const workspace = useContext(FileWorkspaceContext);
   const editor = useRef<EditorView | null>(null),
@@ -80,11 +84,11 @@ function EditorContents({
     [viewing, setViewing] = useState(false),
     [copyToSave, setCopyToSave] = useState<File | null>(null);
   useEffect(() => {
-    if (viewing) return;
+    if (viewing || tableMode) return;
     // Every return path must remeasure after the hidden editor becomes visible.
     const frame = requestAnimationFrame(() => editor.current?.requestMeasure());
     return () => cancelAnimationFrame(frame);
-  }, [viewing]);
+  }, [viewing, tableMode]);
   const wrapping = useRef(new Compartment()),
     syntax = useRef(new Compartment()),
     endings = useRef(new Compartment());
@@ -316,6 +320,7 @@ function EditorContents({
               ),
               EditorView.updateListener.of((update) => {
                 if (update.docChanged) {
+                  if (tabular) setTableText(update.state.doc.toString());
                   setDirty(exactLines(update.state.sliceDoc()) !== baseline.current?.text);
                   clearTimeout(timer);
                   timer = setTimeout(persist, 350);
@@ -325,6 +330,7 @@ function EditorContents({
           }),
         });
         editor.current = view;
+        if (tabular) setTableText(view.state.doc.toString());
         setLoaded(true);
         setDirty(text !== baseline.current?.text);
         const lang = LanguageDescription.matchFilename(languages, path);
@@ -452,6 +458,17 @@ function EditorContents({
           </button>
         </div>
         <div className="file-editor-text-actions" hidden={viewing}>
+          {tabular && (
+            <button
+              type="button"
+              className="icon-button"
+              aria-label={tableMode ? "Исходный CSV/TSV" : "Табличная правка"}
+              title={tableMode ? "Исходный CSV/TSV" : "Табличная правка"}
+              onClick={() => setTableMode(!tableMode)}
+            >
+              <Icon name={tableMode ? "code" : "grid"} />
+            </button>
+          )}
           <button
             type="button"
             className="icon-button"
@@ -472,7 +489,10 @@ function EditorContents({
             type="button"
             className="icon-button"
             aria-label="Найти в файле"
-            onClick={() => editor.current && openSearchPanel(editor.current)}
+            onClick={() => {
+              setTableMode(false);
+              if (editor.current) openSearchPanel(editor.current);
+            }}
           >
             <Icon name="search" />
           </button>
@@ -493,7 +513,9 @@ function EditorContents({
           </button>
         </div>
       </div>
-      {!viewing && <FileTextTools editor={editor} path={path} disabled={!loaded || busy} />}
+      {!viewing && !tableMode && (
+        <FileTextTools editor={editor} path={path} disabled={!loaded || busy} />
+      )}
       {error && (
         <p className="notice" role="alert">
           {error}
@@ -555,7 +577,27 @@ function EditorContents({
         </details>
       )}
       {!loaded && !error && <p role="status">Открываю файл…</p>}
-      <div className="file-editor-host" ref={host} hidden={viewing} />
+      <div className="file-editor-host" ref={host} hidden={viewing || tableMode} />
+      {loaded && tabular && (
+        <div className="file-editor-table" hidden={viewing || !tableMode}>
+          <DelimitedTable
+            name={path}
+            text={tableText}
+            disabled={busy}
+            onChange={(change) => {
+              const view = editor.current;
+              if (!view) return;
+              view.dispatch({
+                changes: {
+                  ...change,
+                  insert: change.insert.replace(/\r\n|\r|\n/g, lineSeparator.current),
+                },
+                userEvent: "input.table",
+              });
+            }}
+          />
+        </div>
+      )}
       {preview && (
         <div className="file-editor-preview" hidden={!viewing}>
           <FileEditorPreview file={preview} onClose={() => setViewing(false)} />

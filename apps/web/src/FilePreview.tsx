@@ -13,6 +13,7 @@ const DxfPreview = lazy(() => import("./DxfFilePreview"));
 const ImageMarkup = lazy(() => import("./ImageMarkup"));
 const MediaPreview = lazy(() => import("./MediaFilePreview"));
 
+const DelimitedPreview = lazy(() => import("./DelimitedTable"));
 const PdfPreview = lazy(() => import("./PdfFilePreview"));
 const DocxPreview = lazy(() => import("./DocxFilePreview"));
 const PackagePreview = lazy(() => import("./PackageFilePreview"));
@@ -162,7 +163,11 @@ export function FilePreview({
               </p>
             }
           >
-            <PdfPreview file={file} />
+            <PdfPreview key={objectUrl} file={file} source={source} annotate={full} />
+          </Suspense>
+        ) : kind === "text" && /\.(csv|tsv)$/i.test(file.name) ? (
+          <Suspense fallback={<p role="status">Открываю таблицу…</p>}>
+            <DelimitedPreview key={objectUrl} file={file} />
           </Suspense>
         ) : kind === "book" || (kind === "text" && full) ? (
           <Suspense

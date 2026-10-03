@@ -2,14 +2,27 @@ import {
   AnnotationMode,
   GlobalWorkerOptions,
   getDocument,
+  type PageViewport,
   type PDFDocumentProxy,
 } from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { useEffect, useRef, useState } from "react";
 
+import PdfMarkup from "./PdfMarkup";
+
 GlobalWorkerOptions.workerSrc = workerUrl;
 
-export default function PdfFilePreview({ file }: { file: File }) {
+export default function PdfFilePreview({
+  file,
+  source,
+  annotate = false,
+}: {
+  file: File;
+  source?: string;
+  annotate?: boolean;
+}) {
+  const [viewport, setViewport] = useState<PageViewport | null>(null);
+  const [comments, setComments] = useState<{ id: string; text: string }[]>([]);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null),
     [page, setPage] = useState(1),
@@ -68,6 +81,7 @@ export default function PdfFilePreview({ file }: { file: File }) {
       .then(async (sheet) => {
         if (disposed || !canvas.current) return;
         const original = sheet.getViewport({ scale: 1 });
+        setViewport(original);
         const viewport = sheet.getViewport({
           scale: Math.min(
             2 * (zoom / 100),
@@ -79,8 +93,14 @@ export default function PdfFilePreview({ file }: { file: File }) {
         const target = canvas.current;
         target.width = Math.ceil(viewport.width);
         target.height = Math.ceil(viewport.height);
-        render = sheet.render({ canvas: target, viewport, annotationMode: AnnotationMode.DISABLE });
-        await render.promise;
+        render = sheet.render({ canvas: target, viewport, annotationMode: AnnotationMode.ENABLE });
+        const [, notes] = await Promise.all([render.promise, sheet.getAnnotations()]);
+        if (!disposed)
+          setComments(
+            notes
+              .filter((note) => note.subtype === "Text" && note.contentsObj?.str)
+              .map((note) => ({ id: note.id, text: note.contentsObj.str })),
+          );
         if (!disposed) setReady(true);
       })
       .catch(() => {
@@ -101,11 +121,26 @@ export default function PdfFilePreview({ file }: { file: File }) {
           <span className="spinner" /> Загружаю предпросмотр…
         </p>
       )}
-      <div className="pdf-sheet-scroll">
-        <div style={{ width: `${zoom}%`, minWidth: "100%" }}>
-          <canvas ref={canvas} hidden={!ready} role="img" aria-label={"PDF, страница " + page} />
-        </div>
-      </div>
+      <PdfMarkup
+        key={file.name + file.lastModified}
+        file={file}
+        source={source}
+        enabled={annotate}
+        page={page}
+        viewport={viewport}
+        zoom={zoom}
+        ready={ready}
+      >
+        <canvas ref={canvas} hidden={!ready} role="img" aria-label={"PDF, страница " + page} />
+      </PdfMarkup>
+      {comments.length > 0 && (
+        <details className="pdf-comments">
+          <summary>Комментарии в документе</summary>
+          {comments.map((note) => (
+            <p key={note.id}>{note.text}</p>
+          ))}
+        </details>
+      )}
       {pdf && (
         <div className="file-pages">
           <button

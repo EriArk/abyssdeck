@@ -1,0 +1,45 @@
+.pdf-sheet-stage {
+  position: relative;
+}
+.pdf-sheet-stage canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.pdf-sheet-stage canvas[hidden] {
+  display: none;
+}
+.pdf-markup-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.pdf-markup-layer[data-drawing="true"] {
+  pointer-events: auto;
+  touch-action: none;
+  cursor: crosshair;
+}
+.pdf-comment-input {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 8px;
+}
+.pdf-comment-input textarea {
+  color: var(--ink);
+  background: var(--screen);
+  font: inherit;
+  width: 100%;
+}
+.pdf-comments {
+  padding: 4px 8px;
+  max-height: 140px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.pdf-close {
+  padding: 8px;
+  flex: none;
+}
