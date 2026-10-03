@@ -133,6 +133,10 @@ export function CodexResultTimeline({
       {logUrl && disclosure[id] && <LiveCommandOutput url={logUrl} />}
     </details>
   );
+  // Progress labels alone have no content to expand; keep them in live status UI.
+  const steps = page?.items.filter(
+    (item) => item.text?.trim() || (item.kind === "work" && (item.result || item.logUrl)),
+  );
   return (
     <div className="result-timeline">
       {error && (
@@ -147,7 +151,7 @@ export function CodexResultTimeline({
           </button>
         </div>
       )}
-      {page?.items.map((item) =>
+      {steps?.map((item) =>
         item.kind === "work" ? (
           workCard(`${result.id}:${item.id}`, item.label, item.result, item.text, item.logUrl)
         ) : (
@@ -179,9 +183,14 @@ export function CodexResultTimeline({
         </button>
       )}
       {busy && <p role="status">Загружаем…</p>}
-      {!busy && !error && page && !page.items.length && !legacy?.items.length && (
-        <p className="muted">Для этого хода нет сохранённых публичных шагов.</p>
-      )}
+      {!busy &&
+        !error &&
+        page &&
+        !steps?.length &&
+        page.nextAfter == null &&
+        !legacy?.items.length && (
+          <p className="muted">Для этого хода нет сохранённых публичных шагов.</p>
+        )}
     </div>
   );
 }

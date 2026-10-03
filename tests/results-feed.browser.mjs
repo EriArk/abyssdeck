@@ -117,6 +117,9 @@ try {
     if (url.pathname.endsWith("/reasoning"))
       return json({
         items: [
+          { id: "status-writing", kind: "work", label: "Пишет ответ", text: "" },
+          { id: "status-thinking", kind: "work", label: "Обдумывает задачу", text: "   " },
+          { id: "status-files", kind: "work", label: "Изменяет файлы" },
           {
             id: "summary",
             kind: "summary",
@@ -278,6 +281,10 @@ try {
           ).toBeVisible();
           await page.getByRole("button", { name: "Рассуждения", exact: true }).click();
           await page.locator(".result-reasoning-details > summary").click();
+          await expect(page.locator(".result-work-step")).toHaveCount(1);
+          await expect(page.getByText("Пишет ответ", { exact: true })).toHaveCount(0);
+          await expect(page.getByText("Обдумывает задачу", { exact: true })).toHaveCount(0);
+          await expect(page.getByText("Изменяет файлы", { exact: true })).toHaveCount(0);
           await page.locator(".result-work-step > summary").click();
           await expect(page.getByText("pnpm test", { exact: true })).toBeVisible();
           await page.locator(".command-output > summary").click();

@@ -2,6 +2,9 @@
 
 ## Owner-requested unified reasoning and work (2026-10-03)
 
+- Omit content-free progress labels such as writing/thinking from Results reasoning.
+  Keep substantive public summaries and work with commands, output or other details;
+  live chat status remains separate from the saved task sequence.
 - Codex Results should expose «Рассуждения» instead of the separate «Работа» category.
   Combine available native public progress/reasoning summaries with expandable work
   cards in the same task sequence. Preserve commands, changes, checks, errors and
