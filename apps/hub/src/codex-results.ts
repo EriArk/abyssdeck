@@ -30,12 +30,13 @@ export function codexRequests(
   const rows = db
     .prepare(
       turns(scope) +
-        ` SELECT turns.*,s.title threadTitle,
+        ` , page AS MATERIALIZED (SELECT * FROM turns WHERE cursor<? ORDER BY cursor DESC LIMIT 21)
+    SELECT turns.*,s.title threadTitle,
     COALESCE((SELECT text FROM messages m WHERE m.threadId=turns.threadId AND m.turnId=turns.turnId AND role='user' ORDER BY firstSeq LIMIT 1),
       (SELECT json_extract(payload,'$.text') FROM results r WHERE r.threadId=turns.threadId AND r.turnId=turns.turnId AND type='reasoning-request' ORDER BY rowid LIMIT 1)) request,
     (SELECT createdAt FROM messages m WHERE m.threadId=turns.threadId AND m.turnId=turns.turnId ORDER BY firstSeq LIMIT 1) createdAt,
     (SELECT MAX(seq) FROM events e WHERE e.threadId=turns.threadId AND e.turnId=turns.turnId) revision
-    FROM turns JOIN selected s ON s.id=turns.threadId WHERE cursor<? ORDER BY cursor DESC LIMIT 21`,
+    FROM page turns JOIN selected s ON s.id=turns.threadId ORDER BY cursor DESC`,
     )
     .all(id, before);
   return {
