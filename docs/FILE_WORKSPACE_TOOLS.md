@@ -307,3 +307,7 @@ TypeScript/build, help и scoped Biome также пройдены. Это бр�
 
 [Снимки с описаниями](../polish/05-files/code-editor/README.md).
 Следующим возвращаемся к PDF: поиск/выделение текста и миниатюры страниц.
+
+Установлен веб-выпуск `9178a0a`: publisher подтвердил manifest, HTTP Hub отдал
+точные движки, CSS, workers и шрифт. ID/образы/время старта Engine/Hub/GPT
+сохранены при публикации. Подробности — в CURRENT_STATUS.md.
