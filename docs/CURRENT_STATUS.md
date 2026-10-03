@@ -34,6 +34,16 @@ broker/Companion adapter, ключи и точный маршрут Tailscale, b
 Предложение про «Планы, задачи и заметки» ниже отложено этим выбором владельца.
 Рекомендуемый режим для продолжения: GPT-6 Astra, Высокое (`high`).
 
+Исходники `e76e9cd` отправлены в `main`. Точный пакет размещён на сервере:
+`/home/abysscloud/services/codex-web/personal-linux-e76e9cd`.
+Повторный запуск `apply-bundle.py` без `--apply` подтвердил все хеши и preflight.
+SHA-256 manifest: `016c189d8483399b7f1eb54c7e03b865ea9b47188704a18d50a491aa4cab8a47`.
+Команда для системного шага в приватном терминале сервера:
+
+```sh
+sudo python3 /home/abysscloud/services/codex-web/personal-linux-e76e9cd/apply-bundle.py --apply
+```
+
 ### Настройки: одобренная структура в рабочих компонентах — 3 октября
 
 После «Неплохо. Продолжаем» эскиз перенесён в общие настройки Codex/GPT.

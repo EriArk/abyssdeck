@@ -4,7 +4,8 @@ Owner-approved direction: [personal Linux and Companion contract](../../docs/PER
 This is an additive host-preparation package, not a replacement for the installed
 Podman broker and not a member enrollment endpoint.
 
-On Ubuntu 24.04 with cgroup v2 and at least 64 GiB free in `/var/lib`:
+On Ubuntu 24.04 with cgroup v2, at least 64 GiB free in `/var/lib` and 5 GiB
+currently available RAM for the two disposable probes:
 
 ```sh
 python3 prepare.py           # read-only plan and route/capacity preflight
