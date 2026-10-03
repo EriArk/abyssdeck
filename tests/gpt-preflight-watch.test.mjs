@@ -149,7 +149,7 @@ test("the same error after native admission remains uncertain and cannot replay"
     s.close();
   }
 });
-test("unchanged history slows down across restart; opening, progress and late completion stay live", () => {
+test("old incomplete history is quiet across restart; opening, progress and late completion stay live", () => {
   let now = 10 * 86400000;
   const s = new Store(":memory:"),
     clock = () => now;
@@ -162,7 +162,7 @@ test("unchanged history slows down across restart; opening, progress and late co
     now += 30000;
     assert.deepEqual(watch.due(), []);
     now += 870000;
-    assert.deepEqual(watch.due(), ["chat"]);
+    assert.deepEqual(watch.due(), [], "old unanswered prompt must not cause background reads");
     state = attention.observe("chat", [user]);
     watch.observe("chat", state.pending, state.changedAt);
     const restored = new GptHistoryWatch(clock);
@@ -205,4 +205,10 @@ test("watch fairness and two-read budget are retained without a browser", () => 
   assert.deepEqual(watch.due(), []);
   now += 30000;
   assert.deepEqual(watch.due(), ["0", "1"]);
+  now += 300000;
+  assert.deepEqual(watch.due(), [], "stop quiet incomplete chats after five minutes");
+  now += 86400000;
+  assert.deepEqual(watch.due(), []);
+  watch.active("2");
+  assert.deepEqual(watch.due(), ["2"], "explicit reopening resumes only that chat");
 });

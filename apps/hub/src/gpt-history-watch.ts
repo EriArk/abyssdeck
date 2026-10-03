@@ -20,16 +20,10 @@ export class GptHistoryWatch {
     const selected = [...this.entries]
       .filter(([, entry]) => {
         const age = now - Math.max(entry.changedAt, entry.openedAt);
-        const interval =
-          age < 120000
-            ? 30000
-            : age < 300000
-              ? 60000
-              : age < 900000
-                ? 120000
-                : age < 3600000
-                  ? 300000
-                  : 900000;
+        // Missing final text does not justify polling a forgotten chat forever.
+        // Real jobs have their own receipt monitor; reopening resumes this watch.
+        if (age >= 300000) return false;
+        const interval = age < 120000 ? 30000 : 60000;
         return now - entry.checkedAt >= interval;
       })
       .sort((a, b) => a[1].checkedAt - b[1].checkedAt)
