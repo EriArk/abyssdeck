@@ -125,11 +125,16 @@
   #cw-results-study .rs-image .rs-actions > .rs-overflow { display: inline-flex; position: absolute; right: 7px; top: 7px; color: var(--rs-text); background: var(--rs-screen-hi); border: 1px solid var(--rs-line); }
   #cw-results-study .rs-image .rs-popover { top: 54px; right: 7px; }
   #cw-results-study .rs-image:first-child .rs-popover { left: 7px; right: auto; }
-  #cw-results-study .rs-service { border-bottom: 1px solid var(--rs-line); }
-  #cw-results-study .rs-service summary { display: flex; align-items: center; gap: 10px; min-height: 64px; list-style: none; }
-  #cw-results-study .rs-service summary::-webkit-details-marker { display: none; }
-  #cw-results-study .rs-service summary > span { flex: 1; }
-  #cw-results-study .rs-service p { font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; padding: 10px; background: var(--rs-screen-hi); }
+  #cw-results-study .rs-service { position: relative; margin: 10px 0 14px; padding: 8px 12px; background: var(--rs-screen-hi); border: 1px solid var(--rs-line); border-radius: 7px; }
+  #cw-results-study .rs-service-row { display: flex; align-items: center; gap: 6px; min-height: 64px; }
+  #cw-results-study .rs-service-toggle { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; text-align: left; padding: 8px 0; }
+  #cw-results-study .rs-service-toggle > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  #cw-results-study .rs-service p { font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; margin: 8px 0 4px; padding: 10px; background: var(--rs-screen); border-radius: 4px; }
+  #cw-results-study .rs-service-toggle[aria-expanded="true"] > svg:last-child { transform: rotate(180deg); }
+  #cw-results-study .rs-service .rs-actions { display: flex; position: relative; }
+  #cw-results-study .rs-service .rs-actions > .rs-key { display: none; }
+  #cw-results-study .rs-service .rs-actions > .rs-overflow { display: inline-flex; color: var(--rs-dim); }
+  #cw-results-study .rs-service .rs-popover { top: 100%; right: 0; }
   #cw-results-study .rs-path { margin: 4px 0 12px; padding: 0; list-style: none; }
   #cw-results-study .rs-step { position: relative; padding: 0 0 20px 20px; margin-left: 5px; border-left: 1px solid var(--rs-line); }
   #cw-results-study .rs-step::before { content: ''; position: absolute; width: 7px; height: 7px; left: -4px; top: 8px; border-radius: 50%; background: var(--rs-text); }
@@ -237,7 +242,8 @@
   }
   function icons() { if (globalThis.lucide) lucide.createIcons({attrs:{width:19,height:19}}); }
   function key(action,name,glyph,id='',extraClass='') { return `<button type="button" class="rs-key cursor-interaction ${extraClass}" data-action="${action}" data-id="${id}" aria-label="${escape(name)}" data-tooltip="${escape(name)}">${icon(glyph)}</button>`; }
-  function actions(r) { return `<div class="rs-actions">${key('share','Отправить','share-2',r.id)}${key('download','Скачать','download',r.id)}${key('source','К сообщению','message-square',r.id)}${key('menu','Действия с результатом','ellipsis',r.id,'rs-overflow')}<div class="rs-popover rs-item-menu" hidden>${[['share','Отправить','share-2'],['download','Скачать','download'],['source','К сообщению','message-square']].map(([action,name,glyph])=>`<button type="button" class="cursor-interaction" data-action="${action}" data-id="${r.id}">${icon(glyph)}${name}</button>`).join('')}</div></div>`; }
+  function actions(r, available=['share','download','source']) { const entries=[['share','Отправить','share-2'],['download','Скачать','download'],['source','К сообщению','message-square']].filter(([action])=>available.includes(action));return `<div class="rs-actions">${entries.map(([action,name,glyph])=>key(action,name,glyph,r.id)).join('')}${key('menu','Действия с результатом','ellipsis',r.id,'rs-overflow')}<div class="rs-popover rs-item-menu" hidden>${entries.map(([action,name,glyph])=>`<button type="button" class="cursor-interaction" data-action="${action}" data-id="${r.id}">${icon(glyph)}${name}</button>`).join('')}</div></div>`; }
+  function serviceCard(r) {return `<article class="rs-service" data-record="${r.id}"><div class="rs-service-row"><button type="button" class="rs-service-toggle cursor-interaction" data-action="toggle-service" aria-expanded="false" aria-controls="rs-description-${r.id}">${icon(r.icon)}<span>${r.name}<span class="rs-meta">${r.format} · ${r.time}</span></span>${icon('chevron-down')}</button>${actions(r,['source'])}</div><p id="rs-description-${r.id}" hidden>${escape(r.text)}</p></article>`;}
   function checkbox(r) { return state.selecting ? `<label class="rs-check cursor-interaction"><input type="checkbox" data-id="${r.id}" aria-label="Выбрать ${escape(r.name)}" ${state.selected.includes(r.id)?'checked':''}></label>` : ''; }
   function row(r,search=false) { return `<div class="rs-row" data-record="${r.id}">${search?'':checkbox(r)}<button type="button" class="rs-open cursor-interaction" data-action="open" data-id="${r.id}" data-tooltip="${escape(r.name)}" aria-label="Открыть ${escape(r.name)}">${icon(r.icon)}<span class="rs-name-block"><span class="rs-name">${escape(r.name)}</span><span class="rs-meta">${r.format} · ${r.size} · ${r.time}</span></span></button>${search?'':actions(r)}</div>`; }
   function save() { window.openai?.setWidgetState?.({modelContent:{proposal:'Results with expandable request cards',theme:state.theme,density:'roomy tablet, compact phone',category:state.category},privateContent:{...state}})?.catch(()=>{}); }
@@ -253,7 +259,7 @@
     el('.rs-section-name').textContent=['files','images'].includes(state.category)?'Сегодня':sections[state.category];
     el('.rs-count').textContent=state.category==='files'?'5 файлов':state.category==='images'?'2 изображения':state.category==='reasoning'?'Сегодня · 2 запроса':`${services.length} ${services.length===1?'запись':'записи'}`;
     el('.rs-items').classList.toggle('rs-images',state.category==='images');
-    el('.rs-items').innerHTML=state.category==='images'?list.map(r=>`<div class="rs-image" data-record="${r.id}"><button type="button" class="rs-open cursor-interaction" data-action="open" data-id="${r.id}" aria-label="Открыть ${escape(r.name)}" data-tooltip="${escape(r.name)}"><img class="rs-thumb" src="${images[r.image]}" alt="${escape(r.name)}"><span class="rs-name">${escape(r.name)}</span><span class="rs-meta">${r.format} · ${r.size}</span></button><div class="rs-image-bottom">${checkbox(r)}${actions(r)}</div></div>`).join(''):list.length?list.map(r=>row(r)).join(''):services.map(r=>`<details class="rs-service"><summary class="cursor-interaction">${icon(r.icon)}<span>${r.name}<span class="rs-meta">${r.format} · ${r.time}</span></span>${icon('chevron-down')}</summary><p>${escape(r.text)}</p><button type="button" class="cursor-interaction" data-action="source" data-id="${r.id}">${icon('message-square')}К сообщению</button></details>`).join('');
+    el('.rs-items').innerHTML=state.category==='images'?list.map(r=>`<div class="rs-image" data-record="${r.id}"><button type="button" class="rs-open cursor-interaction" data-action="open" data-id="${r.id}" aria-label="Открыть ${escape(r.name)}" data-tooltip="${escape(r.name)}"><img class="rs-thumb" src="${images[r.image]}" alt="${escape(r.name)}"><span class="rs-name">${escape(r.name)}</span><span class="rs-meta">${r.format} · ${r.size}</span></button><div class="rs-image-bottom">${checkbox(r)}${actions(r)}</div></div>`).join(''):list.length?list.map(r=>row(r)).join(''):services.map(serviceCard).join('');
     if(state.category==='reasoning')el('.rs-items').innerHTML=reasoningPath();
     el('.rs-category-menu').innerHTML=['links','demos'].map(type=>`<button type="button" class="cursor-interaction" data-category="${type}" aria-pressed="${state.category===type}">${icon({links:'link',demos:'panels-top-left'}[type])}${sections[type]}</button>`).join('');
     icons();
@@ -286,6 +292,7 @@
     const type=b.dataset.category;
     if(type){state.category=type;closeMenus();render();save();return;}
     const action=b.dataset.action,id=b.dataset.id;
+    if(action==='toggle-service'){const content=b.closest('.rs-service').querySelector('p');content.hidden=!content.hidden;b.setAttribute('aria-expanded',String(!content.hidden));}
     if(action!=='menu'&&action!=='categories')closeMenus();
     if(action==='categories'){const m=el('.rs-category-menu'),show=m.hidden;closeMenus();m.hidden=!show;b.setAttribute('aria-expanded',String(show));}
     if(action==='menu'){const m=b.parentElement.querySelector('.rs-item-menu'),show=m.hidden;closeMenus();m.hidden=!show;}
