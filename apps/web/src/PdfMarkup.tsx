@@ -197,97 +197,103 @@ export default function PdfMarkup({
       {enabled && (
         <div className="file-format-tools">
           <div className="format-tool-row" role="toolbar" aria-label="Разметка PDF">
-            <button
-              type="button"
-              className="icon-button"
-              aria-label={editing ? "Просмотр PDF" : "Разметить PDF"}
-              title={editing ? "Просмотр PDF" : "Разметить PDF"}
-              disabled={!key || busy}
-              aria-pressed={editing}
-              onClick={() => setEditing(!editing)}
-            >
-              <Icon name={editing ? "file" : "edit"} />
-            </button>
+            <div className="pdf-toolbar-group">
+              <button
+                type="button"
+                className="icon-button"
+                aria-label={editing ? "Просмотр PDF" : "Разметить PDF"}
+                title={editing ? "Просмотр PDF" : "Разметить PDF"}
+                disabled={!key || busy}
+                aria-pressed={editing}
+                onClick={() => setEditing(!editing)}
+              >
+                <Icon name={editing ? "file" : "edit"} />
+              </button>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="Отменить разметку PDF"
+                title="Отменить"
+                disabled={!draft.index || busy}
+                onClick={() => setDraft((d) => ({ ...d, index: d.index - 1 }))}
+              >
+                <Icon name="back" />
+              </button>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="Повторить разметку PDF"
+                title="Повторить"
+                disabled={draft.index === draft.marks.length || busy}
+                onClick={() => setDraft((d) => ({ ...d, index: d.index + 1 }))}
+              >
+                <Icon name="chevron" />
+              </button>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="Сохранить копию PDF"
+                title="Сохранить копию PDF"
+                disabled={!draft.index || busy}
+                onClick={() => void exportCopy()}
+              >
+                <Icon name="save" />
+              </button>
+            </div>
             {editing && (
               <>
-                {(
-                  [
-                    ["pan", "touch", "Прокрутка PDF"],
-                    ["marker", "marker", "Маркер PDF"],
-                    ["pen", "edit", "Перо PDF"],
-                    ["comment", "note-edit", "Комментарий PDF"],
-                  ] as const
-                ).map(([value, icon, label]) => (
-                  <button
-                    type="button"
-                    className="icon-button"
-                    key={value}
-                    aria-label={label}
-                    title={label}
-                    aria-pressed={tool === value}
-                    disabled={busy}
-                    onClick={() => setTool(value)}
-                  >
-                    <Icon name={icon} />
-                  </button>
-                ))}
-                <select
-                  aria-label="Цвет разметки PDF"
-                  value={color}
-                  onChange={(e) => setColor(e.target.value)}
-                >
-                  <option value="#ffcc00">Жёлтый</option>
-                  <option value="#ff3344">Красный</option>
-                  <option value="#2288ff">Синий</option>
-                  <option value="#22bb66">Зелёный</option>
-                  <option value="#000000">Чёрный</option>
-                  <option value="#ffffff">Белый</option>
-                </select>
-                {tool !== "comment" && tool !== "pan" && (
+                <div className="pdf-toolbar-group">
+                  {(
+                    [
+                      ["pan", "touch", "Прокрутка PDF"],
+                      ["marker", "marker", "Маркер PDF"],
+                      ["pen", "edit", "Перо PDF"],
+                      ["comment", "note-edit", "Комментарий PDF"],
+                    ] as const
+                  ).map(([value, icon, label]) => (
+                    <button
+                      type="button"
+                      className="icon-button"
+                      key={value}
+                      aria-label={label}
+                      title={label}
+                      aria-pressed={tool === value}
+                      disabled={busy}
+                      onClick={() => setTool(value)}
+                    >
+                      <Icon name={icon} />
+                    </button>
+                  ))}
+                </div>
+                <div className="pdf-toolbar-group">
                   <select
-                    aria-label="Толщина разметки PDF"
-                    value={width}
-                    onChange={(e) => setWidth(Number(e.target.value))}
+                    aria-label="Цвет разметки PDF"
+                    value={color}
+                    onChange={(e) => setColor(e.target.value)}
                   >
-                    {[2, 5, 10, 20].map((n) => (
-                      <option key={n} value={n}>
-                        {n} pt
-                      </option>
-                    ))}
+                    <option value="#ffcc00">Жёлтый</option>
+                    <option value="#ff3344">Красный</option>
+                    <option value="#2288ff">Синий</option>
+                    <option value="#22bb66">Зелёный</option>
+                    <option value="#000000">Чёрный</option>
+                    <option value="#ffffff">Белый</option>
                   </select>
-                )}
+                  {tool !== "comment" && tool !== "pan" && (
+                    <select
+                      aria-label="Толщина разметки PDF"
+                      value={width}
+                      onChange={(e) => setWidth(Number(e.target.value))}
+                    >
+                      {[2, 5, 10, 20].map((n) => (
+                        <option key={n} value={n}>
+                          {n} pt
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
               </>
             )}
-            <button
-              type="button"
-              className="icon-button"
-              aria-label="Отменить разметку PDF"
-              title="Отменить"
-              disabled={!draft.index || busy}
-              onClick={() => setDraft((d) => ({ ...d, index: d.index - 1 }))}
-            >
-              <Icon name="back" />
-            </button>
-            <button
-              type="button"
-              className="icon-button"
-              aria-label="Повторить разметку PDF"
-              title="Повторить"
-              disabled={draft.index === draft.marks.length || busy}
-              onClick={() => setDraft((d) => ({ ...d, index: d.index + 1 }))}
-            >
-              <Icon name="chevron" />
-            </button>
-            <button
-              type="button"
-              className="icon-button"
-              aria-label="Сохранить копию PDF"
-              title="Сохранить копию PDF"
-              disabled={!draft.index || busy}
-              onClick={() => void exportCopy()}
-            >
-              <Icon name="save" />
-            </button>
           </div>
           {editing && tool === "comment" && (
             <label className="pdf-comment-input">
