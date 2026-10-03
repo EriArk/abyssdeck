@@ -1,0 +1,279 @@
+<div id="cw-devices-study" class="viz-dotted-background">
+  <section class="dw-case" data-theme="green" aria-label="Устройства — эскиз">
+    <div class="dw-main">
+      <header class="dw-header">
+        <i data-lucide="computer" aria-hidden="true"></i><h2>Устройства</h2>
+        <button class="dw-key cursor-interaction" data-action="help" aria-label="Справка" data-tooltip="Справка"><i data-lucide="circle-help" aria-hidden="true"></i></button>
+        <button class="dw-key dw-wide cursor-interaction" data-action="minimize" aria-label="Свернуть окно" data-tooltip="Свернуть окно"><i data-lucide="minus" aria-hidden="true"></i></button>
+        <button class="dw-key cursor-interaction" data-action="close" aria-label="Закрыть окно" data-tooltip="Закрыть окно"><i data-lucide="x" aria-hidden="true"></i></button>
+      </header>
+      <div class="dw-machine-row">
+        <button class="dw-machine cursor-interaction" data-menu="machines" aria-expanded="false" aria-label="Выбрать устройство">
+          <i data-lucide="server" aria-hidden="true"></i><span class="dw-machine-label">Сервер <small>Linux</small></span><i data-lucide="chevron-down" aria-hidden="true"></i>
+        </button>
+        <span class="dw-updated">Обновлено 12:40</span>
+        <button class="dw-key cursor-interaction" data-action="refresh" aria-label="Обновить сведения" data-tooltip="Обновить сведения"><i data-lucide="refresh-cw" aria-hidden="true"></i></button>
+        <button class="dw-key cursor-interaction" data-menu="device" aria-label="Действия устройства" aria-expanded="false" data-tooltip="Действия устройства"><i data-lucide="ellipsis" aria-hidden="true"></i></button>
+      </div>
+      <nav class="dw-tabs" aria-label="Вид устройства">
+        <button class="cursor-interaction" data-page="system" aria-pressed="false">Система</button>
+        <button class="cursor-interaction" data-page="terminal" aria-pressed="true">Терминал</button>
+      </nav>
+      <div class="dw-aperture" data-page="terminal">
+        <aside class="dw-system" aria-label="Сведения об устройстве">
+          <div class="dw-system-head"><h3>Система</h3><span class="dw-online">В сети</span><button class="dw-screen-key dw-wide cursor-interaction" data-action="collapse" aria-label="Свернуть сведения" data-tooltip="Свернуть сведения"><i data-lucide="panel-left-close" aria-hidden="true"></i></button></div>
+          <div class="dw-specs"></div>
+        </aside>
+        <button class="dw-grip dw-wide" aria-label="Изменить ширину сведений" data-tooltip="Потяни или используй стрелки ← →" data-action="grip"></button>
+        <section class="dw-console" aria-label="Терминал устройства">
+          <div class="dw-terminal-head">
+            <button class="dw-screen-key dw-restore cursor-interaction" data-action="collapse" aria-label="Показать сведения" data-tooltip="Показать сведения"><i data-lucide="panel-left-open" aria-hidden="true"></i></button>
+            <button class="dw-session cursor-interaction" data-menu="sessions" aria-label="Выбрать терминал" aria-expanded="false"><span>Терминал 1</span><i data-lucide="chevron-down" aria-hidden="true"></i></button>
+            <span class="dw-terminal-status">Подключено</span>
+            <button class="dw-screen-key cursor-interaction" data-action="new" aria-label="Новый терминал" data-tooltip="Новый терминал"><i data-lucide="plus" aria-hidden="true"></i></button>
+            <button class="dw-screen-key cursor-interaction" data-menu="terminal" aria-label="Действия терминала" aria-expanded="false" data-tooltip="Действия терминала"><i data-lucide="ellipsis" aria-hidden="true"></i></button>
+          </div>
+          <div class="dw-output"><pre></pre></div>
+          <form class="dw-input" hidden>
+            <label><span class="dw-input-label">Команда</span><input aria-label="Команда в эскизе" autocomplete="off" spellcheck="false" placeholder="Только пример, без выполнения"></label>
+            <div><button type="button" class="dw-key cursor-interaction" data-action="paste">Вставить</button><button type="button" data-action="submit-input" class="dw-key dw-primary cursor-interaction">Ввести</button><button type="button" class="dw-key cursor-interaction" data-action="input-close" aria-label="Закрыть ввод"><i data-lucide="x" aria-hidden="true"></i></button></div>
+          </form>
+          <div class="dw-extra" hidden><button class="dw-key cursor-interaction" data-key="Esc">Esc</button><button class="dw-key cursor-interaction" data-key="Tab">Tab</button><button class="dw-key cursor-interaction" data-key="↑" aria-label="Стрелка вверх">↑</button><button class="dw-key cursor-interaction" data-key="↓" aria-label="Стрелка вниз">↓</button><button class="dw-key cursor-interaction" data-key="←" aria-label="Стрелка влево">←</button><button class="dw-key cursor-interaction" data-key="→" aria-label="Стрелка вправо">→</button></div>
+          <div class="dw-keys" role="toolbar" aria-label="Клавиши терминала">
+            <button class="dw-key cursor-interaction" data-action="input" aria-label="Ввести команду">Ввод</button>
+            <button class="dw-key cursor-interaction" data-action="password" aria-label="Ввести пароль" data-tooltip="Ввести пароль"><i data-lucide="lock-keyhole" aria-hidden="true"></i></button>
+            <button class="dw-key cursor-interaction" data-action="keyboard" aria-label="Открыть клавиатуру" data-tooltip="Открыть клавиатуру"><i data-lucide="keyboard" aria-hidden="true"></i></button>
+            <button class="dw-key cursor-interaction" data-key="Enter">Enter</button>
+            <button class="dw-key cursor-interaction" data-key="Ctrl C">Ctrl C</button>
+            <button class="dw-key cursor-interaction" data-action="keys" aria-label="Другие клавиши" aria-expanded="false" data-tooltip="Другие клавиши"><i data-lucide="chevron-up" aria-hidden="true"></i></button>
+          </div>
+        </section>
+      </div>
+    </div>
+    <div class="dw-parked" hidden><i data-lucide="computer" aria-hidden="true"></i><p class="dw-parked-title">Устройства свёрнуты</p><button class="dw-key cursor-interaction" data-action="restore">Вернуться к устройствам</button></div>
+    <div class="dw-popover" hidden></div>
+    <div class="dw-overlay" hidden><section class="dw-dialog" role="dialog" aria-modal="true" aria-label="Действие устройства"><h3></h3><div class="dw-dialog-content"></div><footer><button class="dw-key cursor-interaction" data-action="cancel">Отмена</button><button class="dw-key dw-primary cursor-interaction" data-action="confirm">Показать результат</button></footer></section></div>
+    <div class="dw-notice" hidden role="status"><span></span><button class="dw-screen-key cursor-interaction" data-action="dismiss" aria-label="Скрыть уведомление"><i data-lucide="x" aria-hidden="true"></i></button></div>
+  </section>
+</div>
+<style>
+#cw-devices-study { padding:12px 0; container-type:inline-size; }
+#cw-devices-study * { box-sizing:border-box; }
+#cw-devices-study [hidden] { display:none!important; }
+#cw-devices-study .dw-case {
+ --dw-shell:#211419;--dw-hi:#39272e;--dw-key:#2d2026;--dw-edge:#110d0f;
+ --dw-screen:#07180e;--dw-soft:#10281a;--dw-text:#adebbc;--dw-dim:#90b59a;--dw-ink:#eee9df;
+ --dw-line:#2a4b36;--dw-accent:#a2ffb4;--dw-active-ink:#102918;--dw-danger:#ffc3a9;--dw-panel:220px;
+ color:var(--dw-text);font:14px/1.45 ui-monospace,Consolas,monospace;position:relative;
+ background:var(--dw-shell);border:2px solid var(--dw-edge);border-radius:18px;padding:8px;
+ box-shadow:inset 0 1px 1px var(--dw-hi),inset 0 -3px 2px var(--dw-edge),0 8px 20px #0002;
+ }
+#cw-devices-study .dw-case[data-theme="2000"] {--dw-shell:#a4adb4;--dw-hi:#e2e8ec;--dw-key:#bec7cd;--dw-edge:#667079;--dw-screen:#152b38;--dw-soft:#213d4c;--dw-text:#daedf8;--dw-dim:#adc8d7;--dw-ink:#172935;--dw-line:#3f5a69;--dw-accent:#a0def9;--dw-active-ink:#153144;--dw-danger:#ffcab0;font-family:system-ui,sans-serif;}
+#cw-devices-study .dw-case[data-theme="organizer"] {--dw-shell:#6a4532;--dw-hi:#926c51;--dw-key:#78543e;--dw-edge:#442c20;--dw-screen:#fff5de;--dw-soft:#f4e6c9;--dw-text:#3d3025;--dw-dim:#70604b;--dw-ink:#fff2de;--dw-line:#d6c8aa;--dw-accent:#e8c891;--dw-active-ink:#382810;--dw-danger:#833c21;font-family:Georgia,serif;border-left:7px solid var(--dw-edge);}
+#cw-devices-study .dw-case[data-theme="dark"] {--dw-shell:#25262b;--dw-hi:#42454b;--dw-key:#303339;--dw-edge:#15171a;--dw-screen:#1b1e23;--dw-soft:#282d35;--dw-text:#e4e9f0;--dw-dim:#b0b9c4;--dw-ink:#e9edf4;--dw-line:#3e4650;--dw-accent:#bad6f3;--dw-active-ink:#182c42;--dw-danger:#ffc6b4;font-family:system-ui,sans-serif;}
+#cw-devices-study button,#cw-devices-study input,#cw-devices-study select {font:inherit;}
+#cw-devices-study button {color:inherit;flex-shrink:0;}
+#cw-devices-study button:disabled {opacity:.45;cursor:default;}
+#cw-devices-study h2,#cw-devices-study h3,#cw-devices-study p {margin:0;}
+#cw-devices-study h2 {font-size:19px;font-weight:600;}
+#cw-devices-study h3 {font-size:14px;font-weight:600;}
+#cw-devices-study svg {width:19px;height:19px;flex-shrink:0;}
+#cw-devices-study .dw-header {display:flex;align-items:center;gap:8px;color:var(--dw-ink);padding:3px 4px 9px 10px;}
+#cw-devices-study .dw-header h2 {flex:1;min-width:0;}
+#cw-devices-study .dw-key {display:inline-flex;justify-content:center;align-items:center;gap:8px;min-height:44px;min-width:44px;padding:8px 12px;background:linear-gradient(var(--dw-key),var(--dw-shell));border:1px solid var(--dw-edge);border-radius:9px;box-shadow:inset 0 1px var(--dw-hi),0 2px 2px #0003;color:var(--dw-ink);}
+#cw-devices-study .dw-key:active {box-shadow:inset 0 2px 4px #0004;}
+#cw-devices-study .dw-primary {background:var(--dw-accent);color:var(--dw-active-ink);box-shadow:none;}
+#cw-devices-study .dw-machine-row {display:flex;gap:6px;align-items:center;position:relative;padding:0 4px 10px;}
+#cw-devices-study .dw-machine {display:flex;align-items:center;gap:10px;min-width:0;min-height:44px;flex:1;max-width:360px;padding:5px 12px;border:1px solid var(--dw-line);border-radius:7px;background:var(--dw-screen);color:var(--dw-text);box-shadow:inset 0 2px 3px #0004;}
+#cw-devices-study .dw-machine-label {flex:1;min-width:0;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#cw-devices-study small {font-size:12px;color:var(--dw-dim);}
+#cw-devices-study .dw-machine small {margin-left:10px;}
+#cw-devices-study .dw-updated {font-size:11px;flex:1;text-align:right;color:var(--dw-ink);opacity:.8;}
+#cw-devices-study .dw-aperture {position:relative;display:grid;grid-template-columns:var(--dw-panel) 12px minmax(0,1fr);background:var(--dw-screen);border:4px solid var(--dw-edge);border-right-color:var(--dw-hi);border-bottom-color:var(--dw-hi);border-radius:8px;overflow:hidden;min-height:460px;}
+#cw-devices-study .dw-system {min-width:0;padding:10px 12px 22px;}
+#cw-devices-study .dw-system-head {display:flex;align-items:center;gap:6px;margin-bottom:12px;}
+#cw-devices-study .dw-system-head h3 {flex:1;}
+#cw-devices-study .dw-online {font-size:11px;color:var(--dw-dim);}
+#cw-devices-study .dw-screen-key {min-width:44px;min-height:44px;padding:8px;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:6px;background:transparent;}
+#cw-devices-study .dw-screen-key:hover,#cw-devices-study .dw-session:hover {background:var(--dw-soft);}
+#cw-devices-study .dw-specs .dw-os {margin-bottom:5px;}
+#cw-devices-study .dw-specs dl {margin:20px 0;display:grid;gap:10px;font-size:12px;}
+#cw-devices-study .dw-specs dl>div {display:flex;gap:10px;justify-content:space-between;align-items:baseline;}
+#cw-devices-study dt {color:var(--dw-dim);}
+#cw-devices-study dd {margin:0;text-align:right;overflow-wrap:anywhere;}
+#cw-devices-study .dw-meter {margin:20px 0;}
+#cw-devices-study .dw-meter>div {display:flex;gap:8px;justify-content:space-between;font-size:12px;margin-bottom:8px;}
+#cw-devices-study .dw-track {height:5px;border-radius:2px;background:var(--dw-soft);overflow:hidden;}
+#cw-devices-study .dw-track span {display:block;height:100%;background:var(--dw-accent);}
+#cw-devices-study .dw-specs h4 {font-size:12px;font-weight:500;color:var(--dw-dim);margin:24px 0 8px;}
+#cw-devices-study .dw-specs .dw-note {font-size:12px;color:var(--dw-dim);}
+#cw-devices-study .dw-grip {padding:0;border:0;background:var(--dw-shell);cursor:col-resize;touch-action:none;position:relative;}
+#cw-devices-study .dw-grip::after {content:"";position:absolute;top:calc(50% - 18px);left:4px;width:3px;height:36px;border-radius:3px;background:var(--dw-hi);}
+#cw-devices-study .dw-console {min-width:0;display:flex;flex-direction:column;}
+#cw-devices-study .dw-terminal-head {display:flex;align-items:center;gap:2px;padding:3px 4px;border-bottom:1px solid var(--dw-line);}
+#cw-devices-study .dw-session {background:none;border:0;min-height:44px;display:flex;align-items:center;gap:6px;padding:4px 8px;min-width:0;flex:1;text-align:left;}
+#cw-devices-study .dw-session span {overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#cw-devices-study .dw-terminal-status {font-size:11px;white-space:nowrap;color:var(--dw-dim);}
+#cw-devices-study .dw-output {padding:16px;min-height:290px;flex:1;overflow:auto;}
+#cw-devices-study .dw-output pre {font:13px/1.65 ui-monospace,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;margin:0;color:var(--dw-text);}
+#cw-devices-study .dw-keys,#cw-devices-study .dw-extra {display:flex;gap:4px;padding:8px;background:var(--dw-shell);color:var(--dw-ink);}
+#cw-devices-study .dw-keys {justify-content:flex-start;}
+#cw-devices-study .dw-keys .dw-key {padding:8px;font-size:12px;}
+#cw-devices-study .dw-extra {justify-content:space-between;border-bottom:1px solid var(--dw-edge);}
+#cw-devices-study .dw-extra .dw-key {padding:6px;}
+#cw-devices-study .dw-input {padding:12px;background:var(--dw-soft);border-top:1px solid var(--dw-line);}
+#cw-devices-study .dw-input label {display:block;}
+#cw-devices-study .dw-input-label {display:block;font-size:12px;margin-bottom:7px;}
+#cw-devices-study input,#cw-devices-study select {width:100%;min-height:44px;border:1px solid var(--dw-line);border-radius:5px;background:var(--dw-screen);color:var(--dw-text);padding:8px;font-size:16px;}
+#cw-devices-study .dw-input>div {display:flex;gap:6px;margin-top:8px;}
+#cw-devices-study .dw-input>div .dw-key:not(:last-child) {flex:1;}
+#cw-devices-study .dw-tabs {display:none;}
+#cw-devices-study .dw-restore {display:none;}
+#cw-devices-study .dw-case[data-collapsed="true"] .dw-aperture {grid-template-columns:minmax(0,1fr);}
+#cw-devices-study .dw-case[data-collapsed="true"] .dw-system,#cw-devices-study .dw-case[data-collapsed="true"] .dw-grip {display:none;}
+#cw-devices-study .dw-case[data-collapsed="true"] .dw-restore {display:inline-flex;}
+#cw-devices-study .dw-popover {position:absolute;z-index:5;top:112px;right:12px;width:290px;max-width:calc(100% - 24px);background:var(--dw-screen);color:var(--dw-text);border:1px solid var(--dw-line);border-radius:10px;box-shadow:0 12px 26px #0005;padding:6px;}
+#cw-devices-study .dw-popover[data-menu="machines"] {left:12px;right:auto;width:360px;}
+#cw-devices-study .dw-popover button {display:flex;align-items:center;gap:10px;width:100%;min-height:48px;padding:10px;border:0;border-radius:6px;background:transparent;text-align:left;}
+#cw-devices-study .dw-popover button span {flex:1;min-width:0;overflow-wrap:anywhere;}
+#cw-devices-study .dw-popover button small {display:block;}
+#cw-devices-study .dw-popover button:hover,#cw-devices-study .dw-popover button[aria-pressed="true"] {background:var(--dw-soft);}
+#cw-devices-study .dw-popover hr {border:0;border-top:1px solid var(--dw-line);margin:6px;}
+#cw-devices-study .dw-popover .dw-danger {color:var(--dw-danger);}
+#cw-devices-study .dw-overlay {position:absolute;inset:0;z-index:8;padding:16px;display:flex;align-items:center;justify-content:center;border-radius:16px;background:#0008;}
+#cw-devices-study .dw-dialog {background:var(--dw-screen);border:3px solid var(--dw-shell);border-radius:12px;box-shadow:0 12px 32px #0006;padding:18px;width:100%;max-width:380px;}
+#cw-devices-study .dw-dialog h3 {font-size:18px;margin-bottom:15px;overflow-wrap:anywhere;}
+#cw-devices-study .dw-dialog p {color:var(--dw-dim);margin-bottom:14px;}
+#cw-devices-study .dw-dialog label {display:block;margin:12px 0;font-size:12px;}
+#cw-devices-study .dw-dialog label input,#cw-devices-study .dw-dialog label select {margin-top:6px;}
+#cw-devices-study .dw-dialog footer {display:flex;gap:8px;margin-top:18px;}
+#cw-devices-study .dw-dialog footer button {flex:1;padding:8px;}
+#cw-devices-study .dw-notice {position:absolute;z-index:9;bottom:16px;left:16px;right:16px;padding:8px 10px 8px 14px;display:flex;align-items:center;gap:8px;border:1px solid var(--dw-line);border-radius:8px;background:var(--dw-soft);box-shadow:0 5px 14px #0004;font-size:12px;}
+#cw-devices-study .dw-notice span {flex:1;min-width:0;}
+#cw-devices-study .dw-parked {padding:50px 16px;min-height:360px;text-align:center;}
+#cw-devices-study .dw-parked p {margin:16px 0;}
+#cw-devices-study .dw-case[data-theme="organizer"] .dw-aperture {border-width:2px 2px 2px 8px;border-left-color:var(--dw-edge);border-radius:3px;}
+#cw-devices-study .dw-case[data-theme="organizer"] .dw-grip {background:var(--dw-soft);}
+#cw-devices-study .dw-case[data-theme="organizer"] .dw-grip::after {background:var(--dw-line);}
+@container (max-width:620px) {
+ #cw-devices-study .dw-case {padding:5px;border-radius:14px;}
+ #cw-devices-study .dw-header {padding:2px 2px 7px 8px;gap:5px;}
+ #cw-devices-study .dw-header h2 {font-size:18px;}
+ #cw-devices-study .dw-wide,#cw-devices-study .dw-updated {display:none!important;}
+ #cw-devices-study .dw-machine-row {padding:0 3px 7px;gap:4px;}
+ #cw-devices-study .dw-machine {max-width:none;padding:5px 8px;gap:6px;}
+ #cw-devices-study .dw-machine small {display:none;}
+ #cw-devices-study .dw-machine-row .dw-key {padding:8px;}
+ #cw-devices-study .dw-tabs {display:flex;gap:6px;padding:0 4px 7px;}
+ #cw-devices-study .dw-tabs button {flex:1;min-height:44px;background:transparent;border:0;border-radius:6px;color:var(--dw-ink);box-shadow:inset 0 -1px var(--dw-edge);}
+ #cw-devices-study .dw-tabs button[aria-pressed="true"] {background:var(--dw-key);box-shadow:inset 0 -3px var(--dw-accent);}
+ #cw-devices-study .dw-aperture {display:block;min-height:425px;border-width:3px;}
+ #cw-devices-study .dw-console {min-height:425px;}
+ #cw-devices-study .dw-system {padding:12px 16px;}
+ #cw-devices-study .dw-system-head {min-height:30px;}
+ #cw-devices-study .dw-aperture[data-page="terminal"] .dw-system {display:none;}
+ #cw-devices-study .dw-aperture[data-page="system"] .dw-console {display:none;}
+ #cw-devices-study .dw-case[data-collapsed="true"] .dw-aperture[data-page="system"] .dw-system {display:block;}
+ #cw-devices-study .dw-restore {display:none!important;}
+ #cw-devices-study .dw-output {padding:12px;min-height:275px;}
+ #cw-devices-study .dw-session {padding:4px;gap:4px;font-size:12px;}
+ #cw-devices-study .dw-terminal-head {gap:0;padding:2px;}
+ #cw-devices-study .dw-terminal-status {font-size:11px;}
+ #cw-devices-study .dw-keys {padding:6px 3px;gap:2px;justify-content:space-between;}
+ #cw-devices-study .dw-keys .dw-key {min-width:44px;padding:6px 4px;font-size:11px;}
+ #cw-devices-study .dw-popover {top:108px;}
+}
+@container (max-width:340px) {
+ #cw-devices-study .dw-case {padding:3px;}
+ #cw-devices-study .dw-case[data-theme="organizer"] {border-left-width:3px;}
+ #cw-devices-study .dw-case[data-theme="organizer"] .dw-aperture {border-left-width:3px;}
+ #cw-devices-study .dw-keys {gap:0;padding:6px 0;}
+ #cw-devices-study .dw-keys .dw-key {padding:6px 2px;}
+}
+@media (prefers-reduced-motion:no-preference) {#cw-devices-study .dw-popover {animation:dw-open .14s ease-out;} @keyframes dw-open {from {opacity:0;transform:translateY(-4px);}to {opacity:1;transform:none;}}}
+</style>
+<script>
+(()=>{
+ const root=document.getElementById('cw-devices-study'),q=s=>root.querySelector(s),all=s=>[...root.querySelectorAll(s)];
+ const state={theme:'green',device:'server',width:220,collapsed:false,offline:false};
+ const devices={server:{name:'Сервер',platform:'Linux',os:'Ubuntu Linux',host:'server',cpu:'Intel Core i7',memory:'7,5 / 16 ГБ',disk:'186 / 931 ГБ',mount:'/',power:true,mounts:true},pc:{name:'ПК',platform:'Windows',os:'Windows 10',host:'desktop',cpu:'Intel Core i7',memory:'9,2 / 32 ГБ',disk:'218 / 476 ГБ',mount:'C:',power:true,mounts:true},workspace:{name:'Моё серверное окружение',platform:'Linux',os:'Личное окружение Linux',host:'workspace',cpu:'4 виртуальных CPU',memory:'1,1 / 8 ГБ',disk:'6 / 40 ГБ',mount:'/workspace',power:false,mounts:false}};
+ const sessions={};let menu='',menuTrigger=null,overlayAction='',overlayTrigger=null,entry='',resize=null;
+ const escape=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const icons=()=>globalThis.lucide?.createIcons({attrs:{width:19,height:19}});
+ const item=(action,label,icon,extra='')=>`<button class="cursor-interaction ${extra}" data-action="${action}"><i data-lucide="${icon}" aria-hidden="true"></i><span>${label}</span></button>`;
+ function machine(){return devices[state.device];}
+ function local(){return sessions[state.device]??=( {page:'terminal',selected:1,list:[{id:1,closed:false,output:state.device==='pc'?'PowerShell\n\nPS C:\\Users\\User> ':state.device==='workspace'?'Личное окружение Linux\n\nuser@workspace:~$ ':'Ubuntu Linux\n\nuser@server:~$ ',draft:''}]});}
+ function selected(){return local().list.find(s=>s.id===local().selected);}
+ function save(){window.openai?.setWidgetState({modelContent:{theme:state.theme,device:state.device,view:local().page,collapsed:state.collapsed},privateContent:{...state}}).catch(()=>{});}
+ function notice(text){q('.dw-notice span').textContent=text;q('.dw-notice').hidden=false;}
+ function closeMenu(focus=false){q('.dw-popover').hidden=true;all('[data-menu][aria-expanded]').forEach(b=>b.setAttribute('aria-expanded','false'));menu='';if(focus)menuTrigger?.focus();}
+ function closeOverlay(){q('.dw-overlay').hidden=true;q('.dw-main').inert=false;overlayAction='';overlayTrigger?.focus();}
+ function inputClose(){if(entry==='command')selected().draft=q('.dw-input input').value;q('.dw-input input').value='';q('.dw-input').hidden=true;entry='';}
+ function render(){
+  const d=machine(),l=local(),s=selected();q('.dw-case').dataset.theme=state.theme;q('.dw-case').dataset.collapsed=state.collapsed;
+  q('.dw-case').style.setProperty('--dw-panel',state.width+'px');q('[data-action="grip"]').setAttribute('aria-label',`Ширина сведений ${state.width} пикселей; стрелки изменяют ширину`);
+  q('.dw-machine-label').innerHTML=`${escape(d.name)} <small>${d.platform}</small>`;q('.dw-machine').setAttribute('data-tooltip',d.name+' · '+d.platform);
+  q('.dw-online').textContent=state.offline?'Нет связи':'В сети';q('.dw-terminal-status').textContent=s.closed?'Завершён':state.offline?'Нет связи':'Подключено';
+  q('.dw-session span').textContent=(state.device==='pc'?'PowerShell ':'Терминал ')+s.id;
+  q('.dw-aperture').dataset.page=l.page;all('[data-page][aria-pressed]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.page===l.page)));
+  q('.dw-specs').innerHTML=`<p class="dw-os">${escape(d.os)}</p><small>${d.host} · x86_64</small>${state.offline?'<p class="dw-note">Последние сведения · 12:40</p>':''}<dl><div><dt>Процессор</dt><dd>${escape(d.cpu)}</dd></div><div><dt>Без перезагрузки</dt><dd>20 ч. 40 мин.</dd></div></dl><div class="dw-meter"><div><span>Память</span><span>${d.memory}</span></div><div class="dw-track"><span style="width:${state.device==='server'?47:state.device==='pc'?29:14}%"></span></div></div><h4>Диски</h4><div class="dw-meter"><div><span>${d.mount}</span><span>${d.disk}</span></div><div class="dw-track"><span style="width:${state.device==='server'?20:state.device==='pc'?46:15}%"></span></div></div><h4>Температура</h4><p>${state.device==='workspace'?'Датчики недоступны':'CPU · 48 °C'}</p>`;
+  q('.dw-output pre').textContent=s.output+(s.closed?'\nСессия завершена.':'');
+  all('.dw-keys button,.dw-extra button,[data-action="submit-input"]').forEach(b=>b.disabled=state.offline||s.closed);
+  q('[data-action="new"]').disabled=state.offline||l.list.length>=5;
+  icons();
+ }
+ function showMenu(kind,b){const show=menu!==kind||q('.dw-popover').hidden;closeMenu();if(!show)return;menu=kind;menuTrigger=b;b.setAttribute('aria-expanded','true');const p=q('.dw-popover');p.dataset.menu=kind;
+  if(kind==='machines')p.innerHTML=Object.entries(devices).map(([id,d])=>`<button class="cursor-interaction" data-device="${id}" aria-pressed="${id===state.device}"><i data-lucide="${id==='pc'?'monitor':'server'}" aria-hidden="true"></i><span>${d.name}<small>${d.platform}</small></span>${id===state.device?'<i data-lucide="check" aria-hidden="true"></i>':''}</button>`).join('');
+  if(kind==='device')p.innerHTML=(machine().mounts?item('mount','Подключить сетевой диск','folder-plus'):'')+(machine().power?'<hr>'+item('restart','Перезагрузить…','rotate-ccw','dw-danger')+item('shutdown','Выключить…','power','dw-danger'):'<p class="dw-note">Питание управляется сервером.</p>');
+  if(kind==='sessions')p.innerHTML=local().list.map(s=>`<button class="cursor-interaction" data-session="${s.id}" aria-pressed="${s.id===local().selected}"><i data-lucide="terminal" aria-hidden="true"></i><span>${state.device==='pc'?'PowerShell':'Терминал'} ${s.id}<small>${s.closed?'Завершён':'Открыт'}</small></span></button>`).join('');
+  if(kind==='terminal')p.innerHTML=item('end','Завершить сессию…','square','dw-danger');
+  p.hidden=false;p.style.top=(kind==='sessions'||kind==='terminal')?(b.getBoundingClientRect().bottom-q('.dw-case').getBoundingClientRect().top+4)+'px':'';icons();p.querySelector('button')?.focus();
+ }
+ function overlay(action,b){overlayAction=action;overlayTrigger=b;closeMenu();q('.dw-notice').hidden=true;q('.dw-main').inert=true;q('.dw-overlay').hidden=false;const d=machine(),content=q('.dw-dialog-content');q('.dw-dialog [data-action="confirm"]').hidden=false;q('.dw-dialog [data-action="cancel"]').textContent='Отмена';
+  if(action==='help'){q('.dw-dialog h3').textContent='Устройства';content.innerHTML='<p>Сведения и терминалы выбранной машины в одном окне.</p><p>Сворачивание сохраняет работу. Закрытие освобождает свободные терминалы; выполняющаяся команда завершается своим ходом.</p><p>Здесь показан эскиз: команды, питание и подключение дисков не выполняются.</p>';q('[data-action="confirm"]').hidden=true;q('[data-action="cancel"]').textContent='Понятно';}
+  else if(action==='mount'){q('.dw-dialog h3').textContent='Сетевой диск · '+d.name;content.innerHTML=`<label>Протокол<select aria-label="Протокол"><option>SMB</option>${d.platform==='Windows'?'':'<option>NFS</option>'}</select></label><label>Адрес<input aria-label="Адрес диска" placeholder="//server/share"></label><label>${d.platform==='Windows'?'Буква диска':'Папка в ~/mnt'}<input aria-label="Назначение диска" value="${d.platform==='Windows'?'Z':'share'}"></label><p>${d.platform==='Windows'?'Для удалённой сессии ПК.':'Подключение для выбранной машины.'}</p>`;}
+  else {q('.dw-dialog h3').textContent=(action==='end'?'Завершить терминал':action==='restart'?'Перезагрузить':'Выключить')+' · '+d.name;content.innerHTML='<p>'+(action==='end'?'Команда в этой сессии будет остановлена. Закрыть окно без остановки можно крестиком в его заголовке.':'Работающие программы и задачи на этой машине будут остановлены.')+'</p><p>В эскизе действие только демонстрируется.</p>';}
+  q('[data-action="cancel"]').focus();
+ }
+ function openInput(kind){inputClose();entry=kind;q('.dw-input').hidden=false;const field=q('.dw-input input');field.type=kind==='password'?'password':'text';field.value=kind==='command'?selected().draft:'';field.setAttribute('aria-label',kind==='password'?'Пароль в эскизе':'Команда в эскизе');q('.dw-input-label').textContent=kind==='password'?'Пароль · демонстрационное поле':'Команда';field.focus();}
+ root.addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b||b.disabled)return;
+  if(b.dataset.menu){showMenu(b.dataset.menu,b);return;}
+  if(b.dataset.device){inputClose();state.device=b.dataset.device;closeMenu();render();save();q('.dw-machine').focus();return;}
+  if(b.dataset.session){inputClose();local().selected=Number(b.dataset.session);closeMenu();render();q('.dw-session').focus();return;}
+  if(b.dataset.page){inputClose();local().page=b.dataset.page;closeMenu();render();save();return;}
+  const a=b.dataset.action;closeMenu();
+  if(a==='collapse'){state.collapsed=!state.collapsed;render();save();(state.collapsed?q('.dw-restore'):q('.dw-system [data-action="collapse"]')).focus();}
+  if(a==='refresh'){q('.dw-updated').textContent=state.offline?'Сведения 12:40':'Обновлено сейчас';notice(state.offline?'Эскиз: связи нет, последние сведения сохранены.':'Эскиз: сведения обновлены.');}
+  if(a==='new'){inputClose();const l=local(),id=Math.max(...l.list.map(s=>s.id))+1;l.list.push({id,closed:false,output:'Новая сессия · '+machine().name+'\n\n$ ',draft:''});l.selected=id;render();}
+  if(['help','mount','restart','shutdown','end'].includes(a))overlay(a,b);
+  if(a==='cancel')closeOverlay();
+  if(a==='confirm'){const action=overlayAction;if(action==='end')selected().closed=true;closeOverlay();render();notice(action==='end'?'Сессия эскиза завершена.':'Эскиз: действие подтверждено. Реальная машина не изменена.');}
+  if(a==='keys'){q('.dw-extra').hidden=!q('.dw-extra').hidden;b.setAttribute('aria-expanded',String(!q('.dw-extra').hidden));}
+  if(a==='input'||a==='keyboard')openInput('command');
+  if(a==='password')openInput('password');
+  if(a==='input-close')inputClose();
+  if(a==='submit-input')submitInput();
+  if(a==='paste'){q('.dw-input input').value=entry==='password'?'demo':'pwd';notice('Эскиз: вставлен пример. Буфер обмена не читался.');}
+  if(b.dataset.key){notice('Эскиз: клавиша '+b.dataset.key+'. Команда не отправлена.');}
+  if(a==='dismiss')q('.dw-notice').hidden=true;
+  if(a==='minimize'||a==='close'){inputClose();q('.dw-notice').hidden=true;q('.dw-main').hidden=true;q('.dw-parked').hidden=false;q('.dw-parked-title').textContent=a==='minimize'?'Устройства свёрнуты':'Окно закрыто';q('[data-action="restore"]').focus();}
+  if(a==='restore'){q('.dw-main').hidden=false;q('.dw-parked').hidden=true;q('.dw-machine').focus();}
+ });
+ function submitInput(){const field=q('.dw-input input');if(!entry||state.offline||selected().closed||!field.value.trim())return;if(entry==='command'){selected().output+='\n> '+field.value+'\n[Пример принят; выполнение отключено]\n';selected().draft='';}field.value='';render();notice(entry==='password'?'Эскиз: поле очищено. Пароль не сохранён и не отправлен.':'Эскиз: команда не выполнялась.');}
+ q('.dw-input').addEventListener('submit',e=>{e.preventDefault();submitInput();});
+ q('.dw-input input').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();submitInput();}});
+ root.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){if(!q('.dw-overlay').hidden)closeOverlay();else if(menu)closeMenu(true);else if(entry){inputClose();q('[data-action="input"]').focus();}else q('.dw-notice').hidden=true;}
+  if(!q('.dw-overlay').hidden&&e.key==='Tab'){const nodes=[...q('.dw-dialog').querySelectorAll('button,input,select')].filter(n=>!n.hidden&&!n.disabled);if(e.shiftKey&&document.activeElement===nodes[0]){e.preventDefault();nodes.at(-1).focus();}else if(!e.shiftKey&&document.activeElement===nodes.at(-1)){e.preventDefault();nodes[0].focus();}}
+  if(e.target===q('.dw-grip')&&['ArrowLeft','ArrowRight','Home'].includes(e.key)){e.preventDefault();state.width=e.key==='Home'?220:Math.max(180,Math.min(280,state.width+(e.key==='ArrowRight'?10:-10)));render();save();}
+ });
+ const grip=q('.dw-grip');grip.addEventListener('pointerdown',e=>{if(e.button!==0)return;resize={x:e.clientX,width:state.width};grip.setPointerCapture(e.pointerId);e.preventDefault();});
+ grip.addEventListener('pointermove',e=>{if(!resize)return;state.width=Math.max(180,Math.min(280,resize.width+e.clientX-resize.x));q('.dw-case').style.setProperty('--dw-panel',state.width+'px');});
+ grip.addEventListener('pointerup',()=>{if(resize){resize=null;render();save();}});grip.addEventListener('pointercancel',()=>{if(resize){state.width=resize.width;resize=null;render();}});
+ root.addEventListener('pointerdown',e=>{if(menu&&!e.target.closest('.dw-popover')&&!e.target.closest('[data-menu]'))closeMenu();});
+ function restore(snapshot){const s=snapshot?.privateContent;if(!s)return;if(['green','2000','organizer','dark'].includes(s.theme))state.theme=s.theme;if(devices[s.device])state.device=s.device;if(Number.isFinite(s.width))state.width=Math.max(180,Math.min(280,s.width));if(typeof s.collapsed==='boolean')state.collapsed=s.collapsed;if(typeof s.offline==='boolean')state.offline=s.offline;const page=snapshot?.modelContent?.view;if(['system','terminal'].includes(page))local().page=page;render();}
+ render();restore(window.openai?.widgetState);window.addEventListener('openai:set_globals',e=>restore(e.detail?.globals?.widgetState));
+ if(globalThis.Tweak){const tweak=new Tweak({container:q('.dw-case'),onChange:()=>{closeMenu();render();save();}});tweak.addSelect(state,'theme',{label:'Тема',options:[{label:'Зелёная',value:'green'},{label:'2000',value:'2000'},{label:'Органайзер',value:'organizer'},{label:'Тёмная',value:'dark'}]});tweak.addToggle(state,'offline',{label:'Показать отсутствие связи'});}
+})();
+</script>

@@ -1,0 +1,246 @@
+{
+  "scope": "Interactive design study only. No real commands or production changes.",
+  "cases": [
+    {
+      "engine": "chromium",
+      "theme": "green",
+      "width": 1060,
+      "actualWidth": 1028,
+      "overflow": false
+    },
+    {
+      "engine": "chromium",
+      "theme": "green",
+      "width": 768,
+      "actualWidth": 736,
+      "overflow": false
+    },
+    {
+      "engine": "chromium",
+      "theme": "green",
+      "width": 390,
+      "actualWidth": 358,
+      "overflow": false
+    },
+    {
+      "engine": "chromium",
+      "theme": "green",
+      "width": 320,
+      "actualWidth": 288,
+      "overflow": false
+    },
+    {
+      "engine": "chromium",
+      "theme": "2000",
+      "width": 1060,
+      "actualWidth": 1028,
+      "overflow": false
+    },
+    {
+      "engine": "chromium",
+      "theme": "2000",
+      "width": 768,
+      "actualWidth": 736,
+      "overflow": false
+    },
+    {
+      "engine": "chromium",
+      "theme": "2000",
+      "width": 390,
+      "actualWidth": 358,
+      "overflow": false
+    },
+    {
+      "engine": "chromium",
+      "theme": "2000",
+      "width": 320,
+      "actualWidth": 288,
+      "overflow": false
+    },
+    {
+      "engine": "chromium",
+      "theme": "organizer",
+      "width": 1060,
+      "actualWidth": 1028,
+      "overflow": false
+    },
+    {
+      "engine": "chromium",
+      "theme": "organizer",
+      "width": 768,
+      "actualWidth": 736,
+      "overflow": false
+    },
+    {
+      "engine": "chromium",
+      "theme": "organizer",
+      "width": 390,
+      "actualWidth": 358,
+      "overflow": false
+    },
+    {
+      "engine": "chromium",
+      "theme": "organizer",
+      "width": 320,
+      "actualWidth": 288,
+      "overflow": false
+    },
+    {
+      "engine": "chromium",
+      "theme": "dark",
+      "width": 1060,
+      "actualWidth": 1028,
+      "overflow": false
+    },
+    {
+      "engine": "chromium",
+      "theme": "dark",
+      "width": 768,
+      "actualWidth": 736,
+      "overflow": false
+    },
+    {
+      "engine": "chromium",
+      "theme": "dark",
+      "width": 390,
+      "actualWidth": 358,
+      "overflow": false
+    },
+    {
+      "engine": "chromium",
+      "theme": "dark",
+      "width": 320,
+      "actualWidth": 288,
+      "overflow": false
+    },
+    {
+      "engine": "webkit",
+      "theme": "green",
+      "width": 1060,
+      "actualWidth": 1028,
+      "overflow": false
+    },
+    {
+      "engine": "webkit",
+      "theme": "green",
+      "width": 768,
+      "actualWidth": 736,
+      "overflow": false
+    },
+    {
+      "engine": "webkit",
+      "theme": "green",
+      "width": 390,
+      "actualWidth": 358,
+      "overflow": false
+    },
+    {
+      "engine": "webkit",
+      "theme": "green",
+      "width": 320,
+      "actualWidth": 288,
+      "overflow": false
+    },
+    {
+      "engine": "webkit",
+      "theme": "2000",
+      "width": 1060,
+      "actualWidth": 1028,
+      "overflow": false
+    },
+    {
+      "engine": "webkit",
+      "theme": "2000",
+      "width": 768,
+      "actualWidth": 736,
+      "overflow": false
+    },
+    {
+      "engine": "webkit",
+      "theme": "2000",
+      "width": 390,
+      "actualWidth": 358,
+      "overflow": false
+    },
+    {
+      "engine": "webkit",
+      "theme": "2000",
+      "width": 320,
+      "actualWidth": 288,
+      "overflow": false
+    },
+    {
+      "engine": "webkit",
+      "theme": "organizer",
+      "width": 1060,
+      "actualWidth": 1028,
+      "overflow": false
+    },
+    {
+      "engine": "webkit",
+      "theme": "organizer",
+      "width": 768,
+      "actualWidth": 736,
+      "overflow": false
+    },
+    {
+      "engine": "webkit",
+      "theme": "organizer",
+      "width": 390,
+      "actualWidth": 358,
+      "overflow": false
+    },
+    {
+      "engine": "webkit",
+      "theme": "organizer",
+      "width": 320,
+      "actualWidth": 288,
+      "overflow": false
+    },
+    {
+      "engine": "webkit",
+      "theme": "dark",
+      "width": 1060,
+      "actualWidth": 1028,
+      "overflow": false
+    },
+    {
+      "engine": "webkit",
+      "theme": "dark",
+      "width": 768,
+      "actualWidth": 736,
+      "overflow": false
+    },
+    {
+      "engine": "webkit",
+      "theme": "dark",
+      "width": 390,
+      "actualWidth": 358,
+      "overflow": false
+    },
+    {
+      "engine": "webkit",
+      "theme": "dark",
+      "width": 320,
+      "actualWidth": 288,
+      "overflow": false
+    }
+  ],
+  "interactions": [
+    "device/page/session restoration",
+    "command draft retained locally",
+    "password cleared",
+    "sample paste and local send",
+    "device capability menus",
+    "power confirmation",
+    "mount form",
+    "terminal end/new",
+    "offline data retention",
+    "extra keys",
+    "keyboard and pointer panel resizing",
+    "collapse",
+    "minimize/restore",
+    "close/reopen",
+    "help/Escape"
+  ]
+}
