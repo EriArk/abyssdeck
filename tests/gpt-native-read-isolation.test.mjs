@@ -193,6 +193,8 @@ test("a busy readiness read does not claim disconnection or grant unverified sen
   f.reader.readModels = async () => ({
     versions: [{ id: "latest", label: "Latest", enabled: true, presets: [] }],
   });
+  assert.equal((await provider.connection()).state, "busy", "wait for readiness backoff");
+  provider.retry.until = 0;
   assert.equal((await provider.connection()).state, "healthy");
   // Expiry followed by authentication failure must remain a real failure.
   provider.verified.until = 0;
