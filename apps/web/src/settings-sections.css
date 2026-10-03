@@ -314,3 +314,288 @@
   min-height: 48px;
   padding-block: 2px;
 }
+
+/* Shared casing and one inset screen. Narrow windows use the same hierarchy. */
+:root[data-theme] dialog.settings-browser {
+  --settings-width: 1000px;
+  background: var(--window-shell, var(--paper));
+  color: var(--window-ink, var(--ink));
+  padding: 8px;
+}
+:root[data-theme] .settings-browser .settings-heading {
+  background: transparent;
+  color: var(--window-ink, var(--ink));
+  border: 0;
+  box-shadow: none;
+  padding: 2px 4px 10px 10px;
+  min-height: 58px;
+}
+.settings-browser .settings-heading h2 {
+  font-size: 20px;
+}
+.settings-browser .settings-layout {
+  display: grid;
+  position: relative;
+  gap: 12px;
+  grid-template-columns: var(--panel-width, 220px) minmax(0, 1fr);
+}
+.settings-browser .settings-overview {
+  background: transparent;
+  border: 0;
+  color: var(--window-ink, var(--ink));
+}
+.settings-browser .settings-categories {
+  padding: 8px 0;
+}
+.settings-browser .settings-categories button {
+  min-height: 58px;
+  margin-bottom: 4px;
+  padding: 12px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: inherit;
+  background: transparent;
+  box-shadow: none;
+}
+.settings-browser .settings-categories button > svg {
+  color: inherit;
+  flex: none;
+}
+.settings-browser .settings-categories strong {
+  font-size: 14px;
+  line-height: 1.4;
+}
+.settings-browser .settings-categories small {
+  color: inherit;
+  opacity: 0.75;
+  font-size: 11px;
+}
+.settings-browser .settings-categories button[aria-current="page"] {
+  background: var(--window-screen, var(--paper));
+  color: var(--ink);
+  border-color: var(--window-edge, var(--line));
+  box-shadow: inset 0 2px 3px #0002;
+}
+.settings-browser .settings-categories button[data-admin] {
+  margin-top: 22px;
+  border-top: 1px solid var(--window-edge, var(--line));
+  border-radius: 0;
+}
+.settings-browser .settings-content {
+  display: flex;
+  flex-direction: column;
+  border: 3px solid var(--window-edge, var(--line));
+  background: var(--window-screen, var(--paper));
+  border-radius: 8px;
+  box-shadow: var(--window-screen-shadow);
+  min-height: 0;
+}
+.settings-browser .settings-path {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 48px;
+  padding: 2px 10px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+}
+.settings-path span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.settings-path > button {
+  flex: 0 0 44px;
+  min-height: 44px;
+}
+.settings-browser .settings-section {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+  padding: 20px;
+}
+.settings-browser .settings-section[hidden] {
+  display: none;
+}
+.settings-browser .settings-section-title {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 19px;
+}
+.settings-page-hint {
+  margin: 0 0 20px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.settings-group-title {
+  margin: 24px 0 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+:root .settings-browser .settings-link {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 66px;
+  padding: 12px 2px;
+  margin: 0;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  box-shadow: none;
+}
+.settings-link > span {
+  flex: 1;
+  min-width: 0;
+}
+.settings-link strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.settings-link small {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.settings-link > svg {
+  flex: none;
+}
+.settings-browser .settings-link:hover {
+  background: var(--soft);
+}
+.settings-browser .settings-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 16px 0;
+}
+.settings-actions > button {
+  flex: 1;
+  min-width: 0;
+}
+.settings-actions > button:only-child {
+  flex: 0 1 auto;
+}
+.settings-browser .settings-section > button:not(.settings-link) {
+  width: auto;
+  max-width: 100%;
+}
+.settings-browser .settings-machine-choice {
+  display: grid;
+  gap: 6px;
+}
+.settings-machine-choice select {
+  width: 100%;
+  min-width: 0;
+}
+.settings-browser .settings-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px 10px;
+}
+.settings-search input {
+  min-width: 0;
+  flex: 1;
+}
+.settings-search button {
+  flex: 0 0 44px;
+  min-height: 44px;
+}
+.settings-browser .gpt-connection-settings button {
+  width: auto;
+  max-width: 100%;
+}
+.settings-browser .settings-client-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: var(--radius);
+}
+.settings-browser .team-gpt {
+  border: 0;
+  padding: 0;
+}
+.settings-browser .machine-health-scroll {
+  padding: 0;
+  overflow: visible;
+}
+.settings-browser .machine-health-grid {
+  display: block;
+}
+.settings-browser .machine-health-card {
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.settings-browser .machine-health-card h2 {
+  font-size: 16px;
+}
+.settings-browser .team-access {
+  max-width: 100%;
+}
+.settings-browser .theme-options {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.settings-browser .theme-option {
+  min-width: 0;
+}
+.settings-browser .settings-sections[data-compact="true"] .settings-layout {
+  display: block;
+}
+.settings-browser .settings-sections[data-compact="true"] .settings-overview {
+  height: 100%;
+}
+.settings-browser .settings-sections[data-compact="true"] .settings-categories button {
+  min-height: 68px;
+}
+.settings-browser .settings-sections[data-compact="true"] .settings-section {
+  padding: 16px 12px;
+}
+.settings-browser .settings-sections[data-compact="true"] .theme-options {
+  grid-template-columns: minmax(0, 1fr);
+}
+.settings-browser .settings-sections[data-compact="true"][data-detail="false"] .settings-content,
+.settings-browser .settings-sections[data-compact="true"][data-detail="true"] .settings-overview {
+  display: none;
+}
+.settings-browser .settings-sections[data-compact="true"] .settings-content {
+  height: 100%;
+}
+.settings-browser .settings-sections[data-compact="false"] .settings-content {
+  display: flex;
+}
+.settings-browser .settings-sections[data-compact="false"] .settings-overview {
+  display: block;
+  height: auto;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .settings-browser .settings-section:not([hidden]) {
+    animation: settings-page-enter 140ms ease-out;
+  }
+  @keyframes settings-page-enter {
+    from {
+      opacity: 0.5;
+      transform: translateX(5px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}

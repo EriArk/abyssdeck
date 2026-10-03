@@ -58,11 +58,15 @@ export function MachineHealthPanel({
   onClose,
   onProject,
   onMaintenance,
+  embedded = false,
+  machineId,
 }: {
   open: boolean;
   onClose: () => void;
   onProject: (id: string, remote: boolean) => void;
   onMaintenance?: () => void;
+  embedded?: boolean;
+  machineId?: string;
 }) {
   const dialog = useRef<HTMLDialogElement>(null),
     [overview, setOverview] = useState<MachinesOverview | null>(null),
@@ -132,29 +136,22 @@ export function MachineHealthPanel({
           ? "warning"
           : "ok";
   if (!open) return null;
-  return createPortal(
-    <dialog
-      ref={dialog}
-      className="machine-health-dialog"
-      aria-label="Компьютеры"
-      tabIndex={-1}
-      onCancel={(e) => {
-        e.preventDefault();
-        onClose();
-      }}
-    >
-      <header className="machine-health-heading">
-        <Icon name="remote" />
-        <strong>Компьютеры</strong>
-        <button
-          type="button"
-          className="icon-button"
-          aria-label="Закрыть компьютеры"
-          onClick={onClose}
-        >
-          <Icon name="close" />
-        </button>
-      </header>
+  const body = (
+    <>
+      {!embedded && (
+        <header className="machine-health-heading">
+          <Icon name="remote" />
+          <strong>Компьютеры</strong>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Закрыть компьютеры"
+            onClick={onClose}
+          >
+            <Icon name="close" />
+          </button>
+        </header>
+      )}
       <div className="machine-health-scroll">
         {error && (
           <p className="notice" role="alert">
@@ -167,131 +164,137 @@ export function MachineHealthPanel({
           </p>
         )}
         <div className="machine-health-grid">
-          {overview?.machines.map((m) => (
-            <section key={m.id} className="machine-health-card" aria-label={m.name}>
-              <div className="machine-health-title">
-                <span className="machine-health-dot" data-state={state(m)} />
-                <div>
-                  <h2>{m.name}</h2>
-                  <small>
-                    {m.os} · {m.transport}
-                  </small>
+          {overview?.machines
+            .filter((m) => !machineId || m.id === machineId)
+            .map((m) => (
+              <section key={m.id} className="machine-health-card" aria-label={m.name}>
+                <div className="machine-health-title">
+                  <span className="machine-health-dot" data-state={state(m)} />
+                  <div>
+                    <h2>{m.name}</h2>
+                    <small>
+                      {m.os} · {m.transport}
+                    </small>
+                  </div>
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label={`Проверить ${m.name}`}
+                    disabled={!!busy || m.busy}
+                    onClick={() => void check(m.id)}
+                  >
+                    {busy === m.id || m.busy ? (
+                      <span className="spinner" />
+                    ) : (
+                      <Icon name="refresh" />
+                    )}
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  className="icon-button"
-                  aria-label={`Проверить ${m.name}`}
-                  disabled={!!busy || m.busy}
-                  onClick={() => void check(m.id)}
-                >
-                  {busy === m.id || m.busy ? <span className="spinner" /> : <Icon name="refresh" />}
-                </button>
-              </div>
-              <p className="machine-health-time">
-                {m.probe
-                  ? `${m.stale ? "Прошлая проверка" : "Проверено"}: ${date(m.probe.checkedAt)}`
-                  : "Ещё не проверен"}
-                {m.lastSeenAt && (!m.probe?.online || m.stale)
-                  ? ` · Был на связи ${date(m.lastSeenAt)}`
-                  : ""}
-              </p>
-              <div className="machine-health-activity">
-                <span>Сайт: {m.active.web}</span>
-                <span>Компьютер: {m.active.external}</span>
-                {m.active.unknown > 0 && <span>Статус неизвестен: {m.active.unknown}</span>}
-                <span className="muted">
-                  Управление: {m.owner === "desktop" ? "компьютер" : "сайт"}
-                </span>
-              </div>
-              {m.probe && (
-                <>
-                  <dl className="machine-health-checks">
-                    {m.probe.checks.map((c) => (
-                      <div key={c.layer}>
-                        <dt>{layers[c.layer]}</dt>
-                        <dd data-state={c.state}>
-                          {labels[c.code] ?? "Нужна проверка"}
-                          {c.layer === "executable" && m.probe?.codexVersion
-                            ? ` · ${m.probe.codexVersion}`
-                            : ""}
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
-                  {m.probe.metrics && (
-                    <div className="machine-health-metrics">
-                      {m.probe.metrics.memoryTotal !== undefined &&
-                        m.probe.metrics.memoryAvailable !== undefined && (
-                          <span>
-                            Память: {gb(m.probe.metrics.memoryAvailable)} свободно из{" "}
-                            {gb(m.probe.metrics.memoryTotal)}
-                          </span>
-                        )}
-                      {m.probe.metrics.diskAvailable !== undefined &&
-                        m.probe.metrics.diskTotal !== undefined && (
-                          <span>
-                            Диск проекта: {gb(m.probe.metrics.diskAvailable)} из{" "}
-                            {gb(m.probe.metrics.diskTotal)}
-                          </span>
-                        )}
-                      {m.probe.metrics.cpuPercent !== undefined && (
-                        <span>CPU: {Math.round(m.probe.metrics.cpuPercent)}%</span>
-                      )}
-                      {m.probe.metrics.bootedAt !== undefined && (
-                        <span>Компьютер запущен: {date(m.probe.metrics.bootedAt)}</span>
-                      )}
-                    </div>
-                  )}
-                  <details className="machine-health-details">
-                    <summary>
-                      Диагностические коды
-                      <CopyButton
-                        text={JSON.stringify(
-                          { name: m.name, os: m.os, ...m.probe, active: m.active },
-                          null,
-                          2,
-                        )}
-                        label="Копировать диагностику"
-                      />
-                    </summary>
-                    <ul>
+                <p className="machine-health-time">
+                  {m.probe
+                    ? `${m.stale ? "Прошлая проверка" : "Проверено"}: ${date(m.probe.checkedAt)}`
+                    : "Ещё не проверен"}
+                  {m.lastSeenAt && (!m.probe?.online || m.stale)
+                    ? ` · Был на связи ${date(m.lastSeenAt)}`
+                    : ""}
+                </p>
+                <div className="machine-health-activity">
+                  <span>Сайт: {m.active.web}</span>
+                  <span>Компьютер: {m.active.external}</span>
+                  {m.active.unknown > 0 && <span>Статус неизвестен: {m.active.unknown}</span>}
+                  <span className="muted">
+                    Управление: {m.owner === "desktop" ? "компьютер" : "сайт"}
+                  </span>
+                </div>
+                {m.probe && (
+                  <>
+                    <dl className="machine-health-checks">
                       {m.probe.checks.map((c) => (
-                        <li key={c.layer}>
-                          <code>{c.code}</code>
-                        </li>
+                        <div key={c.layer}>
+                          <dt>{layers[c.layer]}</dt>
+                          <dd data-state={c.state}>
+                            {labels[c.code] ?? "Нужна проверка"}
+                            {c.layer === "executable" && m.probe?.codexVersion
+                              ? ` · ${m.probe.codexVersion}`
+                              : ""}
+                          </dd>
+                        </div>
                       ))}
-                    </ul>
-                  </details>
-                </>
-              )}
-              <div className="machine-health-projects">
-                {m.projects.map((p) => (
-                  <div key={p.id}>
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={() => onProject(p.id, false)}
-                    >
-                      <Icon name="folder" />
-                      {p.name}
-                    </button>
-                    {p.remoteAvailable && (
+                    </dl>
+                    {m.probe.metrics && (
+                      <div className="machine-health-metrics">
+                        {m.probe.metrics.memoryTotal !== undefined &&
+                          m.probe.metrics.memoryAvailable !== undefined && (
+                            <span>
+                              Память: {gb(m.probe.metrics.memoryAvailable)} свободно из{" "}
+                              {gb(m.probe.metrics.memoryTotal)}
+                            </span>
+                          )}
+                        {m.probe.metrics.diskAvailable !== undefined &&
+                          m.probe.metrics.diskTotal !== undefined && (
+                            <span>
+                              Диск проекта: {gb(m.probe.metrics.diskAvailable)} из{" "}
+                              {gb(m.probe.metrics.diskTotal)}
+                            </span>
+                          )}
+                        {m.probe.metrics.cpuPercent !== undefined && (
+                          <span>CPU: {Math.round(m.probe.metrics.cpuPercent)}%</span>
+                        )}
+                        {m.probe.metrics.bootedAt !== undefined && (
+                          <span>Компьютер запущен: {date(m.probe.metrics.bootedAt)}</span>
+                        )}
+                      </div>
+                    )}
+                    <details className="machine-health-details">
+                      <summary>
+                        Диагностические коды
+                        <CopyButton
+                          text={JSON.stringify(
+                            { name: m.name, os: m.os, ...m.probe, active: m.active },
+                            null,
+                            2,
+                          )}
+                          label="Копировать диагностику"
+                        />
+                      </summary>
+                      <ul>
+                        {m.probe.checks.map((c) => (
+                          <li key={c.layer}>
+                            <code>{c.code}</code>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  </>
+                )}
+                <div className="machine-health-projects">
+                  {m.projects.map((p) => (
+                    <div key={p.id}>
                       <button
                         type="button"
-                        className="icon-button"
-                        aria-label={`Remote: ${p.name}`}
-                        onClick={() => onProject(p.id, true)}
+                        className="secondary"
+                        onClick={() => onProject(p.id, false)}
                       >
-                        <Icon name="remote" />
+                        <Icon name="folder" />
+                        {p.name}
                       </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </section>
-          ))}
+                      {p.remoteAvailable && (
+                        <button
+                          type="button"
+                          className="icon-button"
+                          aria-label={`Remote: ${p.name}`}
+                          onClick={() => onProject(p.id, true)}
+                        >
+                          <Icon name="remote" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ))}
         </div>
-        {overview && (
+        {overview && !embedded && (
           <footer className="machine-health-footer">
             <span>Hub запущен: {date(overview.hub.startedAt)}</span>
             <span>Сервер запущен: {date(overview.hub.hostStartedAt)}</span>
@@ -303,7 +306,23 @@ export function MachineHealthPanel({
           </footer>
         )}
       </div>
-    </dialog>,
-    document.body,
+    </>
   );
+  return embedded
+    ? body
+    : createPortal(
+        <dialog
+          ref={dialog}
+          className="machine-health-dialog"
+          aria-label="Компьютеры"
+          tabIndex={-1}
+          onCancel={(e) => {
+            e.preventDefault();
+            onClose();
+          }}
+        >
+          {body}
+        </dialog>,
+        document.body,
+      );
 }

@@ -1,5 +1,19 @@
 # AGENTS.md
 
+## Owner-approved settings structure (2026-10-03)
+
+- Implement the approved settings study as short pages in the same themed window:
+  Interface, Connections, History/data, Updates/diagnostics and My account;
+  Users/access is separate and administrator-only. Search leads to exact pages.
+- Preserve mounted forms and scroll after first visit, but stop hidden-page reads.
+  Clear password fields on leaving their page. Keep exact machine/project scopes,
+  permissions, confirmations and uncertain receipts; navigation never performs repairs.
+- Give GPT one client entry and one Doctor page, reachable from diagnostics with
+  return to its actual origin. Limits belong to the selected machine, not a permanent
+  navigation summary. Retain existing Devices terminals, geometry and dock.
+- This presentation release uses compatible web-only publication; do not restart
+  engine, GPT or Companion for it.
+
 ## Owner-approved Devices layout (2026-10-03)
 
 - The owner approved implementing the Devices study with “Продолжаем”. Use the

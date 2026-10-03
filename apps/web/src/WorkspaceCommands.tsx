@@ -759,15 +759,6 @@ export function ShortcutSettings({ visible = true }: { visible?: boolean }) {
         <button type="button" className="secondary" disabled={busy} onClick={() => void save({})}>
           Вернуть стандартные клавиши
         </button>
-        <button
-          type="button"
-          className="secondary"
-          onClick={() =>
-            void changeNavigation({ action: "clear" }).catch((e) => setError(messageOf(e)))
-          }
-        >
-          Очистить недавние места
-        </button>
       </div>
     </section>
   );

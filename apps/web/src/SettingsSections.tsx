@@ -1,89 +1,146 @@
-import { type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import {
+  type ComponentProps,
+  type ReactNode,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { Icon } from "./icons";
 import { PanelDivider } from "./PanelDivider";
 import { HelpButton } from "./WorkspaceHelp";
 import "./settings-sections.css";
 
-export type SettingsCategory =
-  | "appearance"
-  | "sound"
-  | "connections"
-  | "library"
-  | "maintenance"
-  | "access";
-const categories = [
-  {
-    id: "appearance",
-    title: "Оформление",
-    hint: "Тема, цвета, компоновка и клавиши",
-    icon: "settings",
-  },
-  { id: "sound", title: "Звук и уведомления", hint: "Озвучивание и оповещения", icon: "speaker" },
-  { id: "connections", title: "Подключения", hint: "Codex, GPT и компьютеры", icon: "remote" },
-  { id: "library", title: "Проекты и история", hint: "Обновление списков и архив", icon: "folder" },
-  {
-    id: "maintenance",
-    title: "Обслуживание",
-    hint: "Обновления, диагностика и место",
-    icon: "activity",
-  },
-  { id: "access", title: "Доступ", hint: "Пароль и вход на устройствах", icon: "lock" },
-] as const;
+export type SettingsPage = {
+  id: string;
+  title: string;
+  hint?: string;
+  parent?: string;
+  icon?: ComponentProps<typeof Icon>["name"];
+  keywords?: string;
+  admin?: boolean;
+  render: (visible: boolean, go: (id: string) => void) => ReactNode;
+};
+export function SettingsLink({
+  title,
+  hint,
+  onClick,
+  icon = "chevron",
+}: {
+  title: string;
+  hint?: string;
+  onClick: () => void;
+  icon?: ComponentProps<typeof Icon>["name"];
+}) {
+  return (
+    <button type="button" className="settings-link" onClick={onClick}>
+      <span>
+        <strong>{title}</strong>
+        {hint && <small>{hint}</small>}
+      </span>
+      <Icon name={icon} />
+    </button>
+  );
+}
 
-/** One settings hierarchy for both clients. Hidden sections keep forms and operation state. */
+/** Mount on first visit, retain forms/scroll afterwards; only the visible page may read. */
 export function SettingsSections({
   open,
   onClose,
-  sections,
-  overview,
+  pages,
 }: {
   open: boolean;
   onClose: () => void;
-  sections: Record<SettingsCategory, (visible: boolean) => ReactNode>;
-  overview?: (visible: boolean) => ReactNode;
+  pages: SettingsPage[];
 }) {
-  const [selected, setSelected] = useState<SettingsCategory | null>(null);
-  const active = selected ?? "appearance",
+  const [selected, setSelected] = useState<string | null>(null),
+    [search, setSearch] = useState(false),
+    [query, setQuery] = useState(""),
+    [compact, setCompact] = useState(true),
+    [visited, setVisited] = useState<string[]>([]);
+  const root = useRef<HTMLDivElement>(null),
+    content = useRef<HTMLDivElement>(null),
+    nav = useRef<HTMLElement>(null),
+    input = useRef<HTMLInputElement>(null),
+    history = useRef<(string | null)[]>([]),
     prefix = useId();
-  const content = useRef<HTMLDivElement>(null),
-    nav = useRef<HTMLElement>(null);
-  const previous = useRef<SettingsCategory | null>(null);
-  const [compact, setCompact] = useState(() => matchMedia("(max-width: 759px)").matches);
-  useEffect(() => {
-    const media = matchMedia("(max-width: 759px)");
-    const changed = () => setCompact(media.matches);
-    media.addEventListener("change", changed);
-    return () => media.removeEventListener("change", changed);
-  }, []);
-  const overviewVisible = open && (compact ? selected === null : active !== "connections");
-  useEffect(() => {
-    if (!open) setSelected(null);
-  }, [open]);
+  const active = pages.find((p) => p.id === selected) ?? pages[0];
+  const detail = selected !== null || search;
+  const visible = open && (!compact || detail) && !search;
   useLayoutEffect(() => {
-    if (open && selected) content.current?.focus({ preventScroll: true });
-    else if (open && previous.current)
-      nav.current
-        ?.querySelector<HTMLButtonElement>(`[data-category="${previous.current}"]`)
-        ?.focus({ preventScroll: true });
-    previous.current = selected;
-  }, [selected, open]);
+    const el = root.current;
+    if (!el) return;
+    const update = () => {
+      if (el.clientWidth) setCompact(el.clientWidth < 640);
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  useEffect(() => {
+    if (visible && active && !visited.includes(active.id)) setVisited((v) => [...v, active.id]);
+  }, [visible, active, visited]);
+  useEffect(() => {
+    if (selected && !pages.some((p) => p.id === selected)) {
+      setSelected(null);
+      history.current = [];
+    }
+  }, [selected, pages]);
+  useLayoutEffect(() => {
+    if (!open) return;
+    if (search) input.current?.focus({ preventScroll: true });
+    else if (selected) content.current?.focus({ preventScroll: true });
+    else nav.current?.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
+  }, [selected, search, open]);
+  const go = (id: string) => {
+    if (!pages.some((p) => p.id === id)) return;
+    history.current = [...history.current, selected].slice(-30);
+    setSelected(id);
+    setSearch(false);
+  };
+  const back = () => {
+    if (search) {
+      setSearch(false);
+      return;
+    }
+    setSelected(history.current.length ? history.current.pop()! : (active?.parent ?? null));
+  };
+  const ancestry = (page: SettingsPage) => {
+    const chain = [page];
+    let next = page;
+    while (next.parent) {
+      const parent = pages.find((p) => p.id === next.parent);
+      if (!parent || chain.includes(parent)) break;
+      chain.unshift(parent);
+      next = parent;
+    }
+    return chain;
+  };
+  const normalized = query.trim().toLocaleLowerCase("ru");
+  const matches = pages.filter((p) =>
+    `${p.title} ${p.hint ?? ""} ${p.keywords ?? ""}`.toLocaleLowerCase("ru").includes(normalized),
+  );
   return (
-    <div className="settings-sections" data-help-context="home" data-detail={selected !== null}>
+    <div
+      ref={root}
+      className="settings-sections"
+      data-help-context="home"
+      data-detail={detail}
+      data-compact={compact}
+    >
       <div className="dialog-heading settings-heading">
+        <h2>Настройки</h2>
         <button
           type="button"
-          className="icon-button panel-close settings-back"
-          aria-label="Все категории настроек"
-          onClick={() => setSelected(null)}
+          className="icon-button"
+          aria-label="Найти настройку"
+          aria-expanded={search}
+          onClick={() => setSearch((v) => !v)}
         >
-          <Icon name="back" />
+          <Icon name="search" />
         </button>
-        <h2>
-          <span className="settings-index-title">Настройки</span>
-          <span className="settings-detail-title">
-            {categories.find((c) => c.id === active)?.title}
-          </span>
-        </h2>
         <HelpButton />
         <button
           type="button"
@@ -94,60 +151,126 @@ export function SettingsSections({
           <Icon name="close" />
         </button>
       </div>
+      {search && (
+        <div className="settings-search">
+          <input
+            ref={input}
+            type="search"
+            aria-label="Поиск по настройкам"
+            placeholder="Тема, пароль, лимиты…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                e.preventDefault();
+                e.stopPropagation();
+                setSearch(false);
+              }
+            }}
+          />
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Закрыть поиск настроек"
+            onClick={() => setSearch(false)}
+          >
+            <Icon name="close" />
+          </button>
+        </div>
+      )}
       <div className="settings-layout">
         <PanelDivider
           target=".settings-overview"
           peer=".settings-content"
           storageKey="settings"
           label="Ширина категорий настроек"
-          min={200}
-          max={420}
+          min={180}
+          max={300}
         />
         <div className="settings-overview">
           <nav ref={nav} className="settings-categories" aria-label="Категории настроек">
-            {categories.map((category) => (
-              <button
-                key={category.id}
-                type="button"
-                data-category={category.id}
-                aria-current={active === category.id ? "page" : undefined}
-                aria-controls={prefix + category.id}
-                onClick={() => setSelected(category.id)}
-              >
-                <span className="settings-category-icon">
-                  <Icon name={category.icon} />
-                </span>
-                <span>
-                  <strong>{category.title}</strong>
-                  <small>{category.hint}</small>
-                </span>
-                <Icon name="chevron" size={16} />
-              </button>
-            ))}
+            {pages
+              .filter((p) => !p.parent)
+              .map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  data-category={p.id}
+                  data-admin={p.admin || undefined}
+                  aria-current={
+                    !search && active && ancestry(active)[0]?.id === p.id ? "page" : undefined
+                  }
+                  onClick={() => go(p.id)}
+                >
+                  <Icon name={p.icon ?? "settings"} />
+                  <span>
+                    <strong>{p.title}</strong>
+                    {p.admin && <small>Администрирование</small>}
+                  </span>
+                </button>
+              ))}
           </nav>
-          {overview && (
-            <div className="settings-usage-summary" hidden={!overviewVisible}>
-              {overviewVisible && overview(true)}
-            </div>
-          )}
         </div>
         <div ref={content} className="settings-content" tabIndex={-1}>
-          {categories.map((category) => (
-            <section
-              key={category.id}
-              id={prefix + category.id}
-              className="settings-section"
-              hidden={active !== category.id}
-              aria-labelledby={prefix + category.id + "-title"}
+          <div className="settings-path">
+            <button
+              type="button"
+              className="icon-button"
+              aria-label={
+                active?.parent || search ? "Назад в настройках" : "Все категории настроек"
+              }
+              onClick={back}
             >
-              <h3 id={prefix + category.id + "-title"} className="settings-section-title">
-                {category.title}
-              </h3>
-              {sections[category.id](
-                open && active === category.id && (!compact || selected !== null),
+              <Icon name="back" />
+            </button>
+            <span>
+              {search
+                ? "Поиск по всем настройкам"
+                : (pages.find((p) => p.id === active?.parent)?.title ?? "Настройки")}
+            </span>
+          </div>
+          {search && (
+            <section className="settings-section settings-search-results">
+              <h3>Найти настройку</h3>
+              {normalized ? (
+                <>
+                  <p className="small muted" role="status">
+                    Найдено: {matches.length}
+                  </p>
+                  {matches.map((p) => (
+                    <SettingsLink
+                      key={p.id}
+                      title={p.title}
+                      hint={ancestry(p)
+                        .map((a) => a.title)
+                        .join(" → ")}
+                      onClick={() => go(p.id)}
+                    />
+                  ))}
+                </>
+              ) : (
+                <p className="muted">Введи название настройки или действия.</p>
               )}
             </section>
-          ))}
+          )}
+          {pages
+            .filter((p) => visited.includes(p.id) || (visible && active?.id === p.id))
+            .map((p) => (
+              <section
+                key={p.id}
+                id={prefix + p.id}
+                className="settings-section"
+                data-page={p.id}
+                hidden={search || active?.id !== p.id}
+                aria-labelledby={prefix + p.id + "-title"}
+              >
+                <h3 id={prefix + p.id + "-title"} className="settings-section-title">
+                  {p.title}
+                </h3>
+                {p.hint && <p className="settings-page-hint">{p.hint}</p>}
+                {p.render(visible && active?.id === p.id, go)}
+              </section>
+            ))}
         </div>
       </div>
     </div>

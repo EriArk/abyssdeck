@@ -26,7 +26,13 @@ const auditLabels: Record<string, string> = {
   "team.request_denied": "Изменение доступа отклонено",
 };
 
-export function TeamAccess() {
+export function TeamAccess({
+  visible = true,
+  view = "all",
+}: {
+  visible?: boolean;
+  view?: "all" | "members" | "invitations" | "audit";
+}) {
   const [originalOwner, setOriginalOwner] = useState(true);
   const [ownerId, setOwnerId] = useState<string>();
   const [me, setMe] = useState<TeamUser | null>(null),
@@ -48,7 +54,7 @@ export function TeamAccess() {
   } | null>(null);
   useEffect(() => {
     setOffboarding(null);
-    if (confirm?.action !== "state" || confirm.user.state !== "active") return;
+    if (!visible || confirm?.action !== "state" || confirm.user.state !== "active") return;
     const abort = new AbortController();
     void api<NonNullable<typeof offboarding>>(`/team/users/${confirm.user.id}/offboarding`, {
       signal: abort.signal,
@@ -60,7 +66,7 @@ export function TeamAccess() {
         /* The state action still checks current ownership. */
       });
     return () => abort.abort();
-  }, [confirm]);
+  }, [confirm, visible]);
   const [audit, setAudit] = useState<AuditEntry[]>([]),
     [auditOpen, setAuditOpen] = useState(false),
     [auditMore, setAuditMore] = useState(false);
@@ -92,12 +98,13 @@ export function TeamAccess() {
     }
   }, []);
   useEffect(() => {
+    if (!visible) return;
     const abort = new AbortController();
     void refresh(abort.signal).catch((error) => {
       if (!abort.signal.aborted) setNotice(messageOf(error));
     });
     return () => abort.abort();
-  }, [refresh]);
+  }, [refresh, visible]);
   const loadAudit = async (more = false) => {
     if (busy) return;
     setBusy(true);
@@ -175,7 +182,7 @@ export function TeamAccess() {
   };
   return (
     <section className="team-access" aria-label="Участники установки">
-      {!originalOwner && (
+      {view === "all" && !originalOwner && (
         <button
           type="button"
           className="secondary"
@@ -184,7 +191,7 @@ export function TeamAccess() {
           Продолжить настройку
         </button>
       )}
-      {me && (
+      {view === "all" && me && (
         <div className="team-account">
           <strong>{me.name}</strong>
           <span className="muted">
@@ -199,111 +206,119 @@ export function TeamAccess() {
       )}
       {me?.role === "admin" && (
         <>
-          <h3>Участники</h3>
-          <ul className="team-people">
-            {users.map((user) => (
-              <li key={user.id}>
-                <div>
-                  <strong>{user.name}</strong>
-                  <small>
-                    {user.login} ·{" "}
-                    {user.id === ownerId
-                      ? "Владелец установки"
-                      : user.state === "disabled"
-                        ? "Доступ закрыт"
-                        : user.role === "admin"
-                          ? "Администратор"
-                          : "Участник"}
-                  </small>
-                </div>
-                {user.id !== me.id && user.id !== ownerId && (
-                  <div className="team-person-actions">
-                    {user.state === "active" && (
-                      <button
-                        type="button"
-                        className="text-button"
-                        disabled={busy}
-                        onClick={() => setConfirm({ user, action: "recovery" })}
-                      >
-                        Восстановить вход
-                      </button>
-                    )}
-                    {user.state === "active" && (
-                      <button
-                        type="button"
-                        className="text-button"
-                        disabled={busy}
-                        onClick={() => setConfirm({ user, action: "role" })}
-                      >
-                        {user.role === "admin"
-                          ? "Снять роль администратора"
-                          : "Назначить администратором"}
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className="text-button"
-                      disabled={busy}
-                      onClick={() => setConfirm({ user, action: "state" })}
-                    >
-                      {user.state === "active" ? "Закрыть доступ" : "Вернуть доступ"}
-                    </button>
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
-          <form
-            className="team-invite"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void invite();
-            }}
-          >
-            <label htmlFor="team-invite-name">Пригласить участника</label>
-            <div>
-              <input
-                id="team-invite-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                maxLength={80}
-                placeholder="Имя"
-                required
-                disabled={busy || !registrationEnabled}
-              />
-              <button
-                className="secondary"
-                type="submit"
-                disabled={busy || !name.trim() || !registrationEnabled}
-              >
-                <Icon name="link" /> Приглашение
-              </button>
-            </div>
-          </form>
-          {!registrationEnabled && (
-            <p className="review-caption">
-              Совместные проекты доступны. Подключение новых участников будет включено отдельно.
-            </p>
-          )}
-          {invitations.length > 0 && (
-            <details>
-              <summary>Ожидают входа · {invitations.length}</summary>
+          {(view === "all" || view === "members") && (
+            <>
+              <h3>Участники</h3>
               <ul className="team-people">
-                {invitations.map((invite) => (
-                  <li key={invite.id}>
-                    <span>{invite.name}</span>
-                    <button
-                      type="button"
-                      className="text-button"
-                      disabled={busy}
-                      onClick={() => void revoke(invite.id)}
-                    >
-                      Отозвать ссылку
-                    </button>
+                {users.map((user) => (
+                  <li key={user.id}>
+                    <div>
+                      <strong>{user.name}</strong>
+                      <small>
+                        {user.login} ·{" "}
+                        {user.id === ownerId
+                          ? "Владелец установки"
+                          : user.state === "disabled"
+                            ? "Доступ закрыт"
+                            : user.role === "admin"
+                              ? "Администратор"
+                              : "Участник"}
+                      </small>
+                    </div>
+                    {user.id !== me.id && user.id !== ownerId && (
+                      <div className="team-person-actions">
+                        {user.state === "active" && (
+                          <button
+                            type="button"
+                            className="text-button"
+                            disabled={busy}
+                            onClick={() => setConfirm({ user, action: "recovery" })}
+                          >
+                            Восстановить вход
+                          </button>
+                        )}
+                        {user.state === "active" && (
+                          <button
+                            type="button"
+                            className="text-button"
+                            disabled={busy}
+                            onClick={() => setConfirm({ user, action: "role" })}
+                          >
+                            {user.role === "admin"
+                              ? "Снять роль администратора"
+                              : "Назначить администратором"}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="text-button"
+                          disabled={busy}
+                          onClick={() => setConfirm({ user, action: "state" })}
+                        >
+                          {user.state === "active" ? "Закрыть доступ" : "Вернуть доступ"}
+                        </button>
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>
-            </details>
+            </>
+          )}
+          {(view === "all" || view === "invitations") && (
+            <>
+              <form
+                className="team-invite"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void invite();
+                }}
+              >
+                <label htmlFor="team-invite-name">Пригласить участника</label>
+                <div>
+                  <input
+                    id="team-invite-name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    maxLength={80}
+                    placeholder="Имя"
+                    required
+                    disabled={busy || !registrationEnabled}
+                  />
+                  <button
+                    className="secondary"
+                    type="submit"
+                    disabled={busy || !name.trim() || !registrationEnabled}
+                  >
+                    <Icon name="link" /> Приглашение
+                  </button>
+                </div>
+              </form>
+              {!registrationEnabled && (
+                <p className="review-caption">
+                  Совместные проекты доступны. Подключение новых участников будет включено отдельно.
+                </p>
+              )}
+              {invitations.length > 0 && (
+                <details>
+                  <summary>Ожидают входа · {invitations.length}</summary>
+                  <ul className="team-people">
+                    {invitations.map((invite) => (
+                      <li key={invite.id}>
+                        <span>{invite.name}</span>
+                        <button
+                          type="button"
+                          className="text-button"
+                          disabled={busy}
+                          onClick={() => void revoke(invite.id)}
+                        >
+                          Отозвать ссылку
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+            </>
           )}
           {confirm && (
             <fieldset className="team-confirm" aria-label="Подтверждение изменения доступа">
@@ -386,45 +401,47 @@ export function TeamAccess() {
               </div>
             </div>
           )}
-          <details
-            onToggle={(event) => {
-              setAuditOpen(event.currentTarget.open);
-              if (event.currentTarget.open) void loadAudit();
-            }}
-          >
-            <summary>История доступа</summary>
-            {auditOpen && (
-              <>
-                <ul className="team-people">
-                  {audit.map((entry) => (
-                    <li key={entry.seq}>
-                      <div>
-                        <strong>{auditLabels[entry.action] ?? "Изменение доступа"}</strong>
-                        <span>
-                          {entry.actorName}
-                          {users.find((user) => user.id === entry.target)
-                            ? ` → ${users.find((user) => user.id === entry.target)!.name}`
-                            : ""}
-                        </span>
-                        <small>{new Date(entry.createdAt).toLocaleString("ru-RU")}</small>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-                {!audit.length && <p className="muted">Пока нет записей.</p>}
-                {auditMore && (
-                  <button
-                    type="button"
-                    className="secondary"
-                    disabled={busy}
-                    onClick={() => void loadAudit(true)}
-                  >
-                    Ранее
-                  </button>
-                )}
-              </>
-            )}
-          </details>
+          {(view === "all" || view === "audit") && (
+            <details
+              onToggle={(event) => {
+                setAuditOpen(event.currentTarget.open);
+                if (event.currentTarget.open) void loadAudit();
+              }}
+            >
+              <summary>История доступа</summary>
+              {auditOpen && (
+                <>
+                  <ul className="team-people">
+                    {audit.map((entry) => (
+                      <li key={entry.seq}>
+                        <div>
+                          <strong>{auditLabels[entry.action] ?? "Изменение доступа"}</strong>
+                          <span>
+                            {entry.actorName}
+                            {users.find((user) => user.id === entry.target)
+                              ? ` → ${users.find((user) => user.id === entry.target)!.name}`
+                              : ""}
+                          </span>
+                          <small>{new Date(entry.createdAt).toLocaleString("ru-RU")}</small>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                  {!audit.length && <p className="muted">Пока нет записей.</p>}
+                  {auditMore && (
+                    <button
+                      type="button"
+                      className="secondary"
+                      disabled={busy}
+                      onClick={() => void loadAudit(true)}
+                    >
+                      Ранее
+                    </button>
+                  )}
+                </>
+              )}
+            </details>
+          )}
         </>
       )}
       {notice && <p role="status">{notice}</p>}

@@ -1970,6 +1970,10 @@ function Workspace({
           setSettings(false);
           setMachinePanel(true);
         }}
+        onMachineProject={(id, remote) => {
+          setSettings(false);
+          openMachineProject(id, remote);
+        }}
         onActivity={() => {
           setSettings(false);
           setClient("codex");

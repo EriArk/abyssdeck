@@ -19,7 +19,7 @@ const Context = createContext<{
   refresh: (machineId: string) => Promise<void>;
 } | null>(null);
 
-/** One settings-owned read/poll path, shared by the overview and Connections. */
+/** Reads only the machines in the visible limits page. */
 export function UsageLimitsProvider({
   machines,
   open,
@@ -35,7 +35,7 @@ export function UsageLimitsProvider({
   const machineIds = JSON.stringify(machines.map((m) => m.id).sort());
   const refresh = useCallback(async (machineId: string) => {
     if (!active.current.has(machineId) || document.visibilityState === "hidden") return;
-    requests.current.get(machineId)?.abort();
+    if (requests.current.has(machineId)) return;
     const controller = new AbortController();
     requests.current.set(machineId, controller);
     try {

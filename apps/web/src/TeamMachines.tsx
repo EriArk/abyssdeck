@@ -31,7 +31,15 @@ function savedAttempt(): EnrollmentAttempt | null {
   } catch {}
   return null;
 }
-export function TeamMachines({ visible }: { visible: boolean }) {
+export function TeamMachines({
+  visible,
+  mode = "all",
+  machineId,
+}: {
+  visible: boolean;
+  mode?: "all" | "enrollment" | "workspace" | "reviews" | "machine";
+  machineId?: string;
+}) {
   const [attempt, setAttempt] = useState<EnrollmentAttempt | null>(savedAttempt);
   const running = useRef(false);
   const [bundle, setBundle] = useState<File | null>(null);
@@ -49,30 +57,41 @@ export function TeamMachines({ visible }: { visible: boolean }) {
     item: MachineEnrollment;
     action: "approve" | "revoke";
   } | null>(null);
-  const refresh = useCallback(async (signal?: AbortSignal) => {
-    const [result, me] = await Promise.all([
-      api<{ items: MachineEnrollment[]; enabled: boolean; activeMachineIds: string[] }>(
-        "/team/machines",
-        { signal },
-      ),
-      api<{ user: TeamUser }>("/team/me", { signal }),
-    ]);
-    setItems(result.items);
-    setEnabled(result.enabled);
-    setActive(result.activeMachineIds);
-    setReviews(
-      me.user.role === "admin"
-        ? (await api<{ items: MachineEnrollment[] }>("/team/machine-reviews", { signal })).items
-        : [],
-    );
-  }, []);
+  const refresh = useCallback(
+    async (signal?: AbortSignal) => {
+      const [result, me] = await Promise.all([
+        api<{ items: MachineEnrollment[]; enabled: boolean; activeMachineIds: string[] }>(
+          "/team/machines",
+          { signal },
+        ),
+        api<{ user: TeamUser }>("/team/me", { signal }),
+      ]);
+      setItems(result.items);
+      setEnabled(result.enabled);
+      setActive(result.activeMachineIds);
+      setReviews(
+        me.user.role === "admin" && (mode === "all" || mode === "reviews")
+          ? (await api<{ items: MachineEnrollment[] }>("/team/machine-reviews", { signal })).items
+          : [],
+      );
+    },
+    [mode],
+  );
   useEffect(() => {
     if (!visible) return;
     const abort = new AbortController();
-    const tick = () =>
-      void refresh(abort.signal).catch((error) => {
-        if (!abort.signal.aborted) setNotice(messageOf(error));
-      });
+    let pending = false;
+    const tick = () => {
+      if (pending || document.visibilityState === "hidden") return;
+      pending = true;
+      void refresh(abort.signal)
+        .catch((error) => {
+          if (!abort.signal.aborted) setNotice(messageOf(error));
+        })
+        .finally(() => {
+          pending = false;
+        });
+    };
     tick();
     const timer = setInterval(tick, 12000);
     return () => {
@@ -164,105 +183,128 @@ export function TeamMachines({ visible }: { visible: boolean }) {
   };
   return (
     <section className="team-access team-machines" aria-label="Личные компьютеры">
-      <ServerWorkspace
-        visible={visible}
-        active={active.includes("server-workspace")}
-        refresh={refresh}
-      />
-      <h3>Мои компьютеры</h3>
-      <p className="muted">
-        Каждый компьютер использует твои аккаунты и выбранные на нём папки проектов.
-      </p>
-      {!enabled && (
-        <p role="status">
-          Администратору нужно завершить подключение Hub к Tailscale. Существующий компьютер
-          продолжает работать.
-        </p>
+      {(mode === "all" || mode === "workspace") && (
+        <ServerWorkspace
+          visible={visible}
+          active={active.includes("server-workspace")}
+          refresh={refresh}
+        />
       )}
-      {enabled && (
-        <form
-          className="team-invite"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void run(download);
-          }}
-        >
-          <label htmlFor="enrollment-name">Название компьютера</label>
-          <input
-            id="enrollment-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            maxLength={80}
-            disabled={busy || !!attempt}
-          />
-          <button className="secondary" type="submit" disabled={busy || !name.trim()}>
-            <Icon name="remote" />
-            {attempt ? "Скачать установщик ещё раз" : "Подключить Windows ПК"}
-          </button>
-          <small className="muted">
-            Подготовка → проверка администратора → активация. Пакет действует сутки.
-          </small>
-          {attempt &&
-            items.some((item) => item.id === attempt.request.id && item.state !== "pending") && (
-              <button className="text-button" type="button" disabled={busy} onClick={clearAttempt}>
-                Подключить другой компьютер
+      {(mode === "all" || mode === "enrollment") && (
+        <>
+          <h3>Мои компьютеры</h3>
+          <p className="muted">
+            Каждый компьютер использует твои аккаунты и выбранные на нём папки проектов.
+          </p>
+          {!enabled && (
+            <p role="status">
+              Администратору нужно завершить подключение Hub к Tailscale. Существующий компьютер
+              продолжает работать.
+            </p>
+          )}
+          {enabled && (
+            <form
+              className="team-invite"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void run(download);
+              }}
+            >
+              <label htmlFor="enrollment-name">Название компьютера</label>
+              <input
+                id="enrollment-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                maxLength={80}
+                disabled={busy || !!attempt}
+              />
+              <button className="secondary" type="submit" disabled={busy || !name.trim()}>
+                <Icon name="remote" />
+                {attempt ? "Скачать установщик ещё раз" : "Подключить Windows ПК"}
               </button>
-            )}
-        </form>
-      )}
-      {visible && bundle && (
-        <DownloadLink key={bundle.lastModified} preparedFile={bundle} directDownload initiallyOpen>
-          Скачать установщик
-        </DownloadLink>
-      )}
-      <ul className="team-people">
-        {items.map((item) => (
-          <li key={item.id}>
-            <div>
-              <strong>{item.name}</strong>
-              <small>
-                {item.machineId && active.includes(item.machineId) && item.state === "approved"
-                  ? "Подключён к твоему пространству"
-                  : stateNames[item.state]}
+              <small className="muted">
+                Подготовка → проверка администратора → активация. Пакет действует сутки.
               </small>
-              {item.readiness && (
-                <small>
-                  Codex {item.readiness.codex ? "✓" : "—"} · Git {item.readiness.git ? "✓" : "—"} ·
-                  GitHub CLI {item.readiness.github ? "✓" : "—"} · Remote{" "}
-                  {item.readiness.remote ? "✓" : "не настроен"}
-                </small>
-              )}
-            </div>
-            <div className="team-person-actions">
-              {item.state === "approved" && !active.includes(item.machineId!) && (
-                <button
-                  className="secondary"
-                  type="button"
-                  disabled={busy}
-                  onClick={() =>
-                    void run(async () => {
-                      await api("/team/machines/apply", { method: "POST" });
-                      setNotice("Компьютер активирован. Можно создавать проекты.");
-                    })
-                  }
-                >
-                  Активировать
-                </button>
-              )}
-              {!["revoked", "expired"].includes(item.state) && (
-                <button
-                  className="text-button"
-                  type="button"
-                  disabled={busy}
-                  onClick={() => setConfirmation({ item, action: "revoke" })}
-                >
-                  {item.state === "approved" ? "Отключить" : "Отозвать"}
-                </button>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
+              {attempt &&
+                items.some(
+                  (item) => item.id === attempt.request.id && item.state !== "pending",
+                ) && (
+                  <button
+                    className="text-button"
+                    type="button"
+                    disabled={busy}
+                    onClick={clearAttempt}
+                  >
+                    Подключить другой компьютер
+                  </button>
+                )}
+            </form>
+          )}
+          {visible && bundle && (
+            <DownloadLink
+              key={bundle.lastModified}
+              preparedFile={bundle}
+              directDownload
+              initiallyOpen
+            >
+              Скачать установщик
+            </DownloadLink>
+          )}
+        </>
+      )}
+      {mode !== "workspace" && mode !== "reviews" && (
+        <ul className="team-people">
+          {items
+            .filter((item) => mode !== "machine" || item.machineId === machineId)
+            .map((item) => (
+              <li key={item.id}>
+                <div>
+                  <strong>{item.name}</strong>
+                  <small>
+                    {item.machineId && active.includes(item.machineId) && item.state === "approved"
+                      ? "Подключён к твоему пространству"
+                      : stateNames[item.state]}
+                  </small>
+                  {item.readiness && (
+                    <small>
+                      Codex {item.readiness.codex ? "✓" : "—"} · Git{" "}
+                      {item.readiness.git ? "✓" : "—"} · GitHub CLI{" "}
+                      {item.readiness.github ? "✓" : "—"} · Remote{" "}
+                      {item.readiness.remote ? "✓" : "не настроен"}
+                    </small>
+                  )}
+                </div>
+                <div className="team-person-actions">
+                  {item.state === "approved" && !active.includes(item.machineId!) && (
+                    <button
+                      className="secondary"
+                      type="button"
+                      disabled={busy}
+                      onClick={() =>
+                        void run(async () => {
+                          await api("/team/machines/apply", { method: "POST" });
+                          setNotice("Компьютер активирован. Можно создавать проекты.");
+                        })
+                      }
+                    >
+                      Активировать
+                    </button>
+                  )}
+                  {!["revoked", "expired"].includes(item.state) && (
+                    <button
+                      className="text-button"
+                      type="button"
+                      disabled={busy}
+                      onClick={() => setConfirmation({ item, action: "revoke" })}
+                    >
+                      {item.state === "approved" ? "Отключить" : "Отозвать"}
+                    </button>
+                  )}
+                </div>
+              </li>
+            ))}
+        </ul>
+      )}
       {reviews.length > 0 && (
         <div>
           <h3>Подтвердить компьютеры</h3>

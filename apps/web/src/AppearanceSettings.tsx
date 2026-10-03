@@ -3,7 +3,6 @@ import { useState, useSyncExternalStore } from "react";
 import { accountLocalStorage as localStorage } from "./accountStorage.ts";
 import { api } from "./api";
 import { CaseColorSettings } from "./CaseColorSettings";
-import { PersonalScaleSettings } from "./PersonalScale";
 import {
   setThemeVariant,
   subscribeThemeVariant,
@@ -14,7 +13,6 @@ import {
   themeVariants,
   variantNames,
 } from "./theme";
-import { ShortcutSettings } from "./WorkspaceCommands";
 
 const layoutKey = "codex-legacy-layout";
 const layoutEvent = "codex-layout-change";
@@ -51,13 +49,10 @@ export function useLegacyLayout() {
 export function AppearanceSettings({
   theme,
   onTheme,
-  visible = true,
 }: {
-  visible?: boolean;
   theme: Theme;
   onTheme: (id: Theme) => void;
 }) {
-  const legacy = useLegacyLayout();
   const variant = useSyncExternalStore(subscribeThemeVariant, () => themeVariant(theme));
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(false);
@@ -107,25 +102,29 @@ export function AppearanceSettings({
         {error && <p role="alert">Не удалось сохранить вариант. Выбери его ещё раз.</p>}
       </fieldset>
       <CaseColorSettings key={theme} theme={theme} />
-      <label className="layout-preference">
-        <input
-          type="checkbox"
-          checked={legacy}
-          onChange={(event) => {
-            const value = event.currentTarget.checked;
-            document.documentElement.dataset.layout = value ? "legacy" : "refined";
-            try {
-              localStorage.setItem(layoutKey, String(value));
-            } catch {
-              /* Device preference is optional. */
-            }
-            window.dispatchEvent(new Event(layoutEvent));
-          }}
-        />
-        Прежняя компоновка
-      </label>
-      <PersonalScaleSettings />
-      <ShortcutSettings visible={visible} />
     </fieldset>
+  );
+}
+
+export function LayoutPreference() {
+  const legacy = useLegacyLayout();
+  return (
+    <label className="layout-preference">
+      <input
+        type="checkbox"
+        checked={legacy}
+        onChange={(event) => {
+          const value = event.currentTarget.checked;
+          document.documentElement.dataset.layout = value ? "legacy" : "refined";
+          try {
+            localStorage.setItem(layoutKey, String(value));
+          } catch {
+            /* Device preference is optional. */
+          }
+          window.dispatchEvent(new Event(layoutEvent));
+        }}
+      />
+      Прежняя компоновка
+    </label>
   );
 }

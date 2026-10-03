@@ -1,14 +1,14 @@
-import { type FormEvent, useId, useState } from "react";
-import { pageWorkspace } from "./accountStorage.ts";
+import { type FormEvent, useEffect, useId, useState } from "react";
 import { api, changePassword, messageOf } from "./api";
 import { Icon } from "./icons";
-import { TeamAccess } from "./TeamAccess";
 import type { Session } from "./types";
 import "./accountControls.css";
 export function AccountControls({
   onSession,
   onLogout,
+  visible = true,
 }: {
+  visible?: boolean;
   onSession: (session: Session) => void;
   onLogout: () => void;
 }) {
@@ -18,6 +18,13 @@ export function AccountControls({
     [password, setPassword] = useState(""),
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState("");
+  useEffect(() => {
+    if (!visible) {
+      setCurrent("");
+      setPassword("");
+      setOpen(false);
+    }
+  }, [visible]);
   async function save(event: FormEvent) {
     event.preventDefault();
     if (busy) return;
@@ -50,7 +57,6 @@ export function AccountControls({
   }
   return (
     <section className="account-controls" aria-label="Доступ к сайту">
-      {!!pageWorkspace && <TeamAccess />}
       <button
         type="button"
         className="secondary account-toggle"

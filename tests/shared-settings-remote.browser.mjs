@@ -109,6 +109,9 @@ for (const [engine, type] of [
     const button = (name) =>
       page.getByRole("button", { name, exact: true }).filter({ visible: true }).first();
     const navigation = async () => {
+      await page.evaluate(
+        () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+      );
       if (!(await button("Настройки").isVisible())) await button("Открыть проекты").click();
     };
     const settings = page.getByRole("dialog", { name: "Настройки", exact: true });
@@ -118,11 +121,16 @@ for (const [engine, type] of [
     const openSettings = async () => {
       await navigation();
       await button("Настройки").click();
+      await category("limits");
     };
     const category = async (id) => {
-      if (!(await settings.locator(".settings-categories").isVisible()))
-        await button("Все категории настроек").click();
-      await settings.locator(`[data-category="${id}"]`).click();
+      const title = { limits: "Лимиты и кредиты", connections: "ChatGPT", library: "Архивы" }[id];
+      await button("Найти настройку").click();
+      await settings.getByRole("searchbox").fill(title);
+      await settings
+        .locator(".settings-search-results .settings-link")
+        .filter({ has: page.locator("strong", { hasText: new RegExp("^" + title + "$") }) })
+        .click();
     };
     await page.goto(origin);
     const codex = page.getByRole("textbox", { name: "Сообщение Codex" });
@@ -157,13 +165,7 @@ for (const [engine, type] of [
       "GPT Settings redeems the same authorized Codex account once",
     );
     await category("connections");
-    await expect(
-      settings.getByRole("region", { name: "Подключение Codex", exact: true }),
-    ).toBeVisible();
-    await expect(
-      settings.getByRole("region", { name: "Подключение GPT", exact: true }),
-    ).toBeVisible();
-    await expect(limits.getByText("100% осталось", { exact: true })).toHaveCount(2);
+    await expect(settings.locator('[data-page="gpt"]')).toBeVisible();
     assert.deepEqual(gptWrites, [], "opening Settings does not prepare or reconnect GPT");
     await button("Перепроверить подключение").click();
     await expect.poll(() => gptWrites.length).toBe(1);
@@ -229,12 +231,7 @@ for (const [engine, type] of [
       await openSettings();
       await expect(limits.getByText("100% осталось", { exact: true })).toHaveCount(2);
       await category("library");
-      await expect(
-        settings.getByRole("region", { name: "История Codex", exact: true }),
-      ).toBeVisible();
-      await expect(
-        settings.getByRole("region", { name: "История GPT", exact: true }),
-      ).toBeVisible();
+      await expect(settings.locator('[data-page="archives"]')).toBeVisible();
       await button("Закрыть настройки").click();
     }
     assert.equal(await page.evaluate(() => window.remoteConnections), 4);

@@ -14,6 +14,8 @@ export function TeamGpt({ visible }: { visible: boolean }) {
     [loadError, setLoadError] = useState(""),
     [busy, setBusy] = useState(false);
   const running = useRef(false);
+  const preparationState = useRef(status?.state);
+  preparationState.current = status?.state;
   const refresh = useCallback(async (signal?: AbortSignal) => {
     const value = await api<Status>("/team/gpt", { signal });
     if (!signal?.aborted) {
@@ -24,15 +26,27 @@ export function TeamGpt({ visible }: { visible: boolean }) {
   useEffect(() => {
     if (!visible) return;
     const abort = new AbortController();
-    const tick = () =>
-      void refresh(abort.signal).catch((error) => {
-        if (!abort.signal.aborted) setLoadError(messageOf(error));
-      });
+    let pending = false;
+    const tick = () => {
+      if (pending || document.visibilityState === "hidden") return;
+      pending = true;
+      void refresh(abort.signal)
+        .catch((error) => {
+          if (!abort.signal.aborted) setLoadError(messageOf(error));
+        })
+        .finally(() => {
+          pending = false;
+        });
+    };
     tick();
-    const timer = setInterval(tick, 5000);
+    const timer = setInterval(() => {
+      if (preparationState.current === "requested") tick();
+    }, 5000);
+    document.addEventListener("visibilitychange", tick);
     return () => {
       abort.abort();
       clearInterval(timer);
+      document.removeEventListener("visibilitychange", tick);
     };
   }, [visible, refresh]);
   const run = async (activate = false) => {
@@ -52,11 +66,12 @@ export function TeamGpt({ visible }: { visible: boolean }) {
   };
   return (
     <section className="team-access team-gpt" aria-label="Личный ChatGPT">
-      <h3>Мой ChatGPT</h3>
-      <p className="muted">
-        Отдельный клиент с твоим аккаунтом, чатами и лимитами. Войди в ChatGPT и активируй
-        подключение.
-      </p>
+      {!status?.activated && (
+        <p className="muted">
+          Отдельный клиент с твоим аккаунтом, чатами и лимитами. Войди в ChatGPT и активируй
+          подключение.
+        </p>
+      )}
       {status?.state === "blocked" ? (
         <p role="status">Администратор сервера проверяет подключения после восстановления.</p>
       ) : status?.state === "ready" ? (
@@ -72,12 +87,14 @@ export function TeamGpt({ visible }: { visible: boolean }) {
             </button>
           )}
           <a
-            className="secondary"
-            href={status.native ? "/gpt-connect?runtime=native" : "/gpt-connect"}
+            className="primary settings-client-link"
+            href={
+              status.native ? "/gpt-connect?runtime=native&immersive=1" : "/gpt-connect?immersive=1"
+            }
             target="_blank"
             rel="noopener noreferrer"
           >
-            Открыть мой ChatGPT и войти
+            {status.activated ? "Открыть ChatGPT" : "Открыть ChatGPT и войти"}
           </a>
         </>
       ) : status?.state === "requested" ? (

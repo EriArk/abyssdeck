@@ -1,234 +1,343 @@
 import assert from "node:assert/strict";
-import { mkdir } from "node:fs/promises";
-import { chromium, expect, webkit } from "@playwright/test";
-import { handoffFixture } from "./handoff-fixture.mjs";
+import { mkdir, writeFile } from "node:fs/promises";
+import { chromium, webkit, expect } from "@playwright/test";
+import { usageFixture } from "./usage-resets-fixture.mjs";
 
-for (const [engine, type] of [
-  ["chromium", chromium],
-  ["webkit", webkit],
-]) {
-  const origin = "http://127.0.0.1:18933",
-    f = await handoffFixture(origin);
-  f.store.setPreferences({
-    projectId: "project",
-    threadId: f.thread.id,
-    view: "chat",
-    theme: "hitech-2000s",
-  });
-  const browser = await type.launch(),
-    context = await browser.newContext({
-      viewport: { width: 393, height: 852 },
-      hasTouch: true,
-      reducedMotion: "reduce",
-      serviceWorkers: "block",
-    });
-  try {
-    await f.app.listen({ port: 18933, host: "127.0.0.1" });
-    const [name, value] = f.headers.cookie.split("=");
-    await context.addCookies([{ name, value, url: origin, httpOnly: true }]);
-    const page = await context.newPage(),
-      errors = [],
-      reads = [];
-    page.on("pageerror", (e) => errors.push(e.message));
-    page.on("request", (r) => {
-      if (r.method() === "GET") reads.push(new URL(r.url()).pathname);
-    });
-    await page.route("**/api/gpt/**", (route) => {
-      const path = new URL(route.request().url()).pathname;
-      if (path === "/api/gpt/status")
-        return route.fulfill({
-          json: { configured: true, canSend: true, state: "healthy", message: "ChatGPT подключён" },
-        });
-      if (path === "/api/gpt/models")
-        return route.fulfill({
-          json: {
-            models: [{ id: "Latest", label: "Latest" }],
-            efforts: [{ id: "2", label: "High" }],
-            currentModel: "Latest",
-            currentEffort: "2",
-          },
-        });
-      return route.fulfill({
-        json: { items: [], conversations: [], nextOffset: null, blocked: false },
-      });
-    });
-    await page.goto(origin);
-    const button = (name) =>
-      page.getByRole("button", { name, exact: true }).filter({ visible: true }).first();
-    const openSettings = async () => {
-      if (!(await button("Настройки").isVisible())) await button("Открыть проекты").click();
-      await button("Настройки").click();
-    };
-    const settings = page.getByRole("dialog", { name: "Настройки", exact: true });
-    const choose = async (id) => {
-      if (!(await settings.locator(".settings-categories").isVisible()))
-        await button("Все категории настроек").click();
-      await settings.locator(`[data-category="${id}"]`).click();
-    };
-    const codex = page.getByRole("textbox", { name: "Сообщение Codex" });
-    await codex.fill("Не терять мой черновик");
-    await codex.blur();
-    await openSettings();
-    await expect(settings.locator(".settings-categories button")).toHaveCount(6);
-    assert(
-      !reads.some((path) => /\/storage\/?$|\/bridge-doctor$/.test(path)),
-      "Opening the index must not start hidden settings probes",
-    );
-    await expect(settings.locator(".settings-usage-summary .usage-limits")).toBeVisible();
-    await choose("access");
-    await button("Сменить пароль").click();
-    await settings.getByLabel("Текущий пароль", { exact: true }).fill("Unsaved example");
-    await choose("sound");
-    await expect(settings.getByLabel("Режим озвучивания")).toBeVisible();
-    await choose("access");
-    await expect(settings.getByLabel("Текущий пароль", { exact: true })).toHaveValue(
-      "Unsaved example",
-    );
-    // Standalone phone safe areas differ in portrait and landscape.
-    for (const [width, height, top, side, bottom] of [
-      [393, 852, 59, 0, 34],
-      [844, 390, 0, 59, 21],
-    ]) {
-      await page.setViewportSize({ width, height });
-      await page.evaluate(
-        ({ top, side, bottom }) => {
-          for (const [key, value] of Object.entries({ top, left: side, right: side, bottom }))
-            document.documentElement.style.setProperty(`--safe-${key}`, `${value}px`);
+// Current production React components; all account/service data is disposable.
+const out = "polish/07-settings-devices/settings-implementation";
+const port = Number(process.env.SETTINGS_PORT || 18944);
+const origin = `http://127.0.0.1:${port}`;
+const f = await usageFixture(origin);
+const owner = {
+  id: "11111111-1111-4111-8111-111111111111",
+  name: "Владелец",
+  login: "owner-demo",
+  role: "admin",
+  state: "active",
+};
+const friend = {
+  ...owner,
+  id: "22222222-2222-4222-8222-222222222222",
+  name: "Участник",
+  login: "member-demo",
+  role: "member",
+};
+const preferences = {
+  projectId: "project",
+  threadId: f.thread.id,
+  theme: "crt-green",
+  machineClients: { pc: "web" },
+};
+f.store.db.prepare("UPDATE threads SET origin='web' WHERE id=?").run(f.thread.id);
+f.store.setPreferences(preferences);
+const engine = process.env.SETTINGS_ENGINE || "chromium";
+const browser = await (engine === "webkit" ? webkit : chromium).launch();
+const context = await browser.newContext({
+  viewport: { width: 1366, height: 1024 },
+  hasTouch: true,
+  reducedMotion: "reduce",
+  serviceWorkers: "block",
+});
+const [name, value] = f.headers.cookie.split("=");
+await context.addCookies([{ name, value, url: origin, httpOnly: true }]);
+await context.addInitScript(
+  (id) => sessionStorage.setItem("codex-workspace-identity", id),
+  owner.id,
+);
+const page = await context.newPage();
+page.setDefaultTimeout(10000);
+const errors = [],
+  requests = [],
+  inventory = [];
+page.on("pageerror", (e) => errors.push(e.message));
+await page.route("**/api/**", async (route) => {
+  const req = route.request(),
+    path = new URL(req.url()).pathname;
+  requests.push({ method: req.method(), path });
+  const team = {
+    "/api/team/spaces": { spaces: [], invitations: [] },
+    "/api/team/brainstorm": { rooms: [], invitations: [] },
+    "/api/team/me": { user: owner, originalOwner: true },
+    "/api/team/users": { items: [owner, friend], ownerId: owner.id, registrationEnabled: false },
+    "/api/team/invitations": { items: [] },
+    "/api/team/machine-reviews": { items: [] },
+    "/api/team/machines": {
+      enabled: true,
+      items: [],
+      activeMachineIds: ["pc", "server-workspace"],
+    },
+    "/api/team/server-workspace": { available: true, state: "ready" },
+    "/api/team/gpt": {
+      enabled: true,
+      native: true,
+      legacy: false,
+      activated: true,
+      state: "ready",
+    },
+  };
+  if (team[path]) return route.fulfill({ json: team[path] });
+  if (path.startsWith("/api/team/")) return route.fulfill({ json: { items: [] } });
+  if (path === "/api/gpt/doctor")
+    return route.fulfill({
+      json: {
+        association: {
+          enabled: true,
+          projectId: "project",
+          threadId: f.thread.id,
+          state: "ready",
+          mode: "repair",
+          revision: 1,
         },
-        { top, side, bottom },
-      );
-      await expect
-        .poll(async () => {
-          const r = await settings.boundingBox();
-          return (
-            r.y >= top &&
-            r.y + r.height <= height - bottom + 1 &&
-            r.x >= side &&
-            r.x + r.width <= width - side + 1
-          );
-        })
-        .toBe(true);
-    }
-    await page.setViewportSize({ width: 393, height: 852 });
-    await page.evaluate(() => {
-      for (const key of ["top", "bottom", "left", "right"])
-        document.documentElement.style.removeProperty(`--safe-${key}`);
+        projects: [{ id: "project", name: "Project" }],
+        threads: [],
+        incidents: [],
+      },
     });
-    // The software keyboard can pan the visual viewport independently of the layout viewport.
-    for (const offset of [0, 180]) {
-      await page.evaluate((offset) => {
-        document.documentElement.style.setProperty("--safe-top", "59px");
-        Object.defineProperty(visualViewport, "height", { configurable: true, get: () => 340 });
-        Object.defineProperty(visualViewport, "offsetTop", {
-          configurable: true,
-          get: () => offset,
-        });
-        visualViewport.dispatchEvent(new Event("resize"));
-      }, offset);
-      await expect
-        .poll(async () => {
-          const r = await settings.boundingBox(),
-            close = await button("Закрыть настройки").boundingBox();
-          return (
-            r.y >= Math.max(59, offset) &&
-            r.y + r.height <= offset + 341 &&
-            close.y >= Math.max(59, offset) &&
-            close.y + close.height <= offset + 340
-          );
-        })
-        .toBe(true);
-    }
-    await page.evaluate(() => {
-      document.documentElement.style.removeProperty("--safe-top");
-      delete visualViewport.height;
-      delete visualViewport.offsetTop;
-      visualViewport.dispatchEvent(new Event("resize"));
-    });
-    await settings.getByLabel("Текущий пароль", { exact: true }).fill("");
-    await button("Закрыть настройки").click();
-    await expect(codex).toHaveValue("Не терять мой черновик");
-    await mkdir(`.local/qa-settings/${engine}`, { recursive: true });
-    for (const client of ["Codex", "GPT"]) {
-      if (client === "GPT") {
-        await page.setViewportSize({ width: 1366, height: 1024 });
-        await button("Переключиться на GPT").click();
-        await page.getByRole("textbox", { name: "Сообщение GPT" }).fill("Черновик GPT");
-      }
-      await openSettings();
-      await expect(settings.locator(".settings-usage-summary .usage-limits")).toBeVisible();
-      for (const width of [320, 1366]) {
-        await page.setViewportSize({ width, height: width === 320 ? 852 : 1024 });
-        for (const theme of ["organizer", "classic-dark", "crt-green", "hitech-2000s"]) {
-          await page.evaluate((theme) => {
-            document.documentElement.dataset.theme = theme;
-            document.documentElement.dataset.caseColor = "red";
-          }, theme);
-          for (const category of [
-            "appearance",
-            "sound",
-            "connections",
-            "library",
-            "maintenance",
-            "access",
-          ]) {
-            await choose(category);
-            await expect(settings.locator(".settings-section:visible")).toHaveCount(1);
-            const section = settings.locator(".settings-section:visible");
-            assert(
-              await section.evaluate((el) => el.scrollWidth <= el.clientWidth + 1),
-              `${client} ${theme} ${width} ${category} content overflow`,
-            );
-            const rect = await settings.boundingBox();
-            assert(rect.x >= 0 && rect.x + rect.width <= width + 1);
-            const close = await button("Закрыть настройки").boundingBox();
-            assert(
-              close.width >= 44 &&
-                close.height >= 44 &&
-                close.x + close.width <= rect.x + rect.width,
-            );
-            if (category === "connections") {
-              await expect(
-                section.getByRole("button", { name: "Компьютеры", exact: true }),
-              ).toBeVisible();
-              await expect(
-                section.getByRole("region", { name: "Подключение Codex", exact: true }),
-              ).toBeVisible();
-              await expect(
-                section.getByRole("region", { name: "Подключение GPT", exact: true }),
-              ).toBeVisible();
-            }
-            await page.screenshot({
-              path: `.local/qa-settings/${engine}/${client}-${theme}-${width}-${category}.png`,
-              animations: "disabled",
-            });
+  if (path.startsWith("/api/gpt/"))
+    return route.fulfill({
+      json: path.endsWith("/status")
+        ? {
+            configured: true,
+            canSend: true,
+            state: "healthy",
+            message: "ChatGPT подключён",
+            connectUrl: "/gpt-connect?runtime=native",
           }
-        }
-      }
-      await page.setViewportSize({ width: 393, height: 852 });
-      await button("Все категории настроек").click();
-      await expect(settings.locator('[data-category="access"]')).toBeFocused();
-      await page.screenshot({ path: `.local/qa-settings/${engine}/${client}-index.png` });
-      await page.keyboard.press("Escape");
-      await expect(settings).not.toBeVisible();
-      await expect(page.getByRole("textbox", { name: `Сообщение ${client}` })).toHaveValue(
-        client === "GPT" ? "Черновик GPT" : "Не терять мой черновик",
-      );
-    }
-    assert(
-      f.desktopCalls.every((action) => action === "Status"),
-      "Browsing categories can only read desktop status",
-    );
-    assert(
-      !f.calls.some((c) => c.method === "turn/start"),
-      "Browsing categories cannot send prompts",
-    );
-    assert.deepEqual(errors, []);
-    console.log(
-      `${engine}: categorized Codex/GPT settings, preserved forms/drafts, keyboard viewport and four-theme phone/tablet layout passed`,
-    );
-  } finally {
-    await context.close();
-    await browser.close();
-    await f.close();
+        : path.endsWith("/models")
+          ? {
+              models: [{ id: "Latest", label: "Latest" }],
+              efforts: [{ id: "high", label: "High" }],
+              currentModel: "Latest",
+              currentEffort: "high",
+            }
+          : { items: [], conversations: [], nextOffset: null, blocked: false },
+    });
+  if (path === "/api/deployment")
+    return route.fulfill({
+      json: {
+        separated: true,
+        engineRevision: "f32b7f3",
+        schema: 1,
+        web: { kind: "web", revision: "43ccf6b", state: "installed" },
+        maintenance: null,
+        blockers: [],
+      },
+    });
+  if (path === "/api/storage")
+    return route.fulfill({
+      json: {
+        buckets: [
+          { id: "database", bytes: 1024 * 1024 * 18 },
+          { id: "artifacts", bytes: 1024 * 1024 * 350 },
+        ],
+      },
+    });
+  const headers = { ...req.headers() };
+  delete headers["x-workspace-id"];
+  if (path === "/api/auth/status" || path === "/api/auth/session") {
+    const response = await route.fetch({ headers });
+    return route.fulfill({
+      response,
+      json: { ...(await response.json()), team: true, user: owner, originalOwner: true },
+    });
   }
+  return route.continue({ headers });
+});
+const settings = page.getByRole("dialog", { name: "Настройки", exact: true });
+const button = (name) =>
+  page.getByRole("button", { name, exact: true }).filter({ visible: true }).first();
+const current = () => settings.locator(".settings-section[data-page]:visible");
+const count = (suffix) => requests.filter((r) => r.path.endsWith(suffix)).length;
+async function visit(title) {
+  await settings.getByRole("button", { name: "Найти настройку", exact: true }).click();
+  await settings.getByRole("searchbox", { name: "Поиск по настройкам" }).fill(title);
+  await settings
+    .locator(".settings-search-results .settings-link")
+    .filter({ has: page.locator("strong", { hasText: new RegExp("^" + title + "$") }) })
+    .click();
+  await expect(current().locator("h3.settings-section-title")).toHaveText(title);
+}
+async function shot(id, description) {
+  if (engine !== "chromium") return;
+  await settings.screenshot({ path: `${out}/${id}.png`, animations: "disabled" });
+  await writeFile(
+    `${out}/${id}.md`,
+    `# ${description}\n\n![${description}](${id}.png)\n\nРабочие React-компоненты на демонстрационных данных; ${page.viewportSize().width} × ${page.viewportSize().height}, Chromium. Автоматизированная проверка, не физическое устройство.\n\n[Описание](README.md).\n`,
+  );
+  inventory.push({ id, viewport: page.viewportSize(), text: await settings.innerText() });
+}
+try {
+  await mkdir(out, { recursive: true });
+  await f.app.listen({ host: "127.0.0.1", port });
+  await page.goto(origin);
+  const draft = page.getByRole("textbox", { name: "Сообщение Codex" });
+  await draft.fill("Сохранить черновик при работе с настройками");
+  await draft.blur();
+  await button("Настройки").click();
+  await expect(settings).toBeVisible();
+  await expect(settings.locator('[data-category="people"]')).toHaveCount(1);
+  assert.equal(count("/limits"), 0);
+  assert.equal(count("/team/users"), 0);
+  assert.equal(count("/team/gpt"), 0);
+  await visit("Добавить компьютер");
+  await settings.getByLabel("Название компьютера").fill("Черновик компьютера");
+  await visit("Озвучивание и уведомления");
+  await visit("Добавить компьютер");
+  await expect(settings.getByLabel("Название компьютера")).toHaveValue("Черновик компьютера");
+  await visit("Пароль и вход");
+  await button("Сменить пароль").click();
+  await settings.getByLabel("Текущий пароль", { exact: true }).fill("Example only");
+  await visit("Подключения");
+  await visit("Пароль и вход");
+  await button("Сменить пароль").click();
+  await expect(settings.getByLabel("Текущий пароль", { exact: true })).toHaveValue("");
+  await visit("Лимиты и кредиты");
+  await expect(current().locator(".usage-limits")).toBeVisible();
+  await expect.poll(() => count("/limits")).toBeGreaterThan(0);
+  const before = count("/limits");
+  await visit("Интерфейс");
+  await page.evaluate(() => window.dispatchEvent(new Event("codex-usage-changed")));
+  await page.waitForTimeout(150);
+  assert.equal(count("/limits"), before);
+  await visit("ChatGPT");
+  await expect(current().locator('a[href*="gpt-connect"]')).toHaveCount(1);
+  await expect(current().getByRole("link", { name: "Открыть ChatGPT", exact: true })).toBeVisible();
+  const gptReads = count("/team/gpt");
+  await visit("Интерфейс");
+  await page.waitForTimeout(5200);
+  assert.equal(count("/team/gpt"), gptReads);
+  await visit("Пользователи и доступ");
+  assert.equal(count("/team/users"), 0);
+  await visit("Участники");
+  await expect.poll(() => count("/team/users")).toBeGreaterThan(0);
+  await visit("PC");
+  await expect(current().locator(".machine-health-card")).toHaveCount(1);
+  await expect(current().locator(".machine-health-card h2")).toContainText("PC");
+  assert.equal(await page.locator("dialog[open]").count(), 1, "machine details stay in Settings");
+  assert(!requests.some((r) => r.method === "POST" && r.path.endsWith("/diagnostics")));
+  await shot("machine-details", "Готовность выбранного компьютера");
+  await current()
+    .getByRole("button", { name: /Codex на этом компьютере/ })
+    .click();
+  await expect(current().getByRole("combobox")).toHaveValue("pc");
+  await visit("Обновления и диагностика");
+  await current()
+    .getByRole("button", { name: /Bridge Doctor/ })
+    .click();
+  await button("Назад в настройках").click();
+  await expect(current().locator("h3.settings-section-title")).toHaveText(
+    "Обновления и диагностика",
+  );
+  for (const theme of ["crt-green", "hitech-2000s", "organizer", "classic-dark"]) {
+    await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme);
+    for (const width of [1366, 820, 640, 390, 320]) {
+      await page.setViewportSize({ width, height: width < 640 ? 844 : 1024 });
+      for (const title of [
+        "Интерфейс",
+        "Подключения",
+        "Оформление",
+        "Текст и масштаб",
+        "Озвучивание и уведомления",
+        "История и данные",
+        "Обновления и диагностика",
+        "Мой аккаунт",
+        "ChatGPT",
+        "Добавить компьютер",
+        "Участники",
+      ]) {
+        await visit(title);
+        const bounds = await current().evaluate((el) => ({ w: el.clientWidth, s: el.scrollWidth }));
+        assert(
+          bounds.s <= bounds.w + 1,
+          `${engine} ${theme} ${width} ${title} ${JSON.stringify(bounds)}`,
+        );
+        const r = await settings.boundingBox(),
+          close = await button("Закрыть настройки").boundingBox();
+        assert(r.x >= 0 && r.x + r.width <= width + 1);
+        assert(close.width >= 44 && close.height >= 44 && close.x + close.width <= r.x + r.width);
+      }
+      await visit("Подключения");
+      if (width === 1366 || width === 390)
+        await shot(`${theme}-${width}`, `Подключения · ${theme}`);
+    }
+    console.log("Layout passed", engine, theme);
+  }
+  await page.evaluate(() => (document.documentElement.dataset.theme = "crt-green"));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await visit("Оформление");
+  await shot("appearance-phone", "Оформление на телефоне");
+  await visit("ChatGPT");
+  await shot("gpt-phone", "Один вход в GPT");
+  await visit("Пароль и вход");
+  await button("Сменить пароль").click();
+  for (const offset of [0, 180]) {
+    await page.evaluate((offset) => {
+      document.documentElement.style.setProperty("--safe-top", "59px");
+      Object.defineProperty(visualViewport, "height", { configurable: true, get: () => 340 });
+      Object.defineProperty(visualViewport, "offsetTop", { configurable: true, get: () => offset });
+      visualViewport.dispatchEvent(new Event("resize"));
+    }, offset);
+    await expect
+      .poll(async () => {
+        const r = await settings.boundingBox(),
+          c = await button("Закрыть настройки").boundingBox();
+        return (
+          r.y >= Math.max(59, offset) &&
+          r.y + r.height <= offset + 341 &&
+          c.y + c.height <= offset + 340
+        );
+      })
+      .toBe(true);
+  }
+  await page.evaluate(() => {
+    document.documentElement.style.removeProperty("--safe-top");
+    delete visualViewport.height;
+    delete visualViewport.offsetTop;
+    visualViewport.dispatchEvent(new Event("resize"));
+  });
+  await button("Закрыть настройки").click();
+  await expect(draft).toHaveValue("Сохранить черновик при работе с настройками");
+  owner.role = "member";
+  await page.reload();
+  await button("Открыть проекты").click();
+  await button("Настройки").click();
+  await expect(settings.locator('[data-category="people"]')).toHaveCount(0);
+  await button("Найти настройку").click();
+  await settings.getByRole("searchbox").fill("Участники");
+  await expect(settings.locator(".settings-search-results")).toContainText("Найдено: 0");
+  assert.deepEqual(errors, []);
+  assert(f.desktopCalls.every((a) => a === "Status"));
+  assert(!f.calls.some((c) => c.method === "turn/start"));
+  await writeFile(
+    `${out}/${engine}-checks.json`,
+    JSON.stringify(
+      {
+        engine,
+        screens: inventory,
+        requests,
+        checks: [
+          "lazy sections",
+          "selected limits only",
+          "no hidden GPT polling",
+          "one GPT entry",
+          "admin isolation",
+          "draft continuity",
+          "password clearing",
+          "exact back navigation",
+          "four themes/five widths",
+          "keyboard bounds",
+          "no native writes",
+        ],
+      },
+      null,
+      2,
+    ),
+  );
+  console.log("PASS settings", engine);
+} catch (error) {
+  console.log(await settings.innerText().catch(() => ""));
+  throw error;
+} finally {
+  await browser.close();
+  await f.close();
 }

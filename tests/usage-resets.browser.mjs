@@ -42,13 +42,18 @@ for (const [engine, browserType] of [
     replacingDocument = true;
     await page.reload({ waitUntil: "domcontentloaded" });
     await openSettings();
-    await page.locator('.settings-browser[open] [data-category="connections"]').click();
+    await openLimits();
     await expect(panel.getByText("Лимиты Codex", { exact: true })).toBeVisible();
     replacingDocument = false;
   };
   const button = (name) =>
     page.getByRole("button", { name, exact: true }).filter({ visible: true }).first();
   const panel = page.getByRole("region", { name: "Лимиты Codex: PC" }).filter({ visible: true });
+  const openLimits = async () => {
+    await button("Найти настройку").click();
+    await page.getByRole("searchbox", { name: "Поиск по настройкам" }).fill("Лимиты и кредиты");
+    await page.locator(".settings-search-results .settings-link").click();
+  };
   const reset = panel.locator(".usage-resets");
   const refresh = async () => {
     await page.evaluate(() => window.dispatchEvent(new Event("codex-usage-changed")));
@@ -73,19 +78,15 @@ for (const [engine, browserType] of [
     const draft = page.getByRole("textbox", { name: "Сообщение Codex" });
     await draft.fill("Черновик должен сохраниться после сброса лимитов");
     await openSettings();
+    await openLimits();
     await expect(panel.getByText("37% осталось", { exact: true })).toBeVisible();
     await expect(panel.locator(".usage-credit-balance")).toContainText("Осталось кредитов");
     await expect(panel.locator(".usage-credit-balance strong")).toHaveText("125.50");
     await expect(panel.locator(".usage-reset-count")).toHaveText("2");
-    // The overview and Connections reuse a single poller, and the same canonical snapshot.
-    let usageReads = 0;
-    page.on("request", (r) => {
-      if (new URL(r.url()).pathname === "/api/machines/pc/limits") usageReads++;
-    });
-    await page.locator('.settings-browser[open] [data-category="connections"]').click();
+    // Reentering the dedicated limits page preserves the canonical snapshot and receipts.
+    await openLimits();
     await expect(panel.getByText("37% осталось", { exact: true })).toBeVisible();
     await expect(reset.locator(".usage-reset-count")).toHaveText("2");
-    assert.equal(usageReads, 0, "Entering Connections does not refetch the same snapshot");
     await reset.getByRole("button", { name: "Активировать", exact: true }).first().click();
     const confirm = reset.getByRole("group", { name: "Подтверждение сброса" });
     await expect(confirm).toBeVisible();
@@ -128,7 +129,7 @@ for (const [engine, browserType] of [
     await reset.getByRole("button", { name: "Активировать", exact: true }).first().click();
     await confirm.getByRole("button", { name: "Использовать сброс", exact: true }).click();
     await expect.poll(() => f.state.consumes.length).toBe(2);
-    await page.locator('.settings-browser[open] [data-category="connections"]').click();
+    await openLimits();
     await expect(
       reset.getByRole("button", { name: "Активировать", exact: true }).first(),
     ).toBeDisabled();
@@ -221,8 +222,9 @@ for (const [engine, browserType] of [
     await page.evaluate(() => window.dispatchEvent(new Event("codex-usage-changed")));
     await expect(reset).toHaveCount(0);
     await expect(panel.getByText("37% осталось", { exact: true })).toBeVisible();
-    await button("Все категории настроек").click();
+    await button("Назад в настройках").click();
     await expect(reset).toHaveCount(0);
+    await openLimits();
     await expect(panel.getByText("37% осталось", { exact: true })).toBeVisible();
     for (const variant of ["zero", "count", "detailed"]) {
       nextAccount();
