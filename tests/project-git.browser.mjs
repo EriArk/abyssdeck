@@ -10,7 +10,11 @@ for (const [engine, type] of [
   ["webkit", webkit],
 ]) {
   const origin = "http://127.0.0.1:18979",
-    f = await deliveryFixture(origin);
+    f = await deliveryFixture(origin, {
+      configure(config) {
+        config.projects[0].name = "Project — длинное название рабочей копии для проверки заголовка";
+      },
+    });
   await f.release();
   f.store.setPreferences({
     projectId: "project",
@@ -162,6 +166,16 @@ for (const [engine, type] of [
     await git.getByRole("button", { name: "К списку Git" }).click();
     await expect(message).toHaveValue("Keep the same file workspace");
     // A lost preparation acknowledgement must be read by its exact identity, never recreated.
+    await page.setViewportSize({ width: 1366, height: 430 });
+    await expect(message).toBeVisible();
+    await git
+      .getByRole("button", { name: "Проверить коммит", exact: true })
+      .scrollIntoViewIfNeeded();
+    await expect(
+      git.getByRole("button", { name: "Проверить коммит", exact: true }),
+    ).toBeInViewport();
+    await snap("keyboard-height", "Git — reduced tablet height while entering a commit");
+    await page.setViewportSize({ width: 390, height: 844 });
     let lost = false;
     await page.route("**/api/projects/project/delivery/*", async (r) => {
       if (r.request().method() === "PUT" && !lost) {

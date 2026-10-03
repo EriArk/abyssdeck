@@ -19,8 +19,14 @@
 
 [Снимки и описания](../polish/03-projects/git-workspace/README.md).
 Прошли project-git, project-delivery, window-dock в Chromium/WebKit, web typecheck,
-build и help-content. Код подготовлен к обычной web-only публикации; установленная
-версия будет записана после проверки host status, manifest и HTTP-ресурсов.
+build и help-content. Дополнительно проверены длинное название проекта и доступ
+к действиям при высоте 430 px. Это браузерная проверка, не проверка физического iPad.
+
+Веб-выпуск `7187de0` установлен обычным web-only publisher. Host status, manifest
+и `/version.json` совпали: `337738f0c4b29ee06e051e2fdbb660b1c25238846a8ff58d32dcdb9df62ded46`.
+Проверены HTTP-ресурсы нового Git и квитанций «Доставки». Hub, Engine и GPT сохранили
+PID lifetime/время старта и образы; Companion не переустанавливался. Доказательство
+на сервере: `verification-7187de0/web-check.json`. Общий просмотрщик — следующее обсуждение.
 
 ### Git — предложение и уточнение файлового входа, 3 октября
 
