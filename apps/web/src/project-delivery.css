@@ -380,3 +380,23 @@
 .checkout-actions:has(> button:only-child) {
   grid-template-columns: minmax(0, 1fr);
 }
+.delivery-dialog.delivery-launch-review .delivery-summary,
+.delivery-dialog.delivery-launch-review .delivery-side,
+.delivery-dialog.delivery-launch-review .checkout-sync {
+  display: none;
+}
+.delivery-dialog.delivery-launch-review .delivery-columns {
+  display: block;
+}
+.delivery-dialog.delivery-launch-review .delivery-main {
+  width: 100%;
+}
+:root[data-theme] .delivery-dialog.delivery-launch-review {
+  width: min(700px, calc(100vw - 24px));
+  height: fit-content;
+  min-height: 0;
+  max-height: calc(var(--app-height, 100dvh) - 24px);
+}
+.delivery-launch-review .delivery-scroll {
+  flex: 0 1 auto;
+}

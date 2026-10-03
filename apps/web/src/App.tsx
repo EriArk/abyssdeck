@@ -39,6 +39,7 @@ import { PcRemote } from "./PcRemote";
 import { hydratePersonalScale, type PersonalScale } from "./PersonalScale";
 import { ProjectDialog } from "./ProjectDialog";
 import { ProjectFiles } from "./ProjectFiles";
+import { ProjectGit } from "./ProjectGit";
 import { ProjectGptWindow } from "./ProjectGptWindow";
 import { ProjectNavigation } from "./ProjectNavigation";
 import { ProjectOverviewModal } from "./ProjectOverviewModal";
@@ -1921,19 +1922,32 @@ function Workspace({
       {notebookPanel}
       {toolWindows
         .filter((item) => projects.some((project) => project.id === item.projectId))
-        .map((item) => (
-          <ProjectFiles
-            key={`${item.mode}:${item.projectId}`}
-            {...item}
-            visible
-            focus={fileFocus}
-            onBack={() => setToolWindows((old) => old.filter((other) => other !== item))}
-            onOpenFiles={(path) => {
-              setFileFocus((v) => ({ path, projectId: item.projectId, version: v.version + 1 }));
-              setProjectTool("files", item.projectId);
-            }}
-          />
-        ))}
+        .map((item) =>
+          item.mode === "git" ? (
+            <ProjectGit
+              key={`git:${item.projectId}`}
+              projectId={item.projectId}
+              projectName={item.projectName}
+              onBack={() => setToolWindows((old) => old.filter((other) => other !== item))}
+              onOpenFiles={(path) => {
+                setFileFocus((v) => ({ path, projectId: item.projectId, version: v.version + 1 }));
+                setProjectTool("files", item.projectId);
+              }}
+            />
+          ) : (
+            <ProjectFiles
+              key={`${item.mode}:${item.projectId}`}
+              {...item}
+              visible
+              focus={fileFocus}
+              onBack={() => setToolWindows((old) => old.filter((other) => other !== item))}
+              onOpenFiles={(path) => {
+                setFileFocus((v) => ({ path, projectId: item.projectId, version: v.version + 1 }));
+                setProjectTool("files", item.projectId);
+              }}
+            />
+          ),
+        )}
       <WorkspaceCommandHost onTarget={openNotebookTarget} />
       <WorkspaceHelp topic={client === "gpt" ? "gpt" : "codex"} />
       <WorkspaceSettings

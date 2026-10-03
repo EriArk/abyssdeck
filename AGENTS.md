@@ -8,8 +8,9 @@
 - This replaces the earlier blanket exclusion of a file manager from Git/GitHub.
   Results remain a feed. Remote repository files retain their own source adapter;
   never substitute a local checkout or infer writable paths from display names.
-- Git's current design stage is an interactive proposal for discussion; universal
-  viewer redesign follows the Git discussion. A mockup is not a deployed change.
+- The owner's continuation approves implementing the Git proposal with the existing
+  delivery receipts and shared Files entry. Universal viewer redesign remains a
+  separate discussion after Git; distinguish source, deployment and normal use.
 
 ## Owner-approved working-window dock (2026-10-03)
 

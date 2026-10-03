@@ -4,7 +4,15 @@ import { accountLocalStorage as localStorage } from "./accountStorage.ts";
 import { Icon } from "./icons";
 
 const Delivery = lazy(() => import("./ProjectDelivery"));
-export type DeliveryRequest = { projectId: string; projectName: string; reviewId?: string };
+export type DeliveryRequest = {
+  projectId: string;
+  projectName: string;
+  reviewId?: string;
+  launch?: { id: string; kind: "commit" | "push"; paths: string[]; message: string };
+};
+export function openProjectDelivery(request: DeliveryRequest) {
+  window.dispatchEvent(new CustomEvent("open-project-delivery", { detail: request }));
+}
 export function DeliveryButton({ projectId, projectName, reviewId }: DeliveryRequest) {
   return (
     <button

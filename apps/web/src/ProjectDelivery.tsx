@@ -75,6 +75,7 @@ export default function ProjectDelivery({
     busyRef = useRef(false),
     ciKey = useRef<string | undefined>(undefined);
   const [draft, setDraft] = useState(() => load(key)),
+    [recovered, setRecovered] = useState(false),
     [observation, setObservation] = useState<DeliveryObservation | null>(null),
     [ops, setOps] = useState<DeliveryOperation[]>([]),
     [op, setOp] = useState<DeliveryOperation | null>(null),
@@ -119,7 +120,13 @@ export default function ProjectDelivery({
         .then((v) => {
           if (alive.current) setOp(v);
         })
-        .catch(() => {});
+        .catch((e) => {
+          if (alive.current) setError(messageOf(e));
+        })
+        .finally(() => {
+          if (alive.current) setRecovered(true);
+        });
+    else setRecovered(true);
     return () => {
       alive.current = false;
       serial.current++;
@@ -176,24 +183,24 @@ export default function ProjectDelivery({
       if (alive.current) setBusy(false);
     }
   };
-  const prepare = (kind: DeliveryInput["kind"]) =>
+  const prepare = (kind: DeliveryInput["kind"], source: Draft = draft) =>
     run(async () => {
-      const pending = draft.pending ?? {
+      const pending = source.pending ?? {
         id: crypto.randomUUID(),
         input: {
           kind,
           paths:
             kind === "commit"
-              ? draft.paths.filter((p) => observation?.state.paths.some((file) => file.path === p))
+              ? source.paths.filter((p) => observation?.state.paths.some((file) => file.path === p))
               : [],
-          message: kind === "commit" ? draft.message : "",
-          title: kind === "pr" ? draft.title : "",
-          body: kind === "pr" ? draft.body : "",
+          message: kind === "commit" ? source.message : "",
+          title: kind === "pr" ? source.title : "",
+          body: kind === "pr" ? source.body : "",
           ...(kind === "sync" ? { syncScope: observation?.checkout?.scope } : {}),
           ...(request.reviewId ? { reviewId: request.reviewId } : {}),
         },
       };
-      persist({ ...draft, pending });
+      persist({ ...source, pending });
       const value = await api<DeliveryOperation>(base + "/" + pending.id, {
         method: "PUT",
         body: pending.input,
@@ -201,7 +208,7 @@ export default function ProjectDelivery({
       });
       if (alive.current) {
         setOp(value);
-        persist({ ...draft, pending: undefined, operationId: value.id });
+        persist({ ...source, pending: undefined, operationId: value.id });
       }
     });
   const execute = () =>
@@ -213,7 +220,9 @@ export default function ProjectDelivery({
       });
       if (alive.current) {
         setOp(v);
-        if (v.state === "completed") await refresh();
+        if (v.state === "completed") {
+          await refresh();
+        }
       }
     });
   const verify = () =>
@@ -261,6 +270,41 @@ export default function ProjectDelivery({
   const state = observation?.state,
     g = state?.github,
     locked = busy || !!draft.pending;
+  const reportedCompletion = useRef<string | null>(null);
+  useEffect(() => {
+    if (op?.state !== "completed" || reportedCompletion.current === op.id) return;
+    reportedCompletion.current = op.id;
+    window.dispatchEvent(
+      new CustomEvent("project-delivery-completed", {
+        detail: { projectId: request.projectId, operation: op },
+      }),
+    );
+  }, [op, request.projectId]);
+  const launched = useRef<string | null>(null);
+  // The explicit Git preview click prepares once; execution still needs the existing confirmation.
+  // Never replace an unresolved receipt or turn an unknown read into another operation.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: launch is consumed once after receipt recovery.
+  useEffect(() => {
+    const launch = request.launch;
+    if (!launch || launched.current === launch.id || loading || !recovered || busy || !observation)
+      return;
+    launched.current = launch.id;
+    if (
+      draft.pending ||
+      (draft.operationId && !op) ||
+      (op && !["completed", "failed"].includes(op.state))
+    )
+      return;
+    const source = {
+      ...draft,
+      paths: launch.paths,
+      message: launch.message,
+      pending: undefined,
+      operationId: undefined,
+    };
+    setOp(null);
+    void prepare(launch.kind, source);
+  }, [request.launch, loading, recovered, busy, op, draft, observation]);
   const review = (id: string) => {
     onClose();
     openWorkReview(
@@ -271,7 +315,7 @@ export default function ProjectDelivery({
   return (
     <dialog
       ref={dialog}
-      className="delivery-dialog"
+      className={`delivery-dialog${request.launch && (op || busy || loading) ? " delivery-launch-review" : ""}`}
       aria-label="Доставка проекта"
       tabIndex={-1}
       onCancel={(e) => {
@@ -318,6 +362,21 @@ export default function ProjectDelivery({
             <span className="spinner" aria-hidden="true" />
             Проверяем Git и GitHub…
           </p>
+        )}
+        {draft.operationId && !op && recovered && (
+          <button
+            type="button"
+            className="secondary"
+            disabled={busy}
+            onClick={() =>
+              void run(async () => {
+                const value = await api<DeliveryOperation>(base + "/" + draft.operationId);
+                if (alive.current) setOp(value);
+              })
+            }
+          >
+            Проверить сохранённую операцию
+          </button>
         )}
         {state && !state.repository && <p>В папке проекта нет Git-репозитория.</p>}
         {state?.repository && (

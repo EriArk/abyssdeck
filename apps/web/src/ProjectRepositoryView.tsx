@@ -105,6 +105,7 @@ export function ProjectRepositoryView({
   section,
   onSection,
   visible,
+  compact = false,
 }: {
   projectId: string;
   projectName: string;
@@ -114,6 +115,7 @@ export function ProjectRepositoryView({
   section: "overview" | "changes" | "releases";
   onSection: (value: "overview" | "changes" | "releases") => void;
   visible: boolean;
+  compact?: boolean;
 }) {
   const [repository, setRepository] = useState<ProjectRepository | null>(null),
     [error, setError] = useState("");
@@ -155,85 +157,89 @@ export function ProjectRepositoryView({
   const remote = repository?.remote;
   return (
     <div className="repository-view">
-      <section className="repository-summary" aria-label="Репозиторий проекта">
-        <div className="repository-identity">
-          <span className="repository-symbol">
-            <Icon name="repository" size={25} />
-          </span>
-          <div>
-            <small>
-              {remote?.owner ?? "Проект"}
-              {repository?.subdirectory ? " · " + repository.subdirectory : ""}
-            </small>
-            <h2>{projectName}</h2>
-          </div>
-          {remote && (
-            <a
-              className="icon-button"
-              href={remote.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Открыть репозиторий на GitHub"
-            >
-              <Icon name="external" />
-            </a>
-          )}
-        </div>
-        {remote && remote.repo !== projectName && (
-          <p className="repository-address">
-            {remote.owner}/{remote.repo}
-          </p>
-        )}
-        {git?.repository && (
-          <>
-            <div className="repository-branch">
-              <Icon name="branch" size={16} />
-              <strong>{git.detached ? "Отдельный коммит" : git.branch}</strong>
-              <span className={`repository-health ${git.dirty ? "changed" : ""}`}>
-                <Icon name={git.dirty ? "edit" : "check"} size={13} />
-                {git.dirty ? "Есть изменения" : "Без изменений"}
-              </span>
-            </div>
-            {git.upstream && (
-              <small className="muted">
-                {git.upstream} · ↑ {git.ahead ?? 0} · ↓ {git.behind ?? 0}
+      {!compact && (
+        <section className="repository-summary" aria-label="Репозиторий проекта">
+          <div className="repository-identity">
+            <span className="repository-symbol">
+              <Icon name="repository" size={25} />
+            </span>
+            <div>
+              <small>
+                {remote?.owner ?? "Проект"}
+                {repository?.subdirectory ? " · " + repository.subdirectory : ""}
               </small>
-            )}
-            <div className="repository-counts">
-              <span>
-                <strong>{git.stagedCount ?? 0}</strong> в индексе
-              </span>
-              <span>
-                <strong>{git.workingCount ?? 0}</strong> изменено
-              </span>
-              <span>
-                <strong>{git.untrackedCount ?? 0}</strong> новых
-              </span>
+              <h2>{projectName}</h2>
             </div>
-          </>
-        )}
-        {git && !git.repository && <p className="muted">В этой папке нет Git-репозитория</p>}
-      </section>
-      <nav className="inspector-tabs repository-tabs" aria-label="Информация Git">
-        {(
-          [
-            ["overview", "Обзор"],
-            ["changes", "Изменения"],
-            ["releases", "Релизы"],
-          ] as const
-        ).map(([id, label]) => (
-          <button
-            type="button"
-            key={id}
-            aria-pressed={section === id}
-            className={section === id ? "active" : ""}
-            onClick={() => onSection(id)}
-          >
-            {label}
-            {id === "changes" && !!git?.changes.length && <small>{git.changes.length}</small>}
-          </button>
-        ))}
-      </nav>
+            {remote && (
+              <a
+                className="icon-button"
+                href={remote.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Открыть репозиторий на GitHub"
+              >
+                <Icon name="external" />
+              </a>
+            )}
+          </div>
+          {remote && remote.repo !== projectName && (
+            <p className="repository-address">
+              {remote.owner}/{remote.repo}
+            </p>
+          )}
+          {git?.repository && (
+            <>
+              <div className="repository-branch">
+                <Icon name="branch" size={16} />
+                <strong>{git.detached ? "Отдельный коммит" : git.branch}</strong>
+                <span className={`repository-health ${git.dirty ? "changed" : ""}`}>
+                  <Icon name={git.dirty ? "edit" : "check"} size={13} />
+                  {git.dirty ? "Есть изменения" : "Без изменений"}
+                </span>
+              </div>
+              {git.upstream && (
+                <small className="muted">
+                  {git.upstream} · ↑ {git.ahead ?? 0} · ↓ {git.behind ?? 0}
+                </small>
+              )}
+              <div className="repository-counts">
+                <span>
+                  <strong>{git.stagedCount ?? 0}</strong> в индексе
+                </span>
+                <span>
+                  <strong>{git.workingCount ?? 0}</strong> изменено
+                </span>
+                <span>
+                  <strong>{git.untrackedCount ?? 0}</strong> новых
+                </span>
+              </div>
+            </>
+          )}
+          {git && !git.repository && <p className="muted">В этой папке нет Git-репозитория</p>}
+        </section>
+      )}
+      {!compact && (
+        <nav className="inspector-tabs repository-tabs" aria-label="Информация Git">
+          {(
+            [
+              ["overview", "Обзор"],
+              ["changes", "Изменения"],
+              ["releases", "Релизы"],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              type="button"
+              key={id}
+              aria-pressed={section === id}
+              className={section === id ? "active" : ""}
+              onClick={() => onSection(id)}
+            >
+              {label}
+              {id === "changes" && !!git?.changes.length && <small>{git.changes.length}</small>}
+            </button>
+          ))}
+        </nav>
+      )}
       {section === "changes" && (
         <>
           {git?.summary && git.dirty && (
@@ -300,7 +306,7 @@ export function ProjectRepositoryView({
               )}
             </section>
           )}
-          {!!git?.commits.length && (
+          {!compact && !!git?.commits.length && (
             <details className="repository-card inspector-commits">
               <summary>
                 <Icon name="history" size={17} />
@@ -332,7 +338,7 @@ export function ProjectRepositoryView({
               </ul>
             </details>
           )}
-          {!!repository?.branches.length && (
+          {!compact && !!repository?.branches.length && (
             <details className="repository-card repository-refs">
               <summary>
                 <Icon name="branch" size={17} />
@@ -351,7 +357,7 @@ export function ProjectRepositoryView({
               </ul>
             </details>
           )}
-          {!!repository?.tags.length && (
+          {!compact && !!repository?.tags.length && (
             <details className="repository-card repository-refs">
               <summary>
                 <Icon name="tag" size={17} />
