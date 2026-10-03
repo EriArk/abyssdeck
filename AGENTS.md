@@ -8,6 +8,12 @@
   source navigation; do not discard old work records when changing presentation.
 - Keep the hierarchy shallow on phones. Use exact thread/turn and native step links;
   do not invent missing reasoning or causal parentage from timestamps alone.
+- Owner correction: keep «Рассуждения» in the ordinary category row, never in a
+  separate bottom entry. Show request cards as in GPT: the request is visible,
+  reasoning expands inside its card, and interleaved work cards expand inside
+  that reasoning. Retain nested expansion state when collapsing the request.
+- Results file rows use the roomier density on tablet/desktop and compact density
+  on phones automatically; do not require a separate user density choice.
 - The current Results mockup incorporates this direction. Its presentation remains
   a design discussion before production changes, as recorded below.
 

@@ -40,6 +40,7 @@ for (const [engine, type] of [['chromium', chromium], ['webkit', webkit]]) {
       for (const theme of ['green', '2000', 'organizer', 'dark']) {
         await setState(theme);
         await expect(root.locator('.rs-row')).toHaveCount(5);
+        assert.equal(await root.locator('.rs-row').first().evaluate(node=>getComputedStyle(node).minHeight), width > 600 ? '88px' : '70px');
         await fit();
         if (width === 736 || width === 390 && theme === 'green') {
           await capture(`${width}-${theme}-files`, `Файлы — ${theme}, ${width} px`);
@@ -57,12 +58,26 @@ for (const [engine, type] of [['chromium', chromium], ['webkit', webkit]]) {
         await root.getByRole('button', { name: 'Закрыть просмотр', exact: true }).click();
         await expect(root.locator('[data-category="images"]')).toHaveAttribute('aria-pressed', 'true');
         await root.getByRole('button', { name: 'Рассуждения', exact: true }).click();
-        await expect(root.locator('.rs-step')).toHaveCount(3);
+        await expect(root.locator('.rs-request')).toHaveCount(2);
+        await expect(root.locator('.rs-categories [data-category="reasoning"]')).toHaveAttribute('aria-pressed','true');
+        await expect(root.locator('.rs-request-details[open]')).toHaveCount(0);
         await expect(root.locator('.rs-category-menu')).not.toContainText('Работа');
-        await root.locator('.rs-task summary').last().click();
-        await expect(root.locator('.rs-task').last()).toHaveAttribute('open', '');
+        await fit();
+        if ((width===390||width===736)&&theme==='green')await capture(`${width}-green-requests`, 'Рассуждения — карточки запросов');
+        const request=root.locator('.rs-request-details').first();
+        await request.locator(':scope > summary').click();
+        await expect(request.locator('.rs-step')).toHaveCount(3);
+        await request.locator('.rs-task summary').last().click();
+        await expect(request.locator('.rs-task').last()).toHaveAttribute('open', '');
         await fit();
         if ((width === 390 || width === 736) && theme === 'green') await capture(`${width}-green-reasoning`, 'Рассуждения — шаги и раскрытая карточка проверок');
+        await request.locator(':scope > summary').click();
+        await request.locator(':scope > summary').click();
+        await expect(request.locator('.rs-task').last()).toHaveAttribute('open','');
+        await root.locator('[data-category="files"]').click();
+        await root.locator('[data-category="reasoning"]').click();
+        await expect(root.locator('.rs-request-details').first()).toHaveAttribute('open','');
+        await expect(root.locator('.rs-request-details').first().locator('.rs-task').last()).toHaveAttribute('open','');
       }
     }
     await page.setViewportSize({ width: 390, height: 1200 });

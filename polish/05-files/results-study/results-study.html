@@ -9,8 +9,9 @@
       </header>
       <nav class="rs-categories" aria-label="Категории результатов">
         <button type="button" class="cursor-interaction" data-category="files" aria-pressed="true">Файлы <span>5</span></button>
-        <button type="button" class="cursor-interaction" data-category="images" aria-pressed="false">Изображения <span>2</span></button>
-        <div class="rs-more-wrap"><button type="button" class="cursor-interaction" data-action="categories" aria-expanded="false">Ещё <i data-lucide="chevron-down" aria-hidden="true"></i></button><div class="rs-category-menu rs-popover" hidden></div></div>
+        <button type="button" class="cursor-interaction" data-category="images" aria-label="Изображения" data-tooltip="Изображения" aria-pressed="false"><i class="rs-narrow-image" data-lucide="image" aria-hidden="true"></i><b class="rs-image-label">Изображения</b> <span>2</span></button>
+        <button type="button" class="cursor-interaction" data-category="reasoning" aria-pressed="false">Рассуждения</button>
+        <div class="rs-more-wrap"><button type="button" class="rs-key cursor-interaction" data-action="categories" aria-label="Другие категории" data-tooltip="Ссылки и демо" aria-expanded="false"><i data-lucide="ellipsis" aria-hidden="true"></i></button><div class="rs-category-menu rs-popover" hidden></div></div>
       </nav>
       <div class="rs-screen">
         <div class="rs-batch" hidden>
@@ -24,7 +25,7 @@
         <div class="rs-section-label"><span class="rs-section-name">Сегодня</span><span class="rs-count">5 файлов</span></div>
         <div class="rs-items"></div>
       </div>
-      <footer class="rs-footer"><span>Текущий диалог</span><button type="button" class="cursor-interaction" data-category="reasoning" aria-pressed="false"><i data-lucide="notebook-text" aria-hidden="true"></i>Рассуждения<i data-lucide="chevron-right" aria-hidden="true"></i></button></footer>
+      <footer class="rs-footer"><span>Материалы текущего диалога</span></footer>
     </div>
     <section class="rs-layer rs-search" aria-label="Поиск результатов" hidden>
       <header class="rs-header"><i data-lucide="search" aria-hidden="true"></i><div class="rs-heading"><h2>Поиск результатов</h2></div><button type="button" class="rs-key cursor-interaction" data-action="close-search" aria-label="Закрыть поиск"><i data-lucide="x" aria-hidden="true"></i></button></header>
@@ -84,12 +85,14 @@
   #cw-results-study .rs-categories { display: flex; gap: 3px; align-items: center; padding: 5px 6px 7px; border-top: 2px solid var(--rs-edge); color: var(--rs-ink); }
   #cw-results-study .rs-categories > button { flex: 1; }
   #cw-results-study .rs-categories button span { font-size: 11px; opacity: .75; }
+  #cw-results-study .rs-categories b { font-weight: inherit; }
+  #cw-results-study .rs-categories .rs-narrow-image { display: none; }
   #cw-results-study .rs-more-wrap { position: relative; }
   #cw-results-study .rs-screen { background: var(--rs-screen); border: 1px solid var(--rs-edge); box-shadow: inset 0 2px 4px #0003; padding: 0 12px; }
   #cw-results-study .rs-feed > .rs-screen { min-height: 435px; }
   #cw-results-study [data-theme="green"] .rs-screen { background-image: repeating-linear-gradient(0deg, transparent 0 3px, #94e4ac04 3px 4px); }
   #cw-results-study .rs-section-label { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 2px 8px; font-size: 11px; color: var(--rs-dim); }
-  #cw-results-study .rs-row { display: flex; align-items: center; gap: 6px; min-height: 70px; position: relative; border-bottom: 1px solid var(--rs-line); }
+  #cw-results-study .rs-row { display: flex; align-items: center; gap: 6px; min-height: 88px; position: relative; border-bottom: 1px solid var(--rs-line); }
   #cw-results-study .rs-row:last-child { border-bottom: 0; }
   #cw-results-study .rs-open { flex: 1; min-width: 0; justify-content: flex-start; text-align: left; padding: 10px 3px; }
   #cw-results-study .rs-open > svg { width: 23px; height: 27px; margin-right: 5px; }
@@ -102,7 +105,7 @@
   #cw-results-study .rs-popover { position: absolute; right: 0; top: 100%; z-index: 4; background: var(--rs-screen-hi); color: var(--rs-text); border: 1px solid var(--rs-line); border-radius: 8px; padding: 5px; box-shadow: 0 8px 20px #0005; min-width: 210px; }
   #cw-results-study .rs-popover button { width: 100%; justify-content: flex-start; white-space: nowrap; }
   #cw-results-study .rs-popover button:hover { background: var(--rs-screen); }
-  #cw-results-study .rs-footer { color: var(--rs-ink); display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 4px 2px 0; font-size: 11px; }
+  #cw-results-study .rs-footer { color: var(--rs-ink); display: flex; gap: 8px; align-items: center; padding: 12px 4px 4px; font-size: 11px; }
   #cw-results-study .rs-footer svg { width: 14px; height: 14px; }
   #cw-results-study .rs-batch { border-bottom: 1px solid var(--rs-line); padding: 5px 0; }
   #cw-results-study .rs-batch-head, #cw-results-study .rs-batch-tools { display: flex; align-items: center; gap: 4px; }
@@ -142,6 +145,15 @@
   #cw-results-study .rs-task-body pre { white-space: pre-wrap; overflow-wrap: anywhere; font: 11px/1.6 ui-monospace, monospace; background: var(--rs-screen); padding: 10px; border-radius: 4px; margin: 0; }
   #cw-results-study .rs-turn-head { display: flex; align-items: center; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid var(--rs-line); }
   #cw-results-study .rs-turn-head strong { flex: 1; font-size: 13px; }
+  #cw-results-study .rs-request { margin: 10px 0 14px; border: 1px solid var(--rs-line); border-radius: 7px; background: var(--rs-screen-hi); }
+  #cw-results-study .rs-request-head { display: flex; align-items: center; gap: 5px; padding: 4px 8px 0 14px; color: var(--rs-dim); font-size: 11px; }
+  #cw-results-study .rs-request-head > span { flex: 1; }
+  #cw-results-study .rs-request-text { margin: 0; padding: 6px 14px 14px; font-size: 14px; line-height: 1.65; }
+  #cw-results-study .rs-request-details > summary { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 8px 14px; border-top: 1px solid var(--rs-line); list-style: none; font-size: 12px; }
+  #cw-results-study .rs-request-details > summary::-webkit-details-marker { display: none; }
+  #cw-results-study .rs-request-details > summary span { flex: 1; }
+  #cw-results-study .rs-request-details[open] > summary > svg:last-child { transform: rotate(180deg); }
+  #cw-results-study .rs-request-details > .rs-path { background: var(--rs-screen); margin: 0; padding: 14px 12px 8px; border-radius: 0 0 7px 7px; }
   #cw-results-study .rs-layer { position: absolute; inset: 0; z-index: 5; background: var(--rs-shell); border-radius: inherit; padding: 8px; }
   #cw-results-study .rs-layer > .rs-header { min-height: 72px; }
   #cw-results-study .rs-viewer-tools { display: flex; align-items: center; gap: 5px; padding: 5px 0 12px; color: var(--rs-ink); }
@@ -159,7 +171,7 @@
   #cw-results-study .rs-search-results .rs-row { min-height: 56px; }
   #cw-results-study .rs-notice { position: absolute; left: 12px; right: 12px; bottom: 16px; z-index: 8; display: flex; align-items: center; padding: 10px 8px 10px 14px; gap: 8px; border: 1px solid var(--rs-line); background: var(--rs-screen-hi); color: var(--rs-text); border-radius: 8px; box-shadow: 0 4px 12px #0004; font-size: 12px; }
   #cw-results-study .rs-notice span { flex: 1; }
-  #cw-results-study [data-density="roomy"] .rs-row { min-height: 88px; }
+  @media(max-width:600px) { #cw-results-study .rs-row { min-height: 70px; } }
   @media(max-width:550px) {
     #cw-results-study { padding: 5px; }
     #cw-results-study .rs-case { padding: 6px; }
@@ -168,6 +180,7 @@
     #cw-results-study .rs-heading span { font-size: 11px; }
     #cw-results-study .rs-categories { gap: 0; padding: 5px 0; }
     #cw-results-study .rs-categories button { padding: 8px; font-size: 12px; gap: 5px; }
+    #cw-results-study .rs-categories button > span { display: none; }
     #cw-results-study .rs-screen { padding-left: 8px; padding-right: 8px; }
     #cw-results-study .rs-actions > .rs-key { display: none; }
     #cw-results-study .rs-actions > .rs-overflow { display: inline-flex; }
@@ -177,6 +190,11 @@
     #cw-results-study .rs-image .rs-popover { min-width: 190px; }
     #cw-results-study .rs-image:nth-child(odd) .rs-popover { left: 0; right: auto; }
     #cw-results-study .rs-viewer-tools { gap: 2px; }
+  }
+  @media(max-width:350px) {
+    #cw-results-study .rs-categories .rs-image-label { display: none; }
+    #cw-results-study .rs-categories .rs-narrow-image { display: block; }
+    #cw-results-study .rs-categories [data-category="images"] { flex: 0 0 44px; }
   }
 </style>
 <script>
@@ -203,24 +221,26 @@
     {id:'command',type:'work',name:'Сборка веб-приложения',format:'Команда',time:'14:18',icon:'terminal',text:'pnpm --filter @codex-web/web build\nОбразец вывода команды.'},
     {id:'thinking',type:'reasoning',name:'Выбор структуры панели',format:'Рассуждения',time:'14:16',icon:'notebook-text',text:'Сопоставление компактных строк файлов и миниатюр изображений.'},
   ];
-  const state = {theme:'green',density:'compact',category:'files',selecting:false,selected:[],query:'',searchType:'all',sort:'new'};
+  const state = {theme:'green',category:'files',selecting:false,selected:[],query:'',searchType:'all',sort:'new',expanded:[]};
   let opened = null, returnFocus = null, searchFocus = null;
   function reasoningPath() {
-    const task=(glyph,title,body)=>`<details class="rs-task"><summary class="cursor-interaction">${icon(glyph)}<span>${title}</span>${icon('chevron-down')}</summary><div class="rs-task-body">${body}</div></details>`;
-    return `<div class="rs-turn-head"><strong>Компактная панель файла</strong>${key('source','К сообщению','message-square','thinking')}</div><ol class="rs-path" aria-label="Ход задачи">
-      <li class="rs-step"><time>14:16</time><p>Проверю, почему действия файла и инструменты текста занимают два отдельных ряда.</p>${task('files','Изучены исходники · 2 файла','<p>ProjectFiles.tsx</p><p>ReadableFilePreview.tsx</p>')}</li>
-      <li class="rs-step"><time>14:18</time><p>У двух рядов разные владельцы. Соберу действия в общую панель, сохранив состояние просмотра.</p>${task('file-pen-line','Изменения · 2 файла','<p>ProjectFiles.tsx — общее место для действий</p><p>project-files.css — компактный ряд</p>')}</li>
-      <li class="rs-step"><time>14:21</time><p>Проверю ширину кнопок и возврат из вложенного просмотра.</p>${task('check-check','Проверки · 2 выполнены','<p>Chromium · пройдено</p><p>WebKit · пройдено</p><pre>390 / 768 / 1366 px\nКнопки: 44 × 44 px\nСостояние просмотра сохранено</pre>')}</li>
-    </ol>`;
+    const expansion=id=>`data-expansion="${id}" ${state.expanded.includes(id)?'open':''}`;
+    const task=(id,glyph,title,body)=>`<details class="rs-task" ${expansion(id)}><summary class="cursor-interaction">${icon(glyph)}<span>${title}</span>${icon('chevron-down')}</summary><div class="rs-task-body">${body}</div></details>`;
+    const card=(id,time,request,count,steps)=>`<article class="rs-request"><div class="rs-request-head"><span>Вы · ${time}</span>${key('share','Отправить','share-2','thinking')}${key('source','К сообщению','message-square','thinking')}</div><p class="rs-request-text">${request}</p><details class="rs-request-details" ${expansion(id)}><summary class="cursor-interaction">${icon('notebook-text')}<span>Рассуждения · ${count}</span>${icon('chevron-down')}</summary><ol class="rs-path" aria-label="Ход запроса">${steps}</ol></details></article>`;
+    return card('toolbar','14:14','В файлах кнопки в два ряда. Собери их в один, чтобы для самого файла оставалось больше места.','3 шага',`
+      <li class="rs-step"><time>14:16</time><p>Проверю, почему действия файла и инструменты текста занимают два отдельных ряда.</p>${task('toolbar-read','files','Изучены исходники · 2 файла','<p>ProjectFiles.tsx</p><p>ReadableFilePreview.tsx</p>')}</li>
+      <li class="rs-step"><time>14:18</time><p>У двух рядов разные владельцы. Соберу действия в общую панель, сохранив состояние просмотра.</p>${task('toolbar-edit','file-pen-line','Изменения · 2 файла','<p>ProjectFiles.tsx — общее место для действий</p><p>project-files.css — компактный ряд</p>')}</li>
+      <li class="rs-step"><time>14:21</time><p>Проверю ширину кнопок и возврат из вложенного просмотра.</p>${task('toolbar-check','check-check','Проверки · 2 выполнены','<p>Chromium · пройдено</p><p>WebKit · пройдено</p><pre>390 / 768 / 1366 px\nКнопки: 44 × 44 px\nСостояние просмотра сохранено</pre>')}</li>
+    `)+card('screenshots','13:52','Сохрани снимки файлового менеджера во всех темах и положи описания рядом.','1 шаг',`<li class="rs-step"><time>13:54</time><p>Сниму телефонную и широкую компоновки, затем добавлю описание к каждому снимку.</p>${task('screenshots-save','files','Сохранены снимки и описания','<p>polish/05-files/preview-toolbar/</p><p>Четыре темы · PNG и Markdown</p>')}</li>`);
   }
   function icons() { if (globalThis.lucide) lucide.createIcons({attrs:{width:19,height:19}}); }
   function key(action,name,glyph,id='',extraClass='') { return `<button type="button" class="rs-key cursor-interaction ${extraClass}" data-action="${action}" data-id="${id}" aria-label="${escape(name)}" data-tooltip="${escape(name)}">${icon(glyph)}</button>`; }
   function actions(r) { return `<div class="rs-actions">${key('share','Отправить','share-2',r.id)}${key('download','Скачать','download',r.id)}${key('source','К сообщению','message-square',r.id)}${key('menu','Действия с результатом','ellipsis',r.id,'rs-overflow')}<div class="rs-popover rs-item-menu" hidden>${[['share','Отправить','share-2'],['download','Скачать','download'],['source','К сообщению','message-square']].map(([action,name,glyph])=>`<button type="button" class="cursor-interaction" data-action="${action}" data-id="${r.id}">${icon(glyph)}${name}</button>`).join('')}</div></div>`; }
   function checkbox(r) { return state.selecting ? `<label class="rs-check cursor-interaction"><input type="checkbox" data-id="${r.id}" aria-label="Выбрать ${escape(r.name)}" ${state.selected.includes(r.id)?'checked':''}></label>` : ''; }
   function row(r,search=false) { return `<div class="rs-row" data-record="${r.id}">${search?'':checkbox(r)}<button type="button" class="rs-open cursor-interaction" data-action="open" data-id="${r.id}" data-tooltip="${escape(r.name)}" aria-label="Открыть ${escape(r.name)}">${icon(r.icon)}<span class="rs-name-block"><span class="rs-name">${escape(r.name)}</span><span class="rs-meta">${r.format} · ${r.size} · ${r.time}</span></span></button>${search?'':actions(r)}</div>`; }
-  function save() { window.openai?.setWidgetState?.({modelContent:{proposal:'Compact Results feed',theme:state.theme,density:state.density,category:state.category},privateContent:{...state}})?.catch(()=>{}); }
+  function save() { window.openai?.setWidgetState?.({modelContent:{proposal:'Results with expandable request cards',theme:state.theme,density:'roomy tablet, compact phone',category:state.category},privateContent:{...state}})?.catch(()=>{}); }
   function render() {
-    el('.rs-case').dataset.theme=state.theme; el('.rs-case').dataset.density=state.density;
+    el('.rs-case').dataset.theme=state.theme;
     root.querySelectorAll('[data-category]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.category===state.category)));
     el('[data-action="select"]').setAttribute('aria-pressed',String(state.selecting));
     el('.rs-batch').hidden=!state.selecting;
@@ -229,7 +249,7 @@
     el('[data-action="clear"]').disabled=!state.selected.length;
     const list=records.filter(r=>r.type===state.category), services=extra.filter(r=>r.type===state.category);
     el('.rs-section-name').textContent=['files','images'].includes(state.category)?'Сегодня':sections[state.category];
-    el('.rs-count').textContent=state.category==='files'?'5 файлов':state.category==='images'?'2 изображения':state.category==='reasoning'?'Сегодня · 1 задача':`${services.length} ${services.length===1?'запись':'записи'}`;
+    el('.rs-count').textContent=state.category==='files'?'5 файлов':state.category==='images'?'2 изображения':state.category==='reasoning'?'Сегодня · 2 запроса':`${services.length} ${services.length===1?'запись':'записи'}`;
     el('.rs-items').classList.toggle('rs-images',state.category==='images');
     el('.rs-items').innerHTML=state.category==='images'?list.map(r=>`<div class="rs-image" data-record="${r.id}"><button type="button" class="rs-open cursor-interaction" data-action="open" data-id="${r.id}" aria-label="Открыть ${escape(r.name)}" data-tooltip="${escape(r.name)}"><img class="rs-thumb" src="${images[r.image]}" alt="${escape(r.name)}"><span class="rs-name">${escape(r.name)}</span><span class="rs-meta">${r.format} · ${r.size}</span></button><div class="rs-image-bottom">${checkbox(r)}${actions(r)}</div></div>`).join(''):list.length?list.map(r=>row(r)).join(''):services.map(r=>`<details class="rs-service"><summary class="cursor-interaction">${icon(r.icon)}<span>${r.name}<span class="rs-meta">${r.format} · ${r.time}</span></span>${icon('chevron-down')}</summary><p>${escape(r.text)}</p><button type="button" class="cursor-interaction" data-action="source" data-id="${r.id}">${icon('message-square')}К сообщению</button></details>`).join('');
     if(state.category==='reasoning')el('.rs-items').innerHTML=reasoningPath();
@@ -285,9 +305,10 @@
     if(e.target.matches('select')){state[e.target.getAttribute('aria-label')==='Тип результата'?'searchType':'sort']=e.target.value;searchResults();save();}
   });
   root.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!el('.rs-notice').hidden)el('.rs-notice').hidden=true;else if(!el('.rs-viewer').hidden)closeViewer();else if(!el('.rs-search').hidden)closeSearch();else closeMenus();}});
-  function restore(snapshot){const s=snapshot?.privateContent;if(!s)return;for(const k of ['theme','density','category','query','searchType','sort'])if(typeof s[k]==='string')state[k]=s[k];if(!['green','2000','organizer','dark'].includes(state.theme))state.theme='green';if(!sections[state.category])state.category='files';state.selecting=!!s.selecting;state.selected=Array.isArray(s.selected)?s.selected.filter(id=>records.some(r=>r.id===id)):[];el('input[type="search"]').value=state.query;el('[aria-label="Тип результата"]').value=state.searchType;el('[aria-label="Порядок результатов"]').value=state.sort;render();if(!el('.rs-search').hidden)searchResults();}
+  root.addEventListener('toggle',e=>{const d=e.target;if(!d.isConnected||!d.matches('details[data-expansion]'))return;const id=d.dataset.expansion;if(d.open&&!state.expanded.includes(id)){state.expanded.push(id);save();}else if(!d.open&&state.expanded.includes(id)){state.expanded=state.expanded.filter(x=>x!==id);save();}},true);
+  function restore(snapshot){const s=snapshot?.privateContent;if(!s)return;for(const k of ['theme','category','query','searchType','sort'])if(typeof s[k]==='string')state[k]=s[k];if(!['green','2000','organizer','dark'].includes(state.theme))state.theme='green';if(!sections[state.category])state.category='files';state.expanded=Array.isArray(s.expanded)?s.expanded.filter(x=>typeof x==='string').slice(0,6):[];state.selecting=!!s.selecting;state.selected=Array.isArray(s.selected)?s.selected.filter(id=>records.some(r=>r.id===id)):[];el('input[type="search"]').value=state.query;el('[aria-label="Тип результата"]').value=state.searchType;el('[aria-label="Порядок результатов"]').value=state.sort;render();if(!el('.rs-search').hidden)searchResults();}
   render();restore(window.openai?.widgetState);
   window.addEventListener('openai:set_globals',e=>restore(e.detail?.globals?.widgetState));
-  if(globalThis.Tweak){const tweak=new Tweak({container:el('.rs-case'),onChange:()=>{render();save();}});tweak.addSelect(state,'theme',{label:'Тема',options:[{label:'Зелёная',value:'green'},{label:'2000',value:'2000'},{label:'Органайзер',value:'organizer'},{label:'Тёмная',value:'dark'}]});tweak.addSelect(state,'density',{label:'Плотность строк',options:[{label:'Компактно',value:'compact'},{label:'Свободнее',value:'roomy'}]});}
+  if(globalThis.Tweak){const tweak=new Tweak({container:el('.rs-case'),onChange:()=>{render();save();}});tweak.addSelect(state,'theme',{label:'Тема',options:[{label:'Зелёная',value:'green'},{label:'2000',value:'2000'},{label:'Органайзер',value:'organizer'},{label:'Тёмная',value:'dark'}]});}
 })();
 </script>
