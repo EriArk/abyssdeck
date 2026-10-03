@@ -432,7 +432,9 @@ inline-форматирование, точная подсветка, смена
 регрессии. 46 unit/help-проверок включают Unicode/UTF-16, фразу через абзацы, валидацию,
 дедупликацию и пределы без вытеснения. TypeScript/build и scoped Biome прошли.
 [Снимки с описаниями](../polish/05-files/book-navigation/README.md).
-Статус публикации и доказательство — в CURRENT_STATUS.md.
+Реализация `cf8e2c4` установлена web-only publisher. HTTP SHA-256 entry и JS/CSS
+читалки совпали с manifest; процессы Engine/Hub/GPT сохранились при публикации.
+Companion не менялся. Manifest и доказательство — в CURRENT_STATUS.md.
 
 Следующий предлагаемый шаг — кадр видео, пометки и сохранение копии в том же окне.
 GPT-6 Astra, Высокое (`high`), после продолжения владельца.
