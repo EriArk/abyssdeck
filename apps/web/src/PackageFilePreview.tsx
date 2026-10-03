@@ -1,15 +1,23 @@
 /* biome-ignore-all lint/suspicious/noArrayIndexKey: Immutable document coordinates are stable; page/search changes remount the content pane. */
 import { useEffect, useRef, useState } from "react";
 import { DownloadLink } from "./DownloadLink";
+import { FileCopySave } from "./FileCopySave";
 import { FilePreview } from "./FilePreview";
 import { FileViewerDialog } from "./FileViewerDialog";
 import { Icon } from "./icons";
 import type { OfficeBlock, OfficeDocument } from "./officePackage";
+import type { UploadCopy } from "./ProjectFileUpload";
 import type { ArchiveEntry } from "./packageArchive";
 import XlsxWorkspace from "./XlsxWorkspace";
 import "./package-preview.css";
 
+type ArchiveBatch = {
+  entries: { path: string; data: Uint8Array<ArrayBuffer> }[];
+  bundle: Uint8Array<ArrayBuffer>;
+  key: string;
+};
 type Reply = {
+  batch?: ArchiveBatch;
   entries?: ArchiveEntry[];
   office?: OfficeDocument;
   entry?: Uint8Array<ArrayBuffer>;
@@ -25,7 +33,12 @@ function usePackage(file: File) {
     worker.current = null;
     clearTimeout(timer.current);
   };
-  const read = (entry?: string, done?: (bytes: Uint8Array<ArrayBuffer>) => void) => {
+  const read = (
+    entry?: string,
+    done?: (bytes: Uint8Array<ArrayBuffer>) => void,
+    selection?: string[],
+    onBatch?: (batch: ArchiveBatch) => void,
+  ) => {
     stop();
     setBusy(true);
     setResult((r) => ({ ...r, error: undefined }));
@@ -44,12 +57,14 @@ function usePackage(file: File) {
     );
     w.onerror = () => fail("Не удалось прочитать файл. Оригинал можно скачать.");
     w.onmessage = (event: MessageEvent<Reply>) => {
+      if (worker.current !== w) return;
       stop();
       setBusy(false);
-      if (event.data.entry && done) done(event.data.entry);
+      if (event.data.batch && onBatch) onBatch(event.data.batch);
+      else if (event.data.entry && done) done(event.data.entry);
       else setResult((r) => ({ ...r, ...event.data }));
     };
-    w.postMessage({ file, entry });
+    w.postMessage({ file, entry, selection });
   };
   // biome-ignore lint/correctness/useExhaustiveDependencies: A parser job is owned by these exact immutable bytes.
   useEffect(() => {
@@ -57,7 +72,15 @@ function usePackage(file: File) {
     read();
     return stop;
   }, [file]);
-  return { result, busy, read };
+  return {
+    result,
+    busy,
+    read,
+    cancel: () => {
+      stop();
+      setBusy(false);
+    },
+  };
 }
 function sizeLabel(size: number) {
   return new Intl.NumberFormat("ru", { maximumFractionDigits: 1 }).format(size / 1024) + " КБ";
@@ -93,12 +116,29 @@ export default function PackageFilePreview({
   source?: string;
   full?: boolean;
 }) {
-  const { result, busy, read } = usePackage(file);
+  const { result, busy, read, cancel } = usePackage(file);
   const [folder, setFolder] = useState(""),
     [search, setSearch] = useState(""),
     [sort, setSort] = useState("name"),
     [page, setPage] = useState(0),
     [opened, setOpened] = useState<File | null>(null);
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [batch, setBatch] = useState<{ file: File; copies: UploadCopy[]; key: string } | null>(
+    null,
+  );
+  const [saving, setSaving] = useState(false);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Reset selection when the immutable source changes.
+  useEffect(() => {
+    setFolder("");
+    setSearch("");
+    setPage(0);
+    setOpened(null);
+    setSelected(new Set());
+    setBatch(null);
+    setSaving(false);
+    setSelecting(false);
+  }, [file]);
   if (result.office?.kind === "xlsx")
     return <XlsxWorkspace file={file} source={source} enabled={full} doc={result.office} />;
   if (result.office) return <OfficePreview doc={result.office} />;
@@ -128,6 +168,37 @@ export default function PackageFilePreview({
         : a.name.localeCompare(b.name),
     ),
   ];
+  const available = entries.filter((entry) => !entry.directory && !entry.blocked);
+  const choose = (names: string[], checked: boolean) => {
+    setBatch(null);
+    setSelected((current) => {
+      const next = new Set(current);
+      for (const name of names) {
+        if (checked) next.add(name);
+        else next.delete(name);
+      }
+      return next;
+    });
+  };
+  const extract = () => {
+    if (batch) {
+      setSaving(true);
+      return;
+    }
+    read(undefined, undefined, [...selected].sort(), (value) => {
+      setBatch({
+        key: value.key,
+        file: new File([value.bundle], file.name.replace(/\.zip$/i, "") + "-selected.zip", {
+          type: "application/zip",
+        }),
+        copies: value.entries.map((item) => ({
+          path: item.path,
+          file: new File([item.data], item.path.split("/").at(-1)!),
+        })),
+      });
+      setSaving(true);
+    });
+  };
   return (
     <div className="package-viewer">
       <div className="package-tools">
@@ -170,37 +241,134 @@ export default function PackageFilePreview({
           <option value="size">По размеру</option>
         </select>
       </div>
+      <div className="archive-selection-tools" role="toolbar" aria-label="Выбор файлов архива">
+        <button
+          type="button"
+          className="icon-button"
+          aria-label="Выбрать файлы архива"
+          title="Выбрать несколько"
+          aria-pressed={selecting}
+          disabled={busy}
+          onClick={() => setSelecting(!selecting)}
+        >
+          <Icon name="check" />
+        </button>
+        {selecting && (
+          <>
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="Выбрать все найденные файлы"
+              title="Выбрать файлы, включая подпапки"
+              disabled={busy}
+              onClick={() =>
+                choose(
+                  available
+                    .filter((e) =>
+                      search.trim()
+                        ? e.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())
+                        : e.name.startsWith(folder),
+                    )
+                    .map((e) => e.name),
+                  true,
+                )
+              }
+            >
+              <Icon name="select" />
+            </button>
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="Снять выбор файлов"
+              title="Снять выбор"
+              disabled={busy || !selected.size}
+              onClick={() => choose([...selected], false)}
+            >
+              <Icon name="close" />
+            </button>
+          </>
+        )}
+        <span aria-live="polite">{selected.size ? `Выбрано: ${selected.size}` : ""}</span>
+        {busy ? (
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Отменить чтение архива"
+            title="Отменить чтение"
+            onClick={cancel}
+          >
+            <Icon name="close" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Извлечь выбранные файлы"
+            title="Извлечь выбранные файлы"
+            disabled={!selected.size}
+            onClick={extract}
+          >
+            <Icon name="save" />
+          </button>
+        )}
+      </div>
       <div className="package-scroll" aria-busy={busy}>
         {busy && <p role="status">Читаю архив…</p>}
         {result.error && <p role="status">{result.error}</p>}
         <div className="archive-list">
-          {items.slice(page * 100, (page + 1) * 100).map((entry) => (
-            <button
-              key={entry.name}
-              type="button"
-              className="archive-entry"
-              disabled={busy || !!entry.blocked}
-              title={entry.blocked || entry.name}
-              onClick={() => {
-                if (entry.directory) {
-                  setFolder(entry.name);
-                  setPage(0);
-                } else
-                  read(entry.name, (data) =>
-                    setOpened(new File([data], entry.name.split("/").at(-1) || "Файл")),
-                  );
-              }}
-            >
-              <Icon name={entry.directory ? "folder" : "file"} />
-              <span>
-                {search ? entry.name : entry.name.slice(folder.length).replace(/\/$/, "")}
-                <small>
-                  {entry.blocked || (entry.directory ? "Папка" : sizeLabel(entry.size))}
-                </small>
-              </span>
-              <Icon name="chevron" />
-            </button>
-          ))}
+          {items.slice(page * 100, (page + 1) * 100).map((entry) => {
+            const names = entry.directory
+              ? available
+                  .filter((item) => item.name.startsWith(entry.name))
+                  .map((item) => item.name)
+              : entry.blocked
+                ? []
+                : [entry.name];
+            const checked = names.length > 0 && names.every((name) => selected.has(name));
+            const partial = !checked && names.some((name) => selected.has(name));
+            return (
+              <div className="archive-row" key={entry.name}>
+                {selecting && (
+                  <label className="archive-select">
+                    <input
+                      type="checkbox"
+                      aria-label={`Выбрать ${entry.name}`}
+                      disabled={busy || !names.length}
+                      checked={checked}
+                      ref={(el) => {
+                        if (el) el.indeterminate = partial;
+                      }}
+                      onChange={(e) => choose(names, e.target.checked)}
+                    />
+                  </label>
+                )}
+                <button
+                  type="button"
+                  className="archive-entry"
+                  disabled={busy || !!entry.blocked}
+                  title={entry.blocked || entry.name}
+                  onClick={() => {
+                    if (entry.directory) {
+                      setFolder(entry.name);
+                      setPage(0);
+                    } else
+                      read(entry.name, (data) =>
+                        setOpened(new File([data], entry.name.split("/").at(-1) || "Файл")),
+                      );
+                  }}
+                >
+                  <Icon name={entry.directory ? "folder" : "file"} />
+                  <span>
+                    {search ? entry.name : entry.name.slice(folder.length).replace(/\/$/, "")}
+                    <small>
+                      {entry.blocked || (entry.directory ? "Папка" : sizeLabel(entry.size))}
+                    </small>
+                  </span>
+                  <Icon name="chevron" />
+                </button>
+              </div>
+            );
+          })}
         </div>
         {!busy && !result.error && items.length === 0 && <p>Файлов не найдено.</p>}
       </div>
@@ -211,6 +379,19 @@ export default function PackageFilePreview({
         label={`${entries.filter((e) => !e.directory).length} файлов · ${sizeLabel(entries.reduce((total, e) => total + (e.directory ? 0 : e.size), 0))} распаковано`}
       />
       {opened && <ExtractedFile file={opened} onClose={() => setOpened(null)} />}
+      {saving && batch && (
+        <FileCopySave
+          file={batch.file}
+          copies={batch.copies}
+          copiesKey={batch.key}
+          onClose={() => setSaving(false)}
+          onSaved={() => {
+            setSaving(false);
+            setSelected(new Set());
+            setBatch(null);
+          }}
+        />
+      )}
     </div>
   );
 }

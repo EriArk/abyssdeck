@@ -210,3 +210,38 @@
   font-size: 12px;
   border-top: 1px solid var(--line);
 }
+
+.archive-selection-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  flex: none;
+  background: var(--window-surface, var(--surface));
+}
+.archive-selection-tools > span {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+}
+.archive-row {
+  display: flex;
+  min-width: 0;
+  align-items: stretch;
+}
+.archive-row > .archive-entry {
+  flex: 1;
+  min-width: 0;
+}
+.archive-select {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  margin: 0;
+}
+.archive-select input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--ink);
+}

@@ -17,6 +17,7 @@ await build({
     lib: {
       entry: {
         archive: resolve("apps/web/src/packageArchive.ts"),
+        selection: resolve("apps/web/src/archiveSelection.ts"),
         office: resolve("apps/web/src/officePackage.ts"),
         registry: resolve("apps/web/src/filePreviewRegistry.ts"),
       },
@@ -26,6 +27,7 @@ await build({
   },
 });
 const { archiveIndex, readArchiveEntry } = await import(pathToFileURL(join(dir, "archive.mjs")));
+const { extractArchiveSelection } = await import(pathToFileURL(join(dir, "selection.mjs")));
 const { readOffice } = await import(pathToFileURL(join(dir, "office.mjs")));
 const { previewKind } = await import(pathToFileURL(join(dir, "registry.mjs")));
 test.after(() => rm(dir, { recursive: true, force: true }));
@@ -126,4 +128,52 @@ test("Registry enables ZIP/DOCX/XLSX only within preview budget; excludes PowerP
   }
   for (const name of ["a.pptx", "a.doc", "a.xls", "a.rar", "a.exe"])
     assert.equal(previewKind({ name, type: "", size: 1 }), "card");
+});
+
+test("ZIP selection preserves nested exact bytes and rejects unsafe, corrupt and oversized batches", () => {
+  const bytes = zip({
+    "a/same.txt": "one",
+    "b/same.txt": "two",
+    "empty.txt": "",
+    "../escape": "bad",
+    __other__: "inert",
+  });
+  // fflate.zipSync itself mishandles __proto__; rename the equal-length ZIP headers.
+  for (let at = bytes.indexOf("__other__"); at >= 0; at = bytes.indexOf("__other__"))
+    bytes.write("__proto__", at, "utf8");
+  const result = extractArchiveSelection(bytes, ["b/same.txt", "a/same.txt", "empty.txt"]);
+  assert.deepEqual(
+    result.entries.map((item) => item.path),
+    ["b/same.txt", "a/same.txt", "empty.txt"],
+  );
+  const out = archiveIndex(result.bundle);
+  for (const entry of out)
+    assert.deepEqual(
+      readArchiveEntry(result.bundle, entry),
+      readArchiveEntry(
+        bytes,
+        archiveIndex(bytes).find((item) => item.name === entry.name),
+      ),
+    );
+  const prototype = extractArchiveSelection(bytes, ["__proto__"]);
+  assert.equal(
+    new TextDecoder().decode(readArchiveEntry(prototype.bundle, archiveIndex(prototype.bundle)[0])),
+    "inert",
+  );
+  assert.throws(() => extractArchiveSelection(bytes, ["../escape"]));
+  assert.throws(() => extractArchiveSelection(bytes, ["missing"]));
+  assert.throws(() => extractArchiveSelection(bytes, ["empty.txt", "empty.txt"]));
+  assert.throws(() => extractArchiveSelection(bytes, []));
+  assert.throws(() =>
+    extractArchiveSelection(
+      bytes,
+      Array.from({ length: 33 }, (_, i) => String(i)),
+    ),
+  );
+  const large = zip({ a: new Uint8Array(17 * 1024 * 1024), b: new Uint8Array(17 * 1024 * 1024) });
+  assert.throws(() => extractArchiveSelection(large, ["a", "b"]), /32 МБ/);
+  const corrupt = Buffer.from(bytes),
+    e = archiveIndex(bytes).find((item) => item.name === "a/same.txt");
+  corrupt[e.offset] ^= 255;
+  assert.throws(() => extractArchiveSelection(corrupt, ["a/same.txt"]));
 });

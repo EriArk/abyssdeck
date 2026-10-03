@@ -3,17 +3,21 @@ import { createPortal } from "react-dom";
 import { api, messageOf } from "./api";
 import { DownloadLink } from "./DownloadLink";
 import { Icon } from "./icons";
-import { ProjectFileUpload } from "./ProjectFileUpload";
+import { ProjectFileUpload, type UploadCopy } from "./ProjectFileUpload";
 import { ProjectFolderBrowser } from "./ProjectFolderBrowser";
 import { useWorkspaceDialog } from "./useWorkspaceDialog";
 
 /** Destination choice delegates all writes/collisions/receipts to ordinary uploads. */
 export function FileCopySave({
   file,
+  copies,
+  copiesKey,
   onClose,
   onSaved,
 }: {
   file: File;
+  copies?: UploadCopy[];
+  copiesKey?: string;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -102,6 +106,12 @@ export function FileCopySave({
         </button>
       </header>
       <div className="file-copy-fields">
+        {copies && (
+          <p>
+            Выбрано файлов: {copies.length}. В проекте сохраняется структура папок архива.
+            Скачивание — один ZIP с выбранными файлами.
+          </p>
+        )}
         <label>
           Проект
           <select
@@ -142,7 +152,10 @@ export function FileCopySave({
             projectName={projects.find((p) => p.id === project)?.name ?? project}
             {...grant}
             folder={folder}
-            initialFile={file}
+            initialFile={copies ? undefined : file}
+            initialCopies={copies}
+            initialBatchKey={copiesKey}
+            onBatchDone={onSaved}
             onDone={onSaved}
             onDismiss={onClose}
           />

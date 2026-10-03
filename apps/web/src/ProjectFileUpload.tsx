@@ -8,7 +8,11 @@ import { Icon } from "./icons";
 import { useWorkspaceDialog } from "./useWorkspaceDialog";
 import "./project-file-upload.css";
 
+export type UploadCopy = { file: File; path: string };
 type Row = {
+  batch?: boolean;
+  sourcePath?: string;
+  directories?: { path: string; id: string; pending: boolean }[];
   copyId?: string;
   id: string;
   name: string;
@@ -27,6 +31,15 @@ type State = {
   bytes: number;
   result: { file?: FileSnapshot; cancelled?: boolean } | null;
 };
+const retainRows = (rows: Row[]) =>
+  rows.filter(
+    (row) =>
+      !["done", "cancelled"].includes(row.status) ||
+      (row.batch &&
+        rows.some(
+          (other) => other.copyId === row.copyId && !["done", "cancelled"].includes(other.status),
+        )),
+  );
 const size = (n: number) =>
   n < 1024
     ? `${n} Б`
@@ -40,6 +53,9 @@ export function ProjectFileUpload({
   folder,
   onDone,
   initialFile,
+  initialCopies,
+  initialBatchKey,
+  onBatchDone,
   onDismiss,
 }: {
   compact?: boolean;
@@ -50,6 +66,9 @@ export function ProjectFileUpload({
   folder: string;
   onDone: (path: string) => void;
   initialFile?: File;
+  initialCopies?: UploadCopy[];
+  initialBatchKey?: string;
+  onBatchDone?: () => void;
   onDismiss?: () => void;
 }) {
   const [opened, setOpened] = useState(false),
@@ -77,10 +96,7 @@ export function ProjectFileUpload({
   const update = (next: Row[]) => {
     if (!active.current) return;
     // Commit recovery metadata before issuing any mutation; never persist binary file data.
-    storage.setItem(
-      key,
-      JSON.stringify(next.filter((r) => !["done", "cancelled"].includes(r.status))),
-    );
+    storage.setItem(key, JSON.stringify(retainRows(next)));
     records.current = next;
     setRows(next);
   };
@@ -103,8 +119,12 @@ export function ProjectFileUpload({
           )
           .map((r) => ({
             ...r,
-            status: "error" as const,
-            error: "Загрузка приостановлена. Проверь её или выбери исходный файл снова.",
+            status:
+              r.batch && ["done", "cancelled"].includes(r.status) ? r.status : ("error" as const),
+            error:
+              r.batch && ["done", "cancelled"].includes(r.status)
+                ? undefined
+                : "Загрузка приостановлена. Проверь её или выбери исходный файл снова.",
           }));
         records.current = restored;
         setRows(restored);
@@ -126,28 +146,77 @@ export function ProjectFileUpload({
   const seeded = useRef("");
   // biome-ignore lint/correctness/useExhaustiveDependencies: Seed this frozen copy once after restoring the ordinary queue.
   useEffect(() => {
-    if (!initialFile || seeded.current) return;
-    seeded.current = crypto.randomUUID();
+    if ((!initialFile && !initialCopies?.length) || seeded.current) return;
+    if (initialCopies && !initialBatchKey) return;
+    seeded.current = initialCopies
+      ? JSON.stringify([initialBatchKey, folder])
+      : crypto.randomUUID();
     try {
-      const row: Row = {
-        copyId: seeded.current,
-        id: crypto.randomUUID(),
-        name: initialFile.name,
-        originalName: initialFile.name,
-        bytes: initialFile.size,
-        folder,
-        status: "queued",
-        offset: 0,
-        started: false,
-      };
-      files.current.set(row.id, initialFile);
-      update([...records.current.filter((r) => !["done", "cancelled"].includes(r.status)), row]);
+      const copies = initialCopies ?? [{ file: initialFile!, path: initialFile!.name }];
+      const keep = retainRows(records.current).filter((r) => r.copyId !== seeded.current);
+      if (keep.length + copies.length > 32)
+        throw Error("В одной очереди — до 32 файлов. Сначала закончи прежние загрузки.");
+      const next = copies.map((copy) => {
+        const restored =
+          initialCopies &&
+          records.current.find(
+            (row) => row.copyId === seeded.current && row.sourcePath === copy.path,
+          );
+        if (restored) {
+          files.current.set(restored.id, copy.file);
+          return restored;
+        }
+        const parts = copy.path.split("/");
+        if (
+          parts.some(
+            (part) =>
+              !part ||
+              part === "." ||
+              part === ".." ||
+              /[\\:]/.test(part) ||
+              [...part].some((c) => c.charCodeAt(0) < 32),
+          )
+        )
+          throw Error("Недопустимый путь копии.");
+        const name = parts.pop()!;
+        const directories = parts.map((_, i) => ({
+          path: [folder, ...parts.slice(0, i + 1)].filter(Boolean).join("/"),
+          id: crypto.randomUUID(),
+          pending: false,
+        }));
+        const row: Row = {
+          batch: !!initialCopies,
+          sourcePath: copy.path,
+          copyId: seeded.current,
+          id: crypto.randomUUID(),
+          name,
+          originalName: copy.file.name,
+          bytes: copy.file.size,
+          folder: [folder, ...parts].filter(Boolean).join("/"),
+          directories,
+          status: "queued",
+          offset: 0,
+          started: false,
+        };
+        files.current.set(row.id, copy.file);
+        return row;
+      });
+      update([...keep, ...next]);
       setOpened(true);
     } catch (e) {
       setError(messageOf(e));
       setOpened(true);
     }
-  }, [initialFile, folder]);
+  }, [initialFile, initialCopies, initialBatchKey, folder]);
+  const batchNotified = useRef(false);
+  useEffect(() => {
+    if (!initialCopies || !onBatchDone || batchNotified.current || busy) return;
+    const own = rows.filter((row) => row.copyId === seeded.current);
+    if (own.length && own.every((row) => ["done", "cancelled"].includes(row.status))) {
+      batchNotified.current = true;
+      onBatchDone();
+    }
+  }, [rows, initialCopies, onBatchDone, busy]);
   const pathOf = (row: Row) => (row.folder ? row.folder + "/" + row.name : row.name);
   const cancelRow = async (row: Row) => {
     const state = row.started
@@ -158,7 +227,8 @@ export function ProjectFileUpload({
       : null;
     if (state?.result?.file) {
       change(row.id, { status: "done", offset: row.bytes, error: undefined });
-      if (!initialFile || row.copyId === seeded.current) onDone(state.result.file.path);
+      if (!initialCopies && (!initialFile || row.copyId === seeded.current))
+        onDone(state.result.file.path);
       return false;
     }
     change(row.id, { status: "cancelled", error: undefined });
@@ -166,6 +236,7 @@ export function ProjectFileUpload({
     return true;
   };
   const choose = async (row: Row, replace: boolean) => {
+    setBusy(true);
     try {
       const file = files.current.get(row.id);
       if (!(await cancelRow(row))) return;
@@ -184,6 +255,46 @@ export function ProjectFileUpload({
       update(records.current.map((r) => (r.id === row.id ? next : r)));
     } catch (e) {
       setError(messageOf(e));
+    } finally {
+      if (active.current) setBusy(false);
+    }
+  };
+  const prepareDirectories = async (row: Row, signal: AbortSignal) => {
+    const directories = row.directories ?? [];
+    const url = `/projects/${encodeURIComponent(projectId)}/file-tools`;
+    for (const directory of directories) {
+      if (signal.aborted) throw signal.reason;
+      // Restored plans may only create parents of this exact queued destination.
+      if (
+        !directory.path ||
+        !row.folder.startsWith(directory.path) ||
+        (row.folder !== directory.path && row.folder[directory.path.length] !== "/")
+      )
+        throw Error("Путь папки изменился.");
+      if (!directory.pending) {
+        try {
+          const existing = await api<FileSnapshot & { checkout: string }>(
+            `${url}?op=stat&path=${encodeURIComponent(directory.path)}`,
+            { signal },
+          );
+          if (existing.checkout !== checkout) throw Error("Рабочая копия изменилась.");
+          if (existing.kind !== "directory")
+            throw Error(`Вместо папки ${directory.path} существует файл.`);
+          continue;
+        } catch (e) {
+          if (!(e instanceof ApiError) || e.code !== "ENOENT") throw e;
+        }
+        directory.pending = true;
+        change(row.id, { directories: [...directories] }); // Durable identity before mkdir.
+      }
+      // Same operation ID reads its receipt after a lost acknowledgement, never a new mkdir.
+      await api(url, {
+        method: "POST",
+        signal,
+        body: { op: "mkdir", path: directory.path, id: directory.id, capability },
+      });
+      directory.pending = false;
+      change(row.id, { directories: [...directories] });
     }
   };
   const upload = async (initial: Row) => {
@@ -191,6 +302,7 @@ export function ProjectFileUpload({
     control.current = { id: initial.id, abort: controller, phase: "uploading", cancel: false };
     let started = initial.started;
     try {
+      await prepareDirectories(initial, controller.signal);
       started = true;
       change(initial.id, {
         status: "uploading",
@@ -219,7 +331,8 @@ export function ProjectFileUpload({
       }
       if (state.result?.file) {
         change(initial.id, { status: "done", offset: initial.bytes });
-        if (!initialFile || initial.copyId === seeded.current) onDone(state.result.file.path);
+        if (!initialCopies && (!initialFile || initial.copyId === seeded.current))
+          onDone(state.result.file.path);
         return;
       }
       if (state.bytes !== initial.bytes || state.offset < 0 || state.offset > initial.bytes)
@@ -251,7 +364,8 @@ export function ProjectFileUpload({
       });
       change(initial.id, { status: "done", error: undefined });
       files.current.delete(initial.id);
-      if (!initialFile || initial.copyId === seeded.current) onDone(result.file.path);
+      if (!initialCopies && (!initialFile || initial.copyId === seeded.current))
+        onDone(result.file.path);
     } catch (e) {
       if (!active.current) return;
       const row = { ...initial, started };
@@ -371,9 +485,7 @@ export function ProjectFileUpload({
                     files.current.set(again, file);
                     change(again, { status: "queued", error: undefined });
                   } else {
-                    const keep = records.current.filter(
-                      (r) => !["done", "cancelled"].includes(r.status),
-                    );
+                    const keep = retainRows(records.current);
                     if (keep.length + chosen.length > 32)
                       throw Error("В одной очереди — до 32 файлов.");
                     const next = chosen.map((file) => {
@@ -450,6 +562,7 @@ export function ProjectFileUpload({
                     {size(row.bytes)} · {row.folder || "Корень проекта"}
                     {row.replace ? " · Замена выбранной версии" : ""}
                   </small>
+                  {initialCopies && <small>{pathOf(row)}</small>}
                   <progress
                     max={row.bytes || 1}
                     value={row.status === "done" ? row.bytes || 1 : row.offset}
