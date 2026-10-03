@@ -5,28 +5,19 @@ import {
   type ResultCounts,
   resultCategory,
 } from "@codex-web/shared";
-import { ArtifactCapture } from "./ArtifactCapture";
 import type { ArtifactSelection } from "./ArtifactMarkdown";
-import { workspaceMediaUrl } from "./accountStorage.ts";
-import { DownloadLink, isDownloadUrl } from "./DownloadLink";
 import { FileViewerDialog } from "./FileViewerDialog";
 import { ResultBatchActions, resultSelectable } from "./ResultBatchActions";
+import { ResultCard } from "./ResultCard";
 import { ResultFilePreview } from "./ResultFilePreview";
-import { ResultFilters } from "./ResultFilters";
-import { ResultShareButton } from "./ResultSharing";
+import "./resultsFeed.css";
+import { ResultFilters, resultLabels } from "./ResultFilters";
 import { resultPreview } from "./resultPreview";
 import { useResultImages } from "./useResultImages";
 import "./resultCategories.css";
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import Markdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { CollapsibleCode } from "./CollapsibleCode";
-import { CommandOutput } from "./CommandOutput";
-import { CopyButton } from "./CopyButton";
-import { GptSteps } from "./GptProgress";
 import { Icon } from "./icons";
 import { LiveCommandOutput } from "./LiveCommandOutput";
-import { MarkdownTable } from "./MarkdownTable";
 import { PreviewViewer } from "./PreviewViewer";
 import { TurnDetails } from "./TurnDetails";
 import type { Activity, Result } from "./types";
@@ -87,6 +78,7 @@ export function Results({
     [inspected, setInspected] = useState<Result | null>(null),
     [revealNotice, setRevealNotice] = useState<string | null>(null),
     [inspecting, setInspecting] = useState(false);
+  const [disclosure, setDisclosure] = useState<Record<string, boolean>>({});
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<ResultItem[]>([]);
   const revealed = useRef<ArtifactSelection["request"] | null>(null);
@@ -253,6 +245,10 @@ export function Results({
           />
         ))}
       <div className="pane-scroll" ref={ref}>
+        <div className="result-feed-caption">
+          <span>{category === "work" ? "Сохранённые действия" : resultLabels[category]}</span>
+          <span>{counts[category]}</span>
+        </div>
         {!error &&
           !results.some((r) => category === "all" || resultCategory(r.type) === category) && (
             <div className="empty-state">
@@ -262,259 +258,27 @@ export function Results({
               <h2>{busy ? "Загружаем…" : "Пока нет результатов."}</h2>
             </div>
           )}
-        {results
-          .filter((r) => category === "all" || resultCategory(r.type) === category)
-          .map((r) =>
-            r.type === "link" && r.payload.url ? (
-              <a
+        <div className={`result-feed result-feed-${category}`}>
+          {results
+            .filter((r) => category === "all" || resultCategory(r.type) === category)
+            .map((r) => (
+              <ResultCard
                 key={r.id}
-                data-result={r.id}
-                data-focused={r.id === focusId}
-                className="result-site-link secondary"
-                href={r.payload.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(event) => {
-                  if (
-                    event.button ||
-                    event.ctrlKey ||
-                    event.metaKey ||
-                    event.shiftKey ||
-                    event.altKey
-                  )
-                    return;
-                  event.preventDefault();
-                  window.open(
-                    r.payload.url,
-                    "_blank",
-                    "popup=yes,width=1100,height=800,noopener,noreferrer",
-                  );
-                }}
-              >
-                <Icon name="link" size={17} />
-                <span>
-                  <strong>{r.title}</strong>
-                  <small>{new URL(r.payload.url).hostname}</small>
-                </span>
-                <Icon name="external" size={16} />
-              </a>
-            ) : (
-              <article
-                className={`result-card result-${r.type}`}
-                key={r.id}
-                data-result={r.id}
-                data-focused={r.id === focusId}
-              >
-                <div className="result-title">
-                  {selecting && resultSelectable(r) && (
-                    <label className="result-select">
-                      <input
-                        type="checkbox"
-                        aria-label={`Выбрать ${r.title}`}
-                        checked={selected.some((item) => item.id === r.id)}
-                        disabled={
-                          selected.length >= 100 && !selected.some((item) => item.id === r.id)
-                        }
-                        onChange={(event) =>
-                          setSelected((old) =>
-                            event.target.checked
-                              ? [...old.filter((item) => item.id !== r.id), r]
-                              : old.filter((item) => item.id !== r.id),
-                          )
-                        }
-                      />
-                    </label>
-                  )}
-                  {onSaveLink && (
-                    <button
-                      type="button"
-                      className="icon-button"
-                      aria-label={`Сохранить ссылку: ${r.title}`}
-                      onClick={() => onSaveLink(r)}
-                    >
-                      <Icon name="pin" size={16} />
-                    </button>
-                  )}
-                  <span className="result-icon">
-                    <Icon
-                      name={
-                        r.type === "reasoning"
-                          ? "activity"
-                          : r.type === "image"
-                            ? "image"
-                            : r.type === "check"
-                              ? "check"
-                              : "folder"
-                      }
-                    />
-                  </span>
-                  <div>
-                    <h3 aria-label={r.title}>
-                      {["file", "artifact", "image"].includes(r.type) && r.payload.url ? (
-                        <button
-                          type="button"
-                          className="result-title-open"
-                          onClick={() => inspect(r)}
-                          aria-label={`Открыть ${r.title}`}
-                        >
-                          {r.title}
-                        </button>
-                      ) : (
-                        r.title
-                      )}
-                    </h3>
-                    {r.createdAt && (
-                      <time>
-                        {new Date(r.payload.capturedAt || r.createdAt).toLocaleString("ru", {
-                          day: "numeric",
-                          month: "short",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </time>
-                    )}
-                  </div>
-                  {r.type === "check" && (
-                    <span className={`badge ${r.payload.exitCode === 0 ? "success" : "danger"}`}>
-                      {r.payload.exitCode === 0 ? "Успешно" : "Ошибка"}
-                    </span>
-                  )}
-                </div>
-                {!["file", "artifact", "image"].includes(r.type) && (
-                  <ResultShareButton result={r} />
-                )}
-                {r.type === "reasoning" && (
-                  <details className="result-reasoning-details">
-                    <summary>
-                      <Icon name="chevron" size={16} /> Ход ответа{" "}
-                      <span className="muted">{r.payload.steps?.length || 0}</span>
-                    </summary>
-                    {r.payload.text !== r.title && (
-                      <p className="result-reasoning-request">{r.payload.text}</p>
-                    )}
-                    <GptSteps items={r.payload.steps ?? []} />
-                  </details>
-                )}
-                {r.type === "image" && r.payload.url && (
-                  <button
-                    type="button"
-                    className="screenshot-preview"
-                    onClick={() => inspect(r)}
-                    aria-label="Открыть снимок"
-                  >
-                    <img
-                      src={workspaceMediaUrl(r.payload.url)}
-                      loading="lazy"
-                      alt={r.title}
-                      width={r.payload.width}
-                      height={r.payload.height}
-                    />
-                  </button>
-                )}
-                {r.type === "preview" && (
-                  <button
-                    type="button"
-                    className="secondary result-demo-open"
-                    onClick={() => inspect(r)}
-                  >
-                    <Icon name="remote" /> Открыть демо <Icon name="chevron" size={16} />
-                  </button>
-                )}
-                {r.type === "artifact" && !r.payload.url && r.payload.captureId && (
-                  <ArtifactCapture
-                    id={r.payload.captureId}
-                    status={r.payload.status || "failed"}
-                    message={r.payload.message}
-                    onComplete={onRetry}
-                  />
-                )}
-                {r.payload.excerpt && (
-                  <pre className="result-text-excerpt">{r.payload.excerpt}</pre>
-                )}
-                {r.type === "file" && r.payload.message && (
-                  <p className="result-file-size" role="status">
-                    {r.payload.message}
-                  </p>
-                )}
-                {["file", "artifact", "image"].includes(r.type) && (
-                  <div className="result-artifact-actions">
-                    <ResultShareButton result={r} />
-                    {r.payload.url && (
-                      <DownloadLink directDownload href={r.payload.url} name={r.title}>
-                        Скачать
-                      </DownloadLink>
-                    )}
-                  </div>
-                )}
-                {r.type === "error" && r.payload.message && <p>{r.payload.message}</p>}
-                {r.payload.bytes !== undefined && (
-                  <small className="muted result-file-size">
-                    {new Intl.NumberFormat("ru", { maximumFractionDigits: 1 }).format(
-                      r.payload.bytes / 1024,
-                    )}{" "}
-                    КБ
-                  </small>
-                )}
-                {r.type === "plan" && (
-                  <div className="result-plan">
-                    <Markdown
-                      remarkPlugins={[remarkGfm]}
-                      components={{
-                        pre: CollapsibleCode,
-                        table: MarkdownTable,
-                        a: ({ node: _node, ...props }) =>
-                          isDownloadUrl(props.href) ? (
-                            <DownloadLink href={props.href}>{props.children}</DownloadLink>
-                          ) : (
-                            <a {...props} target="_blank" rel="noopener noreferrer" />
-                          ),
-                      }}
-                    >
-                      {r.payload.text ?? ""}
-                    </Markdown>
-                  </div>
-                )}
-                {r.payload.command && (
-                  <CollapsibleCode label="Команда и код">{r.payload.command}</CollapsibleCode>
-                )}
-                {r.type === "check" && r.payload.command && r.threadId && (
-                  <CommandOutput threadId={r.threadId} resultId={r.id} />
-                )}
-                {r.payload.changes?.map((change) => (
-                  <details className="file-change" key={change.path}>
-                    <summary>
-                      <span>{change.path.split(/[\\/]/).at(-1)}</span>
-                      <span className="small muted">{change.kind}</span>
-                      <CopyButton text={change.diff ?? ""} label="Копировать diff" />
-                    </summary>
-                    <small className="file-path">{change.path}</small>
-                    {onFile && (
-                      <button
-                        type="button"
-                        className="secondary"
-                        onClick={() => onFile(change.path)}
-                      >
-                        <Icon name="file" />
-                        Посмотреть файл
-                      </button>
-                    )}
-                    <pre>{change.diff || "Сводка изменений без текстового diff"}</pre>
-                  </details>
-                ))}
-                {r.turnId && onTurn && (
-                  <button
-                    type="button"
-                    className="result-origin"
-                    onClick={() => onTurn(r.turnId ?? "", r.threadId)}
-                  >
-                    <Icon name="chat" size={15} />
-                    {r.threadTitle || "К сообщению"}
-                    <Icon name="chevron" size={14} />
-                  </button>
-                )}
-              </article>
-            ),
-          )}
+                result={r}
+                focusId={focusId}
+                inspect={inspect}
+                onTurn={onTurn}
+                onFile={onFile}
+                onSaveLink={onSaveLink}
+                onRetry={onRetry}
+                selecting={selecting}
+                selected={selected}
+                onSelect={setSelected}
+                disclosure={disclosure}
+                setDisclosure={setDisclosure}
+              />
+            ))}
+        </div>
         {hasMore && (
           <button type="button" className="secondary load-more" disabled={busy} onClick={onOlder}>
             Загрузить ещё результаты

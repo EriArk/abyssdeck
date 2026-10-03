@@ -22,6 +22,7 @@ import {
   type TurnSettings,
 } from "@codex-web/shared";
 
+import { codexRequestCount, codexRequests } from "./codex-results.js";
 import { migrateDatabase } from "./migrations.js";
 
 export interface ThreadRecord {
@@ -505,6 +506,9 @@ export class Store {
       counts.all += Number(row.count);
       counts[resultCategory(String(row.type))] += Number(row.count);
     }
+    counts.reasoning = codexRequestCount(this.db, "threadId", threadId);
+    if (category === "reasoning")
+      return { ...codexRequests(this.db, "threadId", threadId, before), counts };
     const types = buckets
       .filter((row) => category === "all" || resultCategory(String(row.type)) === category)
       .map((row) => String(row.type));
@@ -536,6 +540,9 @@ export class Store {
       counts.all += Number(row.count);
       counts[resultCategory(String(row.type))] += Number(row.count);
     }
+    counts.reasoning = codexRequestCount(this.db, "projectId", projectId);
+    if (category === "reasoning")
+      return { ...codexRequests(this.db, "projectId", projectId, before), counts };
     const types = buckets
       .filter((row) => category === "all" || resultCategory(String(row.type)) === category)
       .map((row) => String(row.type));

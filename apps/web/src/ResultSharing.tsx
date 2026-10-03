@@ -20,7 +20,13 @@ import { useWorkspaceDialog } from "./useWorkspaceDialog";
 import type { WorkResultTarget } from "./WorkResultHandoffs";
 import "./communication.css";
 
-export function ResultShareButton({ result }: { result: ResultItem }) {
+export function ResultShareButton({
+  result,
+  withIcon = false,
+}: {
+  result: ResultItem;
+  withIcon?: boolean;
+}) {
   const compact = useContext(CompactFileActions);
   const [open, setOpen] = useState(false);
   if (
@@ -39,7 +45,8 @@ export function ResultShareButton({ result }: { result: ResultItem }) {
         title="Отправить"
         onClick={() => setOpen(true)}
       >
-        {compact ? <Icon name="send" /> : "Отправить"}
+        {(compact || withIcon) && <Icon name="send" />}
+        {!compact && "Отправить"}
       </button>
       {open && (
         <CompactFileActions.Provider value={false}>

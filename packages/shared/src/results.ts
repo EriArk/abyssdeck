@@ -19,7 +19,7 @@ export function resultCategory(type: string): Exclude<ResultCategory, "all"> {
   if (type === "image") return "images";
   if (type === "link") return "links";
   if (type === "preview") return "demos";
-  if (type === "reasoning") return "reasoning";
+  if (type === "reasoning" || type === "reasoning-request") return "reasoning";
   if (type === "file" || type === "artifact" || type === "canvas") return "files";
   return "work";
 }
@@ -27,6 +27,7 @@ export function emptyResultCounts(): ResultCounts {
   return { all: 0, images: 0, demos: 0, files: 0, links: 0, work: 0, reasoning: 0 };
 }
 export interface ResultItem {
+  cursor?: number;
   id: string;
   threadId?: string;
   threadTitle?: string;
@@ -39,6 +40,8 @@ export interface ResultItem {
     excerpt?: string;
     language?: string;
     steps?: import("./gpt.js").GptProgress[];
+    codexTurn?: boolean;
+    revision?: number;
     text?: string;
     message?: string;
     captureId?: string;
@@ -55,6 +58,18 @@ export interface ResultItem {
     status?: string;
     changes?: { path: string; kind: string; diff: string }[];
   };
+}
+export interface ResultTimelineItem {
+  id: string;
+  kind: "summary" | "message" | "request" | "work";
+  label: string;
+  text?: string;
+  result?: ResultItem;
+  logUrl?: string;
+}
+export interface ResultTimelinePage {
+  items: ResultTimelineItem[];
+  nextAfter: number | null;
 }
 export interface ResultPage {
   revision?: string;

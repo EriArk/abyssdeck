@@ -1,12 +1,12 @@
 import type { ResultCategory, ResultCounts } from "@codex-web/shared";
-import { useEffect, useRef } from "react";
+import { ResultActions } from "./ResultActions";
 export const resultLabels: Record<ResultCategory, string> = {
   all: "Все",
   images: "Изображения",
-  demos: "Демо",
+  demos: "HTML-демо",
   files: "Файлы",
   links: "Ссылки",
-  work: "Работа",
+  work: "Рассуждения",
   reasoning: "Рассуждения",
 };
 export function ResultFilters({
@@ -24,37 +24,41 @@ export function ResultFilters({
   showWork?: boolean;
   showReasoning?: boolean;
 }) {
-  const ref = useRef<HTMLElement>(null);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: Keep the newly selected category or preview visible in the horizontal strip.
-  useEffect(() => {
-    const nav = ref.current;
-    if (!nav) return;
-    const reveal = () =>
-      nav
-        .querySelector<HTMLElement>('[aria-pressed="true"]')
-        ?.scrollIntoView({ block: "nearest", inline: "nearest" });
-    reveal();
-    const resize = new ResizeObserver(reveal);
-    resize.observe(nav);
-    return () => resize.disconnect();
-  }, [category]);
+  const reasoning = showReasoning ? "reasoning" : "work";
   return (
-    <nav ref={ref} className="result-filters" aria-label="Категории результатов">
-      {(["files", "images", "links", "demos", "reasoning", "work"] as ResultCategory[])
-        .filter((key) => key !== "links" || showLinks)
-        .filter((key) => key !== "work" || showWork)
-        .filter((key) => key !== "reasoning" || showReasoning)
-        .map((key) => (
+    <nav className="result-filters result-primary-categories" aria-label="Категории результатов">
+      {(
+        ["files", "images", ...(showReasoning || showWork ? [reasoning] : [])] as ResultCategory[]
+      ).map((key) => (
+        <button
+          key={key}
+          type="button"
+          aria-pressed={category === key || (key === "reasoning" && category === "work")}
+          onClick={() => onChange(key)}
+        >
+          {resultLabels[key]}
+        </button>
+      ))}
+      <ResultActions title="Другие категории">
+        {(
+          [
+            ...(showLinks ? ["links"] : []),
+            "demos",
+            ...(showWork ? ["work"] : []),
+          ] as ResultCategory[]
+        ).map((key) => (
           <button
-            key={key}
             type="button"
-            aria-pressed={key === category}
+            key={key}
+            className="secondary"
+            aria-pressed={category === key}
             onClick={() => onChange(key)}
           >
-            {resultLabels[key]}
-            {counts[key] > 0 && <span className="result-filter-count">{counts[key]}</span>}
+            {key === "work" ? "Сохранённые действия" : resultLabels[key]}{" "}
+            <span className="muted">{counts[key] || 0}</span>
           </button>
         ))}
+      </ResultActions>
     </nav>
   );
 }

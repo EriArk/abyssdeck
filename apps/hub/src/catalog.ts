@@ -704,6 +704,12 @@ export class Catalog {
         inputs.filter((c) => c.type === "localImage").map((c) => str(c.path, 2048)),
       );
     if (!content && !images.length) return;
+    // Preserve the public request for Results without inserting synthetic chat messages.
+    if (type === "userMessage" && turnId)
+      this.store.result(thread.id, turnId, "request:" + messageId, "reasoning-request", "Запрос", {
+        text: content || "Запрос с вложениями",
+        codexTurn: true,
+      });
     return {
       threadId: thread.id,
       id: messageId,

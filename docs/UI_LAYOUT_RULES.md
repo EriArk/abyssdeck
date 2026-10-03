@@ -54,9 +54,10 @@ last-seen timeline. Group naming belongs in the existing settings window.
 Results direct viewing (24 September): a file title and image thumbnail are the
 primary open targets. Open the universal viewer immediately above the mounted
 feed, retaining its category and scroll. Do not add an action-only detail screen,
-a Preview tab, or a duplicate Preview button. Sharing/downloading stay together
-as equal-width actions on the original card. Long filenames wrap without changing
-peer control widths; keep keyboard-accessible open buttons and existing exact
+  a Preview tab, or a duplicate Preview button. The October 3 Results decision places
+  sharing/downloading/source actions in one themed overflow menu: beside file/link/demo
+  titles and on the image thumbnail's upper right. Keep titles compact with full accessible
+  names, keyboard-accessible open buttons and existing exact
 source navigation from messages.
 
 Results search (28 September): one magnifier belongs in the feed heading.

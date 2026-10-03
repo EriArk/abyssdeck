@@ -19,8 +19,9 @@
 - Links and HTML demos use the same overflow-menu approach. Their «⋯» belongs
   beside the title row on the right, like Files, not in an upper corner. Keep
   content disclosure independent; use only actions available for that source type.
-- The current Results mockup incorporates this direction. Its presentation remains
-  a design discussion before production changes, as recorded below.
+- The owner subsequently approved this Results direction and its production
+  implementation with “Мне нравится. Продолжаем”. Keep the source, browser checks
+  and actual activation distinct in CURRENT_STATUS; this supersedes the mock-only pause.
 
 ## Owner-requested scope restraint and Results review (2026-10-03)
 

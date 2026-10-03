@@ -34,6 +34,7 @@ import { MAX_FILE_BYTES } from "./attachments.js";
 import { Auth } from "./auth.js";
 import { registerBridgeDoctor } from "./bridge-doctor.js";
 import { registerChunkUploads } from "./chunk-uploads.js";
+import { codexTimeline, unlinkedTurnWork } from "./codex-results.js";
 import { registerCodexSchedules } from "./codex-schedule-routes.js";
 import { registerCommandOutput } from "./command-output.js";
 import { registerContentSearch } from "./content-search.js";
@@ -631,6 +632,24 @@ export async function createApp(
     const p = z.object({ id: idSchema, resultId: idSchema }).parse(req.params);
     sessions.thread(p.id);
     return store.resultById(p.id, p.resultId);
+  });
+  app.get("/api/threads/:id/reasoning", async (req) => {
+    const id = paramId(req);
+    sessions.thread(id);
+    const query = z
+      .object({ turnId: idSchema, after: z.coerce.number().int().min(0).default(0) })
+      .strict()
+      .parse(req.query);
+    return codexTimeline(store.db, id, query.turnId, query.after);
+  });
+  app.get("/api/threads/:id/reasoning/work", async (req) => {
+    const id = paramId(req);
+    sessions.thread(id);
+    const query = z
+      .object({ turnId: idSchema, before: z.coerce.number().int().optional() })
+      .strict()
+      .parse(req.query);
+    return unlinkedTurnWork(store.db, id, query.turnId, query.before);
   });
   app.get("/api/threads/:id/progress", async (req) => {
     const id = paramId(req),

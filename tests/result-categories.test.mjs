@@ -99,7 +99,11 @@ test("GPT results contain only assistant artifacts and inline HTML from the curr
     );
     cache.invalidate("native-123456789");
     current = [messages[0]];
-    const replaced = gptResults("native-123456789", await cache.messages("native-123456789"), previews);
+    const replaced = gptResults(
+      "native-123456789",
+      await cache.messages("native-123456789"),
+      previews,
+    );
     assert.equal(replaced.length, 1);
     assert.equal(replaced[0].type, "reasoning");
     assert.deepEqual(replaced[0].payload.steps, []);
@@ -176,7 +180,8 @@ test("GPT links use visible Markdown, exact public URLs, stable identities and s
   assert.deepEqual(demoHtml, ["<div>Real demo</div>"]);
   assert.equal(page.counts.work, 0);
   assert.equal(page.counts.reasoning, 1);
-  assert.equal(page.counts.all, 6);
+  assert.equal(page.counts.images, 1);
+  assert.equal(page.counts.all, 7);
   assert.equal(page.items[0].title, "Latest documentation");
   assert.equal(page.items[0].turnId, "latest");
   assert.equal(

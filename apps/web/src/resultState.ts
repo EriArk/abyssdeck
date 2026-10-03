@@ -42,6 +42,7 @@ export function firstResultPage(page: ResultPage): ResultPage {
   return {
     ...page,
     items: page.items.slice(0, 20),
-    nextBefore: page.items.length > 20 ? page.items[19]!.id : page.nextBefore,
+    nextBefore:
+      page.items.length > 20 ? (page.items[19]!.cursor ?? page.items[19]!.id) : page.nextBefore,
   };
 }
