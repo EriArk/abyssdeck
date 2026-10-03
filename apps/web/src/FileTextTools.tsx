@@ -1,8 +1,5 @@
-import { isolateHistory, selectMatchingBracket } from "@codemirror/commands";
-import { foldAll, unfoldAll } from "@codemirror/language";
-import { gotoLine } from "@codemirror/search";
-import type { EditorView } from "@codemirror/view";
 import { type RefObject, useState } from "react";
+import type { FileEditorEngine } from "./fileEditorEngine";
 import { Icon } from "./icons";
 import { formatJson, type MarkdownAction, markdownChange } from "./textFormatOperations";
 import "./file-format-tools.css";
@@ -12,7 +9,7 @@ export function FileTextTools({
   path,
   disabled,
 }: {
-  editor: RefObject<EditorView | null>;
+  editor: RefObject<FileEditorEngine | null>;
   path: string;
   disabled: boolean;
 }) {
@@ -35,14 +32,9 @@ export function FileTextTools({
   const apply = (action: MarkdownAction) => {
     const view = editor.current;
     if (!view) return;
-    const { from, to } = view.state.selection.main;
-    const change = markdownChange(view.state.doc.toString(), from, to, action);
-    view.dispatch({
-      changes: { from: change.from, to: change.to, insert: change.insert },
-      selection: { anchor: change.anchor, head: change.head },
-      annotations: isolateHistory.of("full"),
-      scrollIntoView: true,
-    });
+    const { from, to } = view.selection();
+    const change = markdownChange(view.text(), from, to, action);
+    view.change(change);
     view.focus();
     setNotice("");
   };
@@ -50,18 +42,14 @@ export function FileTextTools({
     const view = editor.current;
     if (!view) return;
     try {
-      const text = view.state.doc.toString();
+      const text = view.text();
       let next = text;
       if (json) next = formatJson(text, /\.(jsonl|ndjson)$/i.test(path));
       else if (
         new DOMParser().parseFromString(text, "application/xml").querySelector("parsererror")
       )
         throw Error("Некорректный XML.");
-      if (format && next !== text)
-        view.dispatch({
-          changes: { from: 0, to: view.state.doc.length, insert: next },
-          annotations: isolateHistory.of("full"),
-        });
+      if (format && next !== text) view.change({ from: 0, to: view.text().length, insert: next });
       setNotice(format ? "Форматирование применено. Можно отменить." : "Синтаксис корректен.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Не удалось проверить синтаксис.");
@@ -92,18 +80,18 @@ export function FileTextTools({
             <span key={action}>{button(label, icon, () => apply(action))}</span>
           ))}
         {button("Перейти к строке", "line", () => {
-          if (editor.current) gotoLine(editor.current);
+          editor.current?.command("line");
         })}
         {button("Свернуть блоки", "fold", () => {
-          if (editor.current) foldAll(editor.current);
+          editor.current?.command("fold");
         })}
         {button("Развернуть блоки", "unfold", () => {
-          if (editor.current) unfoldAll(editor.current);
+          editor.current?.command("unfold");
         })}
         {!markdown &&
           button("К парной скобке", "code", () => {
             if (editor.current) {
-              selectMatchingBracket(editor.current);
+              editor.current.command("bracket");
               editor.current.focus();
             }
           })}

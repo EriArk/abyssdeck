@@ -1,12 +1,4 @@
-import { indentWithTab, redo, undo } from "@codemirror/commands";
-import { HighlightStyle, LanguageDescription, syntaxHighlighting } from "@codemirror/language";
-import { languages } from "@codemirror/language-data";
-import { openSearchPanel } from "@codemirror/search";
-import { Compartment, EditorState } from "@codemirror/state";
-import { EditorView, keymap } from "@codemirror/view";
 import type { FileSnapshot } from "@codex-web/shared";
-import { tags } from "@lezer/highlight";
-import { basicSetup } from "codemirror";
 import { useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ApiError, api, messageOf } from "./api";
@@ -15,6 +7,12 @@ import { FileCopySave } from "./FileCopySave";
 import { FileEditorPreview } from "./FileEditorPreview";
 import { FileTextTools } from "./FileTextTools";
 import { FileViewerDialog } from "./FileViewerDialog";
+import {
+  codeLanguage,
+  type EngineOptions,
+  type FileEditorEngine,
+  supportsMonaco,
+} from "./fileEditorEngine";
 import { CompactFileActions, FileWorkspaceContext } from "./fileWorkspaceContext";
 import { githubDraftStorage } from "./githubDraftStorage";
 import { Icon } from "./icons";
@@ -71,8 +69,10 @@ function EditorContents({
     [tableText, setTableText] = useState("");
   const host = useRef<HTMLDivElement>(null);
   const workspace = useContext(FileWorkspaceContext);
-  const editor = useRef<EditorView | null>(null),
+  const editor = useRef<FileEditorEngine | null>(null),
     baseline = useRef<FileSnapshot | null>(null);
+  const [position, setPosition] = useState({ line: 1, column: 1 });
+  const [engineKind, setEngineKind] = useState("");
   const [loaded, setLoaded] = useState(false),
     [dirty, setDirty] = useState(false),
     [busy, setBusy] = useState(false),
@@ -86,12 +86,9 @@ function EditorContents({
   useEffect(() => {
     if (viewing || tableMode) return;
     // Every return path must remeasure after the hidden editor becomes visible.
-    const frame = requestAnimationFrame(() => editor.current?.requestMeasure());
+    const frame = requestAnimationFrame(() => editor.current?.measure());
     return () => cancelAnimationFrame(frame);
   }, [viewing, tableMode]);
-  const wrapping = useRef(new Compartment()),
-    syntax = useRef(new Compartment()),
-    endings = useRef(new Compartment());
   const saveAction = useRef<() => void>(() => {}),
     saving = useRef(false);
   const pending = useRef<{
@@ -108,7 +105,7 @@ function EditorContents({
       : `workspace-file-draft:${projectId}:${path}`,
     url = `/projects/${encodeURIComponent(projectId)}/file-tools`;
   const exactLines = (text: string) => text.replace(/\r\n|\r|\n/g, lineSeparator.current);
-  const current = () => exactLines(editor.current?.state.sliceDoc() ?? "");
+  const current = () => exactLines(editor.current?.text() ?? "");
   const separatorOf = (text: string) => {
     const separators = new Set(text.match(/\r\n|\r|\n/g) ?? []);
     if (separators.size > 1)
@@ -225,7 +222,7 @@ function EditorContents({
     void save();
   };
   // The editor instance belongs to exactly one project/path; parent keys this component accordingly.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: Data and CodeMirror lifetime are scoped to this mounted file.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Data and editor lifetime are scoped to this mounted file.
   useEffect(() => {
     active.current = true;
     let alive = true,
@@ -277,70 +274,44 @@ function EditorContents({
         // A changed disk version must not change the restored draft's line endings.
         lineSeparator.current = separatorOf(baseline.current?.text ?? "");
         separatorOf(text);
-        const view = new EditorView({
-          parent: host.current,
-          state: EditorState.create({
-            doc: text,
-            extensions: [
-              keymap.of([
-                indentWithTab,
-                {
-                  key: "Mod-s",
-                  run: () => {
-                    saveAction.current();
-                    return true;
-                  },
-                },
-              ]),
-              basicSetup,
-              endings.current.of(EditorState.lineSeparator.of(lineSeparator.current)),
-              EditorView.contentAttributes.of({
-                "aria-label": "Содержимое файла",
-                spellcheck: "false",
-                autocapitalize: "off",
-                autocorrect: "off",
-              }),
-              wrapping.current.of([]),
-              syntax.current.of([]),
-              syntaxHighlighting(
-                HighlightStyle.define([
-                  { tag: [tags.keyword, tags.operator], color: "var(--accent)" },
-                  {
-                    tag: [tags.string, tags.number, tags.bool],
-                    color: "var(--ink)",
-                    fontWeight: "600",
-                  },
-                  { tag: tags.comment, color: "var(--muted)", fontStyle: "italic" },
-                  {
-                    tag: [tags.typeName, tags.function(tags.variableName)],
-                    color: "var(--accent)",
-                    fontWeight: "600",
-                  },
-                ]),
-              ),
-              EditorView.updateListener.of((update) => {
-                if (update.docChanged) {
-                  if (tabular) setTableText(update.state.doc.toString());
-                  setDirty(exactLines(update.state.sliceDoc()) !== baseline.current?.text);
-                  clearTimeout(timer);
-                  timer = setTimeout(persist, 350);
-                }
-              }),
-            ],
-          }),
-        });
-        editor.current = view;
-        if (tabular) setTableText(view.state.doc.toString());
+        const options: EngineOptions = {
+          host: host.current,
+          path,
+          text,
+          separator: lineSeparator.current,
+          onSave: () => saveAction.current(),
+          onPosition: (line, column) => {
+            if (alive) setPosition({ line, column });
+          },
+          onChange: (value) => {
+            if (!alive) return;
+            if (tabular) setTableText(value);
+            setDirty(exactLines(value) !== baseline.current?.text);
+            clearTimeout(timer);
+            timer = setTimeout(persist, 350);
+          },
+        };
+        const language = codeLanguage(path);
+        let instance: FileEditorEngine | undefined;
+        if (language && supportsMonaco()) {
+          try {
+            const { createMonaco } = await import("./monacoEngine");
+            if (!alive) return;
+            instance = createMonaco(options, language);
+          } catch {
+            // No editable text exists yet: a failed lazy load can safely fall back.
+          }
+        }
+        if (!instance) {
+          const { createCodeMirror } = await import("./codeMirrorEngine");
+          if (!alive) return;
+          instance = createCodeMirror(options);
+        }
+        editor.current = instance;
+        setEngineKind(instance.kind);
+        if (tabular) setTableText(instance.text());
         setLoaded(true);
         setDirty(text !== baseline.current?.text);
-        const lang = LanguageDescription.matchFilename(languages, path);
-        if (lang)
-          void lang
-            .load()
-            .then((extension) => {
-              if (alive) view.dispatch({ effects: syntax.current.reconfigure(extension) });
-            })
-            .catch(() => {});
       })
       .catch((e) => {
         if (alive && !controller.signal.aborted) setError(messageOf(e));
@@ -396,6 +367,7 @@ function EditorContents({
   return (
     <section
       className="file-editor file-editor-embedded"
+      data-editor-engine={engineKind}
       data-help-context="editor"
       aria-label={`Редактор ${path}`}
     >
@@ -473,7 +445,7 @@ function EditorContents({
             type="button"
             className="icon-button"
             aria-label="Отменить изменение"
-            onClick={() => editor.current && undo(editor.current)}
+            onClick={() => editor.current?.command("undo")}
           >
             <Icon name="back" />
           </button>
@@ -481,7 +453,7 @@ function EditorContents({
             type="button"
             className="icon-button"
             aria-label="Повторить изменение"
-            onClick={() => editor.current && redo(editor.current)}
+            onClick={() => editor.current?.command("redo")}
           >
             <Icon name="chevron" />
           </button>
@@ -491,7 +463,7 @@ function EditorContents({
             aria-label="Найти в файле"
             onClick={() => {
               setTableMode(false);
-              if (editor.current) openSearchPanel(editor.current);
+              editor.current?.command("search");
             }}
           >
             <Icon name="search" />
@@ -504,9 +476,7 @@ function EditorContents({
             aria-pressed={wrap}
             onClick={() => {
               setWrap(!wrap);
-              editor.current?.dispatch({
-                effects: wrapping.current.reconfigure(wrap ? [] : EditorView.lineWrapping),
-              });
+              editor.current?.wrap(!wrap);
             }}
           >
             <Icon name="wrap" />
@@ -557,14 +527,7 @@ function EditorContents({
                 }
                 lineSeparator.current = separator;
                 baseline.current = conflict;
-                editor.current?.dispatch({
-                  effects: endings.current.reconfigure(EditorState.lineSeparator.of(separator)),
-                  changes: {
-                    from: 0,
-                    to: editor.current.state.doc.length,
-                    insert: conflict.text ?? "",
-                  },
-                });
+                editor.current?.reload(conflict.text ?? "", separator);
                 setDirty(false);
                 setConflict(null);
                 setError("");
@@ -587,16 +550,15 @@ function EditorContents({
             onChange={(change) => {
               const view = editor.current;
               if (!view) return;
-              view.dispatch({
-                changes: {
-                  ...change,
-                  insert: change.insert.replace(/\r\n|\r|\n/g, lineSeparator.current),
-                },
-                userEvent: "input.table",
-              });
+              view.change({ ...change, insert: change.insert.replace(/\r\n|\r/g, "\n") });
             }}
           />
         </div>
+      )}
+      {loaded && !viewing && !tableMode && (
+        <small className="file-editor-position">
+          {position.line}:{position.column}
+        </small>
       )}
       {preview && (
         <div className="file-editor-preview" hidden={!viewing}>

@@ -259,6 +259,13 @@
 .file-editor-embedded [hidden] {
   display: none !important;
 }
+.file-editor-position {
+  flex: none;
+  padding: 2px 10px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
 .file-editor-preview {
   display: flex;
   flex-direction: column;

@@ -80,7 +80,8 @@ and Close control, keep comparison/apply actions in an equal-width footer and
 retain the draft beneath nested windows. Selects need a visible theme-colored
 arrow; removing native appearance must not remove their selection affordance.
 
-Manual editing: all text viewers lead to the same CodeMirror workspace. Keep
+Manual editing: all text viewers edit inside the same file workspace. Desktop
+code uses Monaco; Markdown/CSV/plain text and mobile/fallback use CodeMirror. Keep
 Save As destination fields and download/project actions in explicit equal-width
 rows. GitHub files use a protected title, branch row, independently scrolling
 file body and separate review footer. Give workspace-specific modal geometry

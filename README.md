@@ -156,7 +156,8 @@ CodexWeb has a real Files workspace.
 
 You can:
 
-- edit text/code in CodeMirror;
+- edit inside the universal viewer: Monaco for desktop code, CodeMirror for Markdown,
+  CSV/TSV, ordinary text, mobile/iPad code and failed Monaco loads;
 - upload and download files;
 - create files and folders;
 - rename, copy, move and delete;
@@ -166,6 +167,13 @@ You can:
 - download selected files/folders as a ZIP.
 
 If a generated Result is useful, you can open it directly without hunting through the project directory.
+
+The pencil switches the same viewer into editing, preserving its window and draft.
+Both text engines share saving, Save As, dirty-state checks and external-change conflicts.
+Monaco and its workers load only when a desktop code editor is opened, from the Hub's own
+assets. JS/TS have local language-service completion; HTML/CSS/JSON have their bundled
+services. Other recognized languages provide highlighting and document-word suggestions,
+not a project language server. Markdown tools and CSV table editing remain on CodeMirror.
 
 And because my projects are not only web apps, the viewer understands more than source code.
 

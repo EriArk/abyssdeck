@@ -1,5 +1,16 @@
 # AGENTS.md
 
+## Owner-approved code editor engines (2026-10-03)
+
+- Integrate Monaco as the code-editing mode of the universal viewer, regardless
+  of the file entry (Files, Git, chat or Results). Preserve the same window,
+  source, draft, save receipts and conflict handling. Do not create another IDE.
+- Keep CodeMirror for Markdown, CSV/TSV and ordinary text. Mobile/iPad code editing
+  and failed Monaco loads use CodeMirror too. Choose once per mounted document;
+  resizing a window must not switch engines or discard undo history.
+- Keep terminals and their renderer/PTY/input unchanged. This narrows issue #236
+  to the owner's subsequent format/mobile decisions.
+
 ## Owner-approved viewer direction and format tools (2026-10-03)
 
 - The owner approved the shared viewer chassis proposal. View and edit are modes
