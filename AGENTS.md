@@ -1,5 +1,16 @@
 # AGENTS.md
 
+## Owner-requested unified reasoning and work (2026-10-03)
+
+- Codex Results should expose «Рассуждения» instead of the separate «Работа» category.
+  Combine available native public progress/reasoning summaries with expandable work
+  cards in the same task sequence. Preserve commands, changes, checks, errors and
+  source navigation; do not discard old work records when changing presentation.
+- Keep the hierarchy shallow on phones. Use exact thread/turn and native step links;
+  do not invent missing reasoning or causal parentage from timestamps alone.
+- The current Results mockup incorporates this direction. Its presentation remains
+  a design discussion before production changes, as recorded below.
+
 ## Owner-requested scope restraint and Results review (2026-10-03)
 
 - Pause further viewer format-tool expansion; the proposed video-frame/markup stage
