@@ -10,6 +10,8 @@ export { previewKind } from "./filePreviewRegistry";
 
 const ModelPreview = lazy(() => import("./ModelFilePreview"));
 const DxfPreview = lazy(() => import("./DxfFilePreview"));
+const ImageMarkup = lazy(() => import("./ImageMarkup"));
+const MediaPreview = lazy(() => import("./MediaFilePreview"));
 
 const PdfPreview = lazy(() => import("./PdfFilePreview"));
 const DocxPreview = lazy(() => import("./DocxFilePreview"));
@@ -124,7 +126,9 @@ export function FilePreview({
             <PackagePreview key={file.name + file.lastModified} file={file} />
           </Suspense>
         ) : kind === "image" && full ? (
-          <ImageViewport url={objectUrl} name={file.name} />
+          <Suspense fallback={<ImageViewport url={objectUrl} name={file.name} />}>
+            <ImageMarkup key={objectUrl} file={file} url={objectUrl} source={source} />
+          </Suspense>
         ) : kind === "technical" ? (
           <Suspense fallback={<p role="status">Открываю просмотрщик…</p>}>
             {technicalFormat(file) === "svg" ? (
@@ -135,12 +139,10 @@ export function FilePreview({
               <ModelPreview file={file} source={source} />
             )}
           </Suspense>
-        ) : kind === "audio" ? (
-          // biome-ignore lint/a11y/useMediaCaption: The viewer opens an existing file without a supplied caption track.
-          <audio src={objectUrl} controls preload="metadata" />
-        ) : kind === "video" ? (
-          // biome-ignore lint/a11y/useMediaCaption: The viewer opens an existing file without a supplied caption track.
-          <video src={objectUrl} controls playsInline preload="metadata" />
+        ) : kind === "audio" || kind === "video" ? (
+          <Suspense fallback={<p role="status">Открываю проигрыватель…</p>}>
+            <MediaPreview key={objectUrl} file={file} video={kind === "video"} />
+          </Suspense>
         ) : kind === "image" ? (
           badImage ? (
             <FileCard file={file} />

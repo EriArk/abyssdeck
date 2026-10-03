@@ -1,6 +1,19 @@
 import type { CSSProperties } from "react";
 
 const paths: Record<string, string[]> = {
+  heading: ["M5 4v16M19 4v16M5 12h14"],
+  bold: ["M6 3h7a4 4 0 0 1 0 8H6V3Zm0 8h8a5 5 0 0 1 0 10H6V11Z"],
+  italic: ["M10 3h10M4 21h10M15 3 9 21"],
+  quote: ["M4 5h6v7H4V5Zm0 7c0 5 2 6 5 7M14 5h6v7h-6V5Zm0 7c0 5 2 6 5 7"],
+  line: ["M3 5h2M3 12h2M3 19h2M9 5h12M9 12h12M9 19h12"],
+  fold: ["M3 3h18M3 21h18M7 7l5 4 5-4M7 17l5-4 5 4"],
+  unfold: ["M3 3h18M3 21h18M7 11l5-4 5 4M7 13l5 4 5-4"],
+  marker: ["m4 14 10-10 6 6-10 10-6-6ZM6 16l-3 5h6M12 6l6 6"],
+  arrow: ["M4 20 20 4M9 4h11v11"],
+  rectangle: ["M3 5h18v14H3z"],
+  text: ["M3 4h18M12 4v17M8 21h8"],
+  crop: ["M6 2v16h16M2 6h16v16"],
+  rotate: ["M4 8V3m0 5h5M4 8a9 9 0 1 1-1 8"],
   save: ["M4 3h13l4 4v14H3V3h1ZM7 3v6h9V3M7 21v-8h10v8"],
   "file-plus": ["M14 2H5v20h14V7l-5-5Z", "M14 2v5h5M8 14h8M12 10v8"],
   "folder-plus": ["M3 6V4h6l2 3h10v13H3V6Z", "M8 13h8M12 9v8"],

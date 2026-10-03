@@ -4,6 +4,7 @@ import { createContext, type RefObject } from "react";
 export const FileWorkspaceContext = createContext<{
   editorHost: HTMLDivElement | null;
   setEditing: (value: boolean) => void;
+  setContentStatus?: (value: string) => void;
   closeGuard: RefObject<((complete: () => void) => void) | null>;
 } | null>(null);
 

@@ -10,6 +10,7 @@ export function webSecurity(config: HubConfig) {
         scriptSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", "data:", "blob:", "https:"],
+        mediaSrc: ["'self'", "blob:"],
         connectSrc: ["'self'"],
         fontSrc: ["'self'"],
         frameAncestors: ["'none'"],

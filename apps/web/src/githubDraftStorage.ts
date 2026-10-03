@@ -100,6 +100,7 @@ window.addEventListener("private-session-ended", () => {
         key &&
         (key.startsWith("workspace-github-file-review:") ||
           key.startsWith("workspace-file-copy:") ||
+          key.startsWith("workspace-image-draft:") ||
           key.startsWith("workspace-file-draft:"))
       )
         accountLocalStorage.removeItem(key);

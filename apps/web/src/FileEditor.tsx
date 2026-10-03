@@ -13,6 +13,7 @@ import { ApiError, api, messageOf } from "./api";
 import { FileCopySave } from "./FileCopySave";
 import { FileEditorPreview } from "./FileEditorPreview";
 import { FileViewerDialog } from "./FileViewerDialog";
+import { FileTextTools } from "./FileTextTools";
 import { CompactFileActions, FileWorkspaceContext } from "./fileWorkspaceContext";
 import { githubDraftStorage } from "./githubDraftStorage";
 import { Icon } from "./icons";
@@ -492,6 +493,7 @@ function EditorContents({
           </button>
         </div>
       </div>
+      {!viewing && <FileTextTools editor={editor} path={path} disabled={!loaded || busy} />}
       {error && (
         <p className="notice" role="alert">
           {error}

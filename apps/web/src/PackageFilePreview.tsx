@@ -87,6 +87,7 @@ export default function PackageFilePreview({ file }: { file: File }) {
   const { result, busy, read } = usePackage(file);
   const [folder, setFolder] = useState(""),
     [search, setSearch] = useState(""),
+    [sort, setSort] = useState("name"),
     [page, setPage] = useState(0),
     [opened, setOpened] = useState<File | null>(null);
   if (result.office) return <OfficePreview doc={result.office} />;
@@ -110,7 +111,11 @@ export default function PackageFilePreview({ file }: { file: File }) {
   });
   const items = [
     ...[...folders].sort().map((name) => ({ name, directory: true, size: 0, blocked: "" })),
-    ...files,
+    ...[...files].sort((a, b) =>
+      sort === "size"
+        ? b.size - a.size || a.name.localeCompare(b.name)
+        : a.name.localeCompare(b.name),
+    ),
   ];
   return (
     <div className="package-viewer">
@@ -142,6 +147,17 @@ export default function PackageFilePreview({ file }: { file: File }) {
             setPage(0);
           }}
         />
+        <select
+          aria-label="Сортировка архива"
+          value={sort}
+          onChange={(e) => {
+            setSort(e.target.value);
+            setPage(0);
+          }}
+        >
+          <option value="name">По имени</option>
+          <option value="size">По размеру</option>
+        </select>
       </div>
       <div className="package-scroll" aria-busy={busy}>
         {busy && <p role="status">Читаю архив…</p>}
@@ -181,7 +197,7 @@ export default function PackageFilePreview({ file }: { file: File }) {
         page={page}
         count={Math.ceil(items.length / 100)}
         onChange={setPage}
-        label={`${entries.filter((e) => !e.directory).length} файлов`}
+        label={`${entries.filter((e) => !e.directory).length} файлов · ${sizeLabel(entries.reduce((total, e) => total + (e.directory ? 0 : e.size), 0))} распаковано`}
       />
       {opened && <ExtractedFile file={opened} onClose={() => setOpened(null)} />}
     </div>

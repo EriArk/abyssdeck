@@ -15,6 +15,12 @@
   padding: 8px;
   border-bottom: 1px solid var(--line);
 }
+.package-tools > select {
+  grid-column: 2 / -1;
+  width: auto;
+  justify-self: end;
+  min-height: 44px;
+}
 .office-tools {
   grid-template-columns: minmax(0, 1fr) 90px minmax(140px, 220px);
 }
@@ -25,7 +31,8 @@
 }
 .package-tools input,
 .office-tools input,
-.office-tools select {
+.office-tools select,
+.package-tools select {
   width: 100%;
   box-sizing: border-box;
   min-height: 44px;

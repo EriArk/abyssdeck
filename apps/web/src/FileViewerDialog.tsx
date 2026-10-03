@@ -41,9 +41,13 @@ export function FileViewerDialog({
   const [properties, setProperties] = useState(false),
     [expanded, setExpanded] = useState(false),
     [editing, setEditing] = useState(false),
+    [contentStatus, setContentStatus] = useState(""),
     [editorHost, setEditorHost] = useState<HTMLDivElement | null>(null);
   const closeGuard = useRef<((complete: () => void) => void) | null>(null);
-  const workspace = useMemo(() => ({ editorHost, setEditing, closeGuard }), [editorHost]);
+  const workspace = useMemo(
+    () => ({ editorHost, setEditing, setContentStatus, closeGuard }),
+    [editorHost],
+  );
   useWorkspaceDialog(dialog, true, "file-viewer");
   const dismiss = useWindowDismiss(dialog);
   const close = () =>
@@ -173,7 +177,10 @@ export function FileViewerDialog({
             )}
           </div>
           <footer className="file-viewer-footer">
-            <span>{description ? "" : draft ? "Без сохранения в проект" : "Исходный файл"}</span>
+            <span>
+              {contentStatus ||
+                (description ? "" : draft ? "Без сохранения в проект" : "Исходный файл")}
+            </span>
             <span>{format && format.length < 10 ? format : ""}</span>
           </footer>
         </dialog>
