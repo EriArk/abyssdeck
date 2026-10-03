@@ -114,15 +114,17 @@
   #cw-results-study .rs-check { display: flex; align-items: center; justify-content: center; min-width: 44px; height: 44px; }
   #cw-results-study .rs-check input { width: 19px; height: 19px; accent-color: var(--rs-active); }
   #cw-results-study .rs-images { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 16px 10px; padding: 8px 0 20px; }
-  #cw-results-study .rs-image { min-width: 0; position: relative; }
-  #cw-results-study .rs-image > .rs-open { display: block; padding: 0; width: 100%; }
-  #cw-results-study .rs-thumb { width: 100%; aspect-ratio: 4/3; object-fit: contain; background: var(--rs-screen-hi); border: 1px solid var(--rs-line); border-radius: 4px; display: block; margin-bottom: 7px; }
-  #cw-results-study .rs-image .rs-name { padding: 0 3px; font-size: 12px; }
-  #cw-results-study .rs-image .rs-meta { padding: 0 3px; }
-  #cw-results-study .rs-image-bottom { display: flex; justify-content: flex-end; }
-  #cw-results-study .rs-image .rs-actions { flex: 1; justify-content: flex-end; }
+  #cw-results-study .rs-image { min-width: 0; position: relative; padding: 4px; background: var(--rs-screen-hi); border: 1px solid var(--rs-line); border-radius: 7px; }
+  #cw-results-study .rs-image > .rs-open { display: block; padding: 0 0 8px; width: 100%; }
+  #cw-results-study .rs-thumb { width: 100%; aspect-ratio: 4/3; object-fit: contain; background: var(--rs-screen); border: 0; border-radius: 3px; display: block; margin-bottom: 9px; }
+  #cw-results-study .rs-image .rs-name { padding: 0 5px; font-size: 12px; }
+  #cw-results-study .rs-image .rs-meta { padding: 0 5px; }
+  #cw-results-study .rs-image-bottom, #cw-results-study .rs-image .rs-actions { display: contents; }
+  #cw-results-study .rs-image .rs-check { position: absolute; left: 7px; top: 7px; border-radius: 5px; background: var(--rs-screen-hi); }
   #cw-results-study .rs-image .rs-actions > .rs-key { display: none; }
-  #cw-results-study .rs-image .rs-actions > .rs-overflow { display: inline-flex; }
+  #cw-results-study .rs-image .rs-actions > .rs-overflow { display: inline-flex; position: absolute; right: 7px; top: 7px; color: var(--rs-text); background: var(--rs-screen-hi); border: 1px solid var(--rs-line); }
+  #cw-results-study .rs-image .rs-popover { top: 54px; right: 7px; }
+  #cw-results-study .rs-image:first-child .rs-popover { left: 7px; right: auto; }
   #cw-results-study .rs-service { border-bottom: 1px solid var(--rs-line); }
   #cw-results-study .rs-service summary { display: flex; align-items: center; gap: 10px; min-height: 64px; list-style: none; }
   #cw-results-study .rs-service summary::-webkit-details-marker { display: none; }
@@ -188,7 +190,7 @@
     #cw-results-study .rs-name { font-size: 12px; }
     #cw-results-study .rs-row { gap: 1px; }
     #cw-results-study .rs-image .rs-popover { min-width: 190px; }
-    #cw-results-study .rs-image:nth-child(odd) .rs-popover { left: 0; right: auto; }
+    #cw-results-study .rs-image:nth-child(odd) .rs-popover { left: 7px; right: auto; }
     #cw-results-study .rs-viewer-tools { gap: 2px; }
   }
   @media(max-width:350px) {

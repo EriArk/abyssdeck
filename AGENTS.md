@@ -14,6 +14,8 @@
   that reasoning. Retain nested expansion state when collapsing the request.
 - Results file rows use the roomier density on tablet/desktop and compact density
   on phones automatically; do not require a separate user density choice.
+- Image cards have a thin themed border/backing around the thumbnail and metadata.
+  Put their overflow menu at the thumbnail's upper-right corner, not below it.
 - The current Results mockup incorporates this direction. Its presentation remains
   a design discussion before production changes, as recorded below.
 
