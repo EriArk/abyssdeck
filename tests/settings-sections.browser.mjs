@@ -31,6 +31,7 @@ const preferences = {
 f.store.db.prepare("UPDATE threads SET origin='web' WHERE id=?").run(f.thread.id);
 f.store.setPreferences(preferences);
 const engine = process.env.SETTINGS_ENGINE || "chromium";
+const continuityOnly = process.env.SETTINGS_CONTINUITY_ONLY === "1";
 const browser = await (engine === "webkit" ? webkit : chromium).launch();
 const context = await browser.newContext({
   viewport: { width: 1366, height: 1024 },
@@ -49,7 +50,18 @@ page.setDefaultTimeout(10000);
 const errors = [],
   requests = [],
   inventory = [];
-page.on("pageerror", (e) => errors.push(e.message));
+let replacingDocument = false;
+page.on("pageerror", (e) => {
+  // Windows WebKit reports the old document's aborted presence fetch as a CORS
+  // page error during this deliberate owner-to-member reload (same-origin fixture).
+  if (
+    engine === "webkit" &&
+    replacingDocument &&
+    e.message === `/127.0.0.1:${port}/api/team/communication/presence due to access control checks.`
+  )
+    return;
+  errors.push(e.message);
+});
 await page.route("**/api/**", async (route) => {
   const req = route.request(),
     path = new URL(req.url()).pathname;
@@ -158,7 +170,7 @@ async function visit(title) {
   await expect(current().locator("h3.settings-section-title")).toHaveText(title);
 }
 async function shot(id, description) {
-  if (engine !== "chromium") return;
+  if (engine !== "chromium" || continuityOnly) return;
   await settings.screenshot({ path: `${out}/${id}.png`, animations: "disabled" });
   await writeFile(
     `${out}/${id}.md`,
@@ -179,6 +191,23 @@ try {
   assert.equal(count("/limits"), 0);
   assert.equal(count("/team/users"), 0);
   assert.equal(count("/team/gpt"), 0);
+  const divider = settings.getByRole("separator", { name: "Ширина категорий настроек" });
+  await expect(divider).toBeVisible();
+  const widthBefore = Number(await divider.getAttribute("aria-valuenow"));
+  await divider.focus();
+  await divider.press("ArrowRight");
+  await expect
+    .poll(async () => Number(await divider.getAttribute("aria-valuenow")))
+    .toBeGreaterThan(widthBefore);
+  await visit("Сочетания клавиш");
+  const scrollBefore = await current().evaluate((el) => {
+    el.scrollTop = 300;
+    return el.scrollTop;
+  });
+  assert(scrollBefore > 0);
+  await visit("Интерфейс");
+  await visit("Сочетания клавиш");
+  assert.equal(await current().evaluate((el) => el.scrollTop), scrollBefore);
   await visit("Добавить компьютер");
   await settings.getByLabel("Название компьютера").fill("Черновик компьютера");
   await visit("Озвучивание и уведомления");
@@ -228,7 +257,9 @@ try {
   await expect(current().locator("h3.settings-section-title")).toHaveText(
     "Обновления и диагностика",
   );
-  for (const theme of ["crt-green", "hitech-2000s", "organizer", "classic-dark"]) {
+  for (const theme of continuityOnly
+    ? []
+    : ["crt-green", "hitech-2000s", "organizer", "classic-dark"]) {
     await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme);
     for (const width of [1366, 820, 640, 390, 320]) {
       await page.setViewportSize({ width, height: width < 640 ? 844 : 1024 });
@@ -298,10 +329,12 @@ try {
   await button("Закрыть настройки").click();
   await expect(draft).toHaveValue("Сохранить черновик при работе с настройками");
   owner.role = "member";
+  replacingDocument = true;
   await page.reload();
   await button("Открыть проекты").click();
   await button("Настройки").click();
   await expect(settings.locator('[data-category="people"]')).toHaveCount(0);
+  replacingDocument = false;
   await button("Найти настройку").click();
   await settings.getByRole("searchbox").fill("Участники");
   await expect(settings.locator(".settings-search-results")).toContainText("Найдено: 0");
@@ -309,7 +342,7 @@ try {
   assert(f.desktopCalls.every((a) => a === "Status"));
   assert(!f.calls.some((c) => c.method === "turn/start"));
   await writeFile(
-    `${out}/${engine}-checks.json`,
+    `${out}/${engine}-${continuityOnly ? "continuity" : "checks"}.json`,
     JSON.stringify(
       {
         engine,
@@ -324,7 +357,9 @@ try {
           "draft continuity",
           "password clearing",
           "exact back navigation",
-          "four themes/five widths",
+          "scroll continuity",
+          "resizable navigation",
+          ...(continuityOnly ? [] : ["four themes/five widths"]),
           "keyboard bounds",
           "no native writes",
         ],

@@ -1,0 +1,440 @@
+{
+  "engine": "chromium",
+  "screens": [],
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/api/auth/status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/session"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/conversations"
+    },
+    {
+      "method": "POST",
+      "path": "/api/team/communication/presence"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/conversations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/workspace/notices"
+    },
+    {
+      "method": "GET",
+      "path": "/api/deployment"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/conversations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/conversations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/workspace/notices"
+    },
+    {
+      "method": "GET",
+      "path": "/api/workspace/navigation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/workspace/destinations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/spaces"
+    },
+    {
+      "method": "GET",
+      "path": "/api/push"
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects"
+    },
+    {
+      "method": "GET",
+      "path": "/api/preferences"
+    },
+    {
+      "method": "GET",
+      "path": "/api/machines"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/spaces"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/brainstorm"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/conversations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects/project/threads"
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects/project/capabilities"
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects/project/results"
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects/project/status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/threads/059e37da-ca8e-4d13-bbee-94a8e18588a5/context"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/result-work-handoffs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/workspace/reviews"
+    },
+    {
+      "method": "GET",
+      "path": "/api/threads/059e37da-ca8e-4d13-bbee-94a8e18588a5/queue"
+    },
+    {
+      "method": "GET",
+      "path": "/api/threads/059e37da-ca8e-4d13-bbee-94a8e18588a5/attachments"
+    },
+    {
+      "method": "GET",
+      "path": "/api/dictation/status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/threads/059e37da-ca8e-4d13-bbee-94a8e18588a5/history"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/preferences"
+    },
+    {
+      "method": "GET",
+      "path": "/api/threads/059e37da-ca8e-4d13-bbee-94a8e18588a5/results"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/preferences"
+    },
+    {
+      "method": "GET",
+      "path": "/api/threads/059e37da-ca8e-4d13-bbee-94a8e18588a5/results"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/me"
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects/project/results"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/machines"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/me"
+    },
+    {
+      "method": "GET",
+      "path": "/api/threads/059e37da-ca8e-4d13-bbee-94a8e18588a5/queue"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/machines"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/me"
+    },
+    {
+      "method": "GET",
+      "path": "/api/machines/pc/limits"
+    },
+    {
+      "method": "GET",
+      "path": "/api/gpt/status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/gpt"
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects/project/results"
+    },
+    {
+      "method": "GET",
+      "path": "/api/threads/059e37da-ca8e-4d13-bbee-94a8e18588a5/queue"
+    },
+    {
+      "method": "GET",
+      "path": "/api/threads/059e37da-ca8e-4d13-bbee-94a8e18588a5/queue"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/conversations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/conversations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/deployment"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/conversations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/conversations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/spaces"
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects/project/results"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/result-work-handoffs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/workspace/reviews"
+    },
+    {
+      "method": "GET",
+      "path": "/api/threads/059e37da-ca8e-4d13-bbee-94a8e18588a5/queue"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/me"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/users"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/invitations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/machines/overview"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/machines"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/me"
+    },
+    {
+      "method": "GET",
+      "path": "/api/gpt/doctor"
+    },
+    {
+      "method": "GET",
+      "path": "/api/gpt/status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/gpt"
+    },
+    {
+      "method": "GET",
+      "path": "/api/threads/059e37da-ca8e-4d13-bbee-94a8e18588a5/queue"
+    },
+    {
+      "method": "GET",
+      "path": "/api/dictation/status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/session"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/conversations"
+    },
+    {
+      "method": "POST",
+      "path": "/api/team/communication/presence"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/conversations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/workspace/notices"
+    },
+    {
+      "method": "GET",
+      "path": "/api/deployment"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/conversations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/conversations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/workspace/notices"
+    },
+    {
+      "method": "GET",
+      "path": "/api/workspace/navigation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/workspace/destinations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/spaces"
+    },
+    {
+      "method": "GET",
+      "path": "/api/push"
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects"
+    },
+    {
+      "method": "GET",
+      "path": "/api/preferences"
+    },
+    {
+      "method": "GET",
+      "path": "/api/machines"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/spaces"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/brainstorm"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/conversations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects/project/threads"
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects/project/capabilities"
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects/project/results"
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects/project/status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/threads/059e37da-ca8e-4d13-bbee-94a8e18588a5/context"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/result-work-handoffs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/workspace/reviews"
+    },
+    {
+      "method": "GET",
+      "path": "/api/threads/059e37da-ca8e-4d13-bbee-94a8e18588a5/queue"
+    },
+    {
+      "method": "GET",
+      "path": "/api/threads/059e37da-ca8e-4d13-bbee-94a8e18588a5/attachments"
+    },
+    {
+      "method": "GET",
+      "path": "/api/dictation/status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/threads/059e37da-ca8e-4d13-bbee-94a8e18588a5/history"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/preferences"
+    },
+    {
+      "method": "GET",
+      "path": "/api/threads/059e37da-ca8e-4d13-bbee-94a8e18588a5/results"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/preferences"
+    },
+    {
+      "method": "GET",
+      "path": "/api/threads/059e37da-ca8e-4d13-bbee-94a8e18588a5/results"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/me"
+    }
+  ],
+  "checks": [
+    "lazy sections",
+    "selected limits only",
+    "no hidden GPT polling",
+    "one GPT entry",
+    "admin isolation",
+    "draft continuity",
+    "password clearing",
+    "exact back navigation",
+    "keyboard bounds",
+    "no native writes",
+    "scroll continuity",
+    "resizable navigation"
+  ]
+}

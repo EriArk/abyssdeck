@@ -1,0 +1,25 @@
+{
+  "engine": "webkit",
+  "sourceRevision": "6d97f47",
+  "passedThemes": [
+    "crt-green",
+    "hitech-2000s",
+    "organizer",
+    "classic-dark"
+  ],
+  "widths": [
+    1366,
+    820,
+    640,
+    390,
+    320
+  ],
+  "pagesPerWidth": 11,
+  "evidence": [
+    "Layout passed webkit crt-green",
+    "Layout passed webkit hitech-2000s",
+    "Layout passed webkit organizer",
+    "Layout passed webkit classic-dark"
+  ],
+  "note": "The full run completed the layout matrix before the intentional owner/member reload aborted an old presence fetch. That Windows WebKit fixture artifact is scoped to the explicit document replacement; the corrected navigation/continuity rerun is recorded separately in webkit-continuity.json."
+}
