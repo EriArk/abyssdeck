@@ -1,0 +1,241 @@
+{
+  "scope": "Design proposal only; no production, native Git or device acceptance",
+  "cases": [
+    {
+      "engine": "chromium",
+      "theme": "green",
+      "width": 1060,
+      "overflow": false,
+      "fileReturnPreservesDraftAndSelection": true
+    },
+    {
+      "engine": "chromium",
+      "theme": "green",
+      "width": 768,
+      "overflow": false,
+      "fileReturnPreservesDraftAndSelection": true
+    },
+    {
+      "engine": "chromium",
+      "theme": "green",
+      "width": 390,
+      "overflow": false,
+      "fileReturnPreservesDraftAndSelection": true
+    },
+    {
+      "engine": "chromium",
+      "theme": "green",
+      "width": 320,
+      "overflow": false,
+      "fileReturnPreservesDraftAndSelection": true
+    },
+    {
+      "engine": "chromium",
+      "theme": "millennium",
+      "width": 1060,
+      "overflow": false,
+      "fileReturnPreservesDraftAndSelection": true
+    },
+    {
+      "engine": "chromium",
+      "theme": "millennium",
+      "width": 768,
+      "overflow": false,
+      "fileReturnPreservesDraftAndSelection": true
+    },
+    {
+      "engine": "chromium",
+      "theme": "millennium",
+      "width": 390,
+      "overflow": false,
+      "fileReturnPreservesDraftAndSelection": true
+    },
+    {
+      "engine": "chromium",
+      "theme": "millennium",
+      "width": 320,
+      "overflow": false,
+      "fileReturnPreservesDraftAndSelection": true
+    },
+    {
+      "engine": "chromium",
+      "theme": "organizer",
+      "width": 1060,
+      "overflow": false,
+      "fileReturnPreservesDraftAndSelection": true
+    },
+    {
+      "engine": "chromium",
+      "theme": "organizer",
+      "width": 768,
+      "overflow": false,
+      "fileReturnPreservesDraftAndSelection": true
+    },
+    {
+      "engine": "chromium",
+      "theme": "organizer",
+      "width": 390,
+      "overflow": false,
+      "fileReturnPreservesDraftAndSelection": true
+    },
+    {
+      "engine": "chromium",
+      "theme": "organizer",
+      "width": 320,
+      "overflow": false,
+      "fileReturnPreservesDraftAndSelection": true
+    },
+    {
+      "engine": "chromium",
+      "theme": "classic",
+      "width": 1060,
+      "overflow": false,
+      "fileReturnPreservesDraftAndSelection": true
+    },
+    {
+      "engine": "chromium",
+      "theme": "classic",
+      "width": 768,
+      "overflow": false,
+      "fileReturnPreservesDraftAndSelection": true
+    },
+    {
+      "engine": "chromium",
+      "theme": "classic",
+      "width": 390,
+      "overflow": false,
+      "fileReturnPreservesDraftAndSelection": true
+    },
+    {
+      "engine": "chromium",
+      "theme": "classic",
+      "width": 320,
+      "overflow": false,
+      "fileReturnPreservesDraftAndSelection": true
+    },
+    {
+      "engine": "webkit",
+      "theme": "green",
+      "width": 1060,
+      "overflow": false,
+      "fileReturnPreservesDraftAndSelection": true
+    },
+    {
+      "engine": "webkit",
+      "theme": "green",
+      "width": 768,
+      "overflow": false,
+      "fileReturnPreservesDraftAndSelection": true
+    },
+    {
+      "engine": "webkit",
+      "theme": "green",
+      "width": 390,
+      "overflow": false,
+      "fileReturnPreservesDraftAndSelection": true
+    },
+    {
+      "engine": "webkit",
+      "theme": "green",
+      "width": 320,
+      "overflow": false,
+      "fileReturnPreservesDraftAndSelection": true
+    },
+    {
+      "engine": "webkit",
+      "theme": "millennium",
+      "width": 1060,
+      "overflow": false,
+      "fileReturnPreservesDraftAndSelection": true
+    },
+    {
+      "engine": "webkit",
+      "theme": "millennium",
+      "width": 768,
+      "overflow": false,
+      "fileReturnPreservesDraftAndSelection": true
+    },
+    {
+      "engine": "webkit",
+      "theme": "millennium",
+      "width": 390,
+      "overflow": false,
+      "fileReturnPreservesDraftAndSelection": true
+    },
+    {
+      "engine": "webkit",
+      "theme": "millennium",
+      "width": 320,
+      "overflow": false,
+      "fileReturnPreservesDraftAndSelection": true
+    },
+    {
+      "engine": "webkit",
+      "theme": "organizer",
+      "width": 1060,
+      "overflow": false,
+      "fileReturnPreservesDraftAndSelection": true
+    },
+    {
+      "engine": "webkit",
+      "theme": "organizer",
+      "width": 768,
+      "overflow": false,
+      "fileReturnPreservesDraftAndSelection": true
+    },
+    {
+      "engine": "webkit",
+      "theme": "organizer",
+      "width": 390,
+      "overflow": false,
+      "fileReturnPreservesDraftAndSelection": true
+    },
+    {
+      "engine": "webkit",
+      "theme": "organizer",
+      "width": 320,
+      "overflow": false,
+      "fileReturnPreservesDraftAndSelection": true
+    },
+    {
+      "engine": "webkit",
+      "theme": "classic",
+      "width": 1060,
+      "overflow": false,
+      "fileReturnPreservesDraftAndSelection": true
+    },
+    {
+      "engine": "webkit",
+      "theme": "classic",
+      "width": 768,
+      "overflow": false,
+      "fileReturnPreservesDraftAndSelection": true
+    },
+    {
+      "engine": "webkit",
+      "theme": "classic",
+      "width": 390,
+      "overflow": false,
+      "fileReturnPreservesDraftAndSelection": true
+    },
+    {
+      "engine": "webkit",
+      "theme": "classic",
+      "width": 320,
+      "overflow": false,
+      "fileReturnPreservesDraftAndSelection": true
+    }
+  ],
+  "interactions": [
+    "selection",
+    "unified/paired diff",
+    "commit review and local simulation",
+    "separate push simulation",
+    "history",
+    "branches",
+    "releases",
+    "keyboard splitter",
+    "Files reference and return",
+    "themes"
+  ]
+}

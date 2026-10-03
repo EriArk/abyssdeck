@@ -1,5 +1,16 @@
 # AGENTS.md
 
+## Owner-corrected Git file entry (2026-10-03)
+
+- Git opens Files in a separate window using the same shared file manager already
+  used elsewhere. Do not build a second Git-specific file manager. Pass the exact
+  repository, working-copy/source context and preserve the mounted Git draft/view.
+- This replaces the earlier blanket exclusion of a file manager from Git/GitHub.
+  Results remain a feed. Remote repository files retain their own source adapter;
+  never substitute a local checkout or infer writable paths from display names.
+- Git's current design stage is an interactive proposal for discussion; universal
+  viewer redesign follows the Git discussion. A mockup is not a deployed change.
+
 ## Owner-approved working-window dock (2026-10-03)
 
 - Tablet/desktop working windows minimize into one themed vertical dock beside
@@ -11,7 +22,8 @@
 - No dock or minimize button in phone layout. Return parked windows to the screen
   when entering that layout. Compact confirmations and menus are not dock windows.
 - Follow the existing theme materials; Git design is the next separate discussion,
-  with universal viewer design after it. Do not add a file manager to Results/GitHub.
+  with universal viewer design after it. Results remain a feed; the later Git file
+  entry correction above authorizes the existing shared file manager from Git.
 
 ## Owner-requested coherent themes and adjustable panels (2026-10-02)
 
