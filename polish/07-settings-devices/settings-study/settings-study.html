@@ -1,0 +1,252 @@
+<div id="cw-settings-study" class="viz-dotted-background">
+  <section class="st-case" data-theme="green" aria-label="Настройки — интерактивный эскиз">
+    <div class="st-window">
+      <header class="st-header">
+        <i data-lucide="settings-2" aria-hidden="true"></i><h2>Настройки</h2>
+        <button class="st-key cursor-interaction" data-action="search" aria-label="Найти настройку" data-tooltip="Найти настройку"><i data-lucide="search" aria-hidden="true"></i></button>
+        <button class="st-key cursor-interaction" data-action="help" aria-label="Справка" data-tooltip="Справка"><i data-lucide="circle-help" aria-hidden="true"></i></button>
+        <button class="st-key st-wide cursor-interaction" data-action="minimize" aria-label="Свернуть окно" data-tooltip="Свернуть окно"><i data-lucide="minus" aria-hidden="true"></i></button>
+        <button class="st-key cursor-interaction" data-action="close" aria-label="Закрыть окно" data-tooltip="Закрыть окно"><i data-lucide="x" aria-hidden="true"></i></button>
+      </header>
+      <div class="st-search" hidden><i data-lucide="search" aria-hidden="true"></i><input aria-label="Поиск по настройкам" placeholder="Тема, пароль, лимиты…" type="search"><button class="st-key cursor-interaction" data-action="search-close" aria-label="Закрыть поиск"><i data-lucide="x" aria-hidden="true"></i></button></div>
+      <div class="st-body">
+        <nav class="st-nav" aria-label="Разделы настроек"></nav>
+        <button class="st-grip st-wide" aria-label="Ширина списка разделов: 220 пикселей" data-tooltip="Потяни или используй стрелки ← →"></button>
+        <main class="st-screen">
+          <div class="st-path"><button class="st-screen-key cursor-interaction" data-action="back" aria-label="Назад"><i data-lucide="arrow-left" aria-hidden="true"></i></button><span></span></div>
+          <div class="st-content"></div>
+        </main>
+      </div>
+    </div>
+    <div class="st-parked" hidden><i data-lucide="settings-2" aria-hidden="true"></i><p></p><button class="st-key cursor-interaction" data-action="restore">Вернуться к настройкам</button></div>
+    <div class="st-overlay" hidden><section class="st-dialog" role="dialog" aria-modal="true" aria-label="Действие в эскизе"><header><h3></h3><button class="st-key cursor-interaction" data-action="dismiss" aria-label="Закрыть сообщение"><i data-lucide="x" aria-hidden="true"></i></button></header><div class="st-dialog-body"></div><footer><button class="st-key cursor-interaction" data-action="dismiss">Понятно</button></footer></section></div>
+  </section>
+</div>
+<style>
+#cw-settings-study{padding:12px 0;container-type:inline-size}
+#cw-settings-study *{box-sizing:border-box}
+#cw-settings-study [hidden]{display:none!important}
+#cw-settings-study .st-case{--st-shell:#211419;--st-hi:#39272e;--st-key:#2d2026;--st-edge:#110d0f;--st-screen:#07180e;--st-soft:#10281a;--st-text:#adebbc;--st-dim:#90b59a;--st-ink:#eee9df;--st-line:#2a4b36;--st-accent:#a2ffb4;--st-active-ink:#102918;--st-nav-width:220px;background:var(--st-shell);color:var(--st-text);font:14px/1.5 ui-monospace,Consolas,monospace;border:2px solid var(--st-edge);border-radius:18px;padding:8px;position:relative;box-shadow:inset 0 1px 1px var(--st-hi),inset 0 -3px 2px var(--st-edge),0 8px 20px #0002}
+#cw-settings-study .st-case[data-theme="2000"]{--st-shell:#a4adb4;--st-hi:#e2e8ec;--st-key:#bec7cd;--st-edge:#667079;--st-screen:#152b38;--st-soft:#213d4c;--st-text:#daedf8;--st-dim:#adc8d7;--st-ink:#172935;--st-line:#3f5a69;--st-accent:#a0def9;--st-active-ink:#153144;font-family:system-ui,sans-serif}
+#cw-settings-study .st-case[data-theme="organizer"]{--st-shell:#6a4532;--st-hi:#926c51;--st-key:#78543e;--st-edge:#442c20;--st-screen:#fff5de;--st-soft:#f4e6c9;--st-text:#3d3025;--st-dim:#70604b;--st-ink:#fff2de;--st-line:#d6c8aa;--st-accent:#e8c891;--st-active-ink:#382810;font-family:Georgia,serif;border-left:7px solid var(--st-edge)}
+#cw-settings-study .st-case[data-theme="dark"]{--st-shell:#25262b;--st-hi:#42454b;--st-key:#303339;--st-edge:#15171a;--st-screen:#1b1e23;--st-soft:#282d35;--st-text:#e4e9f0;--st-dim:#b0b9c4;--st-ink:#e9edf4;--st-line:#3e4650;--st-accent:#bad6f3;--st-active-ink:#182c42;font-family:system-ui,sans-serif}
+#cw-settings-study .st-case[data-casing="graphite"]{--st-shell:#29282b;--st-hi:#444247;--st-key:#353338;--st-edge:#171619;--st-ink:#eee9e3}
+#cw-settings-study .st-case[data-variant="quiet"] .st-key{background:var(--st-key);box-shadow:none}
+#cw-settings-study h2,#cw-settings-study h3,#cw-settings-study p{margin:0}
+#cw-settings-study h2{font-size:19px;font-weight:500}
+#cw-settings-study h3{font-size:18px;font-weight:500;margin:0 0 6px}
+#cw-settings-study h4{font-size:12px;font-weight:500;color:var(--st-dim);margin:24px 0 8px;text-transform:uppercase;letter-spacing:.05em}
+#cw-settings-study svg{width:19px;height:19px;flex-shrink:0}
+#cw-settings-study button,#cw-settings-study input,#cw-settings-study select{font:inherit}
+#cw-settings-study button{color:inherit}
+#cw-settings-study button:disabled{opacity:.5}
+#cw-settings-study .st-header{display:flex;align-items:center;gap:6px;padding:2px 3px 10px 10px;color:var(--st-ink)}
+#cw-settings-study .st-header h2{flex:1;min-width:0}
+#cw-settings-study .st-key{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-width:44px;min-height:44px;padding:8px 12px;background:linear-gradient(var(--st-key),var(--st-shell));color:var(--st-ink);border:1px solid var(--st-edge);border-radius:8px;box-shadow:inset 0 1px var(--st-hi),0 2px 2px #0003}
+#cw-settings-study .st-key:active{box-shadow:inset 0 2px 4px #0004}
+#cw-settings-study .st-body{display:grid;grid-template-columns:var(--st-nav-width) 12px minmax(0,1fr);min-height:550px}
+#cw-settings-study .st-nav{padding:10px 4px 16px 2px;color:var(--st-ink);min-width:0}
+#cw-settings-study .st-nav button{display:flex;gap:10px;align-items:center;width:100%;padding:12px 10px;min-height:54px;text-align:left;border:1px solid transparent;border-radius:8px;background:transparent;margin-bottom:4px;overflow-wrap:anywhere}
+#cw-settings-study .st-nav button[aria-current="page"]{background:var(--st-screen);color:var(--st-text);border-color:var(--st-edge);box-shadow:inset 0 2px 4px #0004}
+#cw-settings-study .st-nav button:hover{background:var(--st-key)}
+#cw-settings-study .st-nav button[aria-current="page"]:hover{background:var(--st-soft)}
+#cw-settings-study .st-nav .st-admin{border-top:1px solid var(--st-hi);padding-top:16px;margin-top:20px}
+#cw-settings-study .st-nav small{display:block;color:inherit;opacity:.75;font-size:11px;margin-top:2px}
+#cw-settings-study .st-grip{border:0;padding:0;background:transparent;cursor:col-resize;touch-action:none;position:relative}
+#cw-settings-study .st-grip::after{content:"";position:absolute;top:46%;left:4px;width:3px;height:34px;border-radius:3px;background:var(--st-hi)}
+#cw-settings-study .st-screen{min-width:0;background:var(--st-screen);border:4px solid var(--st-edge);border-right-color:var(--st-hi);border-bottom-color:var(--st-hi);border-radius:8px;overflow:hidden}
+#cw-settings-study .st-path{display:flex;align-items:center;gap:4px;padding:4px 12px;min-height:48px;border-bottom:1px solid var(--st-line);color:var(--st-dim);font-size:12px}
+#cw-settings-study .st-path span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#cw-settings-study .st-screen-key{min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;padding:8px;border:0;border-radius:6px;background:transparent}
+#cw-settings-study .st-screen-key:hover{background:var(--st-soft)}
+#cw-settings-study .st-content{padding:18px 20px 28px;min-height:496px;overflow-wrap:anywhere}
+#cw-settings-study .st-intro{color:var(--st-dim);font-size:12px;margin:0 0 20px}
+#cw-settings-study .st-row{display:flex;align-items:center;gap:12px;min-height:68px;width:100%;padding:12px 2px;border:0;border-bottom:1px solid var(--st-line);background:transparent;text-align:left}
+#cw-settings-study button.st-row:hover{background:var(--st-soft)}
+#cw-settings-study .st-row>span:first-of-type{flex:1;min-width:0}
+#cw-settings-study .st-row strong{font-weight:500;display:block}
+#cw-settings-study .st-row small{display:block;color:var(--st-dim);font-size:12px;margin-top:3px}
+#cw-settings-study .st-row .st-value{flex:0 0 auto;font-size:12px;color:var(--st-dim);max-width:38%;text-align:right}
+#cw-settings-study .st-row .st-value:empty{display:none}
+#cw-settings-study .st-actions{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0 6px}
+#cw-settings-study .st-actions .st-key{flex:1}
+#cw-settings-study .st-actions>.st-key:only-child{flex:0 1 auto;min-width:180px;max-width:100%}
+#cw-settings-study .st-primary{background:var(--st-accent);color:var(--st-active-ink);box-shadow:none;border-color:transparent}
+#cw-settings-study .st-toggle{accent-color:var(--st-accent);width:21px;height:21px;margin:10px;flex-shrink:0}
+#cw-settings-study .st-field{display:grid;gap:6px;margin:18px 0}
+#cw-settings-study input:not([type="checkbox"]):not([type="range"]),#cw-settings-study select{width:100%;min-width:0;min-height:44px;border:1px solid var(--st-line);border-radius:6px;background:var(--st-screen);color:var(--st-text);padding:8px 10px;font-size:16px}
+#cw-settings-study input[type="range"]{width:100%;accent-color:var(--st-accent);min-height:32px}
+#cw-settings-study .st-field small{color:var(--st-dim);font-size:12px}
+#cw-settings-study .st-theme-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0}
+#cw-settings-study .st-theme{min-height:62px;padding:10px;display:flex;align-items:center;gap:10px;text-align:left;border:1px solid var(--st-line);border-radius:7px;background:var(--st-soft)}
+#cw-settings-study .st-theme[aria-pressed="true"]{border-color:var(--st-text);box-shadow:inset 3px 0 var(--st-text)}
+#cw-settings-study .st-badge{display:inline-flex;align-items:center;gap:6px;color:var(--st-dim);font-size:12px;margin:3px 0 16px}
+#cw-settings-study .st-badge::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+#cw-settings-study .st-facts{margin:6px 0 20px}
+#cw-settings-study .st-facts>div{display:flex;justify-content:space-between;gap:16px;padding:8px 0;border-bottom:1px solid var(--st-line)}
+#cw-settings-study dt{color:var(--st-dim);font-size:12px}
+#cw-settings-study dd{margin:0;text-align:right;font-size:12px}
+#cw-settings-study .st-meter{margin:16px 0}
+#cw-settings-study .st-meter>div:first-child{display:flex;justify-content:space-between;gap:12px;font-size:12px;margin-bottom:6px}
+#cw-settings-study .st-meter-track{height:5px;background:var(--st-soft);border-radius:3px;overflow:hidden}
+#cw-settings-study .st-meter-track span{display:block;height:100%;background:var(--st-text)}
+#cw-settings-study .st-search{display:flex;align-items:center;gap:8px;margin:0 4px 10px;color:var(--st-ink)}
+#cw-settings-study .st-search input{flex:1}
+#cw-settings-study .st-empty{padding:40px 0;color:var(--st-dim)}
+#cw-settings-study .st-overlay{position:absolute;inset:0;display:flex;align-items:flex-start;justify-content:center;padding:70px 16px 16px;z-index:5;background:#0008;border-radius:16px}
+#cw-settings-study .st-dialog{width:100%;max-width:420px;background:var(--st-shell);color:var(--st-ink);border:2px solid var(--st-edge);border-radius:12px;padding:12px;box-shadow:0 12px 30px #0006}
+#cw-settings-study .st-dialog header{display:flex;gap:12px;align-items:center;margin-bottom:12px}
+#cw-settings-study .st-dialog h3{flex:1;min-width:0;font-size:16px;margin:0}
+#cw-settings-study .st-dialog-body{background:var(--st-screen);color:var(--st-text);padding:16px;border-radius:6px;overflow-wrap:anywhere}
+#cw-settings-study .st-dialog footer{display:flex;justify-content:flex-end;margin-top:12px}
+#cw-settings-study .st-parked{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-height:100px;padding:16px;color:var(--st-ink)}
+#cw-settings-study .st-parked p{flex:1}
+@container(max-width:639px){
+ #cw-settings-study .st-wide{display:none!important}
+ #cw-settings-study .st-case{padding:6px;border-radius:14px}
+ #cw-settings-study .st-header{gap:2px;padding-left:6px}
+ #cw-settings-study .st-header>svg{display:none}
+ #cw-settings-study .st-header h2{font-size:18px}
+ #cw-settings-study .st-header .st-key{padding:8px}
+ #cw-settings-study .st-body{display:block;min-height:520px}
+ #cw-settings-study .st-nav{padding:4px}
+ #cw-settings-study .st-nav button{min-height:68px}
+ #cw-settings-study .st-case[data-page="index"] .st-screen{display:none}
+ #cw-settings-study .st-case:not([data-page="index"]) .st-nav{display:none}
+ #cw-settings-study .st-content{padding:16px 12px 24px;min-height:464px}
+ #cw-settings-study .st-path{padding:2px 6px}
+ #cw-settings-study .st-row{gap:8px;min-height:66px}
+ #cw-settings-study .st-row .st-value{max-width:31%;font-size:11px}
+ #cw-settings-study .st-actions .st-key{padding:8px}
+}
+@media(prefers-reduced-motion:no-preference){#cw-settings-study .st-content{animation:st-enter .14s ease-out}@keyframes st-enter{from{opacity:.5;transform:translateX(5px)}to{opacity:1;transform:none}}}
+</style>
+<script>
+(()=>{
+ const root=document.getElementById('cw-settings-study'),q=s=>root.querySelector(s),box=q('.st-case'),content=q('.st-content');
+ const icon=n=>`<i data-lucide="${n}" aria-hidden="true"></i>`;
+ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const groups=[['interface','Интерфейс','sliders-horizontal'],['connections','Подключения','plug'],['data','История и данные','archive'],['maintenance','Обновления и диагностика','wrench'],['account','Мой аккаунт','user-round'],['people','Пользователи и доступ','users-round']];
+ const themes={green:'Зелёная',2000:'2000',organizer:'Органайзер',dark:'Тёмная'};
+ const defaults={theme:'green',admin:true,gptState:'connected',page:'connections',navWidth:220,settings:{speech:false,push:true,legacy:false,text:100,scale:100,doctor:'diagnose'},drafts:{deviceName:'Мой компьютер'},stack:[]};
+ let state=structuredClone(defaults),searchOpen=false,query='',parked=false,returnFocus=null;
+ const pages={};
+ const page=(id,parent,title,subtitle,render,keywords='')=>pages[id]={parent,title,subtitle,render,keywords};
+ const row=(id,title,subtitle='',value='',glyph='chevron-right')=>`<button class="st-row cursor-interaction" data-go="${id}"><span><strong>${title}</strong>${subtitle?`<small>${subtitle}</small>`:''}</span><span class="st-value">${value}</span>${icon(glyph)}</button>`;
+ const action=(id,label,primary=false)=>`<button class="st-key cursor-interaction ${primary?'st-primary':''}" data-demo="${id}">${label}</button>`;
+ const actions=(...items)=>`<div class="st-actions">${items.join('')}</div>`;
+ const toggle=(id,title,sub='')=>`<label class="st-row"><span><strong>${title}</strong><small>${sub}</small></span><input class="st-toggle" type="checkbox" data-setting="${id}" ${state.settings[id]?'checked':''}></label>`;
+ const select=(id,label,options,value)=>`<label class="st-field">${label}<select data-setting="${id}">${options.map(([v,t])=>`<option value="${v}" ${String(value??state.settings[id])===v?'selected':''}>${t}</option>`).join('')}</select></label>`;
+ const facts=items=>`<dl class="st-facts">${items.map(([k,v])=>`<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>`;
+ const meter=(title,value,percent)=>`<div class="st-meter"><div><span>${title}</span><span>${value}</span></div><div class="st-meter-track"><span style="width:${percent}%"></span></div></div>`;
+ const badge=s=>`<span class="st-badge">${s}</span>`;
+ const demoRow=(id,title,sub='')=>`<button class="st-row cursor-interaction" data-demo="${id}"><span><strong>${title}</strong>${sub?`<small>${sub}</small>`:''}</span>${icon('chevron-right')}</button>`;
+ page('interface',null,'Интерфейс','Внешний вид, управление и звук.',()=>row('appearance','Оформление','Тема, вариант и цвет корпуса',themes[state.theme])+row('scale','Текст и масштаб','Размер текста и элементов')+row('keys','Клавиши и поведение','Сочетания клавиш, компоновка')+row('sound','Озвучивание и уведомления','Голос и события'));
+ page('appearance','interface','Оформление','Один интерфейс — разные материалы.',()=>`<div class="st-theme-grid">${Object.entries(themes).map(([id,name])=>`<button class="st-theme cursor-interaction" data-theme-choice="${id}" aria-pressed="${state.theme===id}">${icon(id==='organizer'?'notebook':'monitor')}<span>${name}</span></button>`).join('')}</div>`+select('variant','Вариант',[['normal','Основной'],['quiet','Спокойный']],state.settings.variant||'normal')+select('casing','Цвет корпуса',[['native','По теме'],['graphite','Графит']],state.settings.casing||'native'),'тема зеленая 2000 органайзер тёмная цвет');
+ page('scale','interface','Текст и масштаб','Настройки этого браузера.',()=>['text','scale'].map((id,i)=>`<label class="st-field">${i?'Элементы интерфейса':'Размер текста'} · <output>${state.settings[id]}%</output><input type="range" min="85" max="130" step="5" data-setting="${id}" value="${state.settings[id]}"></label>`).join('')+`<div class="st-sample" style="font-size:${state.settings.text/100}em"><h4>Пример</h4><p>Диалоги, файлы и результаты твоей работы.</p></div>`,'шрифт размер');
+ page('keys','interface','Клавиши и поведение','Сочетания открываются отдельно и не мешают остальным настройкам.',()=>row('shortcuts','Сочетания клавиш','Просмотреть и переназначить')+toggle('legacy','Старая компоновка','Сохраняем существующий вариант интерфейса.'));
+ page('shortcuts','keys','Сочетания клавиш','Выбери команду для изменения сочетания.',()=>demoRow('shortcut','Поиск и команды','Ctrl / ⌘ K')+demoRow('shortcut','Новый диалог','Ctrl / ⌘ Shift O')+demoRow('shortcut','Отправить сообщение','Enter')+actions(action('reset-keys','Сбросить сочетания')),'горячие клавиши');
+ page('sound','interface','Озвучивание и уведомления','Звук ответа и уведомления о событиях.',()=>toggle('speech','Озвучивать ответы','Автоматическое чтение новых ответов.')+select('voice','Голос',[['system','Системный'],['sample','Другой доступный голос']],state.settings.voice||'system')+toggle('push','Уведомления','Ответы и события в твоих пространствах.')+demoRow('notification-repair','Проверить уведомления','Разрешение браузера и подписка'),'голос звук push');
+ page('connections',null,'Подключения','Устройства и аккаунты, которыми ты пользуешься.',()=>`<h4>Мои устройства</h4>`+row('pc','Мой компьютер','Windows · прямое подключение','На связи','monitor')+row('workspace','Моё серверное окружение','Linux · личные файлы и проекты','Готово','server')+row('add','Добавить компьютер','Установщик и подключение','', 'plus')+`<h4>Сервисы</h4>`+row('codex','Codex','Аккаунт, лимиты и инструменты','Мой ПК','terminal')+row('gpt','ChatGPT','Аккаунт и подключение',gptLabel(),'messages-square'));
+ page('pc','connections','Мой компьютер','Windows · прямое подключение',()=>badge('На связи')+facts([['Companion','Готов'],['Codex','Подключён'],['Проекты','8 папок']])+row('pc-components','Готовность и компоненты','Проверки, установка и восстановление')+demoRow('projects','Папки проектов','8 подключённых папок')+row('codex','Codex на этом компьютере','Аккаунт, лимиты, управление')+actions(action('pc-system','Система'),action('pc-terminal','Терминал'))+demoRow('revoke','Отключить от аккаунта'),'компьютер Windows companion ПК');
+ page('pc-components','pc','Готовность компьютера','Мой компьютер · Windows',()=>facts([['Companion','Готов'],['SSH','Доступен'],['Codex','Готов'],['Папки проектов','Доступны']])+actions(action('check-pc','Проверить ещё раз'))+demoRow('repair-pc','Восстановить компоненты','Общий список проверки и ремонта'));
+ page('workspace','connections','Моё серверное окружение','Личный Linux для проектов, файлов и Codex.',()=>badge('Работает')+facts([['Подключение','Активно'],['Codex','Вход выполнен']])+actions(action('workspace-system','Система'),action('workspace-terminal','Терминал'))+demoRow('workspace-account','Аккаунт Codex','Войти в собственный аккаунт')+demoRow('workspace-manage','Управление окружением','Подключение и запуск'),'сервер Linux окружение');
+ page('add','connections','Добавить компьютер','Подключи свой Windows ПК к этому аккаунту.',()=>`<label class="st-field">Название компьютера<input data-draft="deviceName" value="${esc(state.drafts.deviceName)}" autocomplete="off" maxlength="80"></label>`+actions(action('installer','Подготовить установщик',true))+demoRow('pending-installer','Уже начал подключение?','Продолжить настройку или получить установщик повторно'),'установить enrollment');
+ page('codex','connections','Codex','Аккаунт и возможности выбранной машины.',()=>select('codexMachine','Компьютер',[['pc','Мой компьютер'],['workspace','Моё серверное окружение']],state.settings.codexMachine||'pc')+badge('Аккаунт подключён')+row('limits','Лимиты и кредиты','Окна использования и время сброса')+row('tools','Инструменты проекта','Навыки, плагины и MCP','CodexWeb')+row('codex-control','Управление приложением','Открыть, передать управление, перезапустить'));
+ page('limits','codex','Лимиты и кредиты','Пример данных · '+(state.settings.codexMachine==='workspace'?'Моё серверное окружение':'Мой компьютер'),()=>meter('Текущее окно','Осталось 72%',72)+meter('Неделя','Осталось 46%',46)+facts([['Сброс окна','Сегодня, 20:00'],['Сброс недели','Пятница, 12:00'],['Кредиты','Доступны']])+demoRow('quota-groups','Другие лимиты','Дополнительные группы аккаунта')+demoRow('saved-resets','Сохранённые сбросы','Просмотр и явная активация'),'кредиты квота лимит сброс');
+ page('tools','codex','Инструменты проекта','CodexWeb · '+(state.settings.codexMachine==='workspace'?'Моё серверное окружение':'Мой компьютер'),()=>demoRow('skills','Навыки','Установленные инструкции')+demoRow('plugins','Плагины','Подключённые возможности')+demoRow('mcp','MCP','Инструменты проекта')+actions(action('refresh-tools','Обновить список')),'skills plugins MCP');
+ page('codex-control','codex','Управление Codex','Действия относятся только к выбранной машине.',()=>actions(action('open-codex','Открыть Codex',true))+demoRow('handoff','Передать управление','Продолжить в приложении')+demoRow('restart-codex','Перезапустить Codex','После завершения текущей работы')+(state.admin?demoRow('force-restart','Жёсткий перезапуск','Отдельное подтверждение прерывания работы'):''));
+ function gptLabel(){return{connected:'Подключён',login:'Нужен вход',prepare:'Не настроен',activate:'Готов к активации'}[state.gptState];}
+ page('gpt','connections','ChatGPT','Твой личный аккаунт.',()=>badge(gptLabel())+(state.gptState==='connected'?facts([['Подключение','Готово'],['Аккаунт','Личный ChatGPT']])+actions(action('open-gpt','Открыть ChatGPT',true)):state.gptState==='prepare'?`<p>Подготовь личное окружение, затем войди в свой аккаунт.</p>`+actions(action('prepare-gpt','Подготовить',true)):state.gptState==='login'?`<p>Открой ChatGPT и выполни вход в свой аккаунт.</p>`+actions(action('login-gpt','Открыть ChatGPT и войти',true)):`<p>Вход выполнен. Можно подключить этот аккаунт.</p>`+actions(action('activate-gpt','Подключить',true)))+demoRow('recheck-gpt','Проверить подключение','Без отправки сообщений')+row('doctor','Bridge Doctor','Диагностика и восстановление совместимости'),'GPT ChatGPT аккаунт вход');
+ page('doctor','gpt','Bridge Doctor','ChatGPT · обслуживание подключения',()=>select('doctor','Режим',[['off','Выключен'],['diagnose','Только диагностика'],['repair','Диагностика и ремонт']],state.settings.doctor)+`<p class="st-intro">Медленная загрузка чата сама по себе не запускает ремонт.</p>`+demoRow('doctor-log','Журнал','Последние проверки и результаты')+demoRow('doctor-chat','Диалог обслуживания','Отдельный диалог Bridge Doctor'),'доктор диагностика ремонт');
+ page('data',null,'История и данные','Диалоги, недавние места и личное хранилище.',()=>row('archives','Архивы','Диалоги Codex и GPT')+row('lists','Списки и недавние места','Обновление и локальная история')+row('storage','Хранилище','Объём, бюджеты и рабочие копии')+demoRow('thread-activity','Активность текущего диалога','CodexWeb · этот диалог'));
+ page('archives','data','Архивы','Архивы сервисов остаются отдельными.',()=>demoRow('archive-codex','Codex','Открыть архив диалогов')+demoRow('archive-gpt','ChatGPT','Открыть архив чатов'),'архив');
+ page('lists','data','Списки и недавние места','Обновить данные без удаления диалогов.',()=>demoRow('refresh-codex','Обновить список Codex')+demoRow('refresh-gpt','Обновить список GPT')+demoRow('clear-recent','Очистить недавние места','Только история переходов в этом браузере'),'очистить история');
+ page('storage','data','Хранилище','Личные данные и сохранённые результаты.',()=>meter('Занято','2,4 из 10 ГБ',24)+facts([['Вложения и результаты','1,8 ГБ'],['Остальные данные','0,6 ГБ']])+demoRow('storage-budgets','Бюджеты хранения')+demoRow('working-copies','Рабочие копии','Проверить состояние и перейти к проекту'),'место диск копии');
+ page('maintenance',null,'Обновления и диагностика','Установка CodexWeb и состояние подключений.',()=>row('updates','Обновления CodexWeb','Установленная версия и ожидающая установка','Актуально')+row('pc-components','Диагностика компьютера','Мой компьютер')+row('doctor','Диагностика ChatGPT','Bridge Doctor'),'ошибка состояние');
+ page('updates','maintenance','Обновления CodexWeb','Общая установка Hub. Личное окружение — в «Подключениях».',()=>badge('Установлена актуальная версия')+facts([['Веб-интерфейс','43ccf6b'],['Движок','f32b7f3'],['Ожидающая установка','Нет']])+demoRow('update-details','Сведения об установке','Версии и история обновлений'),'версия обновить');
+ page('account',null,'Мой аккаунт','Твои данные и вход в CodexWeb.',()=>facts([['Аккаунт','Личный'],['Роль',state.admin?'Владелец установки':'Участник']])+demoRow('password','Изменить пароль')+demoRow('sessions','Вход и устройства','Управление собственными сеансами')+demoRow('install-pwa','Установить веб-приложение','Добавить CodexWeb на устройство')+demoRow('logout','Выйти из аккаунта'));
+ page('people',null,'Пользователи и доступ','Управление установкой · только администратору.',()=>row('members','Участники','Роли и доступ')+row('invites','Приглашения','Пригласить нового участника')+demoRow('machine-reviews','Подтверждение компьютеров','Новые подключения участников')+demoRow('access-log','История доступа','Административные события'));
+ page('members','people','Участники','Личный аккаунт настраивается в «Моём аккаунте».',()=>facts([['Ты','Владелец установки']])+demoRow('member','Участник','Роль: участник · доступ активен'));
+ page('invites','people','Приглашения','Доступ выдаётся конкретному участнику.',()=>actions(action('invite','Пригласить участника',true))+`<p class="st-intro">Активных приглашений нет.</p>`);
+ const effects={
+  help:['Справка','Здесь открывается полное руководство с поиском. В эскизе показана структура настроек; данные демонстрационные, действия ничего не меняют на сервере.'],
+  'pc-system':['Система · Мой компьютер','Переход в существующие Устройства с выбранным Windows ПК. Настройки остаются открыты под ним.'],
+  'pc-terminal':['Терминал · Мой компьютер','Открывается существующий терминал именно этого ПК. В эскизе подключение не выполняется.'],
+  'workspace-system':['Система · Моё окружение','Переход в Устройства с личным Linux-окружением, не с административным сервером Hub.'],
+  'workspace-terminal':['Терминал · Моё окружение','Переход в существующий терминал личного Linux-окружения.'],
+  'open-gpt':['ChatGPT','Один вход в личный клиент. В рабочем интерфейсе здесь открывается существующий клиент своего аккаунта.'],
+  'recheck-gpt':['Проверка подключения','Эскиз: чтение состояния без отправки запроса модели. Реальная проверка не запускалась.'],
+  'doctor-chat':['Диалог Bridge Doctor','Открывается отдельный диалог обслуживания с возможностью написать сообщение. Он не относится к проекту CodexWeb.'],
+  'force-restart':['Жёсткий перезапуск','В рабочем интерфейсе потребуется подтверждение прерывания активной работы. Эскиз ничего не перезапускает.'],
+  'clear-recent':['Очистить недавние места?','В рабочем интерфейсе подтверждение очистит только список переходов этого браузера. Проекты и диалоги останутся. В эскизе ничего не удаляется.'],
+  'installer':['Установщик','Эскиз: подготовка пакета для «{deviceName}». В рабочем интерфейсе повторное открытие продолжает ту же настройку; не создаёт второе подключение.'],
+  'password':['Изменить пароль','Здесь открывается личная форма смены пароля. Настоящий пароль в эскиз вводить не нужно.'],
+  'sessions':['Вход и устройства','Здесь доступны собственные сеансы и выход со всех устройств. Эскиз не завершает сеансы.'],
+  'member':['Доступ участника','Роль, восстановление входа и отзыв доступа — в карточке выбранного участника. Права владельца установки сохраняются.'],
+  'shortcut':['Изменить сочетание','Здесь открывается запись сочетания для выбранной команды. Только открытый редактор перехватывает клавиши.'],
+  'update-details':['Сведения об установке','Версии приведены по последней проверке в репозитории. Этот эскиз не проверяет сервер и не устанавливает обновления.']
+ };
+ function persist(){if(window.openai?.setWidgetState)window.openai.setWidgetState({modelContent:{study:'settings',section:pages[state.page]?.title||'Разделы',theme:themes[state.theme],admin:state.admin},privateContent:state}).catch(()=>{});}
+ function validPage(id){return id==='index'||(pages[id]&&(state.admin||!['people','members','invites'].includes(id)));}
+ function hydrate(snapshot){const v=snapshot?.privateContent;if(!v||typeof v!=='object')return;state={...structuredClone(defaults),...v,settings:{...defaults.settings,...v.settings},drafts:{...defaults.drafts,...v.drafts}};if(!themes[state.theme])state.theme='green';if(!['connected','prepare','login','activate'].includes(state.gptState))state.gptState='connected';if(!validPage(state.page))state.page='connections';state.navWidth=Math.max(180,Math.min(280,Number(state.navWidth)||220));state.stack=Array.isArray(state.stack)?state.stack.filter(validPage).slice(-10):[];}
+ function currentGroup(id){while(pages[id]?.parent)id=pages[id].parent;return id;}
+ function render(){
+  box.dataset.theme=state.theme;box.dataset.variant=state.settings.variant||'normal';box.dataset.casing=state.settings.casing||'native';box.dataset.page=searchOpen?'search':state.page;box.style.setProperty('--st-nav-width',state.navWidth+'px');
+  q('.st-window').hidden=parked;q('.st-parked').hidden=!parked;q('.st-search').hidden=!searchOpen;
+  q('.st-grip').setAttribute('aria-label',`Ширина списка разделов: ${state.navWidth} пикселей`);
+  q('.st-nav').innerHTML=groups.filter(([id])=>id!=='people'||state.admin).map(([id,label,glyph])=>`${id==='people'?'<div class="st-admin">':''}<button class="cursor-interaction" data-go="${id}" ${currentGroup(state.page)===id?'aria-current="page"':''}>${icon(glyph)}<span>${label}${id==='people'?'<small>Администрирование</small>':''}</span></button>${id==='people'?'</div>':''}`).join('');
+  const active=pages[state.page]||pages.connections;
+  q('.st-path span').textContent=searchOpen?'Поиск по всем настройкам':active.parent?(pages[active.parent]?.title||'Настройки'):'Настройки';
+  q('[data-action="back"]').hidden=!searchOpen&&state.page==='index';
+  if(searchOpen){
+   const needle=query.trim().toLocaleLowerCase('ru'),entries=[];
+   for(const [id,p] of Object.entries(pages)){if(!validPage(id))continue;const path=[];let next=id;while(pages[next]){path.unshift(pages[next].title);next=pages[next].parent;}
+    entries.push({id,title:p.title,path:path.join(' → '),words:p.title+' '+p.subtitle+' '+p.keywords});
+    const template=document.createElement('template');template.innerHTML=p.render();
+    for(const item of template.content.querySelectorAll('[data-demo]')){const title=item.querySelector('strong')?.textContent||item.textContent;entries.push({id,action:item.dataset.demo,title,path:path.join(' → '),words:title+' '+item.textContent});}
+   }
+   const matches=entries.filter(p=>p.words.toLocaleLowerCase('ru').includes(needle));
+   content.innerHTML='<h3>Найти настройку</h3>'+(needle?`<p class="st-intro">Найдено: ${matches.length}</p>`+matches.map(p=>p.action?`<button class="st-row cursor-interaction" data-open-action="${p.action}" data-parent="${p.id}"><span><strong>${esc(p.title)}</strong><small>${esc(p.path)}</small></span>${icon('chevron-right')}</button>`:row(p.id,p.title,p.path)).join(''):'<p class="st-empty">Введи название: например, «кредиты» или «пароль».</p>');
+   if(needle&&!matches.length)content.innerHTML+='<p class="st-empty">Попробуй другое название.</p>';
+  }
+  else content.innerHTML=`<h3>${active.title}</h3><p class="st-intro">${active.subtitle}</p>${active.render()}`;
+  if(globalThis.lucide)lucide.createIcons({attrs:{width:19,height:19}});
+ }
+ function go(id){if(!validPage(id))return;state.stack.push(state.page);state.stack=state.stack.slice(-10);state.page=id;searchOpen=false;render();persist();q('[data-action="back"]').focus({preventScroll:true});}
+ function back(){if(searchOpen){searchOpen=false;query='';q('.st-search input').value='';render();return;}state.page=state.stack.pop()||pages[state.page]?.parent||'index';render();persist();if(state.page==='index')q('.st-nav button').focus({preventScroll:true});}
+ function dialog(title,body,trigger=document.activeElement){returnFocus=trigger;q('.st-dialog h3').textContent=title;q('.st-dialog-body').textContent=body;q('.st-overlay').hidden=false;q('.st-dialog [data-action="dismiss"]').focus({preventScroll:true});}
+ function closeDialog(){q('.st-overlay').hidden=true;if(returnFocus?.isConnected)returnFocus.focus({preventScroll:true});}
+ root.addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.openAction){const id=b.dataset.openAction,parent=b.dataset.parent;go(parent);const target=q(`[data-demo="${id}"]`);target?.click();return;}
+  if(b.dataset.go){go(b.dataset.go);return;}
+  if(b.dataset.themeChoice){state.theme=b.dataset.themeChoice;render();persist();return;}
+  const a=b.dataset.action;
+  if(a==='search'){searchOpen=!searchOpen;render();if(searchOpen)q('.st-search input').focus({preventScroll:true});}
+  else if(a==='search-close'){searchOpen=false;query='';q('.st-search input').value='';render();q('[data-action="search"]').focus({preventScroll:true});}
+  else if(a==='back')back();
+  else if(a==='help')dialog(...effects.help,b);
+  else if(a==='dismiss')closeDialog();
+  else if(a==='close'||a==='minimize'){parked=true;q('.st-parked p').textContent=a==='close'?'Настройки закрыты':'Настройки свёрнуты';render();q('[data-action="restore"]').focus({preventScroll:true});}
+  else if(a==='restore'){parked=false;render();q('[data-action="search"]').focus({preventScroll:true});}
+  if(b.dataset.demo){const id=b.dataset.demo;
+   if(['prepare-gpt','login-gpt','activate-gpt'].includes(id)){state.gptState={'prepare-gpt':'login','login-gpt':'activate','activate-gpt':'connected'}[id];render();persist();dialog('Демонстрация шага','В эскизе показано следующее состояние. Реальная подготовка, вход или активация не выполнялись.');return;}
+   const effect=effects[id]||[b.textContent.trim(),'Эскиз: здесь открывается существующее действие для выбранного объекта. Реальное действие не выполнялось.'];
+   dialog(effect[0],effect[1].replace('{deviceName}',state.drafts.deviceName),b);
+  }
+ });
+ root.addEventListener('input',e=>{const el=e.target;if(el.matches('.st-search input')){query=el.value;render();return;}if(el.dataset.draft){state.drafts[el.dataset.draft]=el.value;persist();}if(el.type==='range'){state.settings[el.dataset.setting]=Number(el.value);el.parentElement.querySelector('output').textContent=el.value+'%';const sample=q('.st-sample');if(sample)sample.style.fontSize=state.settings.text/100+'em';}});
+ root.addEventListener('change',e=>{const el=e.target;if(!el.dataset.setting)return;state.settings[el.dataset.setting]=el.type==='checkbox'?el.checked:el.type==='range'?Number(el.value):el.value;if(['variant','casing'].includes(el.dataset.setting)){box.dataset.variant=state.settings.variant||'normal';box.dataset.casing=state.settings.casing||'native';}persist();});
+ root.addEventListener('keydown',e=>{if(!q('.st-overlay').hidden){if(e.key==='Escape'){e.preventDefault();closeDialog();}if(e.key==='Tab'){const buttons=[...q('.st-dialog').querySelectorAll('button')],first=buttons[0],last=buttons.at(-1);if(e.shiftKey&&e.target===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&e.target===last){e.preventDefault();first.focus();}}return;}if(e.key==='Escape'&&searchOpen){e.preventDefault();searchOpen=false;render();q('[data-action="search"]').focus();}});
+ const grip=q('.st-grip');let drag=null;
+ grip.addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','Home'].includes(e.key))return;e.preventDefault();state.navWidth=e.key==='Home'?220:Math.max(180,Math.min(280,state.navWidth+(e.key==='ArrowRight'?10:-10)));box.style.setProperty('--st-nav-width',state.navWidth+'px');grip.setAttribute('aria-label',`Ширина списка разделов: ${state.navWidth} пикселей`);persist();});
+ grip.addEventListener('pointerdown',e=>{if(e.button!==0)return;drag={x:e.clientX,width:state.navWidth,id:e.pointerId};grip.setPointerCapture(e.pointerId);});
+ grip.addEventListener('pointermove',e=>{if(!drag||drag.id!==e.pointerId)return;state.navWidth=Math.round(Math.max(180,Math.min(280,drag.width+e.clientX-drag.x)));box.style.setProperty('--st-nav-width',state.navWidth+'px');});
+ grip.addEventListener('pointerup',()=>{if(!drag)return;drag=null;grip.setAttribute('aria-label',`Ширина списка разделов: ${state.navWidth} пикселей`);persist();});
+ grip.addEventListener('pointercancel',()=>{if(drag)state.navWidth=drag.width;drag=null;box.style.setProperty('--st-nav-width',state.navWidth+'px');});
+ hydrate(window.openai?.widgetState);if(!window.openai?.widgetState?.privateContent&&root.clientWidth<640)state.page='index';render();
+ window.addEventListener('openai:set_globals',e=>{if(!e.detail?.globals?.widgetState)return;hydrate(e.detail.globals.widgetState);searchOpen=false;query='';q('.st-search input').value='';parked=false;closeDialog();render();});
+ if(globalThis.Tweak){const design={theme:state.theme,admin:state.admin,gptState:state.gptState};const tweak=new Tweak({container:box,onChange:()=>{state.theme=design.theme;state.admin=design.admin;state.gptState=design.gptState;if(!validPage(state.page))state.page='account';render();persist();}});tweak.addSelect(design,'theme',{label:'Тема',options:Object.entries(themes).map(([value,label])=>({value,label}))});tweak.addToggle(design,'admin',{label:'Показать администрирование'});tweak.addSelect(design,'gptState',{label:'Состояние GPT',options:[{value:'connected',label:'Подключён'},{value:'prepare',label:'Первое подключение'},{value:'login',label:'Нужен вход'},{value:'activate',label:'Готов к активации'}]});}
+})();
+</script>
