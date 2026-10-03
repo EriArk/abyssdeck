@@ -12,11 +12,13 @@ export function ProjectFilePreview({
   path,
   size,
   visible,
+  toolbarTarget,
 }: {
   projectId: string;
   path: string;
   size?: number;
   visible: boolean;
+  toolbarTarget?: HTMLElement | null;
 }) {
   const [file, setFile] = useState<File | null>(null),
     [url, setUrl] = useState("");
@@ -86,7 +88,7 @@ export function ProjectFilePreview({
       ) : size === undefined || size > limit || explicit ? (
         <p>Для этого файла используй «Открыть файл» рядом с его именем.</p>
       ) : file ? (
-        <FilePreview key={url} file={file} objectUrl={url} />
+        <FilePreview key={url} file={file} objectUrl={url} toolbarTarget={toolbarTarget} />
       ) : (
         <p role="status">
           <span className="spinner" /> Читаю файл…

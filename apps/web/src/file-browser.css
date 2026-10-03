@@ -551,3 +551,55 @@
   padding: 0;
   justify-content: center;
 }
+
+/* One continuous rail for file actions and the mounted preview's format tools. */
+.file-browser-detail .file-inspector-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 5px 4px;
+  margin: 0;
+  border: 0;
+  overflow-x: auto;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.file-browser-detail .file-inspector-toolbar .inspector-selected {
+  flex: none;
+  margin: 0;
+  padding: 0;
+}
+.file-browser-detail .file-inspector-format-tools {
+  flex: 1 0 auto;
+}
+.file-browser-detail .file-inspector-toolbar :is(.inspector-actions, .file-text-tools) {
+  flex-wrap: nowrap;
+  gap: 4px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.file-browser-detail .file-inspector-toolbar :is(.file-text-options, .file-text-actions) {
+  gap: 4px;
+}
+.file-browser-detail .file-inspector-toolbar :is(.icon-button, .speech-button, .copy-button) {
+  flex: none;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+}
+:root:is([data-theme="crt-green"], [data-theme="hitech-2000s"]) .file-browser-detail .file-inspector-toolbar {
+  background: var(--case-surface);
+  color: var(--case-ink);
+  border-color: var(--case-seam);
+}
+:root:is([data-theme="crt-green"], [data-theme="hitech-2000s"]) .file-browser-detail .file-inspector-toolbar :is(.inspector-actions, .file-text-tools) {
+  padding: 0;
+  background: transparent;
+  border: 0;
+}

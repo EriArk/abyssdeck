@@ -50,6 +50,7 @@ export function ProjectFiles({
   const dialog = useRef<HTMLDialogElement>(null);
   useWorkspaceDialog(dialog, visible, `project-${mode}`);
   const dismiss = useWindowDismiss(dialog);
+  const [previewToolbar, setPreviewToolbar] = useState<HTMLDivElement | null>(null);
   const [section, setSection] = useState<"overview" | "changes" | "releases">("overview");
   const [transfer, setTransfer] = useState<FileTransfer>();
   const transferId = useRef(0);
@@ -314,12 +315,20 @@ export function ProjectFiles({
           </button>
         )}
         {saved && (
-          <DownloadLink href={saved.url} name={saved.name}>
-            Сохранённый результат
+          <DownloadLink
+            href={saved.url}
+            name={saved.name}
+            className={mode === "files" ? "icon-button" : "secondary"}
+            title="Сохранённый результат"
+          >
+            <Icon name="results" />
+            <span className={mode === "files" ? "file-action-label" : undefined}>
+              Сохранённый результат
+            </span>
           </DownloadLink>
         )}
       </div>
-      {fileError && (
+      {fileError && mode === "git" && (
         <p className="notice" role="alert">
           {fileError}
         </p>
@@ -640,11 +649,20 @@ export function ProjectFiles({
           preview={
             selected ? (
               <>
-                {selectedPanel()}
+                <fieldset className="file-inspector-toolbar" aria-label="Действия и вид файла">
+                  {selectedPanel()}
+                  <div className="file-inspector-format-tools" ref={setPreviewToolbar} />
+                </fieldset>
+                {fileError && (
+                  <p className="notice" role="alert">
+                    {fileError}
+                  </p>
+                )}
                 <ProjectFilePreview
                   key={`${selected}:${revision}`}
                   projectId={projectId}
                   path={selected}
+                  toolbarTarget={previewToolbar}
                   size={directory?.entries.find((e) => e.path === selected)?.size}
                   visible={visible}
                 />

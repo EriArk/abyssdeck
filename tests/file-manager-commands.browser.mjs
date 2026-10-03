@@ -40,6 +40,7 @@ for (const [engine, type] of [
     await context.addCookies([{ name, value, url: origin }]);
     const page = await context.newPage(),
       errors = [];
+    await page.emulateMedia({ reducedMotion: "reduce" });
     page.on("pageerror", (e) => errors.push(e.message));
     // local-linux download uses POSIX paths. On a Windows fixture host only,
     // supply these fixture bytes; all mutation, collision and receipt APIs stay real.
@@ -52,6 +53,11 @@ for (const [engine, type] of [
           contentType: "text/markdown",
         });
       });
+    await page.route("**/api/projects/project/files/saved?*", (route) =>
+      route.fulfill({
+        json: { url: "/api/projects/project/files/content?path=README.md", name: "README.md" },
+      }),
+    );
     await page.goto(origin);
     await page
       .getByRole("textbox", { name: "Сообщение Codex", exact: true })
@@ -70,6 +76,10 @@ for (const [engine, type] of [
       await action.getByRole("button", { name: command, exact: true }).click();
     };
     await files.getByRole("button", { name: /^README.md/ }).click();
+    await expect(files.locator(".readable-file")).toContainText("A real working file");
+    await expect(
+      files.getByRole("button", { name: "Сохранённый результат", exact: true }),
+    ).toBeVisible();
     for (const theme of ["crt-green", "hitech-2000s", "organizer", "classic-dark"]) {
       await page.evaluate((t) => (document.documentElement.dataset.theme = t), theme);
       for (const [width, height] of [
@@ -82,9 +92,34 @@ for (const [engine, type] of [
           files.getByRole("button", { name: "Закрыть файлы", exact: true }),
         ).toBeVisible();
         assert.equal(await files.locator(":scope > .project-tool-actions").count(), 0);
+        const rail = files.getByRole("group", { name: "Действия и вид файла" });
+        await expect(rail.locator(".file-text-tools")).toHaveCount(1);
+        const buttons = await rail.locator("button").evaluateAll((items) =>
+          items.map((item) => {
+            const r = item.getBoundingClientRect();
+            return { y: r.y, height: r.height, width: r.width };
+          }),
+        );
+        await page.screenshot({ path: `${output}/${engine}-rail-${theme}-${width}.png` });
+        assert.ok(buttons.length === 6 || buttons.length === 7); // Speech is absent when the browser has no supported engine.
+        assert.ok(
+          Math.max(...buttons.map((b) => b.y)) - Math.min(...buttons.map((b) => b.y)) < 2,
+          JSON.stringify({ theme, width, buttons }),
+        );
+        assert.ok(buttons.every((b) => b.height >= 44 && b.width >= 44));
+        assert.ok((await rail.boundingBox()).height < 65);
         await page.screenshot({ path: `${output}/${engine}-locked-${theme}-${width}.png` });
       }
     }
+    await files.getByRole("button", { name: "Исходный текст", exact: true }).click();
+    await expect(files.locator(".readable-file .file-text")).toContainText("# Project");
+    await files.getByRole("button", { name: "Перенос строк", exact: true }).click();
+    await expect(files.locator(".readable-file .file-text")).toHaveAttribute("data-wrap", "false");
+    await files.getByRole("button", { name: "Сохранённый результат", exact: true }).click();
+    await expect(page.locator(".file-viewer-dialog")).toBeVisible();
+    await page.getByRole("button", { name: "Закрыть просмотр", exact: true }).click();
+    await expect(files.locator(".readable-file .file-text")).toHaveAttribute("data-wrap", "false");
+    await files.getByRole("button", { name: "Исходный текст", exact: true }).click();
     await files.getByRole("button", { name: "Разблокировать файлы", exact: true }).click();
     await files.getByRole("button", { name: "Закрыть файл", exact: true }).click();
     // Create a directory, rename it, then use its ordinary per-item menu to copy.

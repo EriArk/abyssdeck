@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CopyButton } from "./CopyButton";
@@ -11,9 +12,11 @@ const markdownComponents: Components = { a: ({ children }) => <span>{children}</
 export function ReadableFilePreview({
   file,
   initialRaw = false,
+  toolbarTarget,
 }: {
   file: File;
   initialRaw?: boolean;
+  toolbarTarget?: HTMLElement | null;
 }) {
   const [loaded, setLoaded] = useState<{ file: File; text: string; readable: boolean }>(),
     [wrap, setWrap] = useState(true),
@@ -49,50 +52,53 @@ export function ReadableFilePreview({
       live = false;
     };
   }, [file]);
-  return (
-    <div className="readable-file">
-      <fieldset ref={toolbar} className="file-view-tools file-text-tools" aria-label="Вид текста">
-        <div className="file-text-options">
+  const tools = (
+    <fieldset ref={toolbar} className="file-view-tools file-text-tools" aria-label="Вид текста">
+      <div className="file-text-options">
+        <button
+          type="button"
+          className="icon-button"
+          aria-label="Перенос строк"
+          title="Перенос строк"
+          aria-pressed={wrap}
+          onClick={() => setWrap(!wrap)}
+        >
+          <Icon name="wrap" />
+        </button>
+        {markdown && !initialRaw && (
           <button
             type="button"
             className="icon-button"
-            aria-label="Перенос строк"
-            title="Перенос строк"
-            aria-pressed={wrap}
-            onClick={() => setWrap(!wrap)}
+            aria-label="Исходный текст"
+            title="Исходный текст"
+            aria-pressed={raw}
+            onClick={() => setRaw(!raw)}
           >
-            <Icon name="wrap" />
+            <Icon name="code" />
           </button>
-          {markdown && !initialRaw && (
-            <button
-              type="button"
-              className="icon-button"
-              aria-label="Исходный текст"
-              title="Исходный текст"
-              aria-pressed={raw}
-              onClick={() => setRaw(!raw)}
-            >
-              <Icon name="code" />
-            </button>
-          )}
-        </div>
-        <div className="file-text-actions">
-          {current?.readable && (
-            <SpeechButton
-              id={readingScope + ":text"}
-              text={text}
-              format={markdown ? "markdown" : "text"}
-              idleLabel="Озвучить текст"
-              prepare={() =>
-                content.current && toolbar.current
-                  ? visibleFileSpeech(content.current, toolbar.current, rendered)
-                  : undefined
-              }
-            />
-          )}
-          <CopyButton text={text} label="Копировать показанный текст" />
-        </div>
-      </fieldset>
+        )}
+      </div>
+      <div className="file-text-actions">
+        {current?.readable && (
+          <SpeechButton
+            id={readingScope + ":text"}
+            text={text}
+            format={markdown ? "markdown" : "text"}
+            idleLabel="Озвучить текст"
+            prepare={() =>
+              content.current && toolbar.current
+                ? visibleFileSpeech(content.current, toolbar.current, rendered)
+                : undefined
+            }
+          />
+        )}
+        <CopyButton text={text} label="Копировать показанный текст" />
+      </div>
+    </fieldset>
+  );
+  return (
+    <div className="readable-file">
+      {toolbarTarget ? createPortal(tools, toolbarTarget) : tools}
       {rendered ? (
         <div ref={content} className="file-document">
           <ReactMarkdown

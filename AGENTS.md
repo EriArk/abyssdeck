@@ -1,5 +1,14 @@
 # AGENTS.md
 
+## Owner-requested scope restraint and Results review (2026-10-03)
+
+- Pause further viewer format-tool expansion; the proposed video-frame/markup stage
+  is deferred. Improve ordinary use and reported defects in existing functionality.
+- Results is the next design discussion, ahead of Devices. Preserve its feed and
+  shared viewer; agree on the presentation before changing Results production UI.
+- File preview actions and text tools share one compact icon row. Saved-result
+  access remains available through an accessible icon, not a large text button.
+
 ## Owner-approved code editor engines (2026-10-03)
 
 - Integrate Monaco as the code-editing mode of the universal viewer, regardless

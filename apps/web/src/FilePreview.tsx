@@ -104,11 +104,13 @@ export function FilePreview({
   objectUrl,
   source,
   full = false,
+  toolbarTarget,
 }: {
   file: File;
   objectUrl: string;
   source?: string;
   full?: boolean;
+  toolbarTarget?: HTMLElement | null;
 }) {
   const kind = previewKind(file),
     [badImage, setBadImage] = useState(false);
@@ -180,7 +182,7 @@ export function FilePreview({
             <ReaderPreview file={file} />
           </Suspense>
         ) : kind === "text" ? (
-          <ReadableFilePreview file={file} />
+          <ReadableFilePreview file={file} toolbarTarget={toolbarTarget} />
         ) : kind === "html" ? (
           <TextOrHtml file={file} html={kind === "html"} />
         ) : (
