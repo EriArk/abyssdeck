@@ -55,7 +55,9 @@ export class CodexClient extends EventEmitter {
   }
   async initialize(): Promise<RecordValue> {
     const result = await this.request("initialize", {
-      clientInfo: { name: "codex_web_interface", title: "AbyssDeck", version: "0.1.0" },
+      // Persistent native instances require the original initialization bytes
+      // when a new Hub reconnects. Product branding belongs in the web UI.
+      clientInfo: { name: "codex_web_interface", title: "Codex Web Interface", version: "0.1.0" },
       capabilities: {
         experimentalApi: true,
         mcpServerOpenaiFormElicitation: true,

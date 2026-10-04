@@ -47,6 +47,39 @@ test("proxy HTML and empty responses produce readable API errors, not Safari JSO
     globalThis.fetch = original;
   }
 });
+test("Hub branding preserves initialization of an already running Companion instance", async () => {
+  const child = Object.assign(new EventEmitter(), {
+    stdout: new PassThrough(),
+    stderr: new PassThrough(),
+    stdin: new PassThrough(),
+    pid: undefined,
+  });
+  const rpc = new CodexClient(child);
+  const previousInitialization = {
+    clientInfo: { name: "codex_web_interface", title: "Codex Web Interface", version: "0.1.0" },
+    capabilities: {
+      experimentalApi: true,
+      mcpServerOpenaiFormElicitation: true,
+      extensions: { "openai/elicitation": { form: {} } },
+    },
+  };
+  child.stdin.on("data", (bytes) => {
+    const frame = JSON.parse(bytes.toString());
+    if (frame.method !== "initialize") return;
+    // The installed persistent broker compares the serialized parameters.
+    if (JSON.stringify(frame.params) !== JSON.stringify(previousInitialization)) {
+      child.emit("close", 0);
+      return;
+    }
+    child.stdout.write(`${JSON.stringify({ id: frame.id, result: { sameRuntime: true } })}\n`);
+  });
+  try {
+    assert.equal((await rpc.initialize()).sameRuntime, true);
+  } finally {
+    rpc.close();
+  }
+});
+
 test("native writer conflicts preserve a useful safe error without exposing arbitrary RPC details", async () => {
   const child = Object.assign(new EventEmitter(), {
     stdout: new PassThrough(),
