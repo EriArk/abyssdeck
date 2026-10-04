@@ -51,7 +51,15 @@ pid/ppid/state для удаления и checkpoint игнорирует тол
 живые/приостановленные команды по-прежнему блокируют замену. Новый образ использует
 Tini как PID 1; реальный тест 40 осиротевших детей оставил ноль зомби.
 Прошли 5 проверок удаления/отката/процессов, 11 checkpoint и 22 broker.
-Установка обновлённого root-пакета всё ещё ожидает повторного запуска владельцем.
+Владелец повторно применил root-пакет 4 октября в 10:17; вывод подтверждает
+`installed=true`, `diskPreserved=true`, откат сохранён в
+`/var/lib/codex-workspace-maintenance/remove-codex-20261004T071728`.
+После этого через штатный Hub → SSH → owner-bound broker подтверждены ready/running
+и точный новый image digest. Реальная команда в окружении завершилась с кодом 0:
+пакет и executable Codex отсутствуют, /workspace/home и /workspace/projects на месте,
+PID 1 — tini, процессов Z нет. Прежний RECEIPTS_FULL больше не блокирует status/exec.
+Доказательство: `verification-9edd8da/workspace-removal-installed.json`.
+Удаление обязательного Codex завершено; это не активация следующего Incus/SSH этапа.
 
 ### Готовность GPT и предупреждения проектов — 4 октября
 
