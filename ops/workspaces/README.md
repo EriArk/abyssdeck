@@ -231,6 +231,11 @@ automatically uses its own backup code, preventing a stale override after a sche
 upgrade. Personal SQLite backups are page-based and do not inherit the registry
 file's 1 GiB in-memory read limit.
 
+Daily online personal backups pin a WAL read transaction for integrity checks and
+copying, so concurrent Hub writes cannot continually restart incremental copying.
+WAL writers continue normally; the read connection closes after the copy. Offline
+non-WAL sources retain the existing backup behavior.
+
 The package contains source and installation paths, no credentials or backup data.
 The installer preserves disks/runtime, refuses an active checkpoint/recovery journal,
 verifies installed module hashes and records `workspace-checkpoint-install.json` in

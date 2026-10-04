@@ -3,6 +3,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { chmod, mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import { createApp } from "../apps/hub/dist/app.js";
 import { Artifacts } from "../apps/hub/dist/artifacts.js";
@@ -11,6 +12,40 @@ import { createSnapshot, restoreSnapshot, verifySnapshot } from "../apps/hub/dis
 import { SCHEMA_VERSION } from "../apps/hub/dist/migrations.js";
 import { Store } from "../apps/hub/dist/store.js";
 import { configSchema } from "../packages/shared/dist/index.js";
+
+test("online WAL backup pins a snapshot while another connection keeps writing", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "codex-backup-writer-"));
+  const config = { hub: { databasePath: join(root, "app.db"), resultsPath: join(root, "results") } };
+  const store = new Store(config.hub.databasePath);
+  try {
+    await mkdir(config.hub.resultsPath, { mode: 0o700 });
+    store.db.exec("CREATE TABLE backup_probe(value INTEGER); INSERT INTO backup_probe VALUES(0)");
+    const prepare = DatabaseSync.prototype.prepare;
+    let written = false;
+    const hook = t.mock.method(DatabaseSync.prototype, "prepare", function (sql, ...args) {
+      if (!written && this !== store.db && sql === "PRAGMA quick_check") {
+        written = true;
+        // The source schema has already been read. This independent writer must
+        // succeed, but must not change the snapshot being inspected/copied.
+        store.db.exec("UPDATE backup_probe SET value=1");
+      }
+      return prepare.call(this, sql, ...args);
+    });
+    const snapshot = await createSnapshot(config, join(root, "backups"));
+    hook.mock.restore();
+    assert(written);
+    assert.equal(store.db.prepare("SELECT value FROM backup_probe").get().value, 1);
+    const copied = new DatabaseSync(join(snapshot, "app.db"), { readOnly: true });
+    try {
+      assert.equal(copied.prepare("SELECT value FROM backup_probe").get().value, 0);
+    } finally {
+      copied.close();
+    }
+  } finally {
+    store.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 test("online backup restores login, native IDs, projections and file bytes; old sessions are revoked", async () => {
   const root = await mkdtemp(join(tmpdir(), "codex-backup-test-"));

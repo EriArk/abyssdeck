@@ -286,6 +286,11 @@ export async function createSnapshot(
   try {
     const source = new DatabaseSync(config.hub.databasePath, { readOnly: true });
     try {
+      // Pin the WAL read snapshot so writes from the live Hub cannot restart
+      // each incremental backup step. WAL writers remain free to commit.
+      // Offline/non-WAL sources retain their existing short-lock behavior.
+      if (source.prepare("PRAGMA journal_mode").get()?.journal_mode === "wal")
+        source.exec("BEGIN");
       inspectDatabase(source);
       await backup(source, join(staging, "app.db"));
     } finally {
