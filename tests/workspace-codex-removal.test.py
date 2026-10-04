@@ -1,4 +1,4 @@
-﻿import hashlib, importlib.util, json, os
+﻿import hashlib, importlib.util, json, os, time
 from pathlib import Path
 import shutil, sqlite3, sys, tempfile, unittest
 from unittest.mock import patch
@@ -16,6 +16,7 @@ class Removal(unittest.TestCase):
    with sqlite3.connect(dbpath) as db:
     db.executescript('CREATE TABLE workspaces(owner TEXT PRIMARY KEY,slot INTEGER,state TEXT,image TEXT); CREATE TABLE receipts(nonce TEXT PRIMARY KEY,owner TEXT,op TEXT,created REAL,state TEXT);')
     db.execute('INSERT INTO workspaces VALUES(?,0,?,?)',(OWNER,'ready',OLD))
+    db.execute("INSERT INTO receipts VALUES('old',?,'status',?,'completed')",(OWNER,time.time()))
    keep=root/'disk.txt';keep.write_bytes(b'private-user-bytes')
    for name in ['broker.py','policy.py','remove-bundled-codex.py']:
     shutil.copyfile(ROOT/'ops/workspaces'/name,bundle/name)
@@ -37,7 +38,7 @@ class Removal(unittest.TestCase):
     if op=='rm':containers.pop(args[-1]);return ''
     if op=='exec' and fail:raise RuntimeError('VERIFY_FAILED')
     return ''
-   with patch.multiple(m,CONFIG=cfg,REGISTRY=dbpath,HELPERS=helpers,BACKUPS=backups,__file__=str(bundle/'remove-bundled-codex.py')),patch.object(m,'run',side_effect=run),patch.object(m,'podman_command',return_value=['podman']),patch('sys.argv',['remove','--apply']),patch.object(m.os,'geteuid',return_value=0):
+   with patch.multiple(m,CONFIG=cfg,REGISTRY=dbpath,HELPERS=helpers,BACKUPS=backups,FULL_RECEIPTS=1,__file__=str(bundle/'remove-bundled-codex.py')),patch.object(m,'run',side_effect=run),patch.object(m,'podman_command',return_value=['podman']),patch('sys.argv',['remove','--apply']),patch.object(m.os,'geteuid',return_value=0):
     if fail:
      with self.assertRaisesRegex(RuntimeError,'VERIFY_FAILED'):m.main()
     else:m.main()
@@ -46,8 +47,7 @@ class Removal(unittest.TestCase):
    self.assertEqual(containers[name],OLD if fail else NEW)
    self.assertEqual(json.loads(cfg.read_text())['image'],OLD if fail else NEW)
    self.assertIn(['systemctl','start',m.BROKER],commands)
-   self.assertIn(['docker','start','codex-web-engine'],commands)
-   self.assertIn(['docker','start','codex-web-hub'],commands)
+   self.assertFalse(any(c[:2]==['docker','stop'] for c in commands), 'unrelated chats and caller terminal must stay alive')
    if fail:self.assertEqual((helpers/'broker.py').read_bytes(),b'old-broker.py')
    else:self.assertEqual(containers[name+'-before-codex-removal'],OLD)
  def test_exact_image_replacement_preserves_disk_and_old_container(self):self.scenario()

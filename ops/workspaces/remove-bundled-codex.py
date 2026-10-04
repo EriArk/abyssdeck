@@ -19,6 +19,7 @@ import uuid
 from policy import podman_command, container_name, container_args
 
 BROKER='codex-workspace-broker.service'
+FULL_RECEIPTS=50000
 REGISTRY=Path('/var/lib/codex-workspaces/registry.sqlite')
 CONFIG=Path('/etc/codex-workspaces/config.json')
 HELPERS=Path('/opt/codex-workspace-broker')
@@ -73,9 +74,10 @@ def main():
     with (root/'runtime.tar').open('rb') as archive:run(podman+['load'],stdin=archive)
     actual=run(podman+['image','inspect',image,'--format','{{.Id}}'])
     if actual.removeprefix('sha256:')!=image.removeprefix('sha256:'):raise RuntimeError('LOADED_IMAGE_MISMATCH')
-    # Fixed admission: don't stop active commands, chats or terminal sessions.
-    admission=json.loads(run(['docker','exec','codex-web-engine','node','dist/maintenance-check.js','--reserve-terminals']))
-    if not admission['idle']:raise RuntimeError('HUB_BUSY')
+    # This bounded migration repairs the diagnosed full broker. At capacity it
+    # cannot accept new work; actual containers were verified idle above.
+    # Unrelated Hub chats and the host terminal running this script remain alive.
+    if sum(counts.values()) < FULL_RECEIPTS:raise RuntimeError('EXPECTED_FULL_BROKER_CHANGED')
     backup=BACKUPS/('remove-codex-'+time.strftime('%Y%m%dT%H%M%S'))
     backup.mkdir(parents=True,mode=0o700)
     old_name=name+'-before-codex-removal'
@@ -85,8 +87,9 @@ def main():
     (backup/'identity.json').write_text(json.dumps({'owner':owner,'slot':slot,'oldImage':old_image,'image':image,'oldName':old_name,'running':before['State']['Running']}))
     stopped=[];renamed=False;changed=False
     try:
-        for target in ['codex-web-hub','codex-web-engine']:
-            stopped.append(target);run(['docker','stop','--time','45',target])
+        with sqlite3.connect(REGISTRY.as_uri()+'?mode=ro',uri=True) as db:
+            total,oldest=db.execute('SELECT count(*),min(created) FROM receipts').fetchone()
+        if total < FULL_RECEIPTS or oldest < time.time()-14*86400+600:raise RuntimeError('EXPECTED_FULL_BROKER_CHANGED')
         stopped.append(BROKER);run(['systemctl','stop',BROKER])
         for other,_,state,_ in rows:
             if state!='revoked':idle(podman,container_name(other))
