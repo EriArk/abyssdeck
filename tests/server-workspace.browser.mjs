@@ -70,7 +70,8 @@ try {
         page.getByRole("button", { name: "Открыть терминал", exact: true }),
       ).toBeVisible();
       assert.equal(creates, 1);
-      await page.getByText("Подключить свои аккаунты", { exact: true }).click();
+      await expect(page.getByText(/codex login|При создании проекта/)).toHaveCount(0);
+      await expect(page.getByText(/Твои файлы находятся в \/workspace/)).toBeVisible();
       for (const width of [390, 1024]) {
         await page.setViewportSize({ width, height: 844 });
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
