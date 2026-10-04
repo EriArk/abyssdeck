@@ -70,6 +70,7 @@ const historySchema = z
             model: z.string().max(128).nullable(),
             effort: z.string().max(128).nullable(),
             complete: z.boolean(),
+            incomplete: z.boolean().optional(),
           })
           .strict(),
       )
@@ -872,6 +873,7 @@ export class NativeGptReadClient {
         createdAt: m.createdAt,
         phase: m.channel,
         complete: m.complete,
+        ...(m.incomplete ? { incomplete: true } : {}),
         files: links.files.map((f) => ({ ...f, url: rewrite(f.url) })),
         ...(m.hasAttachments ? { unsupported: ["other" as const] } : {}),
       };

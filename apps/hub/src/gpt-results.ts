@@ -2,10 +2,10 @@ import { createHash } from "node:crypto";
 import type { GptMessage, ResultCategory, ResultItem, ResultPage } from "@codex-web/shared";
 import {
   CHAT_BLOCK_LINES,
-  textBlockLines,
   emptyResultCounts,
   HubError,
   resultCategory,
+  textBlockLines,
 } from "@codex-web/shared";
 import { gptResultContent } from "./gpt-result-content.js";
 import type { GptTextArtifacts } from "./gpt-text-artifacts.js";
@@ -36,7 +36,8 @@ export function gptResults(
         id: message.id,
         text: message.text,
         activity: message.activity,
-        state: message.complete === false ? "active" : "completed",
+        state: message.complete === false && !message.incomplete ? "active" : "completed",
+        ...(message.incomplete ? { incomplete: true } : {}),
       });
     }
     const content = gptResultContent(message.text, publicBaseUrl);

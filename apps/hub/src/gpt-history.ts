@@ -180,7 +180,10 @@ export function gptHistory(
                         ? ("commentary" as const)
                         : ("final" as const),
                     complete:
-                      message.status === "finished_successfully" && metadata.is_complete !== false,
+                      message.status === "finished_successfully" &&
+                      metadata.is_complete !== false &&
+                      metadata.codex_incomplete !== true,
+                    ...(metadata.codex_incomplete === true ? { incomplete: true } : {}),
                   }
                 : {}),
               files: [...files.values()],

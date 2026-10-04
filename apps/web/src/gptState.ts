@@ -84,6 +84,7 @@ export function gptTurnProgress(messages: GptMessage[], job?: GptJob, receipts: 
     userId: messages[user]?.id,
     pending:
       !settled &&
+      !answers.some((message) => message.incomplete) &&
       user >= 0 &&
       next < 0 &&
       // An old unfinished public node is not live activity. Recent output is
@@ -98,7 +99,8 @@ export function gptTurnProgress(messages: GptMessage[], job?: GptJob, receipts: 
       id: message.id,
       text: message.text,
       activity: message.activity,
-      state: message.complete ? ("completed" as const) : ("active" as const),
+      state: message.complete || message.incomplete ? ("completed" as const) : ("active" as const),
+      ...(message.incomplete ? { incomplete: true } : {}),
     })),
   };
 }

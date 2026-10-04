@@ -7,6 +7,45 @@ import { nativeRead } from "../ops/gpt-native/renderer-read.mjs";
 const conversationId = "10000000-0000-4000-8000-000000000001";
 const id = (n) => `20000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 
+test("failed public output survives and later canonical completion replaces its incomplete state", async () => {
+  const f = fixture(),
+    accountFingerprint = await f.binding();
+  f.node(1, "Question", { author: { role: "user" } });
+  f.node(2, "Available partial answer", { status: "finished_partial_completion", end_turn: true });
+  const request = { operation: "readHistoryUpdate", conversationId, accountFingerprint };
+  const first = await f.read(request, true);
+  assert.equal(first.graph.mapping[id(2)].message.metadata.codex_incomplete, true);
+  f.conversation.mapping[id(2)].message.status = "finished_successfully";
+  f.conversation.mapping[id(2)].message.content.parts = ["Completed answer"];
+  [...f.runtime[Symbol.for("codex-web.native-history")].values()][0].at -= 16000;
+  const delta = await f.read({ ...request, revision: first.revision }, true);
+  assert.equal(delta.kind, "delta");
+  assert.equal(delta.graph.mapping[id(2)].message.metadata.codex_incomplete, undefined);
+  assert.equal(delta.graph.mapping[id(2)].message.metadata.is_complete, true);
+  assert.deepEqual(Object.keys(delta.graph.mapping), [id(2)]);
+});
+
+test("a hidden error marks only its exact turn and never the preceding successful answer", async () => {
+  const f = fixture(),
+    accountFingerprint = await f.binding();
+  f.node(1, "Previous final", { end_turn: true });
+  f.node(2, "New question", { author: { role: "user" } });
+  f.node(3, "Partial text", { status: "in_progress" });
+  f.node(4, "PRIVATE", {
+    author: { role: "system" },
+    metadata: { is_error: true },
+    content: { content_type: "error" },
+  });
+  const graph = await f.read({
+    operation: "readConversationGraph",
+    conversationId,
+    accountFingerprint,
+  });
+  assert.equal(graph.mapping[id(1)].message.metadata.codex_incomplete, undefined);
+  assert.equal(graph.mapping[id(3)].message.metadata.codex_incomplete, true);
+  assert.equal(graph.mapping[id(4)].message, null);
+});
+
 test("slow history outlives the former 15-second deadline without a second request", async () => {
   const f = fixture(),
     accountFingerprint = await f.binding();
@@ -302,6 +341,14 @@ test("submission readback requires exact ID, parent, unchanged text and a public
     (await f.read(request)).messages.map((x) => x.text),
     ["public commentary"],
   );
+  f.node(4, "", {
+    channel: "analysis",
+    end_turn: true,
+    content: { content_type: "reasoning_recap", content: "Public summary with available work" },
+  });
+  const summary = await f.read(request);
+  assert.equal(summary.state, "running", "a public summary is never a successful final receipt");
+  assert.equal(summary.messages.at(-1).channel, "commentary");
   f.node(5, "answer", { end_turn: true });
   assert.equal((await f.read(request)).state, "completed");
   assert.equal((await f.read({ ...request, userMessageId: id(91) })).state, "unknown");

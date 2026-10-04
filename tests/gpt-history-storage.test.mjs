@@ -80,6 +80,7 @@ test("disk writes suffixes, restores exact history, compacts interrupted append 
     );
     const initial = readFileSync(path, "utf8");
     raw.mapping.m999.message.content.parts = ["changed final"];
+    raw.mapping.m999.message.metadata = { codex_incomplete: true, is_complete: false };
     now += 20000;
     const expected = normalizer.normalize(raw, "chat");
     cache.seed("chat", expected);
@@ -87,6 +88,8 @@ test("disk writes suffixes, restores exact history, compacts interrupted append 
     assert.ok(readFileSync(path + ".delta").length < 1500);
     const restarted = new GptHistoryDisk(root, () => now);
     assert.deepEqual(restarted.read("chat").items, expected);
+    assert.equal(restarted.read("chat").items.at(-1).incomplete, true);
+    assert.equal(restarted.read("chat").items.at(-1).complete, false);
     // Incomplete final write is ignored; the next write replaces the damaged journal atomically.
     appendFileSync(path + ".delta", '{"epoch":');
     const recovery = new GptHistoryDisk(root, () => now);

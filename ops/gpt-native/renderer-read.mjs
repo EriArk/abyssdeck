@@ -250,6 +250,35 @@ export async function nativeRead(request, load = () => nativeModule(), runtime =
  if (conversation?.conversation_id !== request.conversationId) fail('CONVERSATION_MISMATCH');
  const mapping = conversation.mapping;
  if (!mapping || typeof mapping !== 'object' || Array.isArray(mapping) || Object.keys(mapping).length > 10000) fail('INVALID_HISTORY');
+ // Match the pinned client's public summary presentation, never raw analysis.
+ // Keep this shared by history and exact-message artifact authorization.
+ const publicContent = m => {
+  const meta=m?.metadata??{},c=m?.content;
+  if(meta.is_visually_hidden_from_conversation===true||meta.is_visually_hidden_reasoning_group===true||
+     meta.summary_type==='raw_cot'||meta.reasoning_recap_type==='hide_all'||meta.tool_invoking_message===true||
+     (m?.recipient!=null&&m.recipient!=='all'))return null;
+  if(m?.author?.role==='assistant'&&['thoughts','reasoning_recap'].includes(c?.content_type)){
+   // The native thought card uses the last summary. Its separate content field
+   // is not a public-summary contract and must never cross the adapter boundary.
+   const text=c.content_type==='thoughts'?(Array.isArray(c.thoughts)?c.thoughts.at(-1)?.summary:null):c.content;
+   return typeof text==='string'&&text.trim()?{channel:'commentary',content:{content_type:'text',parts:[text]}}:null;
+  }
+  if((m?.channel!=null&&!['final','commentary'].includes(m.channel))||
+     ['thoughts','reasoning','reasoning_recap','tool_call','computer_output','error','system_error'].includes(c?.content_type))return null;
+  return {channel:m?.channel??'final',content:c};
+ };
+ const stopped = m => m && (m.metadata?.finish_details?.type==='interrupted'||m.metadata?.is_error===true||
+  (m.status==='finished_partial_completion'&&m.end_turn===true)||['error','system_error'].includes(m.content?.content_type));
+ // A failed turn can end on a hidden error node. Retain its preceding public
+ // output without claiming it is still generating or that submission succeeded.
+ const incomplete=new Set(),visited=new Set();let cursor=conversation.current_node,failed=false;
+ while(cursor!=null){
+  if(visited.has(cursor)||!Object.hasOwn(mapping,cursor))fail('INVALID_HISTORY');
+  visited.add(cursor);const node=mapping[cursor],m=node?.message;
+  if(m?.author?.role==='user')failed=false;
+  else {if(stopped(m))failed=true;if(failed&&m?.author?.role==='assistant')incomplete.add(m.id);}
+  cursor=node?.parent;
+ }
  // Preserve public branch topology for the existing Hub paging/versions/results code.
  // Hidden nodes retain only edges: their content, metadata and tool payload never cross IPC.
  if(['readConversationGraph','readHistoryUpdate'].includes(request.operation)){
@@ -271,12 +300,10 @@ export async function nativeRead(request, load = () => nativeModule(), runtime =
   for(const [id,node] of Object.entries(mapping)){
    if(!identity(id)||node?.id!==id||(node.parent!=null&&!identity(node.parent)))fail('INVALID_HISTORY');
    const n={id,parent:node.parent??null,children:Array.isArray(node.children)?node.children.filter(identity):[],message:null};
-   const m=node.message,role=m?.author?.role,meta=m?.metadata??{},content=m?.content;
+   const m=node.message,role=m?.author?.role,meta=m?.metadata??{},visible=publicContent(m),content=visible?.content;
    const action=activity(m);
    const generated=role==='tool'&&m.channel==='final'&&typeof meta.image_gen_title==='string';
-   const publicMessage=(['user','assistant'].includes(role)||generated)&&identity(m?.id)&&meta.is_visually_hidden_from_conversation!==true&&meta.tool_invoking_message!==true&&
-    (m.channel==null||['final','commentary'].includes(m.channel))&&(m.recipient==null||m.recipient==='all')&&
-    !['thoughts','reasoning','reasoning_recap','tool_call','computer_output'].includes(content?.content_type);
+   const publicMessage=(['user','assistant'].includes(role)||generated)&&identity(m?.id)&&visible!==null;
    if(publicMessage){
     const parts=Array.isArray(content?.parts)?content.parts.flatMap(p=>{
      if(typeof p==='string')return generated?[]:[p];
@@ -284,9 +311,9 @@ export async function nativeRead(request, load = () => nativeModule(), runtime =
      return [{content_type:/audio/.test(p?.content_type)?'audio':/video/.test(p?.content_type)?'video':/canvas|widget|interactive/.test(p?.content_type)?'interactive':'other'}];
     }):[];
     const attachments=Array.isArray(meta.attachments)?meta.attachments.slice(0,100).flatMap(f=>/^file[-_][a-zA-Z0-9_-]{1,150}$/.test(f?.id??'')?[{id:f.id,name:scalar(f.name,500)??'File',mime_type:scalar(f.mime_type,150)??'application/octet-stream',size:Number.isSafeInteger(f.size)&&f.size>=0?f.size:0}]:[]):[];
-    n.message={id:m.id,author:{role:generated?'assistant':role},channel:m.channel??'final',recipient:'all',content:{content_type:scalar(content?.content_type,100)??'other',parts},
+    n.message={id:m.id,author:{role:generated?'assistant':role},channel:visible.channel,recipient:'all',content:{content_type:scalar(content?.content_type,100)??'other',parts},
      create_time:Number.isFinite(m.create_time)&&m.create_time>=0?m.create_time:0,status:m.status==='finished_successfully'?'finished_successfully':'in_progress',end_turn:m.end_turn===true,
-     metadata:{attachments,content_references:refs(meta.content_references),model_slug:scalar(meta.model_slug,128),thinking_effort:scalar(meta.thinking_effort,128),is_complete:meta.is_complete===true||(m.end_turn===true&&m.status==='finished_successfully')}};
+     metadata:{attachments,content_references:refs(meta.content_references),model_slug:scalar(meta.model_slug,128),thinking_effort:scalar(meta.thinking_effort,128),is_complete:!incomplete.has(m.id)&&(meta.is_complete===true||(m.status==='finished_successfully'&&(m.end_turn===true||visible.channel==='commentary'))),...(incomplete.has(m.id)?{codex_incomplete:true}:{})}};
    }
     if(action&&!publicMessage&&identity(m?.id))n.message={id:m.id,author:{role:'assistant'},channel:'commentary',recipient:'all',
     content:{content_type:'text',parts:[action.text]},create_time:Number.isFinite(m.create_time)?m.create_time:0,
@@ -446,10 +473,9 @@ function gptLinkedText(body, metadata) {
  if(request.messageId != null && selected.length!==1)fail('MESSAGE_NOT_ON_BRANCH');
  for (const node of selected) {
   const message = node.message, role = message?.author?.role;
-  if (!['user','assistant'].includes(role) || message.metadata?.is_visually_hidden_from_conversation === true ||
-      (message.channel != null && !['final','commentary'].includes(message.channel)) ||
-      (message.recipient != null && message.recipient !== 'all')) continue;
-  const content = message.content;
+  const visible=publicContent(message);
+  if (!['user','assistant'].includes(role) || !visible) continue;
+  const content = visible.content;
   if (typeof message.id !== 'string' || !content || !Array.isArray(content.parts)) continue;
   // Unknown structured content is not stringified. Media resolution is a later gate.
   const parts = ['text','multimodal_text'].includes(content.content_type) ? content.parts.filter(p => typeof p === 'string') : [];
@@ -459,11 +485,11 @@ function gptLinkedText(body, metadata) {
   if (messages.length === 20) { hasMore = true; break; }
   bytes += new TextEncoder().encode(text).length;
   if (bytes > 16 * 1024 * 1024) fail('HISTORY_TOO_LARGE');
-  messages.push({nodeId:node.id, id:message.id, role, channel:message.channel ?? 'final', text, hasAttachments,
+  messages.push({nodeId:node.id, id:message.id, role, channel:visible.channel, text, hasAttachments,
    createdAt:typeof message.create_time==='number'&&Number.isFinite(message.create_time)&&message.create_time>=0 ? message.create_time : 0,
    model:typeof message.metadata?.model_slug === 'string' && message.metadata.model_slug.length <= 128 ? message.metadata.model_slug : null,
    effort:typeof message.metadata?.thinking_effort === 'string' && message.metadata.thinking_effort.length <= 128 ? message.metadata.thinking_effort : null,
-   complete:message.status === 'finished_successfully'});
+   complete:message.status === 'finished_successfully'&&!incomplete.has(message.id),...(incomplete.has(message.id)?{incomplete:true}:{})});
  }
  const page={conversationId:request.conversationId, currentNode:conversation.current_node,
   ...(conversation.gizmo_id?{projectId:conversation.gizmo_id}:{}),messages:messages.reverse(), before:hasMore ? messages[0].nodeId : null, mediaResolved:false};

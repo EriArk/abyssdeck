@@ -15,7 +15,10 @@ export function GptSteps({ items }: { items: Progress[] }) {
       {items.map((item) => (
         <li key={item.id}>
           <Icon name={item.activity ? actionIcons[item.activity] : "chat"} size={17} />
-          <span>{item.text}</span>
+          <span>
+            {item.text}
+            {item.incomplete && <small className="muted"> · Ответ не завершён</small>}
+          </span>
         </li>
       ))}
     </ol>

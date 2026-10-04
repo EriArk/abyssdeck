@@ -2023,6 +2023,7 @@ export function GptWorkspace({
                     <div className="message-header">
                       <span className="avatar">{message.role === "user" ? "Я" : "G"}</span>
                       <b>{message.role === "user" ? "Вы" : "GPT"}</b>
+                      {message.incomplete && <small>Ответ не завершён</small>}
                       <span className="message-actions">
                         {!roomEndpoint && nativeOperations.button(message, !!active || busy)}
                         {onPublishToRoom && message.role === "assistant" && message.text.trim() && (

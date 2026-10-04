@@ -4,6 +4,50 @@ import { GptHistoryCache } from "../apps/hub/dist/gpt-cache.js";
 import { gptHistory } from "../apps/hub/dist/gpt-history.js";
 import { gptResults, resultPage } from "../apps/hub/dist/gpt-results.js";
 import { nativeActivity } from "../ops/gpt-native/public-activity.mjs";
+import { isGptChatMessage } from "../packages/shared/dist/index.js";
+
+test("incomplete public output and files remain in chat and Results without successful completion", () => {
+  const messages = gptHistory(
+    {
+      codex_native_assets: true,
+      conversation_id: "chat",
+      current_node: "partial",
+      mapping: {
+        user: {
+          id: "user",
+          parent: null,
+          message: {
+            id: "user",
+            author: { role: "user" },
+            content: { content_type: "text", parts: ["Question"] },
+          },
+        },
+        partial: {
+          id: "partial",
+          parent: "user",
+          message: {
+            id: "partial",
+            author: { role: "assistant" },
+            channel: "commentary",
+            status: "finished_successfully",
+            content: { content_type: "text", parts: ["[Chapter](sandbox:/mnt/data/chapter.md)"] },
+            metadata: { is_complete: false, codex_incomplete: true },
+          },
+        },
+      },
+    },
+    "chat",
+  );
+  const partial = messages[1];
+  assert.equal(partial.complete, false);
+  assert.equal(partial.incomplete, true);
+  assert.equal(isGptChatMessage(partial), true);
+  assert.equal(partial.files.length, 1);
+  const results = gptResults("chat", messages, { inline: () => null });
+  assert.equal(results.find((r) => r.type === "reasoning").payload.steps[0].incomplete, true);
+  assert.equal(results.find((r) => r.type === "reasoning").payload.steps[0].state, "completed");
+  assert.equal(results.find((r) => r.type === "file").turnId, "partial");
+});
 
 test("activity exposes a bounded category, never tool arguments, output or thoughts", () => {
   const message = {
@@ -45,10 +89,13 @@ test("Results groups public intermediate output and the final answer by exact re
   assert.equal(page.items[0].turnId, "u2");
   assert.deepEqual(page.items[0].payload.steps, []);
   assert.equal(page.items[1].payload.steps[0].text, "Public explanation");
-  assert.deepEqual(page.items[1].payload.steps.map(({ id, text, state }) => ({ id, text, state })), [
-    { id: "step", text: "Public explanation", state: "completed" },
-    { id: "final", text: "Final answer", state: "completed" },
-  ]);
+  assert.deepEqual(
+    page.items[1].payload.steps.map(({ id, text, state }) => ({ id, text, state })),
+    [
+      { id: "step", text: "Public explanation", state: "completed" },
+      { id: "final", text: "Final answer", state: "completed" },
+    ],
+  );
   const parsed = gptHistory({
     current_node: "s",
     mapping: {

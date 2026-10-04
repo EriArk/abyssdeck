@@ -15,12 +15,18 @@ export interface GptMessage {
   phase?: "commentary" | "final";
   activity?: GptProgress["activity"];
   complete?: boolean;
+  /** Native turn ended without a successful final answer; preserve available output. */
+  incomplete?: boolean;
   /** Visible native content that the web renderer cannot yet display. Never raw payloads. */
   unsupported?: ("audio" | "video" | "interactive" | "other")[];
 }
 /** Messages counted by chat pagination and rendered in the conversation pane. */
 export function isGptChatMessage(message: GptMessage): boolean {
-  return message.role === "user" || (message.phase !== "commentary" && message.complete !== false);
+  return (
+    message.role === "user" ||
+    message.incomplete === true ||
+    (message.phase !== "commentary" && message.complete !== false)
+  );
 }
 export interface GptConversation {
   pinned?: boolean;
@@ -82,6 +88,7 @@ export interface GptProgress {
   id: string;
   text: string;
   state: "active" | "completed";
+  incomplete?: boolean;
   activity?: "search" | "review" | "code" | "image" | "tool";
 }
 export interface GptHistoryPage {

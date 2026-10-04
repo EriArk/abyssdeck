@@ -86,8 +86,86 @@ function fixture() {
       artifactId: artifactId("node", "/mnt/data/result.txt"),
       ...extra,
     });
-  return { state, account, binding, conversation, node, list, read, run, runtime };
+  const history = (operation = "readConversationGraph") =>
+    nativeRead({ ...binding, operation }, async () => service, runtime);
+  return { state, account, binding, conversation, node, list, read, run, runtime, history };
 }
+
+test("public summaries retain exact downloadable files when the turn ends on a hidden error", async () => {
+  for (const content of [
+    {
+      content_type: "thoughts",
+      thoughts: [
+        { summary: "[Download](sandbox:/mnt/data/result.txt)", content: "PRIVATE_ANALYSIS" },
+      ],
+    },
+    { content_type: "reasoning_recap", content: "[Download](sandbox:/mnt/data/result.txt)" },
+  ]) {
+    const f = fixture();
+    f.node("node", "", { channel: "analysis", status: "finished_successfully", content });
+    f.node(
+      "failure",
+      "SECRET_ERROR",
+      {
+        author: { role: "system" },
+        content: { content_type: "error", parts: ["SECRET_ERROR"] },
+        metadata: { is_error: true, is_visually_hidden_from_conversation: true },
+      },
+      "node",
+    );
+    const graph = await f.history();
+    assert.deepEqual(graph.mapping.node.message.content.parts, [
+      "[Download](sandbox:/mnt/data/result.txt)",
+    ]);
+    assert.equal(graph.mapping.node.message.channel, "commentary");
+    assert.equal(graph.mapping.node.message.metadata.codex_incomplete, true);
+    assert.equal(graph.mapping.node.message.metadata.is_complete, false);
+    assert.equal(graph.mapping.failure.message, null);
+    assert.doesNotMatch(JSON.stringify(graph), /PRIVATE_ANALYSIS|SECRET_ERROR/);
+    const page = await f.history("readConversation");
+    assert.equal(page.messages[0].incomplete, true);
+    assert.equal(page.messages[0].complete, false);
+    assert.deepEqual(
+      (await f.list()).artifacts.map((a) => a.name),
+      ["result.txt"],
+    );
+    assert.equal(Buffer.from((await f.read()).base64, "base64").toString(), "result bytes");
+    const resolved = f.state.calls.find((c) => c.route?.endsWith("/download"));
+    assert.equal(resolved.options.parameters.query.message_id, "node");
+  }
+});
+
+test("hidden/raw summaries and unapproved analysis never authorize artifact reads", async () => {
+  for (const metadata of [
+    { summary_type: "raw_cot" },
+    { is_visually_hidden_from_conversation: true },
+    { is_visually_hidden_reasoning_group: true },
+    { reasoning_recap_type: "hide_all" },
+  ]) {
+    const f = fixture();
+    f.node("node", "", {
+      channel: "analysis",
+      metadata,
+      content: {
+        content_type: "reasoning_recap",
+        content: "[Download](sandbox:/mnt/data/result.txt)",
+      },
+    });
+    assert.equal((await f.history()).mapping.node.message, null);
+    assert.deepEqual((await f.list()).artifacts, []);
+    await assert.rejects(f.read(), /ARTIFACT_NOT_ON_BRANCH/);
+  }
+  const f = fixture();
+  f.node("node", "", {
+    channel: "analysis",
+    content: {
+      content_type: "thoughts",
+      thoughts: [{ content: "[Download](sandbox:/mnt/data/result.txt)" }],
+    },
+  });
+  assert.equal((await f.history()).mapping.node.message, null);
+  assert.deepEqual((await f.list()).artifacts, []);
+});
 
 test("artifact discovery uses public current-branch links, stable message/path IDs and no code examples", async () => {
   const f = fixture();

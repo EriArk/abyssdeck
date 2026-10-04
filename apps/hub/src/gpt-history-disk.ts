@@ -21,6 +21,7 @@ const message = z.object({
   createdAt: z.number(),
   phase: z.enum(["commentary", "final"]).optional(),
   complete: z.boolean().optional(),
+  incomplete: z.boolean().optional(),
   activity: z.enum(["search", "review", "code", "image", "tool"]).optional(),
   files: z
     .array(

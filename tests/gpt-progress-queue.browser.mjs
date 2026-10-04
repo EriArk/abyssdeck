@@ -210,6 +210,51 @@ try {
       history.push({ ...history[0], id: "new-user" }, { ...history[1], id: "new-tool" });
       await page.reload();
       await expect(progress).toBeVisible();
+      // Native mobile turns have no Hub receipt. A failed final must retain
+      // public summaries/files and must not look like another live writer.
+      jobs.splice(0);
+      history = [
+        history[0],
+        {
+          id: "partial-answer",
+          role: "assistant",
+          phase: "commentary",
+          complete: false,
+          incomplete: true,
+          text: "The available chapter is saved.",
+          createdAt: Date.now() / 1000,
+          files: [
+            {
+              id: "chapter",
+              name: "chapter.md",
+              mime: "text/markdown",
+              bytes: 128,
+              url: "/api/gpt/downloads/current-chat/partial-answer/chapter",
+              image: false,
+            },
+          ],
+        },
+      ];
+      for (const width of [390, 1024]) {
+        await page.setViewportSize({ width, height: 844 });
+        await page.reload();
+        const partial = page.locator('[data-chat-message="partial-answer"]');
+        await expect(partial).toContainText("The available chapter is saved.");
+        await expect(partial).toContainText("Ответ не завершён");
+        await expect(partial).toContainText("chapter.md");
+        await expect(progress).toHaveCount(0);
+        await expect(
+          page.getByRole("button", { name: "Отправить GPT", exact: true }),
+        ).toBeVisible();
+        assert.equal(
+          await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
+          false,
+        );
+        if (process.env.PROOF_DIR)
+          await page.screenshot({
+            path: join(process.env.PROOF_DIR, `gpt-incomplete-${name}-${width}.png`),
+          });
+      }
       assert.equal(cancelled, 0, "readback never issues Stop");
       assert.deepEqual(errors, []);
       console.log(
