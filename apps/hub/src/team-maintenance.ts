@@ -289,7 +289,9 @@ export async function createTeamSnapshot(
       const selected = personalPaths(config, user);
       let snapshot: string | null = null;
       if (user.initialized) {
-        regular(selected.hub.databasePath);
+        // SQLite backs this up page by page. The 1 GiB in-memory file budget
+        // belongs to registry/manifest reads, not to a growing personal database.
+        regular(selected.hub.databasePath, Number.MAX_SAFE_INTEGER);
         const path = await createSnapshot(selected, join(staging, "users", user.id), {
           ...options,
           keep: 1,

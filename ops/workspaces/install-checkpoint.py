@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import pwd
+import re
 import subprocess
 import sys
 import time
@@ -28,6 +29,15 @@ def main():
     account=pwd.getpwnam(manifest['hubUser']);state=Path(manifest['state'])
     if state.resolve()!=state or state.stat().st_uid!=account.pw_uid: raise RuntimeError('INSTALLATION_PATH')
     settings={'state':str(state),'destination':'/var/lib/codex-workspace-checkpoint/backups','hubGid':account.pw_gid,'keep':3}
+    if 'backupImage' in manifest:
+        image=manifest['backupImage']
+        if not isinstance(image,str) or not re.fullmatch(r'sha256:[a-f0-9]{64}',image): raise RuntimeError('BACKUP_IMAGE_DIGEST')
+        observed=json.loads(subprocess.check_output(['docker','image','inspect',image],text=True))[0]
+        if observed['Id']!=image: raise RuntimeError('BACKUP_IMAGE_CHANGED')
+        revision=observed.get('Config',{}).get('Labels',{}).get('org.opencontainers.image.revision','')
+        if not re.fullmatch(r'[a-f0-9]{7,64}',revision): raise RuntimeError('BACKUP_IMAGE_REVISION')
+        settings['backupImage']=image
+        settings['backupImageRevision']=revision
     host=json.loads(Path('/etc/codex-workspaces/config.json').read_text())
     if host['hubUid']!=account.pw_uid: raise RuntimeError('INSTALLATION_OWNER')
     print('Installs a daily idle-only paired Hub/workspace checkpoint; keeps three verified copies. No disk formatting, runtime replacement or user commands.')

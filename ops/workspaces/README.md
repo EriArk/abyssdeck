@@ -172,6 +172,14 @@ than 23 hours old, and keeps three complete sets in the root-private
 `/var/lib/codex-workspace-checkpoint/backups`. Existing Hub-only copies remain
 independent; they must never be described as copies of workspace disks.
 
+A durable `attempt.json` is written before the first Hub stop. Only a verified
+complete pair clears it. Failed or interrupted attempts suppress further cold
+copies across timer ticks and reboots; recovery still resumes the original
+services. After diagnosing the failure, an administrator can explicitly run
+`sudo python3 /opt/codex-workspace-checkpoint/checkpoint.py --retry-failed`.
+It retains ordinary idle admission and never discards a recovery journal.
+This prevents a broken daily backup from restarting the app every half hour.
+
 The coordinator serializes with engine deployment/profile maintenance. It first
 prepares the Team backup's file inputs online (not old backups or restore rehearsals
 stored alongside them). Warm copies alone are never valid checkpoints. After fresh
@@ -214,6 +222,14 @@ python3 ops/workspaces/package-checkpoint.py --output /absolute/new-package \
   --hub-user INSTALLATION_USER --state /absolute/hub-state
 sudo python3 /absolute/new-package/install-checkpoint.py --apply
 ```
+
+For a verified maintenance-only repair, packaging may additionally specify
+`--backup-image sha256:<local-image-digest>`. The installer verifies the exact
+local image and records its engine revision. Only the offline backup CLI uses
+that image; running Hub/engine containers are unchanged. A later engine revision
+automatically uses its own backup code, preventing a stale override after a schema
+upgrade. Personal SQLite backups are page-based and do not inherit the registry
+file's 1 GiB in-memory read limit.
 
 The package contains source and installation paths, no credentials or backup data.
 The installer preserves disks/runtime, refuses an active checkpoint/recovery journal,

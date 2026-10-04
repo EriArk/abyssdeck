@@ -64,5 +64,19 @@ class Installer(unittest.TestCase):
         self.assertFalse(self.host_path('/opt/codex-workspace-checkpoint').exists())
         self.assertFalse(self.commands)
 
+    def test_only_an_exact_local_maintenance_image_is_accepted(self):
+        path=self.package/'checkpoint-package.json'
+        manifest=json.loads(path.read_text());manifest['backupImage']='latest'
+        path.write_text(json.dumps(manifest))
+        with self.assertRaisesRegex(RuntimeError,'BACKUP_IMAGE_DIGEST'):self.apply()
+        self.assertFalse(self.commands)
+        image='sha256:'+'b'*64;manifest['backupImage']=image
+        path.write_text(json.dumps(manifest))
+        with patch.object(self.module.subprocess,'check_output',return_value=json.dumps([{'Id':image,'Config':{'Labels':{'org.opencontainers.image.revision':'abc1234'}}}])):
+            self.apply()
+        settings=json.loads(self.host_path('/etc/codex-workspaces/checkpoint.json').read_text())
+        self.assertEqual(settings['backupImage'],image)
+        self.assertEqual(settings['backupImageRevision'],'abc1234')
+
 
 if __name__=='__main__':unittest.main()

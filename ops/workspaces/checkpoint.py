@@ -24,6 +24,7 @@ from install import check_mount
 SETTINGS = Path('/etc/codex-workspaces/checkpoint.json')
 JOURNAL = Path('/var/lib/codex-workspace-checkpoint/journal.json')
 LOCK = Path('/var/lib/codex-workspace-checkpoint/lock')
+ATTEMPT = Path('/var/lib/codex-workspace-checkpoint/attempt.json')
 BROKER = 'codex-workspace-broker.service'
 ENGINE = 'codex-web-engine'
 GATEWAY = 'codex-web-hub'
@@ -132,6 +133,7 @@ class Checkpoint:
 
     def _create(self):
         if JOURNAL.exists(): raise RuntimeError('CHECKPOINT_RECOVERY_REQUIRED')
+        if ATTEMPT.exists(): raise RuntimeError('CHECKPOINT_PREVIOUS_ATTEMPT_INCOMPLETE')
         config=json.loads(backup.regular(self.state/'config.json').read_text())
         if not config.get('team',{}).get('enabled'): raise RuntimeError('TEAM_REQUIRED')
         if not config.get('serverWorkspaces'): raise RuntimeError('WORKSPACES_NOT_ACTIVATED')
@@ -161,6 +163,9 @@ class Checkpoint:
         self.journal={'state':str(self.state),'hub':{ENGINE:engine['Id'],GATEWAY:gateway['Id']},'broker':True,'containers':[],'slots':[]}
         self.save()
         run(['docker','exec',ENGINE,'node','dist/maintenance-check.js','--reserve-terminals'])
+        # Record BEFORE the first disruptive effect. A failed/interrupted cold
+        # copy must not stop the app again at every timer tick, even after boot.
+        write(ATTEMPT,{'state':str(self.state),'started':time.time(),'revision':revision})
         stopped=time.monotonic()
         run(['docker','stop','--time','10',GATEWAY])
         run(['docker','stop','--time','45',ENGINE])
@@ -189,12 +194,17 @@ class Checkpoint:
         verifying=time.monotonic()
         frozen.grant_reader(self.host['hubUid'],self.settings['hubGid'])
         hub=target/'hub';hub.mkdir(mode=0o700);os.chown(hub,self.host['hubUid'],self.settings['hubGid'])
+        # An isolated maintenance hotfix is valid only for its original engine
+        # revision. A later engine/schema upgrade uses its own backup code.
+        backup_image=engine['Config']['Image']
+        if self.settings.get('backupImageRevision')==revision:
+            backup_image=self.settings['backupImage']
         args=['docker','run','--rm','--network','none','--read-only','--cap-drop','ALL','--security-opt','no-new-privileges','--memory','1g','--cpus','1','--pids-limit','64',
               '--user',str(self.host['hubUid'])+':'+str(self.settings['hubGid']),
               # Preserve original absolute paths inside the isolated container.
               # SQLite may create sidecars only in our frozen copy, never live.
               '--mount',f'type=bind,src={frozen.destination},dst={self.state}',
-              '--mount',f'type=bind,src={hub},dst=/snapshots',engine['Config']['Image'],
+              '--mount',f'type=bind,src={hub},dst=/snapshots',backup_image,
               'node','dist/maintenance.js','backup','--config',str(self.state/'config.json'),'--destination','/snapshots','--keep','1','--revision',revision,
               '--private-file','config.json='+str(self.state/'config.json')]
         result=json.loads(run(args,timeout=900).splitlines()[-1])
@@ -207,6 +217,7 @@ class Checkpoint:
         self.timings['verifyMs']=round((time.monotonic()-verifying)*1000)
         write(target/'complete.json',{'format':1,'created':time.time(),'revision':revision,'team':str(team.relative_to(target)),
                                     'diskManifest':backup.digest(target/'disks/manifest.json'),'timings':self.timings})
+        ATTEMPT.unlink()
         return target
 
     def prune(self):
@@ -226,7 +237,7 @@ class Checkpoint:
 
 
 def main():
-    if os.geteuid()!=0 or sys.argv[1:] not in ([],['--recover']): raise RuntimeError('ROOT_FIXED_COMMAND_REQUIRED')
+    if os.geteuid()!=0 or sys.argv[1:] not in ([],['--recover'],['--retry-failed']): raise RuntimeError('ROOT_FIXED_COMMAND_REQUIRED')
     settings=json.loads(backup.regular(SETTINGS).read_text())
     with ExitStack() as locks:
         for path in [LOCK,canonical(settings['state'])/'send-handoff-deploy.lock',canonical(settings['state'])/'data/team/gpt-host.lock']:
@@ -239,6 +250,12 @@ def main():
         if sys.argv[1:]==['--recover']:
             operation.recover();return
         if JOURNAL.exists(): raise RuntimeError('CHECKPOINT_RECOVERY_REQUIRED')
+        if ATTEMPT.exists():
+            previous=json.loads(backup.regular(ATTEMPT).read_text())
+            if previous['state']!=str(operation.state): raise RuntimeError('CHECKPOINT_ATTEMPT_INSTALLATION')
+            if sys.argv[1:]!=['--retry-failed']:
+                print(json.dumps({'ok':False,'deferred':'previousAttemptIncomplete'}));return
+            ATTEMPT.unlink()  # Explicit operator retry still obeys normal admission.
         for marker in operation.destination.glob('checkpoint-*/complete.json'):
             value=json.loads(backup.regular(marker).read_text())
             if 0 <= time.time()-value.get('created',0) < 23*3600:

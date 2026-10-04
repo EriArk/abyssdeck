@@ -25,7 +25,7 @@ class Checkpoint(unittest.TestCase):
             def prepare(self,*_):log.append(['prepare'])
             def seal(self):log.append(['seal'])
             def grant_reader(self,*_):log.append(['reader'])
-        self.patches=[patch.object(backup,'CONFIG',self.config),patch.object(backup,'REGISTRY',self.registry),patch.object(cp,'ROOT',str(self.disks)),patch.object(cp,'JOURNAL',self.root/'journal.json'),patch.object(cp,'run',self.command),patch.object(cp,'check_mount',lambda *_:None)]
+        self.patches=[patch.object(backup,'CONFIG',self.config),patch.object(backup,'REGISTRY',self.registry),patch.object(cp,'ROOT',str(self.disks)),patch.object(cp,'JOURNAL',self.root/'journal.json'),patch.object(cp,'ATTEMPT',self.root/'attempt.json'),patch.object(cp,'run',self.command),patch.object(cp,'check_mount',lambda *_:None)]
         for p in self.patches:p.start()
         frozen=patch.object(cp,'FrozenHub',Frozen);frozen.start();self.patches.append(frozen)
         self.op=cp.Checkpoint({'state':str(self.state),'destination':str(self.dest),'hubGid':1000,'keep':3})
@@ -46,9 +46,21 @@ class Checkpoint(unittest.TestCase):
         if args[0]=='systemd-escape':return 'slot0.mount'
         if args[:2]==['systemctl','show']:return 'active'
         if args[:2]==['docker','run']:
-            target=next(x for x in self.dest.iterdir() if x.is_dir())/'hub/codex-team-backup-fixture';target.mkdir()
+            target=next(x for x in self.dest.iterdir() if x.is_dir() and not (x/'complete.json').exists())/'hub/codex-team-backup-fixture';target.mkdir()
             return json.dumps({'snapshot':'/snapshots/'+target.name})
         return ''
+    def test_timer_defers_failed_attempt_until_explicit_retry(self):
+        (self.state/'data/team').mkdir(parents=True)
+        settings=self.root/'settings.json';settings.write_text(json.dumps(self.op.settings))
+        cp.ATTEMPT.write_text(json.dumps({'state':str(self.state)}))
+        with patch.object(cp,'SETTINGS',settings),patch.object(cp,'LOCK',self.root/'lock'),patch.object(os,'geteuid',return_value=0),patch.object(cp.Checkpoint,'create',return_value=self.dest/'new') as create,patch.object(cp.Checkpoint,'prune'),patch.object(sys,'argv',['checkpoint.py']):
+            cp.main()
+            create.assert_not_called()
+            self.assertTrue(cp.ATTEMPT.exists())
+            with patch.object(sys,'argv',['checkpoint.py','--retry-failed']):cp.main()
+            create.assert_called_once()
+            self.assertFalse(cp.ATTEMPT.exists())
+        self.assertEqual(self.log,[])
     def test_busy_hub_never_stops_containers_or_engine(self):
         self.fail=lambda a:'dist/maintenance-check.js' in a
         with self.assertRaisesRegex(RuntimeError,'INJECTED'):self.op.create()
@@ -100,6 +112,7 @@ class Checkpoint(unittest.TestCase):
         self.assertLess(self.log.index(['capture']),self.log.index(['docker','start',cp.GATEWAY]))
         self.assertFalse((result/'frozen').exists())
         self.assertTrue((result/'complete.json').exists())
+        self.assertFalse(cp.ATTEMPT.exists())
     def test_recovery_keeps_revocation(self):
         self.op.journal={'state':str(self.state),'hub':{},'broker':True,'containers':[[self.owner,0,self.image]],'slots':[0]}
         self.op.save();self.running=False
@@ -127,6 +140,38 @@ class Checkpoint(unittest.TestCase):
         with patch.object(backup,'capture',capture):
             with self.assertRaisesRegex(RuntimeError,'INJECTED'):self.op.create()
         self.assertFalse(list(self.dest.iterdir()))
+        self.assertTrue(cp.ATTEMPT.exists())
+        self.log.clear()
+        # A fresh process/object sees the durable marker before any stop/copy.
+        again=cp.Checkpoint(self.op.settings)
+        with self.assertRaisesRegex(RuntimeError,'CHECKPOINT_PREVIOUS_ATTEMPT_INCOMPLETE'):again.create()
+        self.assertFalse(self.log)
+    def test_interrupted_stop_records_attempt_before_effect(self):
+        def fail(args):
+            if args[:2]==['docker','stop']:
+                self.assertTrue(cp.ATTEMPT.exists())
+                return True
+        self.fail=fail
+        with self.assertRaisesRegex(RuntimeError,'INJECTED'):self.op.create()
+        self.assertTrue(cp.ATTEMPT.exists())
+        self.assertFalse(cp.JOURNAL.exists())
+    def test_pinned_maintenance_image_only_changes_offline_verifier(self):
+        self.op.settings['backupImage']='sha256:'+'b'*64
+        self.op.settings['backupImageRevision']='abc1234'
+        def capture(path):
+            path.mkdir();(path/'manifest.json').write_text('{}')
+        with patch.object(backup,'capture',capture),patch.object(backup,'finalize'):
+            self.op.create()
+        invocation=next(a for a in self.log if a[:2]==['docker','run'])
+        self.assertIn(self.op.settings['backupImage'],invocation)
+        self.assertFalse(any(a[:2]==['docker','run'] and cp.ENGINE in a for a in self.log))
+        self.log.clear()
+        self.op.settings['backupImageRevision']='deadbee'
+        with patch.object(backup,'capture',capture),patch.object(backup,'finalize'):
+            self.op.create()
+        invocation=next(a for a in self.log if a[:2]==['docker','run'])
+        self.assertNotIn(self.op.settings['backupImage'],invocation)
+        self.assertIn('codex-web-hub:abc1234',invocation)
     def test_retention_keeps_three_complete_sets_and_leaves_foreign_and_incomplete(self):
         targets=[]
         for day in range(1,6):

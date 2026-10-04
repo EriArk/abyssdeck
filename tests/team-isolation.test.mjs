@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
 import { once } from "node:events";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat, truncate, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { createServer as tcpServer } from "node:net";
 import { tmpdir } from "node:os";
@@ -118,6 +118,33 @@ async function fixture(t, options = {}, ownerLogin) {
     friendId: joined.body.user.id,
   };
 }
+
+test("team backup accepts a personal SQLite file above 1 GiB and restores its identity", {
+  skip: process.platform !== "linux",
+}, async (t) => {
+  const f = await fixture(t);
+  const ownerId = f.registry.ownerId;
+  await f.app.close();
+  // A sparse tail reproduces the observed file-size boundary without allocating
+  // a gigabyte of fixture data. SQLite copies only its actual database pages.
+  await truncate(f.config.hub.databasePath, 1024 ** 3 + 4096);
+  assert((await stat(f.config.hub.databasePath)).size > 1024 ** 3);
+  const snapshot = await createSnapshot(f.config, join(f.root, "large-db-backups"), { keep: 3 });
+  const manifest = await verifyTeamSnapshot(snapshot);
+  assert.equal(manifest.ownerId, ownerId);
+  const target = join(f.root, "large-db-restored");
+  await restoreTeamSnapshot(snapshot, target);
+  const db = new DatabaseSync(join(target, "team", "team.db"), { readOnly: true });
+  try {
+    assert.equal(
+      db.prepare("SELECT value FROM team_meta WHERE key='originalOwner'").get().value,
+      ownerId,
+    );
+    assert.equal(db.prepare("PRAGMA quick_check").get().quick_check, "ok");
+  } finally {
+    db.close();
+  }
+});
 
 test("server workspace connects during active work without replacing the personal runtime", async (t) => {
   const f = await fixture(t);
