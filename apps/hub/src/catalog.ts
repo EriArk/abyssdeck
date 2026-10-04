@@ -33,6 +33,7 @@ export type CatalogProject = ProjectConfig & {
   unassigned?: boolean;
 };
 type Cursor = {
+  pageSize?: number;
   matchedUsers?: string[];
   rpc?: string;
   pending: MessageRecord[];
@@ -895,20 +896,36 @@ export class Catalog {
     ) {
       let page: Record<string, unknown>;
       try {
-        page = await rpc.request(
-          cursor.kind === "items" ? "thread/items/list" : "thread/turns/list",
-          {
-            threadId: thread.codexThreadId,
-            limit: cursor.kind === "items" ? 40 : 1,
-            sortDirection: "desc",
-            ...(cursor.kind === "turns"
-              ? { itemsView: "full" }
-              : cursor.turnId
-                ? { turnId: cursor.turnId }
-                : {}),
-            ...(cursor.rpc ? { cursor: cursor.rpc } : {}),
-          },
-        );
+        for (;;) {
+          try {
+            page = await rpc.request(
+              cursor.kind === "items" ? "thread/items/list" : "thread/turns/list",
+              {
+                threadId: thread.codexThreadId,
+                limit: cursor.kind === "items" ? (cursor.pageSize ?? 40) : 1,
+                sortDirection: "desc",
+                ...(cursor.kind === "turns"
+                  ? { itemsView: "full" }
+                  : cursor.turnId
+                    ? { turnId: cursor.turnId }
+                    : {}),
+                ...(cursor.rpc ? { cursor: cursor.rpc } : {}),
+              },
+            );
+            break;
+          } catch (error) {
+            // Retry only this read, at the same cursor. Generated images can
+            // exceed the transport budget together while each item fits.
+            if (
+              cursor.kind !== "items" ||
+              !(error instanceof HubError) ||
+              error.code !== "CODEX_RESPONSE_TOO_LARGE" ||
+              (cursor.pageSize ?? 40) <= 1
+            )
+              throw error;
+            cursor.pageSize = Math.max(1, Math.floor((cursor.pageSize ?? 40) / 2));
+          }
+        }
       } catch (error) {
         if (
           cursor.kind === "items" &&

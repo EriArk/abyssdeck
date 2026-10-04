@@ -1,7 +1,7 @@
 import { chatQuestions } from "@codex-web/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { workspaceSocket } from "./accountStorage.ts";
-import { api, messageOf } from "./api";
+import { ApiError, api, messageOf } from "./api";
 import { mergeHistorySnapshot, mergeTurnOutcomes, sameSubmittedMessage } from "./historyState";
 import type { Approval, Attachment, History, HubEvent, Message, TurnSettings } from "./types";
 export interface ChatState extends History {
@@ -56,6 +56,8 @@ export function useWorkspace(threadId: string) {
     if (!threadId) return;
     let disposed = false,
       refreshing = false,
+      initializing = false,
+      historyReady = false,
       ws: WebSocket | undefined,
       timer: ReturnType<typeof setTimeout> | undefined,
       attempt = 0,
@@ -261,27 +263,38 @@ export function useWorkspace(threadId: string) {
       };
       ws.onerror = () => ws?.close();
     };
-    void (async () => {
+    const initialize = async () => {
+      if (disposed || initializing || document.visibilityState === "hidden") return;
+      initializing = true;
       try {
         let state = cacheRef.current[threadId];
-        if (!state || state.loading) {
+        if (!state || state.loading || (state.error && !state.messages.length)) {
           state = { ...empty, ...(await refresh(threadId)), loading: false };
         }
+        if (disposed) return;
         cursor = state.lastSeq;
+        historyReady = true;
         connect();
       } catch (e) {
+        if (disposed) return;
         update(threadId, (s) => ({
           ...s,
           loading: false,
           error: messageOf(e),
           connection: "offline",
         }));
+        if (e instanceof ApiError && [0, 502, 503, 504].includes(e.status))
+          timer = setTimeout(initialize, Math.min(15000, 1000 * 2 ** Math.min(attempt++, 4)));
+      } finally {
+        initializing = false;
       }
-    })();
+    };
+    void initialize();
     const wake = () => {
       if (document.visibilityState === "visible") {
         if (timer) clearTimeout(timer);
-        if (!ws || ws.readyState >= 2) connect();
+        if (!historyReady) void initialize();
+        else if (!ws || ws.readyState >= 2) connect();
       } else {
         if (timer) clearTimeout(timer);
         ws?.close();

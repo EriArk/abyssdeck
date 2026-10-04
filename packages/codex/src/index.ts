@@ -184,27 +184,33 @@ export class CodexClient extends EventEmitter {
                   "CODEX_METHOD_UNSUPPORTED",
                   "Установленный Codex не поддерживает эту возможность",
                 )
-              : message.includes("no rollout found for thread id ")
+              : message === "COMPANION_RESPONSE_TOO_LARGE"
                 ? new HubError(
-                    404,
-                    "THREAD_NOT_PERSISTED",
-                    "В этом диалоге ещё нет сохранённых сообщений.",
+                    502,
+                    "CODEX_RESPONSE_TOO_LARGE",
+                    "Ответ Codex превышает размер одной передачи.",
                   )
-                : message.startsWith("thread not loaded: ")
-                  ? new HubError(404, "THREAD_NOT_LOADED", "Диалог не загружен в Codex.")
-                  : /^session .+ is archived\./.test(message)
-                    ? new HubError(409, "THREAD_ARCHIVED", "Диалог архивирован в Codex.")
-                    : message.includes("already has an active writer")
-                      ? new HubError(
-                          409,
-                          "THREAD_IN_USE",
-                          "Диалог занят другим клиентом Codex. Для перехода на веб полностью выйди из ChatGPT/Codex на Windows, включая значок в трее, когда его работа завершится. Фоновый AbyssDeck Companion оставь включённым. Черновик сохранён.",
-                        )
-                      : new HubError(
-                          502,
-                          "CODEX_RPC_ERROR",
-                          "Codex отклонил запрос. Сообщение не подтверждено; проверь состояние диалога.",
-                        ),
+                : message.includes("no rollout found for thread id ")
+                  ? new HubError(
+                      404,
+                      "THREAD_NOT_PERSISTED",
+                      "В этом диалоге ещё нет сохранённых сообщений.",
+                    )
+                  : message.startsWith("thread not loaded: ")
+                    ? new HubError(404, "THREAD_NOT_LOADED", "Диалог не загружен в Codex.")
+                    : /^session .+ is archived\./.test(message)
+                      ? new HubError(409, "THREAD_ARCHIVED", "Диалог архивирован в Codex.")
+                      : message.includes("already has an active writer")
+                        ? new HubError(
+                            409,
+                            "THREAD_IN_USE",
+                            "Диалог занят другим клиентом Codex. Для перехода на веб полностью выйди из ChatGPT/Codex на Windows, включая значок в трее, когда его работа завершится. Фоновый AbyssDeck Companion оставь включённым. Черновик сохранён.",
+                          )
+                        : new HubError(
+                            502,
+                            "CODEX_RPC_ERROR",
+                            "Codex отклонил запрос. Сообщение не подтверждено; проверь состояние диалога.",
+                          ),
           );
         } else if (value.result && typeof value.result === "object" && !Array.isArray(value.result))
           entry.resolve(value.result as RecordValue);

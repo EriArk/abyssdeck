@@ -22,7 +22,7 @@ const config = configSchema.parse({
   ],
   projects: [{ id: "seed", name: "Seed", machineId: "pc", workingDirectory: "D:\\Projects\\Seed" }],
 });
-function fixture() {
+function fixture(options = {}) {
   const store = new Store(":memory:"),
     calls = [];
   let projects = [
@@ -59,6 +59,8 @@ function fixture() {
       if (method === "thread/list") return { data: [raw], nextCursor: null };
       if (method === "thread/read") return { thread: raw };
       if (method === "thread/items/list") {
+        if (p.limit > (options.maxPageSize ?? Infinity))
+          throw new HubError(502, "CODEX_RESPONSE_TOO_LARGE", "Large generated-image page");
         const rows = entries.filter((e) => !p.turnId || e.turnId === p.turnId),
           start = Number(p.cursor ?? 0);
         return {
@@ -95,6 +97,43 @@ function fixture() {
     addProject: (p) => projects.push(p),
   };
 }
+test("oversized history shrinks reads at the same cursor without losing messages or sending", async () => {
+  const f = fixture({ maxPageSize: 5 });
+  try {
+    await f.catalog.refresh();
+    await f.catalog.syncThreads("pc");
+    const thread = f.store.threadByCodex("real-thread");
+    const messages = [];
+    let before;
+    do {
+      const page = await f.catalog.history(thread, before);
+      messages.unshift(...page.messages);
+      before = page.nextBefore;
+    } while (before);
+    assert.deepEqual(
+      messages.map((m) => m.id),
+      f.entries
+        .filter((e) => e.item.type !== "commandExecution")
+        .reverse()
+        .map((e) => e.item.id),
+    );
+    const reads = f.calls.filter((c) => c.method === "thread/items/list");
+    assert.deepEqual(
+      reads.slice(0, 4).map((c) => [c.p.cursor, c.p.limit]),
+      [
+        [undefined, 40],
+        [undefined, 20],
+        [undefined, 10],
+        [undefined, 5],
+      ],
+    );
+    assert(reads.slice(4).every((c) => c.p.limit === 5));
+    assert(!f.calls.some((c) => /turn\/start|turn\/steer|thread\/resume/.test(c.method)));
+  } finally {
+    f.store.close();
+  }
+});
+
 test("canonical history retires confirmed queue cards after a missed user event", async () => {
   const f = fixture();
   try {

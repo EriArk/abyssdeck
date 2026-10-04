@@ -65,7 +65,9 @@ test("native writer conflicts preserve a useful safe error without exposing arbi
           message:
             request.method === "thread/resume"
               ? "thread private-id already has an active writer"
-              : "sensitive upstream detail",
+              : request.method === "thread/items/list"
+                ? "COMPANION_RESPONSE_TOO_LARGE"
+                : "sensitive upstream detail",
         },
       }) + "\n",
     );
@@ -76,6 +78,10 @@ test("native writer conflicts preserve a useful safe error without exposing arbi
       (e) =>
         e.code === "THREAD_IN_USE" && e.statusCode === 409 && !e.message.includes("private-id"),
     );
+    await assert.rejects(rpc.request("thread/items/list", { threadId: "private-id" }), {
+      code: "CODEX_RESPONSE_TOO_LARGE",
+      statusCode: 502,
+    });
     await assert.rejects(
       rpc.request("other", {}),
       (e) => e.code === "CODEX_RPC_ERROR" && !e.message.includes("sensitive"),
