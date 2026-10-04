@@ -636,6 +636,7 @@ export async function createTeamHub(config: HubConfig, options: Options) {
   app.post("/api/team/server-workspace/connect", async (req) => {
     z.object({}).strict().parse(req.body);
     const userId = actor(req);
+    serverWorkspaces.requirePersonal(userId);
     const current = await personal(userId);
     registry.active(userId);
     if (reconfiguring.has(userId))

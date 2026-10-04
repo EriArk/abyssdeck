@@ -1,5 +1,12 @@
 # AGENTS.md
 
+## Owner's direct server access (2026-10-04)
+
+- The installation owner's admin account uses its existing full host connection.
+  Do not offer or attach a separate personal Linux workspace for that account.
+  Preserve the previous workspace disk and registry for explicit later disposition.
+  Other users' Hub admin role does not grant host access or remove their isolation.
+
 ## Owner-requested personal Linux without bundled Codex (2026-10-04)
 
 - Remove bundled Codex from the legacy personal server environment. Preserve its

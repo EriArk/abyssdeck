@@ -59,10 +59,10 @@ async function fixture(t, enabled = true) {
     store.close();
     await rm(dir, { recursive: true, force: true });
   });
-  return { dir, config, registry, service, member };
+  return { dir, config, registry, service, member, userId: member.id };
 }
 test("creation is coalesced; lost reply reconciles status without a second create", async (t) => {
-  const { service, registry } = await fixture(t);
+  const { service, registry, userId } = await fixture(t);
   const calls = [];
   let ready = false;
   service.command = async (owner, op) => {
@@ -70,46 +70,44 @@ test("creation is coalesced; lost reply reconciles status without a second creat
     if (!ready) throw Error("lost response");
     return { state: "ready", running: true };
   };
-  const a = service.create(registry.ownerId),
-    b = service.create(registry.ownerId);
+  const a = service.create(userId),
+    b = service.create(userId);
   assert.equal(a, b);
   await assert.rejects(a);
-  assert.equal(service.view(registry.ownerId).state, "creating");
+  assert.equal(service.view(userId).state, "creating");
   ready = true;
-  await service.create(registry.ownerId);
+  await service.create(userId);
   assert.deepEqual(
     calls.map((x) => x[1]),
     ["create", "status"],
   );
 });
 test("unconfigured and restored installations cannot allocate a workspace", async (t) => {
-  const { service, registry, config } = await fixture(t, false);
-  assert.throws(() => service.create(registry.ownerId), { code: "WORKSPACE_UNAVAILABLE" });
-  assert.equal(service.view(registry.ownerId).state, "absent");
+  const { service, registry, config, userId } = await fixture(t, false);
+  assert.throws(() => service.create(userId), { code: "WORKSPACE_UNAVAILABLE" });
+  assert.equal(service.view(userId).state, "absent");
   config.serverWorkspaces = { ssh: { target: "host", configFile: "/ssh" }, keyFile: "/key" };
   registry.db.prepare("INSERT OR REPLACE INTO team_meta VALUES('nativeAdmission','blocked')").run();
-  assert.throws(() => service.create(registry.ownerId), { code: "RESTORE_ADMISSION_REQUIRED" });
+  assert.throws(() => service.create(userId), { code: "RESTORE_ADMISSION_REQUIRED" });
 });
 test("creation failure stays uncertain until authoritative missing status; maintenance blocks new work", async (t) => {
-  const { service, registry } = await fixture(t);
+  const { service, registry, userId } = await fixture(t);
   service.command = async () => {
     throw Error("lost");
   };
-  await assert.rejects(service.create(registry.ownerId));
+  await assert.rejects(service.create(userId));
   service.command = async () => {
     throw Object.assign(Error("missing"), { code: "WORKSPACE_MISSING" });
   };
-  await assert.rejects(service.create(registry.ownerId));
-  assert.equal(service.view(registry.ownerId).state, "absent");
+  await assert.rejects(service.create(userId));
+  assert.equal(service.view(userId).state, "absent");
   service.canRun = () => false;
-  assert.throws(() => service.create(registry.ownerId), { code: "ENGINE_MAINTENANCE" });
+  assert.throws(() => service.create(userId), { code: "ENGINE_MAINTENANCE" });
 });
 test("project setup reaches personal worker with POSIX roots and exact durable receipt", async (t) => {
-  const { dir, config, registry } = await fixture(t);
-  registry.db
-    .prepare("INSERT INTO team_server_workspaces VALUES(?,'ready',0)")
-    .run(registry.ownerId);
-  const machine = workspaceRuntime(config, registry, registry.ownerId).machines[0];
+  const { dir, config, registry, userId } = await fixture(t);
+  registry.db.prepare("INSERT INTO team_server_workspaces VALUES(?,'ready',0)").run(userId);
+  const machine = workspaceRuntime(config, registry, userId).machines[0];
   machine.allowedProjectRoots = [dir];
   const bin = join(dir, "bin");
   await mkdir(bin);
@@ -142,13 +140,20 @@ test("project setup reaches personal worker with POSIX roots and exact durable r
 });
 test("same visible machine ID binds two distinct owners; copied config grants nothing; revocation persists", async (t) => {
   const { service, registry, config, member } = await fixture(t);
-  for (const owner of [registry.ownerId, member.id])
+  const admin = registry.accept(
+    registry.invite(registry.ownerId, "Admin", "admin").token,
+    "admin",
+    "Admin",
+    "unused",
+    10,
+  );
+  for (const owner of [admin.id, member.id])
     registry.db.prepare("INSERT INTO team_server_workspaces VALUES(?,'ready',0)").run(owner);
-  const a = workspaceRuntime(config, registry, registry.ownerId),
+  const a = workspaceRuntime(config, registry, admin.id),
     b = workspaceRuntime(config, registry, member.id);
   const cmd = (machine) =>
     workspaceCommand(machine, ["node", "-e", "process.stdout.write('hello')"], "/workspace");
-  assert.ok(cmd(a.machines[0]).at(-1).includes(registry.ownerId));
+  assert.ok(cmd(a.machines[0]).at(-1).includes(admin.id));
   assert.ok(cmd(b.machines[0]).at(-1).includes(member.id));
   assert.throws(() => cmd(structuredClone(a.machines[0])));
   registry.db.prepare("UPDATE team_users SET state='disabled' WHERE id=?").run(member.id);
@@ -168,7 +173,7 @@ test("same visible machine ID binds two distinct owners; copied config grants no
   assert.equal(workspaceRuntime(config, registry, member.id).machines.length, 0);
 });
 test("workspace devices never fall through to a host shell or host process probe", async (t) => {
-  const { config } = await fixture(t);
+  const { config, userId } = await fixture(t);
   const device = {
     id: "server-workspace",
     workspaceMachineId: "server-workspace",
@@ -182,10 +187,8 @@ test("workspace devices never fall through to a host shell or host process probe
   assert.equal(await probeTerminal(device, { pid: 1, birth: "1" }), "unknown");
 });
 test("explicit start reconciles an existing container and never creates or restarts a running one", async (t) => {
-  const { service, registry } = await fixture(t);
-  registry.db
-    .prepare("INSERT INTO team_server_workspaces VALUES(?,'ready',0)")
-    .run(registry.ownerId);
+  const { service, registry, userId } = await fixture(t);
+  registry.db.prepare("INSERT INTO team_server_workspaces VALUES(?,'ready',0)").run(userId);
   let running = false;
   const calls = [];
   service.command = async (_owner, op) => {
@@ -193,16 +196,14 @@ test("explicit start reconciles an existing container and never creates or resta
     if (op === "start") running = true;
     return { state: "ready", running };
   };
-  await service.start(registry.ownerId);
-  await service.start(registry.ownerId);
+  await service.start(userId);
+  await service.start(userId);
   assert.deepEqual(calls, ["status", "start", "status"]);
 });
 test("team checkpoint retains workspace owners and blocks execution after restore", async (t) => {
-  const { dir, config, registry, member } = await fixture(t);
-  registry.db
-    .prepare("UPDATE team_namespaces SET initialized=1 WHERE userId=?")
-    .run(registry.ownerId);
-  for (const owner of [registry.ownerId, member.id])
+  const { dir, config, registry, member, userId } = await fixture(t);
+  registry.db.prepare("UPDATE team_namespaces SET initialized=1 WHERE userId=?").run(userId);
+  for (const owner of [userId, member.id])
     registry.db.prepare("INSERT INTO team_server_workspaces VALUES(?,'ready',0)").run(owner);
   const snapshot = await createTeamSnapshot(config, join(dir, "backups"));
   await restoreTeamSnapshot(snapshot, join(dir, "restore"));
@@ -213,7 +214,7 @@ test("team checkpoint retains workspace owners and blocks execution after restor
         .prepare("SELECT owner FROM team_server_workspaces ORDER BY owner")
         .all()
         .map((r) => r.owner),
-      [registry.ownerId, member.id].sort(),
+      [userId, member.id].sort(),
     );
     assert.equal(
       db.prepare("SELECT value FROM team_meta WHERE key='nativeAdmission'").get().value,
@@ -235,7 +236,7 @@ test("fixed SSH command preserves literal quoting and rejects forged owner", () 
   assert.ok(command.at(-1).includes("'\\''"));
 });
 test("workspace text reader preserves bytes and rejects links and path escapes", async (t) => {
-  const { dir } = await fixture(t);
+  const { dir, userId } = await fixture(t);
   const root = join(dir, "project");
   await mkdir(root);
   await writeFile(join(root, "a.txt"), Buffer.from([0, 255, 10]));
@@ -287,11 +288,9 @@ test("container PTY accepts resize and exact interactive input, exits without re
 });
 
 test("personal Linux keeps terminal authority without an automatic Codex worker", async (t) => {
-  const { config, registry } = await fixture(t);
-  registry.db
-    .prepare("INSERT INTO team_server_workspaces VALUES(?,'ready',0)")
-    .run(registry.ownerId);
-  const { machines, devices } = workspaceRuntime(config, registry, registry.ownerId);
+  const { config, registry, userId } = await fixture(t);
+  registry.db.prepare("INSERT INTO team_server_workspaces VALUES(?,'ready',0)").run(userId);
+  const { machines, devices } = workspaceRuntime(config, registry, userId);
   assert.equal(machines[0].codex.enabled, false);
   assert.equal(machines[0].codex.activityNode, undefined);
   assert.equal(devices[0].workspaceMachineId, machines[0].id);
@@ -301,4 +300,25 @@ test("personal Linux keeps terminal authority without an automatic Codex worker"
   });
   const cmd = workspaceCommand(machines[0], ["bash"], "/workspace");
   assert.ok(cmd.at(-1).includes("'exec' 'bash'"), "ordinary owner-bound terminal remains usable");
+});
+
+test("installation owner keeps host access without a personal workspace; saved state remains", async (t) => {
+  const { service, registry, config } = await fixture(t);
+  registry.db
+    .prepare("INSERT INTO team_server_workspaces VALUES(?,'ready',0)")
+    .run(registry.ownerId);
+  assert.equal(service.view(registry.ownerId).available, false);
+  assert.equal(service.view(registry.ownerId).state, "ready");
+  assert.deepEqual(workspaceRuntime(config, registry, registry.ownerId), {
+    machines: [],
+    devices: [],
+  });
+  for (const action of ["create", "start", "requirePersonal"])
+    assert.throws(() => service[action](registry.ownerId), { code: "WORKSPACE_NOT_NEEDED" });
+  assert.equal(
+    registry.db
+      .prepare("SELECT state FROM team_server_workspaces WHERE owner=?")
+      .get(registry.ownerId).state,
+    "ready",
+  );
 });

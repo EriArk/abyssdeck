@@ -18,6 +18,7 @@ export function workspaceRuntime(config: HubConfig, registry: TeamStore, owner: 
   const machines: MachineConfig[] = [],
     devices: DeviceConfig[] = [];
   if (
+    owner === registry.ownerId ||
     !config.serverWorkspaces ||
     registry.db.prepare("SELECT state FROM team_server_workspaces WHERE owner=?").get(owner)
       ?.state !== "ready"
@@ -91,13 +92,22 @@ export class ServerWorkspaces {
   view(owner: string) {
     this.registry.active(owner);
     return {
-      available: !!this.config.serverWorkspaces,
+      available: !!this.config.serverWorkspaces && owner !== this.registry.ownerId,
       state: String(
         this.registry.db
           .prepare("SELECT state FROM team_server_workspaces WHERE owner=?")
           .get(owner)?.state ?? "absent",
       ),
     };
+  }
+  requirePersonal(owner: string) {
+    this.registry.active(owner);
+    if (owner === this.registry.ownerId)
+      throw new HubError(
+        409,
+        "WORKSPACE_NOT_NEEDED",
+        "Используй прямое подключение к серверу в «Устройствах».",
+      );
   }
   async command(owner: string, op: "status" | "create" | "start" | "revoke") {
     const host = this.config.serverWorkspaces;
@@ -141,7 +151,7 @@ export class ServerWorkspaces {
     }
   }
   create(owner: string) {
-    this.registry.active(owner);
+    this.requirePersonal(owner);
     if (!this.canRun())
       throw new HubError(
         503,
@@ -203,7 +213,7 @@ export class ServerWorkspaces {
     return work;
   }
   start(owner: string) {
-    this.registry.active(owner);
+    this.requirePersonal(owner);
     if (!this.canRun())
       throw new HubError(
         503,
