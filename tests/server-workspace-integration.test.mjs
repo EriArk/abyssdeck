@@ -201,9 +201,9 @@ test("explicit start reconciles an existing container and never creates or resta
   assert.deepEqual(calls, ["status", "start", "status"]);
 });
 test("team checkpoint retains workspace owners and blocks execution after restore", async (t) => {
-  const { dir, config, registry, member, userId } = await fixture(t);
-  registry.db.prepare("UPDATE team_namespaces SET initialized=1 WHERE userId=?").run(userId);
-  for (const owner of [userId, member.id])
+  const { dir, config, registry, member } = await fixture(t);
+  registry.db.prepare("UPDATE team_namespaces SET initialized=1 WHERE userId=?").run(registry.ownerId);
+  for (const owner of [registry.ownerId, member.id])
     registry.db.prepare("INSERT INTO team_server_workspaces VALUES(?,'ready',0)").run(owner);
   const snapshot = await createTeamSnapshot(config, join(dir, "backups"));
   await restoreTeamSnapshot(snapshot, join(dir, "restore"));
@@ -214,7 +214,7 @@ test("team checkpoint retains workspace owners and blocks execution after restor
         .prepare("SELECT owner FROM team_server_workspaces ORDER BY owner")
         .all()
         .map((r) => r.owner),
-      [userId, member.id].sort(),
+      [registry.ownerId, member.id].sort(),
     );
     assert.equal(
       db.prepare("SELECT value FROM team_meta WHERE key='nativeAdmission'").get().value,
