@@ -100,3 +100,23 @@ def firewall(uid):
   }
 }
 ''' % uid
+
+
+def idle_processes(output):
+    live=[]
+    for line in output.splitlines()[1:]:
+        fields=line.split(None,3)
+        if len(fields)!=4 or not fields[0].isdigit() or not fields[1].isdigit():
+            raise RuntimeError('WORKSPACE_PROCESS_STATE_INVALID')
+        pid,parent,state,args=fields
+        # A zombie has exited and cannot execute any more work. PID 1 in the
+        # legacy image did not reap adopted children; never confuse them with
+        # live commands, and never infer exit from a process name like <defunct>.
+        if state.startswith('Z'):continue
+        live.append((pid,parent,args.split()))
+    init=next((p for p in live if p[0]=='1'),None)
+    if not init:raise RuntimeError('WORKSPACE_PROCESS_STATE_INVALID')
+    if len(live)==1 and init[2]==['sleep','infinity']:return
+    if (len(live)==2 and init[2] in [['/usr/bin/tini','--','sleep','infinity'],['tini','--','sleep','infinity']]
+            and any(p[0]!='1' and p[1]=='1' and p[2]==['sleep','infinity'] for p in live)):return
+    raise RuntimeError('WORKSPACE_BACKGROUND_WORK')

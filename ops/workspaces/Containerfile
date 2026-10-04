@@ -1,7 +1,7 @@
 ARG NODE_IMAGE=node@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6
 FROM ${NODE_IMAGE}
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    bash ca-certificates curl git gh openssh-client python3 python3-venv python3-pip \
+    bash ca-certificates curl git gh openssh-client python3 python3-venv python3-pip tini \
     build-essential pkg-config unzip zip procps less sqlite3 util-linux chromium fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/* \
     && npm cache clean --force

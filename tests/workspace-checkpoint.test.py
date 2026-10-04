@@ -40,7 +40,7 @@ class Checkpoint(unittest.TestCase):
         if 'podman' in ' '.join(args):
             at=args.index('--cgroup-manager=systemd')+1;op=args[at]
             if op=='inspect':return json.dumps([{'Config':{'Labels':{'codexweb.owner':self.owner}},'Image':self.image,'State':{'Running':self.running}}])
-            if op=='top':return 'PID ARGS\n1 sleep infinity'+('\n8 node server.js' if self.busy else '')
+            if op=='top':return 'PID PPID STATE ARGS\n1 0 S /usr/bin/tini -- sleep infinity\n2 1 S sleep infinity\n3 1 Z git'+('\n8 1 S node server.js' if self.busy else '')
             if op=='stop':self.running=False
             if op=='start':self.running=True
         if args[0]=='systemd-escape':return 'slot0.mount'

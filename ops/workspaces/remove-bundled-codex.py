@@ -16,13 +16,14 @@ import sqlite3
 import subprocess
 import time
 import uuid
-from policy import podman_command, container_name, container_args
+from policy import podman_command, container_name, container_args, idle_processes
 
 BROKER='codex-workspace-broker.service'
 FULL_RECEIPTS=50000
 REGISTRY=Path('/var/lib/codex-workspaces/registry.sqlite')
 CONFIG=Path('/etc/codex-workspaces/config.json')
 HELPERS=Path('/opt/codex-workspace-broker')
+CHECKPOINT=Path('/opt/codex-workspace-checkpoint')
 BACKUPS=Path('/var/lib/codex-workspace-maintenance')
 
 def run(args, **kwargs):
@@ -36,8 +37,7 @@ def idle(podman,name):
     value=json.loads(run(podman+['inspect',name]))[0]
     if value['State'].get('Paused') or value['State'].get('Restarting'):raise RuntimeError('WORKSPACE_BUSY')
     if value['State']['Running']:
-        rows=run(podman+['top',name,'pid','args']).splitlines()
-        if len(rows)!=2 or rows[1].split()!=['1','sleep','infinity']:raise RuntimeError('WORKSPACE_BACKGROUND_WORK')
+        idle_processes(run(podman+['top',name,'pid','ppid','state','args']))
     return value
 
 def main():
@@ -49,9 +49,9 @@ def main():
     owner=str(uuid.UUID(manifest['owner']))
     image=manifest['image']
     if not image.startswith('sha256:') or len(image)!=71:raise RuntimeError('IMAGE_INVALID')
-    if set(manifest['files']) != {'runtime.tar','broker.py','policy.py','remove-bundled-codex.py'}:raise RuntimeError('BUNDLE_FILES_INVALID')
+    if set(manifest['files']) != {'runtime.tar','broker.py','policy.py','checkpoint.py','remove-bundled-codex.py'}:raise RuntimeError('BUNDLE_FILES_INVALID')
     for name,expected in manifest['files'].items():
-        if name not in ['runtime.tar','broker.py','policy.py','remove-bundled-codex.py']:raise RuntimeError('BUNDLE_FILE_INVALID')
+        if name not in ['runtime.tar','broker.py','policy.py','checkpoint.py','remove-bundled-codex.py']:raise RuntimeError('BUNDLE_FILE_INVALID')
         if digest(root/name)!=expected:raise RuntimeError('BUNDLE_HASH_MISMATCH')
     config=json.loads(CONFIG.read_text());podman=podman_command(config['uid'])
     with sqlite3.connect(REGISTRY.as_uri()+'?mode=ro',uri=True) as db:
@@ -66,8 +66,10 @@ def main():
         if info['Config']['Labels'].get('codexweb.owner')!=other or info['Image'].removeprefix('sha256:')!=expected.removeprefix('sha256:'):
             raise RuntimeError('WORKSPACE_BINDING_CHANGED')
     before=idle(podman,name)
+    targets={'broker.py':(HELPERS/'broker.py','broker.py'),'policy.py':(HELPERS/'policy.py','policy.py'),
+             'checkpoint.py':(CHECKPOINT/'checkpoint.py','checkpoint.py'),'checkpoint-policy.py':(CHECKPOINT/'policy.py','policy.py')}
     if old_image==image:
-        if any(digest(HELPERS/n)!=manifest['files'][n] for n in ['broker.py','policy.py']):raise RuntimeError('INSTALLED_HELPERS_MISMATCH')
+        if any(digest(path)!=manifest['files'][source] for path,source in targets.values()):raise RuntimeError('INSTALLED_HELPERS_MISMATCH')
         print(json.dumps({'installed':True,'alreadyInstalled':True}));return
     print(json.dumps({'ready':True,'slot':slot,'receipts':counts,'willReplaceImage':True,'dataDiskUnchanged':True}),flush=True)
     if not a.apply:return
@@ -81,7 +83,7 @@ def main():
     backup=BACKUPS/('remove-codex-'+time.strftime('%Y%m%dT%H%M%S'))
     backup.mkdir(parents=True,mode=0o700)
     old_name=name+'-before-codex-removal'
-    old_files={n:(HELPERS/n).read_bytes() for n in ['broker.py','policy.py']}
+    old_files={n:path.read_bytes() for n,(path,_) in targets.items()}
     for n,data in old_files.items():(backup/n).write_bytes(data)
     shutil.copy2(CONFIG,backup/'config.json')
     (backup/'identity.json').write_text(json.dumps({'owner':owner,'slot':slot,'oldImage':old_image,'image':image,'oldName':old_name,'running':before['State']['Running']}))
@@ -105,7 +107,7 @@ def main():
         changed=True
         config['image']=image
         CONFIG.write_text(json.dumps(config))
-        for n in old_files:shutil.copyfile(root/n,HELPERS/n)
+        for path,source in targets.values():shutil.copyfile(root/source,path)
         # All retained records keep exact identities; only confirmed completed
         # entries outside replay lifetime are eligible for pressure cleanup.
         from broker import Broker
@@ -129,7 +131,7 @@ def main():
         if changed:
             with sqlite3.connect(REGISTRY) as db:db.execute('UPDATE workspaces SET image=? WHERE owner=?',(old_image,owner))
         shutil.copy2(backup/'config.json',CONFIG)
-        for n,data in old_files.items():(HELPERS/n).write_bytes(data)
+        for n,data in old_files.items():targets[n][0].write_bytes(data)
         raise
     finally:
         # Return SQLite sidecars to the existing unprivileged service owner.
@@ -146,6 +148,9 @@ def locked_main():
     # Same lock order as the ordinary Hub updater and native host maintenance.
     state=Path('/home/abysscloud/services/codex-web')
     with ExitStack() as resources:
+        checkpoint=resources.enter_context(Path('/var/lib/codex-workspace-checkpoint/lock').open('r+'))
+        fcntl.flock(checkpoint,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        if Path('/var/lib/codex-workspace-checkpoint/journal.json').exists():raise RuntimeError('CHECKPOINT_RECOVERY_REQUIRED')
         lock=resources.enter_context((state/'send-handoff-deploy.lock').open('r+'))
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         config=json.loads(run(['docker','exec','codex-web-engine','node','-e',

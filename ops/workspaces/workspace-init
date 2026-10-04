@@ -3,4 +3,4 @@ set -euo pipefail
 umask 077
 mkdir -p /workspace/home /workspace/projects /workspace/integration /workspace/services
 mkdir -p /workspace/home/.config /workspace/home/.cache /workspace/home/.local/bin
-exec sleep infinity
+exec /usr/bin/tini -- sleep infinity

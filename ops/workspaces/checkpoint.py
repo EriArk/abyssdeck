@@ -18,7 +18,7 @@ import uuid
 from contextlib import ExitStack
 import backup
 from engine_checkpoint import FrozenHub
-from policy import ROOT, podman_command, container_name
+from policy import ROOT, podman_command, container_name, idle_processes
 from install import check_mount
 
 SETTINGS = Path('/etc/codex-workspaces/checkpoint.json')
@@ -171,9 +171,7 @@ class Checkpoint:
         for owner,slot,state,image in bindings:
             info=json.loads(run(self.podman+['inspect',container_name(owner)]))[0]
             if idle_container(info,owner,image):
-                processes=run(self.podman+['top',container_name(owner),'pid','args']).splitlines()
-                if len(processes)!=2 or processes[1].split()!=['1','sleep','infinity']:
-                    raise RuntimeError('WORKSPACE_BACKGROUND_WORK')
+                idle_processes(run(self.podman+['top',container_name(owner),'pid','ppid','state','args']))
                 if state!='ready': raise RuntimeError('WORKSPACE_NOT_READY')
                 self.journal['containers'].append([owner,slot,image]);self.save()
         for owner,_,_ in self.journal['containers']:

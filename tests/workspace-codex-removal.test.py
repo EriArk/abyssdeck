@@ -8,9 +8,19 @@ spec=importlib.util.spec_from_file_location('removal',ROOT/'ops/workspaces/remov
 m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 OWNER='11111111-1111-4111-8111-111111111111';OLD='sha256:'+'a'*64;NEW='sha256:'+'b'*64
 class Removal(unittest.TestCase):
+ def test_legacy_idle_with_exited_children(self):
+  m.idle_processes('PID PPID STATE COMMAND\n1 0 S sleep infinity\n2 1 Z [git] <defunct>\n3 1 Zs [bash] <defunct>')
+ def test_reaping_init_is_idle_with_its_sleep_child(self):
+  m.idle_processes('PID PPID STATE COMMAND\n1 0 S /usr/bin/tini -- sleep infinity\n2 1 S sleep infinity')
+ def test_live_or_unknown_work_still_blocks(self):
+  for row in ['3 1 S codex app-server','3 1 S bash','3 1 D git status','3 1 T python3 daemon.py','3 1 S [git] <defunct>']:
+   with self.subTest(row=row),self.assertRaisesRegex(RuntimeError,'WORKSPACE_BACKGROUND_WORK'):
+    m.idle_processes('PID PPID STATE COMMAND\n1 0 S sleep infinity\n'+row)
+  with self.assertRaisesRegex(RuntimeError,'WORKSPACE_PROCESS_STATE_INVALID'):
+   m.idle_processes('PID PPID STATE COMMAND\n1 sleep infinity')
  def scenario(self,fail=False):
   with tempfile.TemporaryDirectory() as td:
-   root=Path(td);bundle=root/'bundle';bundle.mkdir();helpers=root/'helpers';helpers.mkdir();backups=root/'backups'
+   root=Path(td);bundle=root/'bundle';bundle.mkdir();helpers=root/'helpers';helpers.mkdir();checkpoint=root/'checkpoint';checkpoint.mkdir();backups=root/'backups'
    cfg=root/'config.json';cfg.write_text(json.dumps({'uid':1001,'image':OLD}))
    dbpath=root/'registry.sqlite'
    with sqlite3.connect(dbpath) as db:
@@ -18,11 +28,12 @@ class Removal(unittest.TestCase):
     db.execute('INSERT INTO workspaces VALUES(?,0,?,?)',(OWNER,'ready',OLD))
     db.execute("INSERT INTO receipts VALUES('old',?,'status',?,'completed')",(OWNER,time.time()))
    keep=root/'disk.txt';keep.write_bytes(b'private-user-bytes')
-   for name in ['broker.py','policy.py','remove-bundled-codex.py']:
+   for name in ['broker.py','policy.py','checkpoint.py','remove-bundled-codex.py']:
     shutil.copyfile(ROOT/'ops/workspaces'/name,bundle/name)
    for name in ['broker.py','policy.py']:(helpers/name).write_bytes(b'old-'+name.encode())
+   for name in ['checkpoint.py','policy.py']:(checkpoint/name).write_bytes(b'old-'+name.encode())
    (bundle/'runtime.tar').write_bytes(b'fixture-image')
-   (bundle/'codex-removal.json').write_text(json.dumps({'owner':OWNER,'image':NEW,'files':{name:hashlib.sha256((bundle/name).read_bytes()).hexdigest() for name in ['broker.py','policy.py','remove-bundled-codex.py','runtime.tar']}}))
+   (bundle/'codex-removal.json').write_text(json.dumps({'owner':OWNER,'image':NEW,'files':{name:hashlib.sha256((bundle/name).read_bytes()).hexdigest() for name in ['broker.py','policy.py','checkpoint.py','remove-bundled-codex.py','runtime.tar']}}))
    name=m.container_name(OWNER);containers={name:OLD};commands=[]
    def run(args, **kwargs):
     commands.append(args)
@@ -31,14 +42,14 @@ class Removal(unittest.TestCase):
     op=args[1]
     if op=='inspect':return json.dumps([{'Config':{'Labels':{'codexweb.owner':OWNER}},'Image':containers[args[2]],'State':{'Running':True}}])
     if op=='image':return NEW
-    if op=='top':return 'PID ARGS\n1 sleep infinity'
+    if op=='top':return 'PID PPID STATE ARGS\n1 0 S sleep infinity\n2 1 Z [git] <defunct>'
     if op=='rename':containers[args[3]]=containers.pop(args[2]);return ''
     if op=='run':containers[name]=NEW;return ''
     if op=='ps':return '\n'.join(containers)
     if op=='rm':containers.pop(args[-1]);return ''
     if op=='exec' and fail:raise RuntimeError('VERIFY_FAILED')
     return ''
-   with patch.multiple(m,CONFIG=cfg,REGISTRY=dbpath,HELPERS=helpers,BACKUPS=backups,FULL_RECEIPTS=1,__file__=str(bundle/'remove-bundled-codex.py')),patch.object(m,'run',side_effect=run),patch.object(m,'podman_command',return_value=['podman']),patch('sys.argv',['remove','--apply']),patch.object(m.os,'geteuid',return_value=0):
+   with patch.multiple(m,CONFIG=cfg,REGISTRY=dbpath,HELPERS=helpers,CHECKPOINT=checkpoint,BACKUPS=backups,FULL_RECEIPTS=1,__file__=str(bundle/'remove-bundled-codex.py')),patch.object(m,'run',side_effect=run),patch.object(m,'podman_command',return_value=['podman']),patch('sys.argv',['remove','--apply']),patch.object(m.os,'geteuid',return_value=0):
     if fail:
      with self.assertRaisesRegex(RuntimeError,'VERIFY_FAILED'):m.main()
     else:m.main()
