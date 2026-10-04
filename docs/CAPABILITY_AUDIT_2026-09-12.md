@@ -6,11 +6,11 @@ Initial review: source `af078b4`, the current GitHub issue/PR lists, the previou
 
 There are five open issues and no open PRs at the time of this review:
 
-- [#37](https://github.com/EriArk/codex-web-interface/issues/37): additional Codex execution machines, including remote Linux/Tailnet. This remains owner-deferred; the existing PC/server device terminals are a separate feature. A real second execution-machine installation is required before broad support can be claimed.
-- [#6](https://github.com/EriArk/codex-web-interface/issues/6): allowed project roots. Explicitly owner-deferred; do not silently restrict the existing folder workflow.
-- [#10](https://github.com/EriArk/codex-web-interface/issues/10): physical iPhone/iPad acceptance through everyday owner usage, not a missing application module.
-- [#11](https://github.com/EriArk/codex-web-interface/issues/11): guided installation for other people. Explicitly deferred by the owner on 2026-09-12; current development serves the personal installation.
-- [#14](https://github.com/EriArk/codex-web-interface/issues/14): umbrella stabilization/distribution tracker. Its distribution work is explicitly deferred; personal reliability remains relevant. Several historical unchecked references are stale: storage #5, workspace #83–#89 and speech #90 are closed. GitHub Actions are explicitly out of scope under the current owner instruction.
+- [#37](https://github.com/EriArk/abyssdeck/issues/37): additional Codex execution machines, including remote Linux/Tailnet. This remains owner-deferred; the existing PC/server device terminals are a separate feature. A real second execution-machine installation is required before broad support can be claimed.
+- [#6](https://github.com/EriArk/abyssdeck/issues/6): allowed project roots. Explicitly owner-deferred; do not silently restrict the existing folder workflow.
+- [#10](https://github.com/EriArk/abyssdeck/issues/10): physical iPhone/iPad acceptance through everyday owner usage, not a missing application module.
+- [#11](https://github.com/EriArk/abyssdeck/issues/11): guided installation for other people. Explicitly deferred by the owner on 2026-09-12; current development serves the personal installation.
+- [#14](https://github.com/EriArk/abyssdeck/issues/14): umbrella stabilization/distribution tracker. Its distribution work is explicitly deferred; personal reliability remains relevant. Several historical unchecked references are stale: storage #5, workspace #83–#89 and speech #90 are closed. GitHub Actions are explicitly out of scope under the current owner instruction.
 
 The ordinary feature gaps below are mostly absent from those open issues. The old tracker alone is therefore not an adequate implementation backlog.
 
@@ -18,9 +18,9 @@ The ordinary feature gaps below are mostly absent from those open issues. The ol
 
 - Standard MCP typed forms and URL requests, including accept/decline/cancel and receipt protection: [elicitation parser](../apps/hub/src/elicitation.ts), [UI](../apps/web/src/ElicitationCard.tsx). Extended OpenAI forms/unknown constraints remain explicitly unsupported.
 - Native account-backed dictation in both composers, waveform/timer and second-tap submission: [dictation](DICTATION.md). This is not two-way voice conversation.
-- Earned usage resets, explicit zero state and guarded redemption: [#129](https://github.com/EriArk/codex-web-interface/issues/129), [reset documentation](USAGE_RESETS.md).
-- Bounded linked-project consultations, per-link depth and early resolution: [#128](https://github.com/EriArk/codex-web-interface/issues/128), [relays](PROJECT_RELAYS.md). Native relay tools are available on newly created web chats; existing chats are not silently rotated.
-- Independent compatible web publication, with persistent execution engine and visible maintenance state: [#132](https://github.com/EriArk/codex-web-interface/issues/132), [deployment](INDEPENDENT_DEPLOYMENTS.md).
+- Earned usage resets, explicit zero state and guarded redemption: [#129](https://github.com/EriArk/abyssdeck/issues/129), [reset documentation](USAGE_RESETS.md).
+- Bounded linked-project consultations, per-link depth and early resolution: [#128](https://github.com/EriArk/abyssdeck/issues/128), [relays](PROJECT_RELAYS.md). Native relay tools are available on newly created web chats; existing chats are not silently rotated.
+- Independent compatible web publication, with persistent execution engine and visible maintenance state: [#132](https://github.com/EriArk/abyssdeck/issues/132), [deployment](INDEPENDENT_DEPLOYMENTS.md).
 - Completed-command output can be expanded and copied. It already has a truncation notice; the previous audit's statement that this notice is missing is obsolete: [CommandOutput](../apps/web/src/CommandOutput.tsx).
 - Codex fork, Files/Git/README/releases, device terminals, Notes/Tasks/Plans/Reports/Core, capture, review, delivery and configured GUI previews are existing features, not fresh backlog items.
 

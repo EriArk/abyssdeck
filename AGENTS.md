@@ -1,5 +1,16 @@
 # AGENTS.md
 
+## Owner-approved AbyssDeck name (2026-10-04)
+
+- The product is AbyssDeck; the canonical repository is EriArk/abyssdeck.
+  Use AbyssDeck in visible UI, Companion, onboarding, README and current prose.
+- Codex and GPT remain integration names. Preserve existing storage paths,
+  service/task/executable IDs, package scopes, MCP names, URL schemes, account
+  bindings and update signatures as compatibility identifiers. A brand rename
+  must not reset settings, move user data or interrupt native work.
+- Historical screenshots retain their original pixels and capture provenance.
+
+
 ## Owner's direct server access (2026-10-04)
 
 - The installation owner's admin account uses its existing full host connection.

@@ -143,7 +143,7 @@ export function connectRemote(
               instruction("audio") +
               instruction("video") +
               instruction("image", "image/png", "image/jpeg") +
-              instruction("name", "Codex Web") +
+              instruction("name", "AbyssDeck") +
               instruction("connect", ...values),
           );
         } else if (opcode === "ready") {

@@ -154,7 +154,7 @@ export default function App() {
   if (loading)
     return (
       <div className="boot-screen">
-        <img src="/icon.svg" width="60" height="60" alt="Codex" />
+        <img src="/icon.svg" width="60" height="60" alt="AbyssDeck" />
         <span className="spinner" />
       </div>
     );

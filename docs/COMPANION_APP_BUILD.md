@@ -107,7 +107,7 @@ ops/windows/Install-CompanionApp.ps1 -PackageDirectory D:\builds\companion-ui-0.
 `README.txt` содержит инструкцию первого запуска. Новый профиль сразу открывает окно.
 
 Автозапуск — только собственный `HKCU\...\Run\CodexWebCompanionApp`; ярлык —
-меню «Пуск → CodexWeb → CodexWeb Companion». Никакая из девяти прежних Scheduled
+меню «Пуск → AbyssDeck → AbyssDeck Companion». Никакая из девяти прежних Scheduled
 Tasks не изменяется. При входе UI появляется в трее; запуск ярлыка поднимает
 существующее окно. Второй UI не запускает второго работника. Current-user/session
 named pipe принимает `SHOW` и фиксированные действия открытия терминала/подстановки

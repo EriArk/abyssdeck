@@ -141,7 +141,8 @@ export class BridgeDoctor {
           !p.unassigned &&
           !p.archived &&
           !p.deleted &&
-          (/^codexweb$/i.test(p.name) || /[\\/]codexweb[\\/]?$/i.test(p.workingDirectory ?? "")),
+          (/^(abyssdeck|codexweb)$/i.test(p.name) ||
+            /[\\/](abyssdeck|codexweb)[\\/]?$/i.test(p.workingDirectory ?? "")),
       );
     return {
       projectId: projects.length === 1 ? projects[0]!.id : "",

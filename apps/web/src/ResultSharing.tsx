@@ -402,7 +402,7 @@ export function ResultShareWindow({
                   checked={publicRoom}
                   onChange={(e) => setPublicRoom(e.target.checked)}
                 />
-                Эта комната доступна всем пользователям CodexWeb. Разрешаю им открыть этот
+                Эта комната доступна всем пользователям AbyssDeck. Разрешаю им открыть этот
                 результат.
               </label>
             )}

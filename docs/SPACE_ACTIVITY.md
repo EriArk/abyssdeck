@@ -262,7 +262,7 @@ were sent as verification.
 
 Owner report: the Notifications window remained on the GitHub loading line.
 Live Hub logs showed successful requests taking 3.47 s and 14.70 s, serially.
-The installed Windows pipeline independently took 11.31 s for the CodexWeb
+The installed Windows pipeline independently took 11.31 s for the AbyssDeck
 repository. This observation establishes excessive waiting, not an indefinitely
 hung native task or a GitHub access ban.
 

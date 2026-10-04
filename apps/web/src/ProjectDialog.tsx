@@ -76,7 +76,7 @@ const labels: Record<string, string> = {
   "create-repository": "Создать репозиторий GitHub",
   "link-origin": "Подключить origin",
   clone: "Клонировать репозиторий",
-  "register-project": "Подключить проект в CodexWeb",
+  "register-project": "Подключить проект в AbyssDeck",
   "agent-profile": "Применить профиль поведения",
   complete: "Проект готов",
   review: "Проверь перед созданием",

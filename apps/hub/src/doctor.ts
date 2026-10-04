@@ -456,7 +456,7 @@ async function cli() {
   if (values.json) console.log(JSON.stringify(report, null, 2));
   else {
     console.log(
-      "Codex Web " +
+      "AbyssDeck " +
         report.appVersion +
         " (" +
         report.revision +

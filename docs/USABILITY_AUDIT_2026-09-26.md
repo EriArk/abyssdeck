@@ -2,7 +2,7 @@
 
 ## Scope
 
-This audit reviews CodexWeb as an end-user product rather than as an implementation.
+This audit reviews AbyssDeck as an end-user product rather than as an implementation.
 
 Questions:
 
@@ -40,7 +40,7 @@ The main usability problem is not missing capability.
 
 It is **exposed complexity**.
 
-CodexWeb has grown from one focused workspace into a platform, but much of the UI still exposes the platform's module names directly.
+AbyssDeck has grown from one focused workspace into a platform, but much of the UI still exposes the platform's module names directly.
 
 A user currently needs to understand a vocabulary like:
 
@@ -91,7 +91,7 @@ That maps well to how the product is actually used:
 
 The existing design decisions around preserving drafts, scroll, parent windows and source context are especially strong. A user can inspect a file/Result/source and return without losing the state they were working in.
 
-This is one of CodexWeb's most important UX advantages and should be protected.
+This is one of AbyssDeck's most important UX advantages and should be protected.
 
 ## Recommendation
 
@@ -111,7 +111,7 @@ Examples:
 - Project Intake is meaningful after explanation, but not self-evident.
 - Issue Drawer describes a container, not the action.
 - Delivery is broad and can mean build, deploy, Git delivery, or shipping.
-- Core requires knowing what CodexWeb means by Core.
+- Core requires knowing what AbyssDeck means by Core.
 - Activity exists in more than one conceptual meaning.
 
 This is manageable for the creator of the system, but much harder for a second user or future newcomer.
@@ -246,7 +246,7 @@ This keeps the overview useful without becoming a launchpad containing every mod
 
 # 5. A global command/search palette would remove a lot of navigation pressure
 
-CodexWeb has many local searches and many action entry points:
+AbyssDeck has many local searches and many action entry points:
 
 - project/chat search;
 - Content Search;
@@ -286,7 +286,7 @@ Switch theme
 
 Scope should follow the current context, with an explicit way to broaden to all Projects.
 
-This is a strong fit for CodexWeb because the product already has exact identities for most objects.
+This is a strong fit for AbyssDeck because the product already has exact identities for most objects.
 
 External precedent: GitHub uses a context-scoped command palette for navigation/search/actions. Raycast uses one searchable Action Panel instead of exposing every possible action permanently.
 
@@ -383,7 +383,7 @@ Run details is probably the clearest user-facing option.
 
 # 8. Attention is still distributed
 
-CodexWeb correctly distinguishes Activity from Notifications, but attention can still appear in several places:
+AbyssDeck correctly distinguishes Activity from Notifications, but attention can still appear in several places:
 
 - Notifications;
 - Communication unread;
@@ -421,7 +421,7 @@ Linear's Inbox is a useful model: attention-worthy updates are centralized, whil
 
 Slack's Activity view similarly supports replying and triaging from a consolidated feed.
 
-CodexWeb's existing Activity = awareness, Notifications = attention rule should remain; Inbox can simply become the friendlier surface name for attention.
+AbyssDeck's existing Activity = awareness, Notifications = attention rule should remain; Inbox can simply become the friendlier surface name for attention.
 
 ---
 
@@ -561,7 +561,7 @@ A global Open/Search palette would make this distinction much easier because res
 
 # 14. Deep modal stacking: good continuity, but watch the window tunnel
 
-CodexWeb correctly keeps parents mounted under nested viewers. This protects drafts/state.
+AbyssDeck correctly keeps parents mounted under nested viewers. This protects drafts/state.
 
 The risk is ending up with:
 
@@ -850,7 +850,7 @@ The main visual risk is not ugliness; it is **control density and mini-app diver
 
 ## Biggest opportunity
 
-CodexWeb no longer needs more visible features.
+AbyssDeck no longer needs more visible features.
 
 It needs a **thin usability layer over the existing power**:
 

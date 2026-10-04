@@ -30,11 +30,11 @@ not evidence of a failed send and must not trigger a duplicate POST.
 
 ## Defects found and fixed
 
-- [#231](https://github.com/EriArk/codex-web-interface/issues/231): queued followers
+- [#231](https://github.com/EriArk/abyssdeck/issues/231): queued followers
   displaced an earlier, still-live turn awaiting its canonical acknowledgement.
   Progress, live text and Stop now select the same earliest outstanding job;
   an unconfirmed send offers no Stop action against a different queued job.
-- [#232](https://github.com/EriArk/codex-web-interface/issues/232): GPT project
+- [#232](https://github.com/EriArk/abyssdeck/issues/232): GPT project
   overview supplied `unread: false` for every chat. It now uses the same exact
   completion markers as navigation. Opening the overview does not mark a final
   answer read.
@@ -66,7 +66,7 @@ claim physical iPhone acceptance.
 
 The installed `main-windows` account/rateLimits projection returned 18% weekly
 allowance and a native balance of 62500 credits at this check. No account or
-billing setting was changed. CodexWeb treats usage as information and delegates
+billing setting was changed. AbyssDeck treats usage as information and delegates
 turn admission to native Codex; it has no percent-zero send gate.
 
 `usage-continuation.test.mjs` supplies both windows at 100% consumed plus credits,
@@ -101,7 +101,7 @@ that idle shell was closed. The ordinary updater installed `d8ec99e` at
 2026-10-01 23:11:33 UTC; both containers are healthy, schema 30, active Codex
 continuity preserved. Three verified checkpoints remain.
 
-[#233](https://github.com/EriArk/codex-web-interface/issues/233) adds explicit
+[#233](https://github.com/EriArk/abyssdeck/issues/233) adds explicit
 window release after verified idle, cancellation on reconnect, and single-Enter
 normalization of pasted commands. The old unknown state is not retroactively
 attributed to the independently reproduced duplicate-newline defect.

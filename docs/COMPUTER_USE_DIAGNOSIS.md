@@ -135,7 +135,7 @@ for this investigation. The September 27 missing-host finding remains relevant
 to web handoff, but it must not be read as proof that a separate App Server can
 never use the desktop-hosted tool.
 
-### Confirmed cause in CodexWeb
+### Confirmed cause in AbyssDeck
 
 `apps/web/src/WebHandoff.tsx` requests `releaseDesktop: true` together with the
 explicit stop confirmation. `apps/hub/src/desktop.ts` dispatches `ForceRelease`
@@ -180,7 +180,7 @@ make window enumeration pass.
 ### Remaining integration requirement
 
 The unresolved part is a supported host/approval lifecycle compatible with
-CodexWeb's independent execution and exact native writer ownership. Keeping a
+AbyssDeck's independent execution and exact native writer ownership. Keeping a
 desktop process alive is only a necessary condition in this observed setup,
 not an accepted implementation. No standalone host bootstrap or safe
 desktop-writer release/host-retention contract was established in this pass.
@@ -262,7 +262,7 @@ Read-only diagnosis, 2026-09-13. No global configuration, native account, owner 
 
 ## Finding
 
-The missing endpoint is a **per-desktop-process named pipe**, not a missing installation directory. The installed desktop owns its creation and approval/lifecycle integration. CodexWeb's standalone Companion App Server does not create that desktop integration. A fixed pipe address in the explicit `node_repl` environment points to no running pipe owner in the observed session. Changing the runtime executable path or substituting another UUID cannot fix this lifecycle mismatch.
+The missing endpoint is a **per-desktop-process named pipe**, not a missing installation directory. The installed desktop owns its creation and approval/lifecycle integration. AbyssDeck's standalone Companion App Server does not create that desktop integration. A fixed pipe address in the explicit `node_repl` environment points to no running pipe owner in the observed session. Changing the runtime executable path or substituting another UUID cannot fix this lifecycle mismatch.
 
 This explains the observed connection failure before listing windows. It does not prove that the account has the native Computer Use feature enabled, or that launching any executable would establish an approved integration.
 
@@ -279,4 +279,4 @@ This explains the observed connection failure before listing windows. It does no
 
 Use the installed desktop's own session for its native Computer Use integration, subject to that account's feature availability and native permissions. Existing explicit Settings handoff can release web writers and open the same native conversation when the owner chooses. Merely starting the desktop does not establish that a pre-existing Companion session has inherited its fresh pipe or approval bindings.
 
-CodexWeb must not advertise a discovered MCP executable as proof that native desktop control works. Its allowlisted GUI Preview and manual Remote remain separate capabilities. This investigation adds neither a protocol clone nor a manual helper launcher. No successful native `list_windows`/screenshot acceptance is claimed; that requires a future explicit native-desktop session check. ClubManager's earlier SSH resource leak is a separate defect.
+AbyssDeck must not advertise a discovered MCP executable as proof that native desktop control works. Its allowlisted GUI Preview and manual Remote remain separate capabilities. This investigation adds neither a protocol clone nor a manual helper launcher. No successful native `list_windows`/screenshot acceptance is claimed; that requires a future explicit native-desktop session check. ClubManager's earlier SSH resource leak is a separate defect.

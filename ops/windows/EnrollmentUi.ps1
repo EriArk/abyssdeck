@@ -4,7 +4,7 @@ Add-Type -AssemblyName System.Drawing
 $script:CwWindow = $null
 function New-CwWindow([switch]$Hidden) {
     $form = [Windows.Forms.Form]::new()
-    $form.Text = 'CodexWeb — подключение компьютера · v5'
+    $form.Text = 'AbyssDeck — подключение компьютера · v5'
     $form.Size = [Drawing.Size]::new(690, 520)
     $form.MinimumSize = [Drawing.Size]::new(590, 450)
     $form.StartPosition = 'CenterScreen'
@@ -40,11 +40,11 @@ function Write-CwStep([int]$step, [string]$text) {
     [Windows.Forms.Application]::DoEvents()
 }
 function Confirm-Cw([string]$text) {
-    return [Windows.Forms.MessageBox]::Show($script:CwWindow, $text, 'CodexWeb', 'OKCancel', 'Information') -eq 'OK'
+    return [Windows.Forms.MessageBox]::Show($script:CwWindow, $text, 'AbyssDeck', 'OKCancel', 'Information') -eq 'OK'
 }
 function Select-CwRoot([string]$initial) {
     $dialog = [Windows.Forms.FolderBrowserDialog]::new()
-    $dialog.Description = 'Выберите папку для проектов CodexWeb. Другие папки не появятся в файловом менеджере сайта.'
+    $dialog.Description = 'Выберите папку для проектов AbyssDeck. Другие папки не появятся в файловом менеджере сайта.'
     $dialog.SelectedPath = $initial; $dialog.ShowNewFolderButton = $true
     try {
         if ($dialog.ShowDialog($script:CwWindow) -ne 'OK') { throw 'Выбор папки отменён. Настройку можно продолжить позже.' }

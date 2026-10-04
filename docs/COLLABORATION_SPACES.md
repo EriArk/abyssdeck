@@ -2,9 +2,9 @@
 
 ## Current status (2026-09-23)
 
-The owner confirmed on 22 September in [#215](https://github.com/EriArk/codex-web-interface/issues/215), [#195](https://github.com/EriArk/codex-web-interface/issues/195) and [#198](https://github.com/EriArk/codex-web-interface/issues/198) that the friend is connected, the real two-user Space flow works and the participant's own checkout is usable. That live report supersedes pending first-friend acceptance language in the implementation history below. Automated tests remain fixture evidence, not physical-device verification.
+The owner confirmed on 22 September in [#215](https://github.com/EriArk/abyssdeck/issues/215), [#195](https://github.com/EriArk/abyssdeck/issues/195) and [#198](https://github.com/EriArk/abyssdeck/issues/198) that the friend is connected, the real two-user Space flow works and the participant's own checkout is usable. That live report supersedes pending first-friend acceptance language in the implementation history below. Automated tests remain fixture evidence, not physical-device verification.
 
-Keep #215 for concrete polish/edge cases and #198 for managed provenance, synchronization, conflicts and optional test environments. [#218](https://github.com/EriArk/codex-web-interface/issues/218) adds Activity as a separate layer, replacing automatic Work Reports. Follow the current [Roadmap](ROADMAP.md); do not rebuild Space membership, checkout creation or Project GPT bindings. Earlier geometry/follow-up statements below are historical; the round key and current AGENTS.md navigation rules take precedence.
+Keep #215 for concrete polish/edge cases and #198 for managed provenance, synchronization, conflicts and optional test environments. [#218](https://github.com/EriArk/abyssdeck/issues/218) adds Activity as a separate layer, replacing automatic Work Reports. Follow the current [Roadmap](ROADMAP.md); do not rebuild Space membership, checkout creation or Project GPT bindings. Earlier geometry/follow-up statements below are historical; the round key and current AGENTS.md navigation rules take precedence.
 
 ## Workspace navigation corrections
 

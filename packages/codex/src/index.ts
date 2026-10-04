@@ -55,7 +55,7 @@ export class CodexClient extends EventEmitter {
   }
   async initialize(): Promise<RecordValue> {
     const result = await this.request("initialize", {
-      clientInfo: { name: "codex_web_interface", title: "Codex Web Interface", version: "0.1.0" },
+      clientInfo: { name: "codex_web_interface", title: "AbyssDeck", version: "0.1.0" },
       capabilities: {
         experimentalApi: true,
         mcpServerOpenaiFormElicitation: true,
@@ -198,7 +198,7 @@ export class CodexClient extends EventEmitter {
                       ? new HubError(
                           409,
                           "THREAD_IN_USE",
-                          "Диалог занят другим клиентом Codex. Для перехода на веб полностью выйди из ChatGPT/Codex на Windows, включая значок в трее, когда его работа завершится. Фоновый CodexWeb Companion оставь включённым. Черновик сохранён.",
+                          "Диалог занят другим клиентом Codex. Для перехода на веб полностью выйди из ChatGPT/Codex на Windows, включая значок в трее, когда его работа завершится. Фоновый AbyssDeck Companion оставь включённым. Черновик сохранён.",
                         )
                       : new HubError(
                           502,

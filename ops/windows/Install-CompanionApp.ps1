@@ -106,16 +106,26 @@ if ($profile.autoStart) {
     New-Item -Path $runKey -Force | Out-Null
     Set-ItemProperty -Path $runKey -Name CodexWebCompanionApp -Value ('"' + $powershell + '" -NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $launcher + '" -Tray')
 }
-$shortcuts = Join-Path ([Environment]::GetFolderPath('Programs')) 'CodexWeb'
+$shortcuts = Join-Path ([Environment]::GetFolderPath('Programs')) 'AbyssDeck'
 New-Item -ItemType Directory -Path $shortcuts -Force | Out-Null
 $shell = New-Object -ComObject WScript.Shell
-$shortcut = $shell.CreateShortcut((Join-Path $shortcuts 'CodexWeb Companion.lnk'))
+$shortcut = $shell.CreateShortcut((Join-Path $shortcuts 'AbyssDeck Companion.lnk'))
 $shortcut.TargetPath = $powershell
 $shortcut.Arguments = '-NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $launcher + '"'
 $shortcut.WorkingDirectory = $root
-$shortcut.Description = 'CodexWeb Companion'
+$shortcut.Description = 'AbyssDeck Companion'
 $shortcut.IconLocation = (Join-Path $runtime 'CodexWeb.Companion.exe') + ',0'
 $shortcut.Save()
+# Remove only the old shortcut owned by this exact installation, never its folder
+# or unrelated links. Existing runtime paths and autostart registration stay stable.
+$legacyShortcut = Join-Path ([Environment]::GetFolderPath('Programs')) 'CodexWeb/CodexWeb Companion.lnk'
+if (Test-Path -LiteralPath $legacyShortcut) {
+    Assert-NoLink $legacyShortcut
+    $oldShortcut = $shell.CreateShortcut($legacyShortcut)
+    if ($oldShortcut.TargetPath -eq $powershell -and $oldShortcut.Arguments -eq $shortcut.Arguments -and $oldShortcut.WorkingDirectory -eq $root) {
+        Remove-Item -LiteralPath $legacyShortcut
+    }
+}
 if (-not $NoStart) { if($firstRun){& $launcher}else{& $launcher -Tray} }
 @{installed=$true;release=$release;version=$manifest.version;preservedWorkers=$true;runtime=$runtime} | ConvertTo-Json -Compress
 } finally { $installerMutex.Dispose() }

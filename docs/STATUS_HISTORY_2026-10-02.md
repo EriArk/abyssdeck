@@ -60,7 +60,7 @@ update feed were not changed. Automatic checkpoint retention kept three copies.
 ## GPT stopped response indicator (2026-10-02, installed)
 
 Owner screenshots IMG_0808/0809 show native ChatGPT stopped reasoning while
-CodexWeb still displays tool activity. Read-only live inspection found the older
+AbyssDeck still displays tool activity. Read-only live inspection found the older
 matching submissions already cancelled and newer work in the same conversations.
 It does not establish why OpenAI stopped the original response.
 
@@ -153,7 +153,7 @@ Companion 0.5.4 is installed and running from the signed package manifest
 The exact owner profile and all captured component configs are unchanged; native
 PID 16688 survived deployment. Live Hub inspection/history returns AltarAppsReborn
 interrupted, no active turn/questions; subsequent background polling did not
-revive its stale external status. TrainerOS and this CodexWeb turn remain active.
+revive its stale external status. TrainerOS and this AbyssDeck turn remain active.
 
 **Worker activation verified:** Companion completed normal migration to worker
 release `f015dd36e3759fcdc601645fb80b34e5c1aa2bb5713b50053af1e91566ed8f45`.
@@ -161,7 +161,7 @@ The running broker PID 17404 uses that managed release; its SHA-256 matches
 `9fc1aa45741c4918c79bb455677bce9dac284580be8aeb2eb24b42b920ce7f93`.
 Its native child is PID 17436, the task is Running, the Hub maintenance lease is
 released and the local pending lease file is absent. AltarAppsReborn remains
-interrupted with no active turn; TrainerOS is completed. The current CodexWeb
+interrupted with no active turn; TrainerOS is completed. The current AbyssDeck
 turn is running on the new executor. Both Hub containers remain healthy on
 `a5511b1`. This confirms the installed worker, not just the UI version.
 The earlier standalone binary replacement script was superseded and never applied.
@@ -197,7 +197,7 @@ interrupted. Причина завершения процесса пока не 
 Вторая часть `223c75f` установлена обычным updater 2026-10-02 около 06:35 UTC.
 Оба контейнера healthy. Через установленный Hub проверка и чтение истории
 TrainerOS/AltarAppsReborn вернули HTTP 200, interrupted, activeTurnId=null и
-ноль ожидающих вопросов. Текущий CodexWeb-ход остался running в том же PID 19592.
+ноль ожидающих вопросов. Текущий AbyssDeck-ход остался running в том же PID 19592.
 Две старые квитанции TrainerOS остались unknown, их ввод не повторялся.
 Новую рабочую реплику вместо владельца проверка не отправляла.
 
@@ -374,7 +374,7 @@ offline-путём; текущий systemd result=success не доказыва�
 
 ## Снижение фоновых запросов GPT (2026-10-01)
 
-После отдельного перезапуска native-клиента исследованы повторные чтения CodexWeb.
+После отдельного перезапуска native-клиента исследованы повторные чтения AbyssDeck.
 Причина конкретного upstream 429 пока не доказана; наличие 429 в самом приложении
 не исключает вклад наших фоновых запросов. Подготовлено исправление:
 
@@ -1347,7 +1347,7 @@ Companion и активные чаты не перезапускались.
 приватный config.toml сохранён перед изменением. Путь не зависит от обновлений
 пакета desktop. Hub `a8c5f5c` / web `d5f9cd6` остаются без изменения.
 
-Проверено: настоящий снимок и ввод «CodexWeb работает» в отдельном тестовом
+Проверено: настоящий снимок и ввод «AbyssDeck работает» в отдельном тестовом
 окне; затем снимок, клик и ввод через **Hub → SSH → установленный persistent
 Companion → CLI 0.153.4 → MCP**. Повтор использованного снимка отклонён без
 дублирования текста. Финальная установка со стабильным launcher повторно

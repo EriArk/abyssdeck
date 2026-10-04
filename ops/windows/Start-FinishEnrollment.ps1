@@ -28,7 +28,7 @@ try {
     }
     . (Join-Path $directory 'Finish-Enrollment.ps1')
 } catch {
-    [void][Windows.Forms.MessageBox]::Show($_.Exception.Message, 'CodexWeb — завершение подключения', 'OK', 'Warning')
+    [void][Windows.Forms.MessageBox]::Show($_.Exception.Message, 'AbyssDeck — завершение подключения', 'OK', 'Warning')
 } finally {
     if ($mutex) { if ($acquired) { $mutex.ReleaseMutex() }; $mutex.Dispose() }
 }

@@ -12,7 +12,7 @@ Schema 14 adds `workspace_note_sources`; existing notes, revisions, source links
 
 ## Visual references
 
-The owner requested an external UI review. Layout principles were reviewed against [Todoist boards](https://www.todoist.com/help/articles/board-layout-in-todoist-nutzen-AiAVsyEI), [Linear project overview](https://linear.app/docs/projects) and [Linear project updates](https://linear.app/docs/initiative-and-project-updates): compact lists, contextual filters and separate details, with the existing CodexWeb semantic themes and 44px controls retained. No third-party UI runtime or content service is introduced.
+The owner requested an external UI review. Layout principles were reviewed against [Todoist boards](https://www.todoist.com/help/articles/board-layout-in-todoist-nutzen-AiAVsyEI), [Linear project overview](https://linear.app/docs/projects) and [Linear project updates](https://linear.app/docs/initiative-and-project-updates): compact lists, contextual filters and separate details, with the existing AbyssDeck semantic themes and 44px controls retained. No third-party UI runtime or content service is introduced.
 
 ## Verification
 

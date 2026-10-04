@@ -2,7 +2,7 @@
 
 ## Overview
 
-Codex Web Interface combines personal workspaces with pluggable execution backends
+AbyssDeck combines personal workspaces with pluggable execution backends
 and owner-enabled team functionality on one Hub; [Team Workspace](TEAM_WORKSPACE.md)
 defines the privacy/collaboration boundaries. Use [CURRENT_STATUS](CURRENT_STATUS.md)
 for installed versions and outstanding acceptance. The [September 13 audit](ISSUE_AUDIT_2026-09-13.md)

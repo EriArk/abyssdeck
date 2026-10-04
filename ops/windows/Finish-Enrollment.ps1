@@ -6,7 +6,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'EnrollmentUi.ps1')
 . (Join-Path $PSScriptRoot 'EnrollmentState.ps1')
 New-CwWindow
-$script:CwWindow.Text = 'CodexWeb — завершение подключения · v4'
+$script:CwWindow.Text = 'AbyssDeck — завершение подключения · v4'
 $diagnosticPath = Join-Path ([Environment]::GetFolderPath('Desktop')) 'CodexWeb-connection-diagnostic.txt'
 try {
     $connection = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'connection.json') -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -57,13 +57,13 @@ try {
         $status = if ($_.Exception.Response) { [int]$_.Exception.Response.StatusCode } else { 0 }
         throw ('Сервер пока не подтвердил подключение (HTTP {0}). Отчёт сохранён; можно повторить запуск этого файла.' -f $status)
     }
-    [void](Confirm-Cw 'Подключение подготовлено и отправлено. Откройте CodexWeb: осталось подтверждение администратора и активация компьютера.')
+    [void](Confirm-Cw 'Подключение подготовлено и отправлено. Откройте AbyssDeck: осталось подтверждение администратора и активация компьютера.')
     Start-Process ($base.AbsoluteUri + '#setup')
 } catch {
     # Never serialize the descriptor, report, native accounts or raw invocation values.
     $message = $_.Exception.Message
     if ($connection -and $connection.token) { $message = $message.Replace([string]$connection.token, '[redacted]') }
-    $details = @('CodexWeb finish-connection', ('Time: ' + [DateTime]::Now.ToString('s')), ('Error: ' + $message))
+    $details = @('AbyssDeck finish-connection', ('Time: ' + [DateTime]::Now.ToString('s')), ('Error: ' + $message))
     try {
         foreach ($rule in @(Get-NetFirewallRule -Enabled True -Direction Inbound -Action Allow)) {
             $port = $rule | Get-NetFirewallPortFilter
@@ -74,5 +74,5 @@ try {
         }
     } catch { $details += 'Firewall diagnostic unavailable.' }
     try { [IO.File]::WriteAllLines($diagnosticPath, $details, [Text.UTF8Encoding]::new($true)) } catch { }
-    [void][Windows.Forms.MessageBox]::Show($script:CwWindow, ($message + "`r`n`r`nДиагностика: " + $diagnosticPath), 'CodexWeb — завершение подключения', 'OK', 'Warning')
+    [void][Windows.Forms.MessageBox]::Show($script:CwWindow, ($message + "`r`n`r`nДиагностика: " + $diagnosticPath), 'AbyssDeck — завершение подключения', 'OK', 'Warning')
 } finally { $script:CwWindow.Dispose() }

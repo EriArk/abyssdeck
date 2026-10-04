@@ -1,18 +1,18 @@
-# CodexWeb
+# AbyssDeck
 
 **A private, self-hosted workspace for building with Codex and ChatGPT on your real development machines.**
 
-CodexWeb brings your AI conversations, project files, GitHub work, generated results, machines and collaborators into one project-centered workspace that works from a desktop browser, iPad or phone.
+AbyssDeck brings your AI conversations, project files, GitHub work, generated results, machines and collaborators into one project-centered workspace that works from a desktop browser, iPad or phone.
 
 It is for people who already use AI to build real things and are tired of moving the same context between ChatGPT, Codex, GitHub, folders, Remote Desktop and team chat.
 
 <p align="center">
-  <img src="polish/marketing-2026-10-04/desktop/01-codex-crt-green.webp" alt="CodexWeb — Codex workspace with project conversation and Results" width="92%">
+  <img src="polish/marketing-2026-10-04/desktop/01-codex-crt-green.webp" alt="AbyssDeck — Codex workspace with project conversation and Results" width="92%">
 </p>
 
 ## The idea
 
-A CodexWeb Project is more than a chat.
+An AbyssDeck Project is more than a chat.
 
 It knows which repository belongs to the project, where the real working copy lives, which machine can build it, which Codex conversation is active, which Project GPT belongs to it, what files and Results were produced, what is happening on GitHub, and which people or related projects are involved.
 
@@ -46,7 +46,7 @@ Continue the same Codex work that runs against that real checkout. Watch the con
 
 Remote Desktop becomes a tool inside the workflow instead of the workflow itself.
 
-CodexWeb is deliberately closer to a **project control console** than a browser IDE.
+AbyssDeck is deliberately closer to a **project control console** than a browser IDE.
 
 ## One project, several jobs
 
@@ -60,16 +60,16 @@ CodexWeb is deliberately closer to a **project control console** than a browser 
 | **Activity / Intake** | Understand what changed, discuss its impact and turn feedback into the next concrete task. |
 | **Devices** | Terminals, machine state, Remote Desktop and diagnostics when you actually need the machine itself. |
 
-The long-term model also includes one global **CodexWeb Assistant** for questions that cross project boundaries: what needs attention, what changed across projects, where a decision came from, or which project should receive the next piece of work. That assistant is intentionally separate from Project Codex and Project GPT rather than turning everything into one giant chat.
+The long-term model also includes one global **AbyssDeck Assistant** for questions that cross project boundaries: what needs attention, what changed across projects, where a decision came from, or which project should receive the next piece of work. That assistant is intentionally separate from Project Codex and Project GPT rather than turning everything into one giant chat.
 
 <p align="center">
-  <img src="polish/marketing-2026-10-04/desktop/10-results-crt-green.webp" alt="CodexWeb Results gallery" width="49%">
-  <img src="polish/marketing-2026-10-04/desktop/04-git-crt-green.webp" alt="CodexWeb Git changes and diff review" width="49%">
+  <img src="polish/marketing-2026-10-04/desktop/10-results-crt-green.webp" alt="AbyssDeck Results gallery" width="49%">
+  <img src="polish/marketing-2026-10-04/desktop/04-git-crt-green.webp" alt="AbyssDeck Git changes and diff review" width="49%">
 </p>
 
 ## Files are first-class
 
-AI development produces much more than source code, so CodexWeb treats generated and project files as part of the workspace instead of download links you immediately lose track of.
+AI development produces much more than source code, so AbyssDeck treats generated and project files as part of the workspace instead of download links you immediately lose track of.
 
 The shared viewer can handle source and text files, Markdown, JSON and structured data, images, PDF, DOCX, XLSX, CSV/TSV, archives, audio/video and engineering formats such as DXF, STEP/IGES, STL, OBJ, 3MF and GLB/glTF.
 
@@ -78,13 +78,13 @@ Where it makes sense, the same window can switch from viewing to editing without
 The point is simple: **if Codex produced something, you should be able to inspect it where the work is already happening.**
 
 <p align="center">
-  <img src="polish/marketing-2026-10-04/tablet/03-files-hitech-2000s.webp" alt="CodexWeb project files and preview on tablet" width="49%">
-  <img src="polish/marketing-2026-10-04/desktop/09-editor-hitech-2000s.webp" alt="CodexWeb shared file viewer editing Markdown" width="49%">
+  <img src="polish/marketing-2026-10-04/tablet/03-files-hitech-2000s.webp" alt="AbyssDeck project files and preview on tablet" width="49%">
+  <img src="polish/marketing-2026-10-04/desktop/09-editor-hitech-2000s.webp" alt="AbyssDeck shared file viewer editing Markdown" width="49%">
 </p>
 
 ## Collaboration without sharing identities
 
-CodexWeb is built for an individual or a small trusted team, but collaboration does not mean giving everyone the same accounts or one giant shared machine.
+AbyssDeck is built for an individual or a small trusted team, but collaboration does not mean giving everyone the same accounts or one giant shared machine.
 
 Each person keeps their own Codex identity, ChatGPT identity, GitHub identity, machine, checkout, private conversations, drafts and personal state.
 
@@ -95,13 +95,13 @@ When someone changes an API, another person can open that exact change, discuss 
 For ideas that are not projects yet, Brainstorm Rooms provide a shared board, notes, files, drawing, chat, lightweight voice and a private GPT for each participant. Useful material can later be frozen into a Project instead of disappearing when brainstorming ends.
 
 <p align="center">
-  <img src="polish/marketing-2026-10-04/desktop/12-team-organizer.webp" alt="CodexWeb team communication on desktop" width="68%">
-  <img src="polish/marketing-2026-10-04/mobile/12-team-organizer.webp" alt="CodexWeb team communication on phone" width="27%">
+  <img src="polish/marketing-2026-10-04/desktop/12-team-organizer.webp" alt="AbyssDeck team communication on desktop" width="68%">
+  <img src="polish/marketing-2026-10-04/mobile/12-team-organizer.webp" alt="AbyssDeck team communication on phone" width="27%">
 </p>
 
 ## Built around real machines
 
-CodexWeb does not require your development machine to become a public server and does not move every project into a generic cloud sandbox.
+AbyssDeck does not require your development machine to become a public server and does not move every project into a generic cloud sandbox.
 
 The browser talks to one private Linux Hub. The Hub talks to authorized development machines and private AI runtimes. Your actual project can stay on the workstation where its compiler, SDKs, CAD tools, emulators or other dependencies already live.
 
@@ -125,20 +125,20 @@ Only the Hub needs to face the Internet. Development-machine SSH, RDP/VNC, Codex
 The Companion app handles machine integration without turning one failed integration into a failure of the whole device. Invited users are also moving toward optional isolated personal Linux environments with persistent files, packages and services instead of being forced into the owner's host environment.
 
 <p align="center">
-  <img src="polish/marketing-2026-10-04/desktop/07-devices-hitech-2000s.webp" alt="CodexWeb Devices workspace with integrated terminal" width="88%">
+  <img src="polish/marketing-2026-10-04/desktop/07-devices-hitech-2000s.webp" alt="AbyssDeck Devices workspace with integrated terminal" width="88%">
 </p>
 
 ## Human-controlled by design
 
-CodexWeb is not trying to build an autonomous company that quietly edits repositories behind your back.
+AbyssDeck is not trying to build an autonomous company that quietly edits repositories behind your back.
 
 AI can inspect, discuss and prepare work, but important mutations remain explicit. GitHub publication, destructive file operations, access changes and similar actions retain real authorization and review boundaries.
 
-The same idea applies to reliability. If a request may have succeeded but its acknowledgement disappeared, CodexWeb tries to reconcile the original operation instead of blindly repeating it. Drafts, exact revisions, operation identities and recovery receipts are part of the product because they matter once the workspace is used for real work rather than demos.
+The same idea applies to reliability. If a request may have succeeded but its acknowledgement disappeared, AbyssDeck tries to reconcile the original operation instead of blindly repeating it. Drafts, exact revisions, operation identities and recovery receipts are part of the product because they matter once the workspace is used for real work rather than demos.
 
 ## Current shape
 
-CodexWeb moves quickly, so detailed status lives in [CURRENT_STATUS](docs/CURRENT_STATUS.md). The useful high-level picture is:
+AbyssDeck moves quickly, so detailed status lives in [CURRENT_STATUS](docs/CURRENT_STATUS.md). The useful high-level picture is:
 
 | Area | State |
 | --- | --- |
@@ -146,23 +146,27 @@ CodexWeb moves quickly, so detailed status lives in [CURRENT_STATUS](docs/CURREN
 | Project GPT, Prepare for Codex, Activity, Intake, messaging and Brainstorm | **Working, with continuing polish** |
 | Companion and multiple development machines | **Working** |
 | Independent personal Linux environments for invited users | **Being rolled out** |
-| Global CodexWeb Assistant | **Planned** |
+| Global AbyssDeck Assistant | **Planned** |
 | Guided self-host installation | **Planned** |
 | Remote provider/performance improvements | **Under evaluation** |
 
 Open Issues often describe the complete ideal form of a feature even when a large part of its foundation is already implemented. For exact installed/verified status, use the current-status document rather than issue titles alone.
 
-## What CodexWeb is not
+## What AbyssDeck is not
 
 It is not trying to replace VS Code, GitHub, ChatGPT, CAD, Office, Discord or Remote Desktop.
 
 Those tools already have jobs they are good at.
 
-CodexWeb is the layer that keeps the **project, AI work, artifacts, machines and people connected between those tools**.
+AbyssDeck is the layer that keeps the **project, AI work, artifacts, machines and people connected between those tools**.
+
+## Naming and compatibility
+
+The project was renamed from CodexWeb to **AbyssDeck** on October 4, 2026. The canonical repository is [EriArk/abyssdeck](https://github.com/EriArk/abyssdeck). Existing installations keep their data directories, service IDs, package scopes and connection protocols; no account, project or history migration is needed. Codex and ChatGPT remain the names of their integrations. Screenshots captured before the rename retain their original content.
 
 ## Self-hosting
 
-CodexWeb is usable today as an operator-managed private installation. It is not yet a polished one-click consumer product.
+AbyssDeck is usable today as an operator-managed private installation. It is not yet a polished one-click consumer product.
 
 A typical setup is a Linux Hub with HTTPS, one or more Windows/Linux development machines reachable over a trusted LAN or Tailnet, authenticated GitHub access, and optional Remote Desktop and private GPT integration.
 
@@ -206,4 +210,4 @@ Copy [config.example.yaml](config.example.yaml) outside the repository and keep 
 
 ---
 
-**CodexWeb is the workspace between “I have an idea” and “the change is implemented, inspected, on GitHub, and everybody involved knows what happened.”**
+**AbyssDeck is the workspace between “I have an idea” and “the change is implemented, inspected, on GitHub, and everybody involved knows what happened.”**

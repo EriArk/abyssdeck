@@ -2,7 +2,7 @@
 
 ## User flow
 
-Files and Git open locked. **Разблокировать файлы** obtains a short-lived grant for the current login session, personal Project, machine and checkout. Owner update, 24 September: manual writes and uploads remain available while native Codex work runs. Unlock verifies the checkout without acquiring the native/Git idle guard; manual mutations serialize only with other manual writes to the same machine/checkout. Authentication and execution authority still apply. Closing the window or changing Project releases the grant; reloading starts locked. This controls CodexWeb file actions, not arbitrary commands in the user's own terminal.
+Files and Git open locked. **Разблокировать файлы** obtains a short-lived grant for the current login session, personal Project, machine and checkout. Owner update, 24 September: manual writes and uploads remain available while native Codex work runs. Unlock verifies the checkout without acquiring the native/Git idle guard; manual mutations serialize only with other manual writes to the same machine/checkout. Authentication and execution authority still apply. Closing the window or changing Project releases the grant; reloading starts locked. This controls AbyssDeck file actions, not arbitrary commands in the user's own terminal.
 
 Supported text files expose **Разблокировать и редактировать** while locked, and **Редактировать** after unlocking. Git explicitly edits the working file, including when viewing a staged diff. CodeMirror loads lazily and provides highlighting, line numbers, search, undo/redo, wrapping and Ctrl/Cmd+S. Save refreshes Files/Git without staging, committing or disturbing the chat draft. Dirty close offers saving, discarding, continuing or retaining the local draft.
 

@@ -1064,22 +1064,22 @@ iPhone этими проверками не подтверждается.
 
 ## Текущая работа и условия
 
-1. **GPT — реальные оставшиеся сбои [#185](https://github.com/EriArk/codex-web-interface/issues/185).**
+1. **GPT — реальные оставшиеся сбои [#185](https://github.com/EriArk/abyssdeck/issues/185).**
    Владелец сообщает, что отдельные чаты всё ещё проблемные. Глобальный healthy
    status этого не опровергает. Читать точный chat/job/canonical state для нового
    случая; не переотправлять старые запросы и не перезапускать ответ ради диагностики.
    Исправленные stale progress и scoped admission не предлагать реализовать снова.
-2. **Companion 0.5.6 — завершение компонентов [#173](https://github.com/EriArk/codex-web-interface/issues/173).**
+2. **Companion 0.5.6 — завершение компонентов [#173](https://github.com/EriArk/abyssdeck/issues/173).**
    Владелец вернулся домой и явно разрешил обновление. Подписанный feed опубликован;
    UI 0.5.6 установлен в 13:49:09 UTC. Исправлены кнопки ремонта после обслуживания.
    Browser обновлён и отвечает через независимый MCP. FileLaunch сохранил прежнюю
    установку: Windows elevation не была подтверждена. Persistent worker не заменялся
    во время активных чатов; ожидает обычного idle admission. ПК друга недоступен.
-3. **Upstream история [#188](https://github.com/EriArk/codex-web-interface/issues/188).**
+3. **Upstream история [#188](https://github.com/EriArk/abyssdeck/issues/188).**
    Hub cache, incremental native IPC и reuse неизменного HTTP body уже работают.
    Остаётся полный canonical GET от upstream; поддерживаемый delta-контракт не
    установлен. Это отдельная оптимизация, не доказанная причина каждого сбоя GPT.
-4. **Polish [#228](https://github.com/EriArk/codex-web-interface/issues/228).**
+4. **Polish [#228](https://github.com/EriArk/abyssdeck/issues/228).**
    Каталог [polish](../polish/README.md) уже создан. Обсуждение дизайна с владельцем
    предшествует новым визуальным изменениям; переснимать всё без изменений не нужно.
 5. **Server Workspaces [#170/#198](SERVER_WORKSPACES_2026-09-28.md).**

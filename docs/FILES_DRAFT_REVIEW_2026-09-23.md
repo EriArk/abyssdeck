@@ -2,7 +2,7 @@
 
 Follow-up: the owner confirmed the next implementation session. [Writable Files implementation](FILE_EDITOR.md) records the fixes, verification and explicit limits. The unpublished-state statements below describe the original reviewed draft.
 
-Scope: the unfinished local implementation of [#169](https://github.com/EriArk/codex-web-interface/issues/169), reviewed during the owner-approved first planning session. This is a review of unpublished work, not a release claim. No real project files or user sessions were changed by the reproduction checks.
+Scope: the unfinished local implementation of [#169](https://github.com/EriArk/abyssdeck/issues/169), reviewed during the owner-approved first planning session. This is a review of unpublished work, not a release claim. No real project files or user sessions were changed by the reproduction checks.
 
 ## Existing implementation
 

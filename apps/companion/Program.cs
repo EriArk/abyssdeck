@@ -95,13 +95,13 @@ public sealed class CompanionApp : Application
             Window.Icon = icon;
             var menu = new NativeMenu();
             AddMenu(menu, "Открыть Companion", () => ShowWindow());
-            AddMenu(menu, "Открыть CodexWeb", Window.OpenWeb);
+            AddMenu(menu, "Открыть AbyssDeck", Window.OpenWeb);
             AddMenu(menu, "Проверить состояние", () => { ShowWindow(); _ = Window.Refresh(); });
             AddMenu(menu, "Обновления", () => { ShowWindow(); Window.SelectPage(2); _ = Window.CheckUpdates(); });
             AddMenu(menu, "Настройки", () => { ShowWindow(); Window.SelectPage(2); });
             menu.Items.Add(new NativeMenuItemSeparator());
             AddMenu(menu, "Выйти из интерфейса", Exit);
-            tray = new TrayIcon { Icon = icon, ToolTipText = "CodexWeb Companion · проверяем состояние", Menu = menu, IsVisible = true };
+            tray = new TrayIcon { Icon = icon, ToolTipText = "AbyssDeck Companion · проверяем состояние", Menu = menu, IsVisible = true };
             tray.Clicked += (_, _) => ShowWindow();
             TrayIcon.SetIcons(this, new TrayIcons { tray });
             desktop.Exit += (_, _) => { shutdown.Cancel(); tray.Dispose(); Window.Dispose(); };
@@ -116,7 +116,7 @@ public sealed class CompanionApp : Application
     {
         var item = new NativeMenuItem(text); item.Click += (_, _) => action(); menu.Items.Add(item);
     }
-    public void UpdateTray(string status) { if (tray is not null) tray.ToolTipText = "CodexWeb Companion · " + status; }
+    public void UpdateTray(string status) { if (tray is not null) tray.ToolTipText = "AbyssDeck Companion · " + status; }
     public void ShowWindow()
     {
         if (terminalWindow is { } terminal) { terminal.Show(); if (terminal.WindowState == WindowState.Minimized) terminal.WindowState = WindowState.Normal; terminal.Activate(); return; }

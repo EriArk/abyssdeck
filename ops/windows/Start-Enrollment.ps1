@@ -4,7 +4,7 @@ param([switch]$Companion, [string]$ExpectedSid)
 $ErrorActionPreference = 'Stop'
 trap {
     Add-Type -AssemblyName System.Windows.Forms
-    [void][Windows.Forms.MessageBox]::Show($_.Exception.Message, 'CodexWeb — настройка приостановлена', 'OK', 'Warning')
+    [void][Windows.Forms.MessageBox]::Show($_.Exception.Message, 'AbyssDeck — настройка приостановлена', 'OK', 'Warning')
     exit 1
 }
 $principal = [Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent())
@@ -71,6 +71,6 @@ try {
         if ($target.Scheme -eq 'https' -and -not $target.UserInfo -and $target.AbsolutePath -eq '/' -and -not $target.Query -and -not $target.Fragment) { Start-Process ($target.AbsoluteUri + '#setup') }
     }
 } catch {
-    [void][Windows.Forms.MessageBox]::Show($script:CwWindow, $_.Exception.Message, 'CodexWeb — настройка приостановлена', 'OK', 'Warning')
+    [void][Windows.Forms.MessageBox]::Show($script:CwWindow, $_.Exception.Message, 'AbyssDeck — настройка приостановлена', 'OK', 'Warning')
     exit 1
 } finally { $script:CwWindow.Dispose(); $enrollmentMutex.ReleaseMutex(); $enrollmentMutex.Dispose() }

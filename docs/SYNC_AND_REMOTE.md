@@ -22,7 +22,7 @@ The Hub is the owner's primary client and resumes the actual native thread ID. I
 
 Continuation of the same native ID works after its writer is released. Codex 0.153.4 on Windows can retain a paginated thread's writer in the desktop App Server even when its visible turn has finished. A second App Server then rejects thread/resume with "already has an active writer". The installed Windows daemon/proxy route is not available (daemon commands are Unix-only); there is no supported writer-takeover flag. Do not stop the owner's desktop or edit its private state to bypass this lock.
 
-For the owner's web-only workflow, finish any active desktop task and fully quit desktop ChatGPT/Codex once (including the tray process), leaving the independently scheduled CodexWeb Companion running. Closing a browser tab is not this migration step. The next web send resumes the original native conversation; no copied history or replacement ID is needed.
+For the owner's web-only workflow, finish any active desktop task and fully quit desktop ChatGPT/Codex once (including the tray process), leaving the independently scheduled AbyssDeck Companion running. Closing a browser tab is not this migration step. The next web send resumes the original native conversation; no copied history or replacement ID is needed.
 
 The Hub returns HTTP 409 THREAD_IN_USE if another client still owns the writer. It preserves the draft and attachments and offers "Проверить доступ", which only resumes the same native ID. It never sends the draft automatically. The UI no longer suggests creating a copy to resolve an ordinary send failure.
 

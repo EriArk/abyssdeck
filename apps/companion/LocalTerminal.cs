@@ -72,7 +72,7 @@ public sealed class TerminalWindow : Window
     string tail="";int pasteGeneration;bool closed;
     public TerminalWindow(Palette palette)
     {
-        Title="Локальный терминал · CodexWeb";Width=900;Height=650;MinWidth=650;MinHeight=450;
+        Title="Локальный терминал · AbyssDeck";Width=900;Height=650;MinWidth=650;MinHeight=450;
         Background=Themes.Brush(palette.Canvas);Foreground=Themes.Brush(palette.Ink);output.Foreground=Foreground;
         RequestedThemeVariant=palette.Dark?ThemeVariant.Dark:ThemeVariant.Light;
         scroll.Content=output;

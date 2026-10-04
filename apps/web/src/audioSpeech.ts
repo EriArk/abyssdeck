@@ -139,7 +139,7 @@ export class AudioMessageSpeech {
       const media = this.dependencies.media?.();
       if (media) {
         if (typeof MediaMetadata !== "undefined")
-          media.metadata = new MediaMetadata({ title: "Озвучивание ответа", artist: "CodexWeb" });
+          media.metadata = new MediaMetadata({ title: "Озвучивание ответа", artist: "AbyssDeck" });
         const actions: [MediaSessionAction, MediaSessionActionHandler][] = [
           ["play", this.resume],
           ["pause", this.pause],

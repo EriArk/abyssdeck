@@ -61,7 +61,7 @@ public sealed class MainWindow : Window, IDisposable
         hubDraft = profile.HubOrigin; palette = Themes.Get(profile.Theme); readiness = new(store);
         hub = new(store); setup = new(store, hub); updates=new(store,hub);recovery=new(store);workers=new(store,hub);browser=new(store);
         try { hub.Restore(profile); } catch { notice = "Сохранённое подключение недоступно. Войди снова."; }
-        Title = "CodexWeb Companion";
+        Title = "AbyssDeck Companion";
         Width = 840; Height = 690; MinWidth = 650; MinHeight = 520;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         FontFamily = new FontFamily("Segoe UI"); FontSize = 14;
@@ -128,8 +128,8 @@ public sealed class MainWindow : Window, IDisposable
         Background = Themes.Brush(palette.Canvas); Foreground = Themes.Brush(palette.Ink);
         var shell = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto"), Margin = new Thickness(20), RowSpacing = 16 };
         var header = new Grid { ColumnDefinitions = new ColumnDefinitions("*,200"), ColumnSpacing = 16 };
-        header.Children.Add(Stack(Text("CodexWeb Companion", 25, bold: true), Text("Этот компьютер · " + Environment.MachineName, muted: true)));
-        var open = Button("Открыть CodexWeb", OpenWeb, true); Grid.SetColumn(open, 1); header.Children.Add(open); shell.Children.Add(header);
+        header.Children.Add(Stack(Text("AbyssDeck Companion", 25, bold: true), Text("Этот компьютер · " + Environment.MachineName, muted: true)));
+        var open = Button("Открыть AbyssDeck", OpenWeb, true); Grid.SetColumn(open, 1); header.Children.Add(open); shell.Children.Add(header);
         var tabs = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*,*"), ColumnSpacing = 10 };
         var titles = new[] { "Обзор", "Компоненты", "Настройки" };
         for (int i = 0; i < 3; i++)
@@ -247,7 +247,7 @@ public sealed class MainWindow : Window, IDisposable
                 Text("Готов по запросу — нормальное состояние: компонент запустится, когда понадобится. Занято — текущая работа продолжается."),
                 Text("После восстановления сети связь проверяется автоматически. Известный остановленный вспомогательный компонент может восстановиться сам; после повторных сбоев попытки замедляются. Сообщения, команды и действия не отправляются повторно."),
                 Text("Галочка версии означает сверку файлов с подписанным пакетом, настройки задачи и готовности. Общий счётчик показывает незавершённые переходы. Ремонт старой задачи может запросить подтверждение Windows; отмена сохраняет прежний компонент. Их программы хранятся по версиям, а настройки и квитанции остаются на прежнем месте. Кнопка возврата восстанавливает предыдущую версию вспомогательного компонента, когда он свободен. Codex переключается отдельно после проверки Hub."),
-                Text("Кнопка CodexWeb открывает веб. Аккаунты, приглашения и управление Hub остаются там; полная справка доступна в настройках веба."),
+                Text("Кнопка AbyssDeck открывает веб. Аккаунты, приглашения и управление Hub остаются там; полная справка доступна в настройках веба."),
                 Text("Отчёт сохраняется в выбранный локальный файл. Он не содержит паролей, токенов или текста чатов.")))
             });
     }
@@ -447,7 +447,7 @@ public sealed class MainWindow : Window, IDisposable
         overview.Children.Add(Section(Stack(Text($"Компоненты · {readyCount} из {s.Components.Length} доступны", 20, bold: true),
             Text(ComponentUpdates.Summary(componentUpdates),bold:true),
             Text(s.Inventory.NativeProcesses.Length > 0 ? "Codex запущен независимо от интерфейса" : "Постоянный Companion работает независимо от этого окна", muted: true),
-            Row(Button("Все компоненты", () => SelectPage(1)), Button("Открыть CodexWeb", OpenWeb)))));
+            Row(Button("Все компоненты", () => SelectPage(1)), Button("Открыть AbyssDeck", OpenWeb)))));
         if (s.Notice is not null) overview.Children.Add(Section(Text(s.Notice)));
         var roots = Stack(Text("Рабочие папки", 18, bold: true));
         foreach (var root in s.Roots) roots.Children.Add(Text(root));

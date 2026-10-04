@@ -90,7 +90,7 @@ export function Login({
       <div className="login-brand">
         <img src="/icon.svg" alt="" width="38" height="38" />
         <span>
-          codex<span className="brand-light"> / workspace</span>
+          AbyssDeck<span className="brand-light"> / workspace</span>
         </span>
       </div>
       <section className="login-card">

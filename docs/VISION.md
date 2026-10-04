@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Codex Web Interface is a **private personal work platform** centered around Codex.
+AbyssDeck is a **private personal work platform** centered around Codex.
 
 The user should be able to sit with a 13-inch iPad, open a project, tell Codex what to change, see the useful outputs in a separate visual feed, and only open Remote Desktop when hands-on inspection is actually needed.
 

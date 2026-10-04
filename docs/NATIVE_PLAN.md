@@ -6,7 +6,7 @@ Read-only inspection on 2026-09-13 used the installed Windows package `OpenAI.Co
 
 `v2/ThreadItem.ts` includes a structured `plan` item with ID and text. `ServerRequest.ts` does **not** define `item/plan/requestImplementation`. The desktop main process synthesizes that UI request after a successfully completed turn containing a nonempty structured plan. It is not an App Server RPC the Hub can call.
 
-In the packaged `app-primary-17b54400f32a.js`, `Bcr` removes the local request, selects `default` collaboration mode, and sends a normal follow-up containing the exact plan. The prefix constant exported from `app-initial-d9bed9d614d8.js` is `PLEASE IMPLEMENT THIS PLAN:` followed by a newline. CodexWeb mirrors that ordinary turn behavior with current model/effort/access; it does not invent a separate implementation RPC or route the request through saved Workspace Plans.
+In the packaged `app-primary-17b54400f32a.js`, `Bcr` removes the local request, selects `default` collaboration mode, and sends a normal follow-up containing the exact plan. The prefix constant exported from `app-initial-d9bed9d614d8.js` is `PLEASE IMPLEMENT THIS PLAN:` followed by a newline. AbyssDeck mirrors that ordinary turn behavior with current model/effort/access; it does not invent a separate implementation RPC or route the request through saved Workspace Plans.
 
 ## Candidate behavior
 

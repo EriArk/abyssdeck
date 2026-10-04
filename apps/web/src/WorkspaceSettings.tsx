@@ -457,13 +457,13 @@ export function WorkspaceSettings({
         <SettingsLink title="Обзор всех компьютеров" onClick={onMachines} />
       </>
     ),
-    "Установка CodexWeb и состояние подключений.",
+    "Установка AbyssDeck и состояние подключений.",
     "",
     "activity",
   );
   add(
     "updates",
-    "Обновления CodexWeb",
+    "Обновления AbyssDeck",
     "maintenance",
     (visible) => <DeploymentStatus open={visible} />,
     "Установка Hub, версии и ожидающие обновления.",
@@ -522,7 +522,7 @@ export function WorkspaceSettings({
         приложения в браузере.
       </p>
     ),
-    "CodexWeb на твоём устройстве.",
+    "AbyssDeck на твоём устройстве.",
     "PWA",
   );
   if (identity?.user.role === "admin") {

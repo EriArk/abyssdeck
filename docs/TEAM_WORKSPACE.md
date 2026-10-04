@@ -1,10 +1,10 @@
 # Private team workspaces
 
-Original owner-approved specification, 2026-09-13. Foundation tracking: [#159](https://github.com/EriArk/codex-web-interface/issues/159). Parts of this foundation are installed for owner evaluation; independent-member acceptance remains separate. The newer direction [#194](https://github.com/EriArk/codex-web-interface/issues/194) uses owner-authoritative projects, private integration copies and GitHub collaboration. Preserve the identity/isolation foundation below, but do not build its older Links/Bridges presentation as a competing user workflow. See the [current audit](ISSUE_AUDIT_2026-09-20.md) and [Roadmap](ROADMAP.md) for remaining scope and recommended order. The detailed specification still needs alignment as each new workflow is implemented.
+Original owner-approved specification, 2026-09-13. Foundation tracking: [#159](https://github.com/EriArk/abyssdeck/issues/159). Parts of this foundation are installed for owner evaluation; independent-member acceptance remains separate. The newer direction [#194](https://github.com/EriArk/abyssdeck/issues/194) uses owner-authoritative projects, private integration copies and GitHub collaboration. Preserve the identity/isolation foundation below, but do not build its older Links/Bridges presentation as a competing user workflow. See the [current audit](ISSUE_AUDIT_2026-09-20.md) and [Roadmap](ROADMAP.md) for remaining scope and recommended order. The detailed specification still needs alignment as each new workflow is implemented.
 
 ## Product and first acceptance
 
-The current Linux Hub serves initially two trusted people, with a small-team design suitable for roughly 2–10. The friend first gets a complete private CodexWeb on their own Windows PC, their own Codex/consumer ChatGPT/GitHub accounts, and both desktop/mobile browsers. They can participate in physical acceptance. The server remains the current installation; a future server move is separate.
+The current Linux Hub serves initially two trusted people, with a small-team design suitable for roughly 2–10. The friend first gets a complete private AbyssDeck on their own Windows PC, their own Codex/consumer ChatGPT/GitHub accounts, and both desktop/mobile browsers. They can participate in physical acceptance. The server remains the current installation; a future server move is separate.
 
 The same pass then provides both collaboration cases: one logical project with independent personal checkouts, and narrow links between independently owned private projects. No public signup, organizations, billing, MDM, shared AI credentials or mandatory common implementation chat.
 
@@ -58,7 +58,7 @@ The friend gets their own Devices/Remote, usage, dictation, speech preferences a
 
 A logical project has one owner, private/shared visibility and explicit Viewer/Collaborator members. An invitation becomes membership only on acceptance. Viewer reads the shared materials; Collaborator edits and executes work through their own checkout; Owner additionally controls membership and project policy. Installation admin is not implicitly a collaborator.
 
-Owner clarification (2026-09-13): shared projects still have one person as owner. A future separate corporate GitHub will also remain under the installation owner's control; it is a place for common repositories, not a new organization/role hierarchy in CodexWeb. Repository hosting and the logical project's owner stay separate. No corporate account setup is required for this pass.
+Owner clarification (2026-09-13): shared projects still have one person as owner. A future separate corporate GitHub will also remain under the installation owner's control; it is a place for common repositories, not a new organization/role hierarchy in AbyssDeck. Repository hosting and the logical project's owner stay separate. No corporate account setup is required for this pass.
 
 A checkout binds a user and logical project to one of that user's machines, a permitted root, verified repository identity, native project mapping and independent Current/Previous Chats. Start with one active checkout per user/project. Reuse the Project Setup flow for clone/connect. No source tree or native chat is copied from another participant. Git synchronizes code through explicit normal operations; offline or diverged checkouts remain independent.
 
@@ -78,7 +78,7 @@ A Bridge is durable coordination for one goal, with project owner, participants,
 
 Participants explicitly publish bounded findings from private chats/Reviews/Plans/Results. The Bridge may compare findings, consult through accepted Links and prepare targeted work. It cannot edit another checkout, widen a Link or start implementation automatically. Shared records persist when individual source access is removed.
 
-GitHub account identity is verified on the acting user's machine. Repository access and CodexWeb membership are distinct states/actions. Typed operations support collaborator invitation/removal, bounded Issue list/search/create/link/comment/state, and PR coordination across checkouts. Reconcile uncertain external writes before retry. Never silently post under another person's account, mirror every Bridge message, force push or auto-merge. GitHub Actions are not required for this project.
+GitHub account identity is verified on the acting user's machine. Repository access and AbyssDeck membership are distinct states/actions. Typed operations support collaborator invitation/removal, bounded Issue list/search/create/link/comment/state, and PR coordination across checkouts. Reconcile uncertain external writes before retry. Never silently post under another person's account, mirror every Bridge message, force push or auto-merge. GitHub Actions are not required for this project.
 
 The candidate now implements this typed GitHub workflow, including durable per-machine receipts and independent per-user observations. See [usage, review boundaries and recovery](TEAM_GITHUB.md). It remains distinct from installation and friend-PC acceptance.
 

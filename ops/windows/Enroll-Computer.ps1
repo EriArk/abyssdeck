@@ -5,7 +5,7 @@ param([Parameter(Mandatory=$true)][string]$ConnectionFile)
 $ErrorActionPreference = 'Stop'
 $connection = Get-Content -LiteralPath $ConnectionFile -Raw -Encoding UTF8 | ConvertFrom-Json
 $base = [Uri]$connection.baseUrl
-if ($base.Scheme -ne 'https' -or $base.UserInfo -or $base.Query -or $base.Fragment -or $base.AbsolutePath -ne '/') { throw 'Expected the private CodexWeb HTTPS address.' }
+if ($base.Scheme -ne 'https' -or $base.UserInfo -or $base.Query -or $base.Fragment -or $base.AbsolutePath -ne '/') { throw 'Expected the private AbyssDeck HTTPS address.' }
 if ($connection.token -notmatch '^[A-Za-z0-9_-]{43}$' -or $connection.id -notmatch '^[a-f0-9-]{36}$') { throw 'Invalid connection package.' }
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $interactiveSids = @(Get-CimInstance Win32_Process -Filter "Name='explorer.exe'" | ForEach-Object { (Invoke-CimMethod -InputObject $_ -MethodName GetOwnerSid -ErrorAction SilentlyContinue).Sid })
@@ -36,11 +36,11 @@ if (Test-Path -LiteralPath $savedReport) {
     }
     Submit-Report ([IO.File]::ReadAllText($savedReport))
     Show-CwFingerprint (([IO.File]::ReadAllText($savedReport) | ConvertFrom-Json).hostKey)
-    Write-Host 'The same connection report was confirmed. Return to CodexWeb for administrator approval.'
+    Write-Host 'The same connection report was confirmed. Return to AbyssDeck for administrator approval.'
     return
 }
-if ([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() -ge $connection.expires) { throw 'The one-day connection package expired. Download a new one in CodexWeb.' }
-if (-not $Companion -and -not (Confirm-Cw ('Подключаем ' + $identity.Name + ' к ' + $base.Host + '. Мастер установит недостающие Tailscale, Node.js, Git, GitHub CLI, приложение Codex и приватные компоненты CodexWeb. Существующие проекты и аккаунты сохранятся. Продолжить?'))) { throw 'Установка отменена.' }
+if ([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() -ge $connection.expires) { throw 'The one-day connection package expired. Download a new one in AbyssDeck.' }
+if (-not $Companion -and -not (Confirm-Cw ('Подключаем ' + $identity.Name + ' к ' + $base.Host + '. Мастер установит недостающие Tailscale, Node.js, Git, GitHub CLI, приложение Codex и приватные компоненты AbyssDeck. Существующие проекты и аккаунты сохранятся. Продолжить?'))) { throw 'Установка отменена.' }
 Write-CwStep 1 '1 из 5 · Приватное соединение Tailscale'
 $tailscalePath = Join-Path $env:ProgramFiles 'Tailscale\tailscale.exe'
 if (-not (Test-Path -LiteralPath $tailscalePath)) {
@@ -143,5 +143,5 @@ $report = $report | ConvertTo-Json -Depth 6 -Compress
 [IO.File]::WriteAllText($savedReport, $report, [Text.UTF8Encoding]::new($false))
 Write-CwStep 5 '5 из 5 · Подтверждение подключения на сервере'
 Submit-Report $report
-Write-Host 'Prepared. Return to CodexWeb: the administrator checks the computer fingerprint, then you activate it in your own workspace.'
+Write-Host 'Prepared. Return to AbyssDeck: the administrator checks the computer fingerprint, then you activate it in your own workspace.'
 Write-Host 'Codex and GitHub use your existing local logins. ChatGPT sign-in is a separate step in your private connection page.'
