@@ -7,7 +7,7 @@ CodexWeb brings your AI conversations, project files, GitHub work, generated res
 It is for people who already use AI to build real things and are tired of moving the same context between ChatGPT, Codex, GitHub, folders, Remote Desktop and team chat.
 
 <p align="center">
-  <img src="polish/10-themes/729-desktop.webp" alt="CodexWeb project workspace" width="92%">
+  <img src="polish/marketing-2026-10-04/desktop/01-codex-crt-green.webp" alt="CodexWeb — Codex workspace with project conversation and Results" width="92%">
 </p>
 
 ## The idea
@@ -62,6 +62,11 @@ CodexWeb is deliberately closer to a **project control console** than a browser 
 
 The long-term model also includes one global **CodexWeb Assistant** for questions that cross project boundaries: what needs attention, what changed across projects, where a decision came from, or which project should receive the next piece of work. That assistant is intentionally separate from Project Codex and Project GPT rather than turning everything into one giant chat.
 
+<p align="center">
+  <img src="polish/marketing-2026-10-04/desktop/10-results-crt-green.webp" alt="CodexWeb Results gallery" width="49%">
+  <img src="polish/marketing-2026-10-04/desktop/04-git-crt-green.webp" alt="CodexWeb Git changes and diff review" width="49%">
+</p>
+
 ## Files are first-class
 
 AI development produces much more than source code, so CodexWeb treats generated and project files as part of the workspace instead of download links you immediately lose track of.
@@ -73,8 +78,8 @@ Where it makes sense, the same window can switch from viewing to editing without
 The point is simple: **if Codex produced something, you should be able to inspect it where the work is already happening.**
 
 <p align="center">
-  <img src="polish/contact-sheets/05-files.jpg" alt="Files and Results in CodexWeb" width="49%">
-  <img src="polish/contact-sheets/06-viewers-1.jpg" alt="CodexWeb file viewers" width="49%">
+  <img src="polish/marketing-2026-10-04/tablet/03-files-hitech-2000s.webp" alt="CodexWeb project files and preview on tablet" width="49%">
+  <img src="polish/marketing-2026-10-04/desktop/09-editor-hitech-2000s.webp" alt="CodexWeb shared file viewer editing Markdown" width="49%">
 </p>
 
 ## Collaboration without sharing identities
@@ -90,8 +95,8 @@ When someone changes an API, another person can open that exact change, discuss 
 For ideas that are not projects yet, Brainstorm Rooms provide a shared board, notes, files, drawing, chat, lightweight voice and a private GPT for each participant. Useful material can later be frozen into a Project instead of disappearing when brainstorming ends.
 
 <p align="center">
-  <img src="polish/contact-sheets/03-projects.jpg" alt="Project workflows in CodexWeb" width="49%">
-  <img src="polish/contact-sheets/08-collaboration.jpg" alt="Collaboration in CodexWeb" width="49%">
+  <img src="polish/marketing-2026-10-04/desktop/12-team-organizer.webp" alt="CodexWeb team communication on desktop" width="68%">
+  <img src="polish/marketing-2026-10-04/mobile/12-team-organizer.webp" alt="CodexWeb team communication on phone" width="27%">
 </p>
 
 ## Built around real machines
@@ -118,6 +123,10 @@ Desktop / iPad / phone
 Only the Hub needs to face the Internet. Development-machine SSH, RDP/VNC, Codex services and private storage stay behind the trusted network or Tailnet.
 
 The Companion app handles machine integration without turning one failed integration into a failure of the whole device. Invited users are also moving toward optional isolated personal Linux environments with persistent files, packages and services instead of being forced into the owner's host environment.
+
+<p align="center">
+  <img src="polish/marketing-2026-10-04/desktop/07-devices-hitech-2000s.webp" alt="CodexWeb Devices workspace with integrated terminal" width="88%">
+</p>
 
 ## Human-controlled by design
 
@@ -165,7 +174,7 @@ Do not expose development-machine SSH/RDP/VNC, guacd, Codex App Server or privat
 
 The repository includes a large screenshot catalog captured from the real React components with controlled demo data.
 
-[UI gallery](polish/README.md) · [Workspace](docs/WORKSPACE.md) · [Project preparation](docs/PROJECT_PREPARATION.md) · [Files and editor](docs/FILE_EDITOR.md) · [File viewers](docs/FILE_VIEWERS.md) · [Collaboration Spaces](docs/COLLABORATION_SPACES.md) · [Activity](docs/SPACE_ACTIVITY.md) · [Communication](docs/COMMUNICATION.md) · [Brainstorm Rooms](docs/BRAINSTORM.md) · [Security](docs/SECURITY.md) · [Architecture](docs/ARCHITECTURE.md)
+[Current product screenshots](polish/marketing-2026-10-04/README.md) · [Full UI gallery](polish/README.md) · [Workspace](docs/WORKSPACE.md) · [Project preparation](docs/PROJECT_PREPARATION.md) · [Files and editor](docs/FILE_EDITOR.md) · [File viewers](docs/FILE_VIEWERS.md) · [Collaboration Spaces](docs/COLLABORATION_SPACES.md) · [Activity](docs/SPACE_ACTIVITY.md) · [Communication](docs/COMMUNICATION.md) · [Brainstorm Rooms](docs/BRAINSTORM.md) · [Security](docs/SECURITY.md) · [Architecture](docs/ARCHITECTURE.md)
 
 <details>
 <summary><strong>Development</strong></summary>
