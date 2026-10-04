@@ -460,6 +460,10 @@ export async function createApp(
     return {
       projects: sessions.catalog.publicProjects(),
       warnings: [...sessions.catalog.errors.values()],
+      machineWarnings: [...sessions.catalog.errors].map(([machineId, message]) => ({
+        machineId,
+        message,
+      })),
     };
   });
   app.get("/api/machines", async () => {

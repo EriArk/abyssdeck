@@ -1095,18 +1095,33 @@ function Workspace({
     setPendingResultTurn(undefined);
     void showTurn(target.turnId, target.messageId).catch((e) => setNotice(messageOf(e)));
   }, [pendingResultTurn, state.loading, state.thread.id]);
+  const catalogWarning = useRef("");
+  const catalogRefreshPending = useRef(false);
   const refreshCatalog = useCallback(
     async (force = false) => {
+      if (catalogRefreshPending.current) return;
+      catalogRefreshPending.current = true;
       setSyncing(true);
       try {
-        const data = await api<{ projects: Project[]; warnings?: string[] }>(
-          force ? "/projects?refresh=1" : "/projects",
-        );
+        const data = await api<{
+          projects: Project[];
+          warnings?: string[];
+          machineWarnings?: { machineId: string; message: string }[];
+        }>(force ? "/projects?refresh=1" : "/projects");
         setProjects(data.projects);
-        if (data.warnings?.length) setNotice(data.warnings[0] ?? "");
         const selected = selectionRef.current;
         const available = data.projects.filter((p) => !p.archived && !p.deleted);
         const project = available.find((p) => p.id === selected.projectId) ?? available[0];
+        const warning = data.machineWarnings
+          ? (data.machineWarnings.find((w) => w.machineId === project?.machineId)?.message ?? "")
+          : force
+            ? (data.warnings?.[0] ?? "")
+            : "";
+        const previous = catalogWarning.current;
+        catalogWarning.current = warning;
+        if (warning && (force || warning !== previous)) setNotice(warning);
+        else if (!warning && previous)
+          setNotice((current) => (current === previous ? "" : current));
         if (project) {
           setProjectId(project.id);
           await loadThreads(project.id, selected.threadId);
@@ -1118,6 +1133,7 @@ function Workspace({
       } catch (e) {
         setNotice(messageOf(e));
       } finally {
+        catalogRefreshPending.current = false;
         setSyncing(false);
       }
     },

@@ -39,6 +39,7 @@ export function nativeWorkspaceFixture() {
       : []),
   ];
   const client = {
+    workspace: async () => ({ ready: true, generating: false }),
     status: async () => ({
       instanceId: randomUUID(),
       manual: state.manual,

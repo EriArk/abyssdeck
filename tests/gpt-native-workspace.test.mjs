@@ -204,3 +204,34 @@ test("data-only upload staging rejects order, identity and overflow; cleared buf
   nativeUploadStage({ operation: "clearUpload", stageId }, r);
   assert.throws(() => nativeUploadStage({ ...part, offset: 3 }, r), /INVALID/);
 });
+
+test("local app readiness verifies account without issuing an upstream request", async () => {
+  const { nativeWorkspace } = await import("../ops/gpt-native/renderer-workspace.mjs");
+  const account = { accountId: "local-account", userId: "local-user" };
+  const load = async () => ({
+    M9: {
+      accessInputs: { readAccountInfo: async () => ({ status: "ready", data: { ...account } }) },
+    },
+    kWt: {
+      safeGet: () => assert.fail("no upstream status probe"),
+      getRequestTarget: () => assert.fail("no upstream status probe"),
+    },
+  });
+  const local = { ...runtime, document: { querySelector: () => ({}), querySelectorAll: () => [] } };
+  const read = (r) => nativeRead(r, load, local);
+  const binding = (await read({ operation: "inspectAccount" })).accountFingerprint;
+  assert.deepEqual(
+    await nativeWorkspace(
+      { operation: "activity", accountFingerprint: binding },
+      read,
+      load,
+      local,
+    ),
+    { ready: true, generating: false },
+  );
+  account.userId = "another-account";
+  await assert.rejects(
+    nativeWorkspace({ operation: "activity", accountFingerprint: binding }, read, load, local),
+    /ACCOUNT_CHANGED/,
+  );
+});

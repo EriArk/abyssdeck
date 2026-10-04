@@ -52,7 +52,6 @@ const unavailable = () =>
 export class NativeGptProvider {
   private verified?: { instance: string; until: number };
   private checking?: { instance: string; task: Promise<void> };
-  private rateLimited = false;
   private retry?: { instance: string; until: number; failures: number };
   constructor(readonly workspace: NativeGptWorkspace) {}
   async doctorReport() {
@@ -141,19 +140,20 @@ export class NativeGptProvider {
     if (status.manual) {
       this.verified = undefined;
       this.checking = undefined;
-      this.rateLimited = false;
       this.retry = undefined;
     } else if (this.retry?.instance === status.instanceId && this.retry.until > Date.now()) {
       waiting = this.verified?.instance !== status.instanceId;
     } else if (this.verified?.instance !== status.instanceId || this.verified.until <= Date.now()) {
       if (this.checking?.instance !== status.instanceId) {
-        const task = this.workspace.client.models().then(() => {
+        const task = this.workspace.client.workspace("activity").then((activity) => {
+          // This fixed native read verifies the bound account and app shell locally.
+          // Model catalog/history latency must not gate every chat after Hub restart.
+          if (activity.ready !== true) throw Error("NATIVE_ACCOUNT_UNAVAILABLE");
           if (this.checking?.task === task) {
             // The local supervisor heartbeat detects a restart/manual transition.
-            // Dispatch verifies the account and model itself. Navigation does not
-            // need a separate upstream model read every minute.
+            // Dispatch still verifies account, model, cooldown and exact receipts.
+            // Status polling never makes an upstream GPT request.
             this.verified = { instance: status.instanceId, until: Date.now() + 15 * 60000 };
-            this.rateLimited = false;
             this.retry = undefined;
           }
         });
@@ -173,9 +173,13 @@ export class NativeGptProvider {
             "NATIVE_UNAVAILABLE",
             "NATIVE_DISCONNECTED",
           ].includes(error.message)
-        )
+        ) {
+          if (this.checking === check) {
+            this.verified = undefined;
+            this.retry = undefined;
+          }
           throw error;
-        this.rateLimited = error.message === "NATIVE_RATE_LIMITED";
+        }
         if (this.checking === check) {
           const failures = this.retry?.instance === status.instanceId ? this.retry.failures + 1 : 1;
           this.retry = {
@@ -184,7 +188,7 @@ export class NativeGptProvider {
             until: Date.now() + Math.min(300000, 30000 * 2 ** Math.min(failures - 1, 4)),
           };
         }
-        // A busy catalog refresh does not revoke a previously verified account.
+        // A busy local read does not revoke a previously verified account.
         // Cold/new instances still require their own successful check; actual
         // dispatch independently validates account, model and native readiness.
         waiting = this.verified?.instance !== status.instanceId;
@@ -195,7 +199,7 @@ export class NativeGptProvider {
       // A concurrent manual/account transition invalidates an earlier probe.
       waiting = this.verified?.instance !== status.instanceId;
     }
-    const state = status.manual ? "attention" : waiting || this.rateLimited ? "busy" : "healthy";
+    const state = status.manual ? "attention" : waiting ? "starting" : "healthy";
     return {
       configured: true,
       state,

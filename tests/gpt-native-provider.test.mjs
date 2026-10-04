@@ -519,7 +519,6 @@ test("native connection recovers automatically from a transient catalog failure 
   service.compatibilityFailure = true;
   assert.equal((await service.connection(true)).canSend, false);
   broken = false;
-  service.native.retry.until = 0;
   assert.equal((await service.connection(true)).state, "healthy");
   assert.equal((await service.connection()).canSend, true);
   assert.equal(f.state.sends, 0);
@@ -563,7 +562,7 @@ test("new manual send continues the same paused chat without releasing or replay
   assert.equal(f.state.sends, 2, "lost new enqueue acknowledgement cannot send twice");
 });
 
-test("busy catalog refresh preserves verified instance; cold, restarted and manual accounts stay unverified", async () => {
+test("busy local readiness preserves verified instance; cold, restarted and manual accounts stay unverified", async () => {
   const { NativeGptProvider } = await import("../apps/hub/dist/gpt-native-provider.js");
   let instance = "one",
     manual = false,
@@ -572,10 +571,10 @@ test("busy catalog refresh preserves verified instance; cold, restarted and manu
   const provider = new NativeGptProvider({
     client: {
       status: async () => ({ instanceId: instance, manual }),
-      models: async () => {
+      workspace: async () => {
         reads++;
         if (busy) throw Error("NATIVE_BUSY");
-        return {};
+        return { ready: true };
       },
     },
   });
@@ -598,34 +597,30 @@ test("busy catalog refresh preserves verified instance; cold, restarted and manu
   assert.equal((await provider.connection()).canSend, false);
 });
 
-test("upstream cooldown does not become disconnected or erase verified account readiness", async () => {
+test("cold and restarted readiness uses the bound local account, never the upstream catalog", async () => {
   const { NativeGptProvider } = await import("../apps/hub/dist/gpt-native-provider.js");
-  let limited = false,
-    instance = "one";
+  let instance = "one",
+    reads = 0;
   const provider = new NativeGptProvider({
     client: {
       status: async () => ({ instanceId: instance, manual: false }),
       models: async () => {
-        if (limited) throw Error("NATIVE_RATE_LIMITED");
-        return {};
+        throw Error("NATIVE_RATE_LIMITED");
+      },
+      workspace: async (action) => {
+        assert.equal(action, "activity");
+        reads++;
+        return { ready: true, generating: true };
       },
     },
   });
   assert.equal((await provider.connection()).canSend, true);
-  provider.verified.until = 0;
-  limited = true;
-  const warm = await provider.connection();
-  assert.equal(warm.state, "busy");
-  assert.equal(warm.canRead, true);
-  assert.equal(warm.canSend, true);
-  assert.equal((await provider.connection()).state, "busy");
+  for (let i = 0; i < 5; i++) assert.equal((await provider.connection()).state, "healthy");
+  assert.equal(reads, 1, "polling reuses local account verification");
   instance = "two";
-  const cold = await provider.connection();
-  assert.equal(cold.state, "busy");
-  assert.equal(cold.canSend, false);
-  limited = false;
-  provider.retry.until = 0;
-  assert.equal((await provider.connection()).state, "healthy");
+  assert.equal((await provider.connection()).canSend, true);
+  assert.equal(reads, 2, "restart requires a new account check");
+  await assert.rejects(provider.models(), /RATE_LIMITED/, "catalog cooldown is not bypassed");
 });
 
 test("fresh send is independent of an uncertain same-chat rename while preserving its exact receipt", async (t) => {
@@ -653,7 +648,7 @@ test("manual transition invalidates an in-flight account readiness probe", async
   const provider = new NativeGptProvider({
     client: {
       status: async () => ({ instanceId: "one", manual }),
-      models: async () => {
+      workspace: async () => {
         entered.resolve();
         return result.promise;
       },
@@ -663,7 +658,7 @@ test("manual transition invalidates an in-flight account readiness probe", async
   await entered.promise;
   manual = true;
   assert.equal((await provider.connection()).canSend, false);
-  result.resolve({});
+  result.resolve({ ready: true });
   assert.equal((await earlier).canSend, false);
 });
 
@@ -693,4 +688,24 @@ test("operation acknowledgement lookup is authenticated, exact and read-only", a
   }
   assert.deepEqual({ ...f.gpt.operations.get(id) }, before);
   assert.equal(native.state.sends, 0);
+});
+
+test("account failure revokes prior readiness even when the next local read is busy", async () => {
+  const { NativeGptProvider } = await import("../apps/hub/dist/gpt-native-provider.js");
+  let error;
+  const provider = new NativeGptProvider({
+    client: {
+      status: async () => ({ instanceId: "one", manual: false }),
+      workspace: async () => {
+        if (error) throw Error(error);
+        return { ready: true };
+      },
+    },
+  });
+  assert.equal((await provider.connection()).canSend, true);
+  provider.verified.until = 0;
+  error = "NATIVE_ACCOUNT_CHANGED";
+  await assert.rejects(provider.connection(), /ACCOUNT_CHANGED/);
+  error = "NATIVE_BUSY";
+  assert.equal((await provider.connection()).canSend, false);
 });

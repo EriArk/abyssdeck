@@ -41,7 +41,9 @@ async function fixture(t) {
         calls.push(operation);
         return operation === "readModels"
           ? { versions: [{ id: "latest", label: "Latest", enabled: true, presets: [] }] }
-          : { operation };
+          : operation === "workspace" && input.operation === "activity"
+            ? { ready: true, generating: false }
+            : { operation };
       },
     ]),
   );
@@ -184,21 +186,22 @@ test("only explicitly unadmitted reads retry BUSY, finitely; mutations and ambig
 test("a busy readiness read does not claim disconnection or grant unverified send readiness", async (t) => {
   const f = await fixture(t);
   const provider = new NativeGptProvider({ client: f.client });
-  f.reader.readModels = async () => {
+  f.reader.workspace = async () => {
     throw Error("NATIVE_BUSY");
   };
   const waiting = await provider.connection();
-  assert.equal(waiting.state, "busy");
+  assert.equal(waiting.state, "starting");
   assert.equal(waiting.canSend, false);
-  f.reader.readModels = async () => ({
-    versions: [{ id: "latest", label: "Latest", enabled: true, presets: [] }],
+  f.reader.workspace = async () => ({
+    ready: true,
+    generating: false,
   });
-  assert.equal((await provider.connection()).state, "busy", "wait for readiness backoff");
+  assert.equal((await provider.connection()).state, "starting", "wait for readiness backoff");
   provider.retry.until = 0;
   assert.equal((await provider.connection()).state, "healthy");
   // Expiry followed by authentication failure must remain a real failure.
   provider.verified.until = 0;
-  f.reader.readModels = async () => {
+  f.reader.workspace = async () => {
     throw Error("NATIVE_ACCOUNT_CHANGED");
   };
   await assert.rejects(provider.connection(), /ACCOUNT_CHANGED/);
@@ -224,9 +227,10 @@ test("held 20-second dispatch leaves history, navigation, media and readiness re
   try {
     await Promise.all(reads.map((operation) => f.client.call({ operation })));
     for (const action of ["scheduledList", "scheduledRead", "activity"]) {
-      assert.deepEqual(await f.client.call({ operation: "workspace", action }), {
-        operation: "workspace",
-      });
+      assert.deepEqual(
+        await f.client.call({ operation: "workspace", action }),
+        action === "activity" ? { ready: true, generating: false } : { operation: "workspace" },
+      );
     }
     const status = await new NativeGptProvider({ client: f.client }).connection();
     assert.equal(status.canRead, true);
