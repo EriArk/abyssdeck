@@ -32,6 +32,7 @@ const machine = z
       .optional(),
     codex: z
       .object({
+        enabled: z.boolean().optional(),
         command: z.string().min(1).max(1024).default("codex"),
         shell: z.enum(["powershell", "pwsh"]).default("powershell"),
         launcher: z.string().min(1).max(1024).optional(),

@@ -53,7 +53,9 @@ export class ExternalActivity {
   }
   private async poll() {
     this.lastPoll = Date.now();
-    for (const machine of this.config.machines.filter((m) => m.codex.activityNode)) {
+    for (const machine of this.config.machines.filter(
+      (m) => m.codex.enabled !== false && m.codex.activityNode,
+    )) {
       const projects = this.catalog.projects().filter((p) => p.machineId === machine.id);
       if (!projects.length) continue;
       try {

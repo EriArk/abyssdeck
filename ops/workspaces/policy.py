@@ -63,7 +63,7 @@ def container_args(owner, slot, image):
         '--mount=type=bind,src=' + slot_path(slot) + ',dst=/workspace,rw',
         '--env=HOME=/workspace/home', '--env=XDG_CONFIG_HOME=/workspace/home/.config',
         '--env=XDG_CACHE_HOME=/workspace/home/.cache',
-        '--env=CODEX_HOME=/workspace/home/.codex', '--env=NPM_CONFIG_PREFIX=/workspace/home/.local',
+        '--env=NPM_CONFIG_PREFIX=/workspace/home/.local',
         '--env=PATH=/workspace/home/.local/bin:/usr/local/bin:/usr/bin:/bin',
         '--workdir=/workspace', image, '/usr/local/bin/workspace-init',
     ]

@@ -20,7 +20,7 @@ const unavailable = () =>
   );
 
 // Also prepares older installed images; no image replacement or credential copying.
-export const workspaceHomeScript = `const fs=require('node:fs');process.umask(0o077);for(const path of ['/workspace/home/.codex','/workspace/home/.config','/workspace/home/.cache','/workspace/home/.local/bin']){fs.mkdirSync(path,{recursive:true,mode:0o700});if(fs.realpathSync(path)!==path)throw Error('WORKSPACE_HOME_INVALID');}`;
+export const workspaceHomeScript = `const fs=require('node:fs');process.umask(0o077);for(const path of ['/workspace/home/.config','/workspace/home/.cache','/workspace/home/.local/bin']){fs.mkdirSync(path,{recursive:true,mode:0o700});if(fs.realpathSync(path)!==path)throw Error('WORKSPACE_HOME_INVALID');}`;
 
 /** Runtime-only authority: deserializing a machine never grants broker access. */
 export function bindServerWorkspace(machine: MachineConfig, binding: Binding) {

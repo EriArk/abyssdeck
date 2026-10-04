@@ -29,7 +29,7 @@ export function workspaceRuntime(config: HubConfig, registry: TeamStore, owner: 
     name: "Моё серверное окружение",
     type: "server-workspace",
     allowedProjectRoots: ["/workspace/projects"],
-    codex: { command: "codex", shell: "powershell", activityNode: "node" },
+    codex: { enabled: false, command: "codex", shell: "powershell" },
   };
   bindServerWorkspace(machine, {
     ...config.serverWorkspaces,

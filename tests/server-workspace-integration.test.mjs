@@ -285,3 +285,20 @@ test("container PTY accepts resize and exact interactive input, exits without re
   assert.match(text, /27 82/);
   assert.match(text, /hello-мир/);
 });
+
+test("personal Linux keeps terminal authority without an automatic Codex worker", async (t) => {
+  const { config, registry } = await fixture(t);
+  registry.db
+    .prepare("INSERT INTO team_server_workspaces VALUES(?,'ready',0)")
+    .run(registry.ownerId);
+  const { machines, devices } = workspaceRuntime(config, registry, registry.ownerId);
+  assert.equal(machines[0].codex.enabled, false);
+  assert.equal(machines[0].codex.activityNode, undefined);
+  assert.equal(devices[0].workspaceMachineId, machines[0].id);
+  const { spawnCodex } = await import("../packages/machines/dist/index.js");
+  assert.throws(() => spawnCodex(machines[0], "/workspace/projects"), {
+    code: "CODEX_COMPONENT_DISABLED",
+  });
+  const cmd = workspaceCommand(machines[0], ["bash"], "/workspace");
+  assert.ok(cmd.at(-1).includes("'exec' 'bash'"), "ordinary owner-bound terminal remains usable");
+});

@@ -114,7 +114,7 @@ export class Catalog {
       const p = JSON.parse(String(row.value)) as CatalogProject;
       if (this.config.machines.some((m) => m.id === p.machineId)) projects.set(p.id, p);
     }
-    for (const machine of this.config.machines) {
+    for (const machine of this.config.machines.filter((m) => m.codex.enabled !== false)) {
       const seed = this.config.projects.find((p) => p.machineId === machine.id && p.enabled);
       const workingDirectory = seed?.workingDirectory ?? machine.allowedProjectRoots?.[0];
       if (workingDirectory)
@@ -131,8 +131,11 @@ export class Catalog {
     return [...projects.values()]
       .filter((p) => {
         const machine = this.machine(p.machineId);
-        return [p.workingDirectory, ...(p.roots ?? [])].every((root) =>
-          projectPathAllowed(machine, root),
+        return (
+          machine.codex.enabled !== false &&
+          [p.workingDirectory, ...(p.roots ?? [])].every((root) =>
+            projectPathAllowed(machine, root),
+          )
         );
       })
       .sort((a, b) => (a.position ?? 999) - (b.position ?? 999) || a.name.localeCompare(b.name));
@@ -240,7 +243,7 @@ export class Catalog {
     if (this.refreshing) return this.refreshing;
     if (!force && this.refreshed && Date.now() - this.refreshed < 60000) return;
     this.refreshing = (async () => {
-      for (const machine of this.config.machines) {
+      for (const machine of this.config.machines.filter((m) => m.codex.enabled !== false)) {
         try {
           const rpc = await this.connect(machine.id);
           let cursor: unknown;
@@ -326,26 +329,28 @@ export class Catalog {
     });
   }
   machines() {
-    return this.config.machines.map((m) => {
-      const seed =
-        this.config.projects.find((p) => p.machineId === m.id) ??
-        this.projects().find((p) => p.machineId === m.id);
-      const root = seed
-        ? m.type === "ssh-windows"
-          ? win32.dirname(seed.workingDirectory)
-          : posix.dirname(seed.workingDirectory)
-        : "";
-      return {
-        id: m.id,
-        name: m.name,
-        type: m.type,
-        projectsDirectory: m.allowedProjectRoots?.[0] ?? root,
-        allowedProjectRoots: m.allowedProjectRoots,
-        canCreateProjects: this.projectSupport.get(m.id) !== false,
-        remoteAvailable: !!m.remote,
-        desktopRestartAvailable: m.type === "ssh-windows" && !!m.codex.desktopControl,
-      };
-    });
+    return this.config.machines
+      .filter((m) => m.codex.enabled !== false)
+      .map((m) => {
+        const seed =
+          this.config.projects.find((p) => p.machineId === m.id) ??
+          this.projects().find((p) => p.machineId === m.id);
+        const root = seed
+          ? m.type === "ssh-windows"
+            ? win32.dirname(seed.workingDirectory)
+            : posix.dirname(seed.workingDirectory)
+          : "";
+        return {
+          id: m.id,
+          name: m.name,
+          type: m.type,
+          projectsDirectory: m.allowedProjectRoots?.[0] ?? root,
+          allowedProjectRoots: m.allowedProjectRoots,
+          canCreateProjects: this.projectSupport.get(m.id) !== false,
+          remoteAvailable: !!m.remote,
+          desktopRestartAvailable: m.type === "ssh-windows" && !!m.codex.desktopControl,
+        };
+      });
   }
   async directories(machineId: string, path: string) {
     const machine = this.machine(machineId),

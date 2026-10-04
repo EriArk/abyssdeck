@@ -98,8 +98,16 @@ class Broker:
 
     def accept(self, owner, nonce, op):
         with self.lock:
-            # Expired capabilities cannot be reused, but retain operation outcomes for 14 days.
-            self.db.execute('DELETE FROM receipts WHERE created < ?', (time.time() - 14 * 86400,))
+            # Capabilities expire after at most 30 seconds. Keep uncertain effects
+            # for the existing 14-day reconciliation window. Completed read-only
+            # status probes need only replay protection, not two weeks of storage.
+            now = time.time()
+            self.db.execute('DELETE FROM receipts WHERE created < ?', (now - 14 * 86400,))
+            self.db.execute("DELETE FROM receipts WHERE op='status' AND state='completed' AND created < ?", (now - 300,))
+            if self.db.execute('SELECT count(*) FROM receipts').fetchone()[0] >= MAX_RECEIPTS:
+                # Pressure cleanup is limited to confirmed completion outside the
+                # capability lifetime. Never discard accepted/unknown operations.
+                self.db.execute("DELETE FROM receipts WHERE nonce IN (SELECT nonce FROM receipts WHERE state='completed' AND created < ? ORDER BY created LIMIT ?)", (now - 300, max(1, MAX_RECEIPTS // 4)))
             if self.db.execute('SELECT count(*) FROM receipts').fetchone()[0] >= MAX_RECEIPTS:
                 raise Refusal('RECEIPTS_FULL')
             try:

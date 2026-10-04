@@ -603,3 +603,25 @@ test("pending device login preserves its catalog without warning other working d
     store.close();
   }
 });
+
+test("personal device without Codex keeps stored projects but never polls or offers them as chats", async () => {
+  const f = fixture();
+  try {
+    await f.catalog.refresh(true);
+    const count = f.store.db.prepare("SELECT count(*) n FROM catalog_projects").get().n;
+    f.catalog.config.machines[0].codex.enabled = false;
+    f.calls.length = 0;
+    await f.catalog.refresh(true);
+    assert.deepEqual(f.calls, []);
+    assert.deepEqual(f.catalog.publicProjects(), []);
+    assert.deepEqual(f.catalog.machines(), []);
+    assert.equal(f.catalog.machine("pc").id, "pc", "device transport identity remains available");
+    assert.equal(
+      f.store.db.prepare("SELECT count(*) n FROM catalog_projects").get().n,
+      count,
+      "do not delete user metadata",
+    );
+  } finally {
+    f.store.close();
+  }
+});

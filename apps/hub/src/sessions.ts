@@ -440,6 +440,8 @@ export class Sessions extends EventEmitter {
     maintenanceInspection = false,
   ): Promise<Runtime> {
     this.authorizeExecution();
+    if (machine.codex.enabled === false)
+      throw new HubError(409, "CODEX_COMPONENT_DISABLED", "Codex не подключён к этому устройству.");
     if (!maintenanceInspection) this.assertWorkerAvailable(machine.id);
     const runtimeId = machine.id;
     await verifyProjectRoot(machine, workingDirectory);

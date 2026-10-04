@@ -81,6 +81,8 @@ export function spawnCodex(
   runtime?: { capability: string; binding: string; cwd: string; create: boolean },
 ): ChildProcessWithoutNullStreams {
   authorizeMachine(machine);
+  if (machine.codex.enabled === false)
+    throw new HubError(409, "CODEX_COMPONENT_DISABLED", "Codex не подключён к этому устройству.");
   if (machine.type === "server-workspace")
     return spawnWorkspace(machine, [machine.codex.command, ...args], cwd);
   const options = {

@@ -139,7 +139,7 @@ try:
    os.posix_fallocate(f.fileno(),0,fs.f_bavail*fs.f_frsize+4096);raise AssertionError('quota missing')
   except OSError as e: assert e.errno==errno.ENOSPC
 finally: disk.unlink(missing_ok=True)
-for command in [['git','--version'],['node','--version'],['python3','--version'],['codex','--version']]:
+for command in [['git','--version'],['node','--version'],['python3','--version']]:
  assert subprocess.run(command,stdout=subprocess.DEVNULL).returncode==0
 print(json.dumps({'isolated':True,'tools':True,'publicEgress':True,'privateEgressDenied':True,'diskQuota':True,'limits':True}))
 ''' % (marker,MEMORY,PIDS,CPUS,str(canary),port)

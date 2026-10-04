@@ -23,7 +23,7 @@ The existing Windows transport and production engine are unchanged.
   IPv6. It does not alter Docker/UFW rules or other users. DNS uses a public
   resolver; no host proxy/environment/agent is inherited. There are no published
   ports. Services remain inside the workspace until a protected preview exists.
-- Node, Python/venv, Git, gh, build tools and pinned Codex CLI in the base image.
+- Node, Python/venv, Git, gh and build tools in the base image. Codex CLI is no longer bundled.
   Users' credentials will be created inside their own `/workspace/home` through
   their explicit login. Existing native profiles/tokens are never imported.
 

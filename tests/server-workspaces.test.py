@@ -152,6 +152,25 @@ class Workspaces(unittest.TestCase):
         self.assertEqual(self.broker.db.execute('SELECT state FROM receipts').fetchone()[0],'unknown')
         with self.assertRaisesRegex(Refusal,'REQUEST_ALREADY_ACCEPTED'): self.broker.accept(B,nonce,'exec')
 
+    def test_completed_receipts_are_bounded_without_discarding_uncertain_effects(self):
+        import time
+        now=time.time()
+        rows=[('old-status',A,'status',now-600,'completed'),
+              ('old-exec',A,'exec',now-600,'completed'),
+              ('unknown',A,'exec',now-600,'unknown'),
+              ('accepted',A,'exec',now-600,'accepted'),
+              ('recent',A,'exec',now,'completed')]
+        self.broker.db.executemany('INSERT INTO receipts VALUES(?,?,?,?,?)',rows)
+        with patch('broker.MAX_RECEIPTS',4):
+            self.broker.accept(A,'fresh','status')
+        remaining={r[0]:r[1] for r in self.broker.db.execute('SELECT nonce,state FROM receipts')}
+        self.assertEqual(remaining,{'unknown':'unknown','accepted':'accepted','recent':'completed','fresh':'accepted'})
+        with self.assertRaisesRegex(Refusal,'REQUEST_ALREADY_ACCEPTED'):
+            self.broker.accept(A,'recent','exec')
+        with patch('broker.MAX_RECEIPTS',4):
+            with self.assertRaisesRegex(Refusal,'RECEIPTS_FULL'):
+                self.broker.accept(A,'blocked','exec')
+
     def test_fixed_runtime_and_mount_policy(self):
         args=container_args(A,0,IMAGE)
         for flag in ['--read-only','--cap-drop=ALL','--security-opt=no-new-privileges','--pid=private','--ipc=private','--log-driver=none','--http-proxy=false']:

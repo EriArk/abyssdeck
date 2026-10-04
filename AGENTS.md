@@ -1,5 +1,13 @@
 # AGENTS.md
 
+## Owner-requested personal Linux without bundled Codex (2026-10-04)
+
+- Remove bundled Codex from the legacy personal server environment. Preserve its
+  files, accounts, transport and terminal. Disable automatic Codex discovery,
+  activity and worker launch for that device; no chat/login dependency.
+- Keep the approved independent Linux / SSH-SFTP over VPN-Tailscale direction.
+  Removing the old component does not establish Incus migration or service readiness.
+
 ## Owner-requested settings usage overview (2026-10-04)
 
 - Show Codex limits and remaining credits on the settings home screen in both

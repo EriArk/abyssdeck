@@ -61,7 +61,7 @@ export async function probeMachine(
     ? (dependencies.remote ?? tcp)("127.0.0.1", 4822).catch(() => false)
     : Promise.resolve(null);
   let codexVersion: string | undefined;
-  if (online) {
+  if (online && machine.codex.enabled !== false) {
     const executable = await (dependencies.codex ?? probeCodex)(machine, root).catch(() => ({
       available: false,
     }));
