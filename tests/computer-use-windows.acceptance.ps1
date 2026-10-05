@@ -1,4 +1,6 @@
 # Runs only disposable local fixture apps through the real adapter implementation.
+[CmdletBinding()]
+param([switch]$Installed)
 $ErrorActionPreference='Stop'
 $root=Split-Path -Parent $PSScriptRoot
 $temporary=Join-Path ([IO.Path]::GetTempPath()) ('codexweb-cua-flow-'+[guid]::NewGuid().ToString('N'))
@@ -9,7 +11,9 @@ try {
     if($LASTEXITCODE -ne 0){throw 'Acceptance compilation failed'}
     # Pipe stdout; hide the console. The only visible windows are the test apps.
     $out=Join-Path $temporary 'out.txt';$err=Join-Path $temporary 'err.txt'
-    $process=Start-Process -FilePath $binary -ArgumentList ('"'+$temporary+'"') -WindowStyle Hidden -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
+    $arguments='"'+$temporary+'"'
+    if($Installed){$arguments+=' --installed'}
+    $process=Start-Process -FilePath $binary -ArgumentList $arguments -WindowStyle Hidden -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
     $processHandle=$process.Handle # Retain the exit status with Windows PowerShell 5.1.
     if(-not $process.WaitForExit(55000)){Stop-Process -Id $process.Id;throw 'Disposable acceptance fixture timed out'}
     Get-Content -LiteralPath $out

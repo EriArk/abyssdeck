@@ -47,6 +47,11 @@ Checks: `tests/computer-use.tests.ps1`, `tests/computer-use-windows.tests.ps1`
 `tests/computer-use-windows.acceptance.ps1` (disposable visible fixture apps and
 real file pickers, Unicode paths, app switching, partial overlap and stale input).
 The acceptance runner does not interact with user documents or send/upload files.
+Use its explicit `-Installed` switch to run the same fixture-only checks through
+the installed named-pipe host; otherwise it tests the compiled source directly.
+Old connected MCP proxies use the upgraded host immediately. The new initialize
+instructions/tool descriptions load on the next normal MCP connection/reload;
+runtime replies also describe dialog handoff so an old proxy can follow it.
 
 Use credentials explicitly supplied or read using appropriate file tools from
 the user's designated files/configurations for the requested account, including

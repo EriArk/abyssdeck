@@ -13,6 +13,7 @@ public class ComputerUseWindowFlow {
     static Form main, second;
     static TextBox editor;
     static int selected;
+    static bool installed;
     static string selectedPath, file;
     static readonly Type Adapter = typeof(CodexWeb.ComputerUse.Program);
     static readonly BindingFlags Flags = BindingFlags.NonPublic | BindingFlags.Static;
@@ -24,10 +25,11 @@ public class ComputerUseWindowFlow {
         Adapter.GetField("Deadline", Flags).SetValue(null, DateTime.UtcNow.AddSeconds(8));
         var args = new Dictionary<string, object>();
         for (int i = 0; i < pairs.Length; i += 2) args[(string)pairs[i]] = pairs[i+1];
-        var result = Private("Dispatch", Client, name, args);
+        var result = installed ? Private("Remote", new { client = Client, name = name, arguments = args }) : Private("Dispatch", Client, name, args);
         var json = new System.Web.Script.Serialization.JavaScriptSerializer { MaxJsonLength = 16000000 };
         var wire = json.Deserialize<Dictionary<string, object>>(json.Serialize(result));
         var blocks = (System.Collections.IList)wire["content"];
+        if (wire.ContainsKey("isError") && (bool)wire["isError"]) throw new InvalidOperationException((string)((Dictionary<string,object>)blocks[0])["text"]);
         return json.Deserialize<Dictionary<string, object>>((string)((Dictionary<string,object>)blocks[0])["text"]);
     }
     static void Check(bool yes, string message) { if (!yes) throw new Exception(message); }
@@ -59,6 +61,7 @@ public class ComputerUseWindowFlow {
     [STAThread]
     public static int Main(string[] args) {
         Private("SetProcessDpiAwarenessContext", new IntPtr(-4));
+        installed = args.Length > 1 && args[1] == "--installed";
         file = Path.Combine(args[0], "fixture-\u0442\u0435\u0441\u0442.txt");
         File.WriteAllText(file, "Disposable local picker fixture.");
         var ui = new Thread(RunUi); ui.IsBackground = true; ui.SetApartmentState(ApartmentState.STA); ui.Start();
@@ -107,9 +110,10 @@ public class ComputerUseWindowFlow {
             Ui(delegate { overlay = new PassiveOverlay { Location = new Point(main.Left + 80, main.Top + 80), Size = new Size(80,80), StartPosition = FormStartPosition.Manual, FormBorderStyle = FormBorderStyle.None, BackColor = Color.Orange, TopMost = true }; overlay.Show(); });
             try {
                 var covered = Observe(id); // Real foreign overlay must not prohibit capture.
-                var observations = Adapter.GetField("Observations",Flags).GetValue(null);
-                var saved = observations.GetType().GetProperty("Item").GetValue(observations,new object[] {covered["observation"]});
-                var bounds = saved.GetType().GetField("Bounds").GetValue(saved);
+                // Read the same native bounds for fixture coordinates only. The
+                // installed host still performs every real input admission.
+                IntPtr fixtureHandle = IntPtr.Zero; Ui(delegate { fixtureHandle = main.Handle; });
+                var bounds = Private("CaptureBounds", Private("Bind", fixtureHandle, Client));
                 int left = (int)bounds.GetType().GetField("Left").GetValue(bounds), top = (int)bounds.GetType().GetField("Top").GetValue(bounds);
                 Point p = Point.Empty; Ui(delegate { p = overlay.PointToScreen(new Point(20,20)); });
                 Reject(delegate { Call("act","observation",covered["observation"],"kind","click","x",p.X-left,"y",p.Y-top); }, "POINT_NOT_IN_TARGET");
