@@ -51,6 +51,7 @@ try {
     if (-not $instructions.Contains('including ordinary sign-in and authorization') -or -not $instructions.Contains('masked password fields') -or $instructions.Contains('Codex, authentication,')) { throw 'MCP instructions incorrectly prohibit requested ordinary login' }
     if (-not $instructions.Contains('conversation history') -or -not $instructions.Contains('never automatically replay')) { throw 'Login permission lost secret-history or uncertain-input guidance' }
     if (-not $instructions.Contains('user-designated files/configurations') -or -not $instructions.Contains('Explicitly requested security/privacy settings changes') -or $instructions.Contains('Do not automate terminals')) { throw 'Explicitly authorized work is still categorically prohibited' }
+    if (-not $instructions.Contains("window='active'") -or -not $instructions.Contains('A task is not restricted to one window')) { throw 'Multi-window workflow missing from client instructions' }
     Write-Output 'PASS: keys, bounded frames, cross-client isolation, single use, cross-client invalidation, expiration, MCP schema and requested login contract; no GUI input.'
 } finally {
     $resolved = [IO.Path]::GetFullPath($temporary)

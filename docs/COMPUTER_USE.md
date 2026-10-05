@@ -13,28 +13,40 @@ window forward, capture it, click/double-click, type Unicode text, press key
 chords (including `WIN`, `LWIN`, `RWIN`), scroll and drag. An action uses one recent screenshot and is followed
 by a fresh observation. Launch has no shell or command arguments.
 
-The image covers the visible portion of the selected foreground window. Unlike
-the native capture implementation, this adapter does not capture an occluded
-window: select its covering dialog or uncover it first. Moving/minimizing the
-window, changing focus, locking Windows or switching to the secure desktop
-invalidates input. Ordinary app sign-in and authorization are allowed when the
+Version 1.1.0 supports a task across applications and dialogs. `observe` accepts
+a listed window ID or `window="active"` to inspect the current foreground window.
+Observing an app follows its active owned dialog, including Open/Save pickers;
+after the dialog closes, its remembered ID returns to the surviving owner.
+The list includes untitled windows, foreground state, class and owner IDs.
+Input responses provide `nextWindow` for the next observation. Ordinary window
+transitions do not require the owner to click the application manually.
+
+The image covers the visible portion of the selected window, including any
+overlapping pixels. Partial overlap no longer blocks the entire capture or all
+input. A pointer action still checks that its exact destination belongs to the
+observed window; inspect/select the overlapping window to interact with it.
+Moving/minimizing the window, changing focus, locking Windows or switching to the
+secure desktop invalidates old input. Observe the new state and choose the next
+action; never transfer an old click or text automatically to a replacement window.
+Ordinary app sign-in and authorization are allowed when the
 user requests them: login/password fields, Tab, Enter and sign-in buttons use
 the same fresh observation and focus checks as other input. The adapter does
 not reject a field merely because it masks its text. This owner-approved rule
 supersedes the original blanket authentication prohibition.
 
-Version 1.0.3 treats a passive surface owned directly by the observed window
-(same Windows user/session, `WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT`)
-as part of that app's captured image. This fixes WebView2 hover/status surfaces
-incorrectly causing `WINDOW_OCCLUDED`. An empty title or shared process alone
-never exempts a window. Foreign overlays and ordinary dialogs still block capture;
-foreground, focused-control and exact pointer-target admission remain unchanged.
-The transparent style describes painting, not permission to click through an
-overlay: see [Windows extended styles](https://learn.microsoft.com/en-us/windows/win32/winmsg/extended-window-styles).
+This supersedes 1.0.3's narrow WebView2 tooltip exception. Real Win32 ownership
+links and recorded process identities determine dialog return, never a shared
+process name or title. Native popup creation gets a bounded read-only settling
+interval. Activation joins the relevant input queues temporarily and releases
+them before capture; it does not inject hidden keystrokes to force focus.
+See [window ownership](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getwindow)
+and [input queues](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-attachthreadinput).
 
-Run `tests/computer-use-occlusion.tests.ps1` for the native offscreen-window
-regression alongside `tests/computer-use.tests.ps1`. Fixtures verify the owned
-passive surface and five blocking variants without sending input to user apps.
+Checks: `tests/computer-use.tests.ps1`, `tests/computer-use-windows.tests.ps1`
+(offscreen HWND ownership, nested return, identity and pointer admission), and
+`tests/computer-use-windows.acceptance.ps1` (disposable visible fixture apps and
+real file pickers, Unicode paths, app switching, partial overlap and stale input).
+The acceptance runner does not interact with user documents or send/upload files.
 
 Use credentials explicitly supplied or read using appropriate file tools from
 the user's designated files/configurations for the requested account, including

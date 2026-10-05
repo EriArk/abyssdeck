@@ -1,5 +1,16 @@
 # AGENTS.md
 
+## Owner-requested ordinary multi-window Computer Use (2026-10-05)
+
+- A Computer Use task is not restricted to one window/application. Within the
+  requested task, follow native file pickers and owned dialogs, return to their
+  application after closure and switch applications without asking the owner to
+  manually restore focus. Partial overlap must not prohibit observing visible pixels.
+- Keep actions tied to fresh observations of the actual target, same-user desktop,
+  focus and pointer destination. Window transitions are resolved during observation,
+  never by replaying an input against a replacement window. Preserve existing
+  secure-desktop boundaries, active native work, drafts and uncertain outcomes.
+
 ## Owner-approved AbyssDeck name (2026-10-04)
 
 - The product is AbyssDeck; the canonical repository is EriArk/abyssdeck.
