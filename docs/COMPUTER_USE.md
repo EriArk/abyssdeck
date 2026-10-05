@@ -23,6 +23,19 @@ the same fresh observation and focus checks as other input. The adapter does
 not reject a field merely because it masks its text. This owner-approved rule
 supersedes the original blanket authentication prohibition.
 
+Version 1.0.3 treats a passive surface owned directly by the observed window
+(same Windows user/session, `WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT`)
+as part of that app's captured image. This fixes WebView2 hover/status surfaces
+incorrectly causing `WINDOW_OCCLUDED`. An empty title or shared process alone
+never exempts a window. Foreign overlays and ordinary dialogs still block capture;
+foreground, focused-control and exact pointer-target admission remain unchanged.
+The transparent style describes painting, not permission to click through an
+overlay: see [Windows extended styles](https://learn.microsoft.com/en-us/windows/win32/winmsg/extended-window-styles).
+
+Run `tests/computer-use-occlusion.tests.ps1` for the native offscreen-window
+regression alongside `tests/computer-use.tests.ps1`. Fixtures verify the owned
+passive surface and five blocking variants without sending input to user apps.
+
 Use credentials explicitly supplied or read using appropriate file tools from
 the user's designated files/configurations for the requested account, including
 test fixtures. Authorization for that scope persists; do not ask again for each
