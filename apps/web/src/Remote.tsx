@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { accountLocalStorage as localStorage, workspaceUrl } from "./accountStorage.ts";
 import { api, messageOf } from "./api";
 import { Icon } from "./icons";
+import { RemotePaste } from "./RemotePaste";
+import type { ClipboardClient } from "./remoteClipboard";
 import { RemoteInput, type RemoteInputMode, type RemoteMouseState } from "./remoteInput";
 
 interface Display {
@@ -14,7 +16,7 @@ interface Display {
   flush: (callback: () => void, timestamp?: number, frames?: number) => void;
   onresize: () => void;
 }
-interface Client {
+interface Client extends ClipboardClient {
   connect: (data?: string) => void;
   disconnect: () => void;
   sendMouseState: (state: RemoteMouseState, scaled: boolean) => void;
@@ -123,6 +125,7 @@ export function Remote({
     [full, setFull] = useState(false),
     [compact, setCompact] = useState(window.innerWidth < 1100 || window.innerHeight < 600),
     [controls, setControls] = useState(false),
+    [pasteOpen, setPasteOpen] = useState(false),
     [touchMode, setTouchMode] = useState<RemoteInputMode>(() => savedMode(profile.current)),
     [keyboardActive, setKeyboardActive] = useState(false),
     [snapshotBusy, setSnapshotBusy] = useState(false),
@@ -139,6 +142,10 @@ export function Remote({
     modifiers.current.clear();
     setHeld([]);
   }, []);
+  const closePaste = useCallback(() => setPasteOpen(false), []);
+  useEffect(() => {
+    if (!visible || suspended || status !== "connected") setPasteOpen(false);
+  }, [visible, suspended, status]);
   useEffect(() => {
     const update = () => setCompact(window.innerWidth < 1100 || window.innerHeight < 600);
     window.addEventListener("resize", update);
@@ -654,6 +661,22 @@ export function Remote({
           <div className="remote-dock">
             <button
               type="button"
+              className={`remote-fab ${pasteOpen ? "selected" : ""}`}
+              aria-label="Вставить текст"
+              title="Вставить текст"
+              aria-expanded={pasteOpen}
+              disabled={!connected}
+              onClick={() => {
+                keyboardRef.current?.reset();
+                release();
+                setControls(false);
+                setPasteOpen((value) => !value);
+              }}
+            >
+              <Icon name="paste" />
+            </button>
+            <button
+              type="button"
               className={`remote-fab ${keyboardActive ? "selected" : ""}`}
               aria-label={keyboardActive ? "Скрыть клавиатуру" : "Открыть клавиатуру"}
               aria-pressed={keyboardActive}
@@ -684,11 +707,25 @@ export function Remote({
               className={`remote-fab ${controls ? "selected" : ""}`}
               aria-label="Управление Remote"
               aria-expanded={controls}
-              onClick={() => setControls((value) => !value)}
+              onClick={() => {
+                setPasteOpen(false);
+                setControls((value) => !value);
+              }}
             >
               <Icon name="more" />
             </button>
           </div>
+          {pasteOpen && connected && visible && !suspended && clientRef.current && (
+            <RemotePaste
+              key={projectId}
+              client={clientRef.current}
+              onClose={closePaste}
+              releaseKeys={() => {
+                keyboardRef.current?.reset();
+                release();
+              }}
+            />
+          )}
           {controls && (
             <fieldset className="remote-control-panel" aria-label="Настройки Remote">
               <div className="remote-control-heading">

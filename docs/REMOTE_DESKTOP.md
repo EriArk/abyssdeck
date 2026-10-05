@@ -177,7 +177,6 @@ Possible later improvements:
 
 - one-button launch of a configured project's GUI app in the interactive session;
 - capture a screenshot from the interactive desktop into Results;
-- clipboard helpers;
 - file handoff between Results and remote machine;
 - project-specific Remote resolution profiles;
 - reconnect to an existing desktop session;
@@ -192,6 +191,26 @@ These are post-MVP.
 ## Current implementation
 
 Windows Home uses the VNC provider through guacd 1.6.0 and signed TightVNC 2.8.88. The browser receives Guacamole protocol only after the Hub authenticates the WebSocket and performs the credential-bearing guacd handshake. Client input is allowlisted; clipboard transfer and SFTP are disabled.
+
+### Paste text (2026-10-05)
+
+The clipboard icon beside the keyboard opens a small themed text field. **From
+clipboard** reads the browser clipboard only on a tap and edits that local field;
+if permission is unavailable, ordinary paste in the field remains available.
+**Paste** sends the prepared text to the focused remote application via the same
+Unicode keysyms as Guacamole's keyboard, in cancellable batches. This avoids the
+legacy VNC clipboard encoding conversion and does not enable protocol clipboard
+streams, remote clipboard reads or file transfer.
+
+CRLF/CR become one Return, tabs become Tab, and there is no extra trailing Return.
+Those characters retain their application-specific meaning (including submitting
+commands in a shell). Local editing never types into the desktop. Closing,
+hiding or losing the connection stops the transfer without automatic replay;
+already typed characters remain. Pending clipboard reads are discarded after
+editing or closing. Text stays in mounted memory only, never local storage/logs.
+The transfer budget is 1 MiB of UTF-8 text; non-text control characters are rejected
+before any remote input. Source changes are web-only, using the existing key
+instruction and account/project-scoped tunnel.
 
 TCP chunks must be buffered into complete Guacamole instructions before sending them to the WebSocket. Otherwise a tunnel keepalive can land inside a partial image/blob instruction. A regression test covers every split point including Unicode. First-frame readiness and screenshots wait for rendered display content.
 

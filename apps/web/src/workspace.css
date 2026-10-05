@@ -361,6 +361,23 @@
   justify-content: space-between;
   padding-left: 5px;
 }
+.remote-paste-panel textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+.remote-paste-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+.remote-paste-actions button {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
 .remote-control-heading .remote-fab {
   color: var(--ink);
   background: transparent;
