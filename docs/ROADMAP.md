@@ -10,7 +10,8 @@ Implementation, installation and verification are separate states.
 The public-readiness follow-up includes documentation ([#176](https://github.com/EriArk/abyssdeck/issues/176)),
 reproducible local checks ([#238](https://github.com/EriArk/abyssdeck/issues/238)),
 dependency maintenance ([#237](https://github.com/EriArk/abyssdeck/issues/237)),
-the license decision ([#239](https://github.com/EriArk/abyssdeck/issues/239)) and
+release licensing/notice verification ([#240](https://github.com/EriArk/abyssdeck/issues/240),
+following the AGPL-3.0-only decision in [#239](https://github.com/EriArk/abyssdeck/issues/239)) and
 guided self-hosting ([#11](https://github.com/EriArk/abyssdeck/issues/11)).
 
 The global AbyssDeck Assistant and independent personal Linux have their own

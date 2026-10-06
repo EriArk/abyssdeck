@@ -16,10 +16,13 @@ Existing themes, source ownership, drafts and recovery behavior are product
 requirements. Keep changes focused and explain any effect on stored data,
 permissions, native integrations or deployment compatibility.
 
-The project-level license is [awaiting an owner decision](https://github.com/EriArk/abyssdeck/issues/239).
-This guide does not grant a license or establish a contributor agreement. Until
-that decision is recorded, discuss proposed code contributions with the maintainer.
-Existing third-party notices remain applicable to their respective components.
+Original AbyssDeck material is licensed under [AGPL-3.0-only](LICENSE).
+Intentional contributions are submitted under the same terms unless separately
+licensed material is explicitly identified and accepted by the maintainer.
+Contributors retain their rights; no copyright assignment or CLA is required.
+Only contribute material you have the right to submit, and preserve third-party
+notices. See [licensing scope](docs/LICENSING.md) and
+[third-party notices](THIRD_PARTY_NOTICES.md).
 
 ## Build and check
 

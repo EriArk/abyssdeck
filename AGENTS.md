@@ -1,5 +1,17 @@
 # AGENTS.md
 
+## Owner-approved project license (2026-10-06)
+
+- Original AbyssDeck code uses AGPL-3.0-only. The owner explicitly accepts
+  commercial use and paid hosting under its source-sharing conditions.
+- Preserve upstream and separately licensed material, including the MIT DXF
+  Viewer attribution; do not replace dependency notices with the project license.
+- Contributions use the same project terms without copyright assignment or a
+  new CLA. See LICENSE, NOTICE, docs/LICENSING.md and THIRD_PARTY_NOTICES.md.
+- Repository licensing does not establish binary/container redistribution
+  compliance or change an installed runtime. Verify notices, exact source and
+  native dependency obligations separately for release artifacts.
+
 ## Owner-requested ordinary multi-window Computer Use (2026-10-05)
 
 - A Computer Use task is not restricted to one window/application. Within the

@@ -176,7 +176,13 @@ Do not expose development-machine SSH/RDP/VNC, guacd, Codex App Server or privat
 
 ## Contributing and security
 
-Use [Contributing](CONTRIBUTING.md) to report bugs or discuss a change, and [Security reporting](SECURITY.md) for private vulnerability reports. The project-level license is awaiting an [owner decision (#239)](https://github.com/EriArk/abyssdeck/issues/239); no project license has been selected yet. Third-party components retain their own notices.
+Use [Contributing](CONTRIBUTING.md) to report bugs or discuss a change, and [Security reporting](SECURITY.md) for private vulnerability reports.
+
+## License
+
+Original AbyssDeck code is licensed under the **GNU Affero General Public License, version 3 only** ([AGPL-3.0-only](LICENSE)). Commercial use and paid hosting are permitted under its terms. Modified versions offered to users over a network must offer those users their Corresponding Source as required by section 13.
+
+Copyright (C) 2026 EriArk and contributors. See [licensing scope and contribution terms](docs/LICENSING.md). Third-party and separately licensed components retain their [own notices and conditions](THIRD_PARTY_NOTICES.md). Ordinary user data and projects are not relicensed merely by being used through AbyssDeck.
 
 ## Explore the product
 

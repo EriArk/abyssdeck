@@ -9,6 +9,7 @@
 | Plan a private installation | [Deployment](DEPLOYMENT.md) |
 | Report a bug or contribute | [Contributing](../CONTRIBUTING.md) |
 | Report a vulnerability privately | [Security reporting](../SECURITY.md) |
+| Understand licensing and redistribution | [AGPL-3.0-only](../LICENSE), [scope](LICENSING.md), [third-party notices](../THIRD_PARTY_NOTICES.md) |
 | Understand access and isolation | [Security model](SECURITY.md) |
 | Back up, diagnose or recover | [Maintenance](MAINTENANCE.md) |
 | Connect another user's Windows machine | [Enrollment](WINDOWS_ENROLLMENT.md), [Companion](COMPANION_APP.md) |
@@ -50,4 +51,5 @@ it does not establish that an English product locale has shipped.
 
 Public-readiness follow-up: [dependency audit #237](https://github.com/EriArk/abyssdeck/issues/237),
 [reproducible checks #238](https://github.com/EriArk/abyssdeck/issues/238) and
-[license decision #239](https://github.com/EriArk/abyssdeck/issues/239).
+[release license/source packaging #240](https://github.com/EriArk/abyssdeck/issues/240).
+The project license was adopted in [#239](https://github.com/EriArk/abyssdeck/issues/239).

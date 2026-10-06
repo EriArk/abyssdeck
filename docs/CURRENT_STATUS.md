@@ -1,5 +1,22 @@
 # Текущий статус — 6 октября 2026
 
+### Owner-approved license adoption — October 6
+
+The owner explicitly selected AGPL-3.0, including commercial use and paid hosting
+under its source-sharing terms. Original AbyssDeck material now uses
+`AGPL-3.0-only`: the full standard text is in LICENSE, with project attribution in
+NOTICE and scope/contribution guidance in docs/LICENSING.md. Root/workspace npm
+metadata and Companion package-license metadata use the same SPDX identifier.
+No future-version permission, copyright assignment or CLA was added.
+
+THIRD_PARTY_NOTICES.md distinguishes dependency licenses, vendored Guacamole/font
+notices and the separately licensed MIT DXF Viewer adaptation. Existing upstream
+notice files were preserved byte-for-byte. Production npm metadata was inspected
+on Windows; this is not a complete native/NuGet/Linux redistribution audit.
+Repository license adoption resolves #239; exact binary/container notice and
+source packaging remains #240. No application behavior, installed runtime,
+service, account or private data changed. GitHub Actions remains disabled.
+
 ### Public repository preparation — October 6
 
 Documentation-only cleanup follows the public-readiness audit of `f6b071e`.
