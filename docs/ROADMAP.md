@@ -1,20 +1,27 @@
 # Roadmap
 
-## Текущая очередь
+## Current work
 
-Единственный актуальный список остатка — [CURRENT_STATUS.md](CURRENT_STATUS.md).
-Он разделяет недостающие функции и ожидание установки. Проверки устройств идут
-по мере обычного использования; отдельный обязательный этап отменён владельцем.
-Перед предложением следующего этапа сверять его с последними коммитами и текущей
-установкой. Датированные разделы ниже и [аудит 26 сентября](ISSUE_AUDIT_2026-09-26.md)
-описывают историю; их «следующие этапы» не являются сегодняшней очередью.
+Use [open issues](https://github.com/EriArk/abyssdeck/issues) for remaining work and
+[CURRENT_STATUS](CURRENT_STATUS.md) for dated implementation and installation
+records. Reconcile both with recent commits before choosing the next stage.
+Implementation, installation and verification are separate states.
 
-## Companion: текущий переход
+The public-readiness follow-up includes documentation ([#176](https://github.com/EriArk/abyssdeck/issues/176)),
+reproducible local checks ([#238](https://github.com/EriArk/abyssdeck/issues/238)),
+dependency maintenance ([#237](https://github.com/EriArk/abyssdeck/issues/237)),
+the license decision ([#239](https://github.com/EriArk/abyssdeck/issues/239)) and
+guided self-hosting ([#11](https://github.com/EriArk/abyssdeck/issues/11)).
 
-Универсальное приложение уже реализовано; установлен 0.5.4. Candidate 0.5.5
-подготовлен, активация ждёт явного снятия запрета владельца на обновление ПК
-в его отсутствие. Не предлагать заново разработку UI/трея или первого мастера.
-Актуальные установка и условия — [CURRENT_STATUS.md](CURRENT_STATUS.md).
+The global AbyssDeck Assistant and independent personal Linux have their own
+product scope; see the [vision](VISION.md) and [personal Linux contract](PERSONAL_LINUX.md).
+Do not interpret old candidate versions or permission gates below as current.
+
+## Historical record
+
+The following dated sections retain earlier sequencing and verification claims.
+They are not the current queue. Later owner decisions and the current-status
+record supersede their old next-stage instructions.
 
 ## Historical owner-approved sequence (2026-09-23)
 

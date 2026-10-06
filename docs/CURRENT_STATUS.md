@@ -1,4 +1,30 @@
-# Текущий статус — 3 октября 2026
+# Текущий статус — 6 октября 2026
+
+### Public repository preparation — October 6
+
+Documentation-only cleanup follows the public-readiness audit of `f6b071e`.
+The README now uses the English promotional pack with its translation provenance;
+the entry architecture/vision/roadmap distinguish current components from history.
+Added a documentation map, contribution guidance and a private security-reporting
+entry. Deployment now documents the engine/gateway split and initial web-release
+publication, with clean-host verification still pending in #11. No runtime or
+application source was changed or activated for this pass.
+
+GitHub Actions is disabled at repository level. Automatic security-update PRs and
+auto-merge were already disabled; no workflows or webhooks were present. Private
+vulnerability reporting is enabled as a manual reporting channel.
+
+New issues: #237 dependency advisories, #238 reproducible local checks, #239 license
+decision. Existing #176 retains the broader documentation follow-up. The license
+is not selected by this cleanup. Biome now honors Git ignore rules: the 15 errors
+from ignored native build output disappear; the 96 tracked-file errors remain
+visible and are tracked in #238. The repository guard, local document links and
+whitespace checks passed. This is not a fresh Linux installation or full-suite pass.
+
+Removed only the obsolete local `companion-source-052` and `companion-source-053`
+build worktrees after checking clean source, merged commits and no referencing
+process/service/scheduled task. Other worktrees, private state, histories and
+installed runtime releases were preserved. Added `.codex/` to Git ignore rules.
 
 Этот файл содержит текущую установку и остаток. Подробные прежние проверки,
 версии и квитанции сохранены в [истории](STATUS_HISTORY_2026-10-02.md).

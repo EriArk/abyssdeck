@@ -1,4 +1,9 @@
 {
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
   "files": {
     "includes": ["apps/**", "packages/**", "tests/**", "!**/dist", "!apps/web/public/vendor"]
   },
@@ -9,7 +14,7 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
+      "preset": "recommended",
       "a11y": {
         "noLabelWithoutControl": {
           "level": "error",

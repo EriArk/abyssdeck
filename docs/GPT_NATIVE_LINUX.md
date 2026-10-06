@@ -1,6 +1,13 @@
-# Linux ChatGPT evaluation — #193
+# Linux ChatGPT integration and evaluation history — #193
 
-> Current owner runtime (2026-10-01): official **26.928.31416**, verified on the
+The dated sections below record compatibility investigations and installations.
+For the latest deployment use [CURRENT_STATUS](CURRENT_STATUS.md). Current Bridge
+Doctor supports separately configured diagnosis and repair modes; old statements
+that all automatic Doctor work is diagnostic-only are historical. Ordinary
+background health checks do not send upstream probes. Slow history alone does not
+justify a repair or restart. See the dated owner decisions in `AGENTS.md`.
+
+> Recorded owner runtime (2026-10-01): official **26.928.31416**, verified on the
 > server with both previously failing conversations and a completed disposable
 > send (one exact native user message). See [current status](CURRENT_STATUS.md).
 > Older installation/version statements below are dated evidence.

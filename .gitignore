@@ -28,6 +28,7 @@ data/
 
 # Local configuration
 .local/
+.codex/
 config.yaml
 config.local.yaml
 

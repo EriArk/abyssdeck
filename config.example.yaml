@@ -8,7 +8,8 @@ hub:
   secureCookies: true
   codexIdleTimeoutMinutes: 30
 
-# Internal single-user record name only. Login does not ask for a username.
+# Personal-mode bootstrap example: internal record name, not a login username.
+# Team accounts/enrollment have a separate registry; see docs/DEPLOYMENT.md.
 auth:
   username: owner
 

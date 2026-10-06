@@ -2,10 +2,23 @@
 
 Run these commands on the Linux Hub, as the account owning its private state. They do not need the website password and are not public API endpoints.
 
+## Backup scope
+
+The snapshot commands below operate on the configured Store. They do not by
+themselves prove coverage of every team namespace, the shared registry, an
+independent Linux disk, native account/history or a development checkout. For a
+team installation, inventory and verify those sources together before claiming a
+complete backup. The maintainer's paired Hub/workspace checkpoint has separate
+installation evidence in [CURRENT_STATUS](CURRENT_STATUS.md).
+
+Keep the latest three verified backups per automatic stream. Prune only after a
+new copy is verified; a cleanup failure must not roll back a healthy deployment.
+Use the installed revision's supported recovery path and preserve unknown receipts.
+
 ## Snapshot
 
 ```bash
-node apps/hub/dist/maintenance.js backup --config /srv/codex-web/config.json --destination /srv/codex-web/backups/snapshots --keep 7 --revision COMMIT_SHA
+node apps/hub/dist/maintenance.js backup --config /srv/codex-web/config.json --destination /srv/codex-web/backups/snapshots --keep 3 --revision COMMIT_SHA
 ```
 
 The source database stays live. Node's SQLite online backup includes committed WAL data. The tool copies every DB-referenced Codex screenshot/upload, GPT upload and local-Linux staged upload, plus existing captured HTML preview documents. It records schema/application/revision metadata and SHA-256 checksums, verifies the result, then atomically publishes the snapshot directory. Notes such as chat/project pins are included with the complete SQLite snapshot.
@@ -48,7 +61,7 @@ The target must not exist. The tool checks every checksum and required file, cop
 
 The restored directory contains app.db, results/, optional private/ configuration and a restore.json receipt. Configure an isolated Hub on a separate loopback port, pointing databasePath/resultsPath there; log in with the existing password and inspect history/files. Use a disposable native conversation for any execution test, not an active owner's conversation.
 
-For a real recovery, finish active work, stop only the Hub, select validated restored state and configuration, and start the matching application. Keep the old state for rollback. Do not replay unknown commands automatically. Source repositories/native account state require separate recovery on their execution machines.
+For a real recovery, finish active work and stop the process that owns the restored Store (the engine in split production, or the combined Hub in development). Select validated restored state and configuration, then start the matching application. Stopping only the web gateway does not release engine-owned storage. Keep the old state for rollback. Do not replay unknown commands automatically. Source repositories/native account state require separate recovery on their execution machines.
 
 Regression tests exercise live-WAL snapshots, login after restore, old-session revocation, native ID preservation, artifact/upload bytes, checksum failure, missing files, symlinks, retention and refusal to overwrite an existing target. The opt-in scripts/qa-real-restore.mjs additionally proves context recall by real Windows Codex after restore.
 

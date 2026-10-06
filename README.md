@@ -7,7 +7,7 @@ AbyssDeck brings your AI conversations, project files, GitHub work, generated re
 It is for people who already use AI to build real things and are tired of moving the same context between ChatGPT, Codex, GitHub, folders, Remote Desktop and team chat.
 
 <p align="center">
-  <img src="polish/marketing-2026-10-04/desktop/01-codex-crt-green.webp" alt="AbyssDeck — Codex workspace with project conversation and Results" width="92%">
+  <img src="polish/marketing-en-2026-10-04/screens/desktop/01-workspace-burgundy.webp" alt="AbyssDeck — Codex workspace with project conversation and Results" width="92%">
 </p>
 
 ## The idea
@@ -63,8 +63,8 @@ AbyssDeck is deliberately closer to a **project control console** than a browser
 The long-term model also includes one global **AbyssDeck Assistant** for questions that cross project boundaries: what needs attention, what changed across projects, where a decision came from, or which project should receive the next piece of work. That assistant is intentionally separate from Project Codex and Project GPT rather than turning everything into one giant chat.
 
 <p align="center">
-  <img src="polish/marketing-2026-10-04/desktop/10-results-crt-green.webp" alt="AbyssDeck Results gallery" width="49%">
-  <img src="polish/marketing-2026-10-04/desktop/04-git-crt-green.webp" alt="AbyssDeck Git changes and diff review" width="49%">
+  <img src="polish/marketing-en-2026-10-04/screens/desktop/10-image-results-burgundy.webp" alt="AbyssDeck Results gallery" width="49%">
+  <img src="polish/marketing-en-2026-10-04/screens/desktop/04-git-burgundy.webp" alt="AbyssDeck Git changes and diff review" width="49%">
 </p>
 
 ## Files are first-class
@@ -78,8 +78,8 @@ Where it makes sense, the same window can switch from viewing to editing without
 The point is simple: **if Codex produced something, you should be able to inspect it where the work is already happening.**
 
 <p align="center">
-  <img src="polish/marketing-2026-10-04/tablet/03-files-hitech-2000s.webp" alt="AbyssDeck project files and preview on tablet" width="49%">
-  <img src="polish/marketing-2026-10-04/desktop/09-editor-hitech-2000s.webp" alt="AbyssDeck shared file viewer editing Markdown" width="49%">
+  <img src="polish/marketing-en-2026-10-04/windows/tablet/files-blue.webp" alt="AbyssDeck project files and preview on tablet" width="49%">
+  <img src="polish/marketing-en-2026-10-04/screens/desktop/09-editor-blue.webp" alt="AbyssDeck shared file viewer editing Markdown" width="49%">
 </p>
 
 ## Collaboration without sharing identities
@@ -125,7 +125,7 @@ Only the Hub needs to face the Internet. Development-machine SSH, RDP/VNC, Codex
 The Companion app handles machine integration without turning one failed integration into a failure of the whole device. Invited users are also moving toward optional isolated personal Linux environments with persistent files, packages and services instead of being forced into the owner's host environment.
 
 <p align="center">
-  <img src="polish/marketing-2026-10-04/desktop/07-devices-hitech-2000s.webp" alt="AbyssDeck Devices workspace with integrated terminal" width="88%">
+  <img src="polish/marketing-en-2026-10-04/screens/desktop/07-devices-blue.webp" alt="AbyssDeck Devices workspace with integrated terminal" width="88%">
 </p>
 
 ## Human-controlled by design
@@ -145,7 +145,7 @@ AbyssDeck moves quickly, so detailed status lives in [CURRENT_STATUS](docs/CURRE
 | Project-centered Codex workflow, Results, Files, GitHub and Remote | **Working** |
 | Project GPT, Prepare for Codex, Activity, Intake, messaging and Brainstorm | **Working, with continuing polish** |
 | Companion and multiple development machines | **Working** |
-| Independent personal Linux environments for invited users | **Being rolled out** |
+| Independent personal Linux environments for invited users | **Prepared; installation and isolation verification pending** |
 | Global AbyssDeck Assistant | **Planned** |
 | Guided self-host installation | **Planned** |
 | Remote provider/performance improvements | **Under evaluation** |
@@ -170,18 +170,24 @@ AbyssDeck is usable today as an operator-managed private installation. It is not
 
 A typical setup is a Linux Hub with HTTPS, one or more Windows/Linux development machines reachable over a trusted LAN or Tailnet, authenticated GitHub access, and optional Remote Desktop and private GPT integration.
 
-Start with [Deployment](docs/DEPLOYMENT.md). For another trusted user or machine, see [Friend quick start](docs/FRIEND_QUICKSTART.md) and [Windows enrollment](docs/WINDOWS_ENROLLMENT.md).
+Start with [Deployment](docs/DEPLOYMENT.md) and the [documentation map](docs/README.md). For another trusted user or machine, see [Windows enrollment](docs/WINDOWS_ENROLLMENT.md). The [friend quick start](docs/FRIEND_QUICKSTART.md) also includes instructions specific to the maintainer's installation.
 
 Do not expose development-machine SSH/RDP/VNC, guacd, Codex App Server or private databases directly to the Internet.
 
+## Contributing and security
+
+Use [Contributing](CONTRIBUTING.md) to report bugs or discuss a change, and [Security reporting](SECURITY.md) for private vulnerability reports. The project-level license is awaiting an [owner decision (#239)](https://github.com/EriArk/abyssdeck/issues/239); no project license has been selected yet. Third-party components retain their own notices.
+
 ## Explore the product
 
-The repository includes a large screenshot catalog captured from the real React components with controlled demo data.
+The repository includes a large screenshot catalog captured from the real React components with controlled demo data. English promotional captures translate the demo UI for presentation; they do not establish a shipped English locale. The team screenshots above retain the original UI language and capture provenance.
 
-[Current product screenshots](polish/marketing-2026-10-04/README.md) · [Full UI gallery](polish/README.md) · [Workspace](docs/WORKSPACE.md) · [Project preparation](docs/PROJECT_PREPARATION.md) · [Files and editor](docs/FILE_EDITOR.md) · [File viewers](docs/FILE_VIEWERS.md) · [Collaboration Spaces](docs/COLLABORATION_SPACES.md) · [Activity](docs/SPACE_ACTIVITY.md) · [Communication](docs/COMMUNICATION.md) · [Brainstorm Rooms](docs/BRAINSTORM.md) · [Security](docs/SECURITY.md) · [Architecture](docs/ARCHITECTURE.md)
+[English promotional screenshots](polish/marketing-en-2026-10-04/README.md) · [Full UI gallery](polish/README.md) · [Workspace](docs/WORKSPACE.md) · [Project preparation](docs/PROJECT_PREPARATION.md) · [Files and editor](docs/FILE_EDITOR.md) · [File viewers](docs/FILE_VIEWERS.md) · [Collaboration Spaces](docs/COLLABORATION_SPACES.md) · [Activity](docs/SPACE_ACTIVITY.md) · [Communication](docs/COMMUNICATION.md) · [Brainstorm Rooms](docs/BRAINSTORM.md) · [Security](docs/SECURITY.md) · [Architecture](docs/ARCHITECTURE.md)
 
 <details>
 <summary><strong>Development</strong></summary>
+
+See [Contributing](CONTRIBUTING.md) for platform prerequisites, focused checks and known baseline failures ([#238](https://github.com/EriArk/abyssdeck/issues/238)). Full Hub verification targets Linux. GitHub Actions and automatic dependency PRs are disabled; checks are run locally.
 
 Requirements:
 

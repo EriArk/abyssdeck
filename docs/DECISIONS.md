@@ -84,7 +84,7 @@ The owner explicitly selected **Write**, not Admin. New `direct` grants automati
 
 ## 2026-09-23 — Activity-based collaboration and confirmed session boundaries
 
-The owner approved the sequence in [Roadmap](ROADMAP.md#current-owner-approved-sequence-2026-09-23): review existing unfinished work, deliver a useful Activity slice, add exact evidence handoff to Project GPT, then reactions/replies/attention and Intake/Issue Drawer. Before each substantial session recommend the exact reasoning selector level and wait for the owner's confirmation that it is set.
+The owner approved the sequence in [Roadmap](ROADMAP.md#historical-owner-approved-sequence-2026-09-23): review existing unfinished work, deliver a useful Activity slice, add exact evidence handoff to Project GPT, then reactions/replies/attention and Intake/Issue Drawer. Before each substantial session recommend the exact reasoning selector level and wait for the owner's confirmation that it is set.
 
 Owner clarification: **«Продолжаем» also confirms the recommended reasoning level is set**. Do not ask for an additional confirmation when that instruction arrives.
 
