@@ -3,6 +3,12 @@
 AbyssDeck is an actively developed, operator-managed project. Start with the
 [documentation map](docs/README.md) and [architecture](docs/ARCHITECTURE.md).
 
+For a first checkout, follow [Local development](docs/DEVELOPMENT.md). It covers
+an isolated interface without production accounts, the source map and checks by
+platform. Pick a concrete problem in an existing issue, describe the intended
+change there and check whether someone is already working on it. Large tracking
+issues are not necessarily suitable first tasks; agree on a smaller slice first.
+
 ## Discuss and report
 
 Search [existing issues](https://github.com/EriArk/abyssdeck/issues) before opening
@@ -45,7 +51,9 @@ These commands do not deploy the application. GitHub Actions, automatic dependen
 PRs and auto-merge are not used; verification is run locally or on an isolated
 Linux verification host. Do not add a hosted workflow as a prerequisite.
 
-The October 6 audit found existing lint/test failures. Their resolution is tracked
+The October 7 check still found 95 lint errors in tracked files; build and
+typecheck passed on Windows with the pinned toolchain. Full-suite failures from
+the earlier audit have not been cleared. Their resolution is tracked
 in [#238](https://github.com/EriArk/abyssdeck/issues/238); do not present the full
 suite as green or hide unrelated failures. Report exact commands, platform,
 revision and outcomes in a PR. Dependency follow-up is tracked in

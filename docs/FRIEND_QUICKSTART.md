@@ -1,26 +1,46 @@
-# Подключение друга
+# Join an existing AbyssDeck Hub
 
-Нужны два приглашения: в AbyssDeck для личного рабочего пространства и в Tailscale для связи сервера с Windows-ПК. Приглашения и их секретные ссылки в репозиторий не записываются.
+This guide is for an invited member, not for installing a new Hub. Use the Hub
+address and invitations supplied by its administrator. The maintainer's private
+installation is not a public registration service.
 
-## Что делает владелец
+## Before starting
 
-1. Открыть [пользователей Tailscale](https://login.tailscale.com/admin/users) под аккаунтом той сети, где находится машина `codex-web-hub`.
-2. Нажать **Invite external users → Copy invite link**, выбрать роль **Member**, затем **Generate & copy invite link**. Передать ссылку другу.
-3. Если включено одобрение пользователей или устройств, подтвердить друга/его ПК в Tailscale после подключения.
-4. Передать отдельную одноразовую ссылку регистрации AbyssDeck. Она действует сутки; новую можно создать в настройках доступа AbyssDeck.
-5. После установки на ПК сравнить показанный другу отпечаток компьютера с карточкой подключения в AbyssDeck и подтвердить компьютер. Проверка соединения должна пройти перед активацией.
+You need your own Hub account and a Windows PC you control. The administrator
+must arrange a private route from the Hub to that PC, usually through Tailscale.
+A Hub invitation and a network invitation are separate; neither grants access
+to someone else's native AI accounts or projects.
 
-Порядок создания приглашения: [официальная инструкция Tailscale](https://tailscale.com/docs/features/sharing/how-to/invite-any-user). Приглашать нужно в сеть серверного узла; простая передача другу доступа к серверной машине не заменяет подключение его ПК к этой сети. Существующая политика Tailscale должна разрешать серверу доступ к ПК; если она ограничительная, настройка зависит от фактических участников и адресов.
+## Administrator
 
-## Что делает друг
+1. Create a member invitation in the Hub's access settings and send it privately.
+2. Arrange the approved private network connection and required network policy.
+3. After PC setup, compare its displayed fingerprint with the enrollment record.
+4. Approve the intended member/device and verify connectivity before activation.
 
-1. Принять приглашение Tailscale под своим аккаунтом.
-2. Открыть приглашение AbyssDeck и задать собственные логин и пароль.
-3. В мастере подключения скачать ZIP на Windows-ПК, распаковать и запустить `Connect.cmd`. Разрешить повышение прав под своим обычным Windows-пользователем.
-4. Следовать визарду: он устанавливает недостающие компоненты, открывает вход в собственные Codex/GitHub, предлагает папки проектов и необязательное подключение рабочего стола.
-5. При входе в Tailscale выбрать приглашённую сеть владельца. Просто вход в другую личную сеть не соединит ПК с сервером.
-6. После подтверждения компьютера владельцем активировать подключение и завершить личный вход ChatGPT в веб-мастере. Этап ChatGPT можно проходить во время ожидания подтверждения ПК.
+Keep invitation URLs and connection keys out of issues, screenshots and Git.
+Existing installation-owner connections retain their configured route; do not
+re-enroll or replace them while adding a member.
 
-Дальше с планшета и телефона открывать обычный **https://codex.abysstail.art/**. Tailscale нужен на Windows-ПК для связи с сервером; для обычного открытия публичного HTTPS-сайта на планшете он не требуется. Windows-ПК должен оставаться включённым и подключённым, пока на нём работает Codex.
+## Member
 
-Закрытие мастера не теряет настройку: **Настройки → Доступ → Продолжить настройку**. Личные учётные записи друга не заменяют аккаунты владельца. Проверка первого реального ПК ещё предстоит; готовый установщик не означает, что она уже выполнена.
+1. Open the Hub invitation and create your own login/password.
+2. Follow its connection wizard. On the PC, download the enrollment package,
+   extract it and run `Connect.cmd` as instructed. Complete requested Windows
+   elevation and personal sign-ins yourself.
+3. Connect the PC to the administrator's approved network. Signing into an
+   unrelated personal Tailnet does not connect it to this Hub.
+4. Choose your project folders and optional desktop integration. Wait for device
+   approval, then activate the verified connection.
+5. Complete any optional personal GPT setup offered by the Hub. Each person uses
+   their own native account; a GPT login must not be mistaken for PC enrollment.
+
+Resume an interrupted setup from the Hub's account/connection settings. Keep the
+PC on and connected while work runs on it. A phone/tablet only needs access to
+its Hub URL; whether that requires VPN depends on the installation's ingress.
+
+See [Windows enrollment](WINDOWS_ENROLLMENT.md) for the transport and approval
+contract, [Companion](COMPANION_APP.md) for component setup, and
+[deployment](DEPLOYMENT.md) for administering a separate installation. Available
+components and installation evidence are version-specific; this guide is not a
+claim that every fresh PC or Linux installation has been verified.

@@ -1,5 +1,13 @@
 # Native work visibility
 
+> This page retains the schema-28 implementation record. Current source uses
+> newer contracts; do not configure a deployment from the version or transfer
+> limits below. Results now combines public progress summaries and expandable
+> work under Reasoning. Public partial GPT output and attached files survive
+> native errors; hidden internal payloads remain excluded. See
+> [current architecture](ARCHITECTURE.md), [file tools](FILE_WORKSPACE_TOOLS.md),
+> [native GPT](GPT_NATIVE_LINUX.md) and [installation records](CURRENT_STATUS.md).
+
 The Hub consumes native `turn/plan/updated`, `thread/tokenUsage/updated`, `turn/diff/updated` and `item/commandExecution/outputDelta` notifications. See the [official App Server event contract](https://learn.chatgpt.com/docs/app-server). Raw reasoning streams remain excluded.
 
 Schema 28 stores one bounded plan/diff/usage snapshot per turn and command logs keyed by Hub thread, native turn and native item. Output is coalesced at 500 ms rather than saving every delta as an Activity event. Each command retains the last 256,000 characters; the reader displays the last 64,000 and offers an authenticated plain-text download. All command logs share a 64 MiB retention budget, evicting completed logs first. Existing historical command events remain readable when a longer log is unavailable. Truncation is explicit; a download does not claim to recover bytes outside retention.

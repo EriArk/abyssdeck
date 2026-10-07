@@ -6,6 +6,12 @@ AbyssDeck brings your AI conversations, project files, GitHub work, generated re
 
 It is for people who already use AI to build real things and are tired of moving the same context between ChatGPT, Codex, GitHub, folders, Remote Desktop and team chat.
 
+**Start here:** [Run locally](docs/DEVELOPMENT.md) · [Contribute](CONTRIBUTING.md) · [Self-host](docs/DEPLOYMENT.md) · [Documentation](docs/README.md) · [Open work](https://github.com/EriArk/abyssdeck/issues)
+
+AbyssDeck is in active development. Self-hosting currently requires operator
+setup; the guided installer and a clean full-check baseline are still open work.
+You can build and explore the local interface without connecting a personal AI account.
+
 <p align="center">
   <img src="polish/marketing-en-2026-10-04/screens/desktop/01-workspace-burgundy.webp" alt="AbyssDeck — Codex workspace with project conversation and Results" width="92%">
 </p>
@@ -170,7 +176,7 @@ AbyssDeck is usable today as an operator-managed private installation. It is not
 
 A typical setup is a Linux Hub with HTTPS, one or more Windows/Linux development machines reachable over a trusted LAN or Tailnet, authenticated GitHub access, and optional Remote Desktop and private GPT integration.
 
-Start with [Deployment](docs/DEPLOYMENT.md) and the [documentation map](docs/README.md). For another trusted user or machine, see [Windows enrollment](docs/WINDOWS_ENROLLMENT.md). The [friend quick start](docs/FRIEND_QUICKSTART.md) also includes instructions specific to the maintainer's installation.
+Start with [Deployment](docs/DEPLOYMENT.md) and the [documentation map](docs/README.md). For another trusted user or machine, see [Windows enrollment](docs/WINDOWS_ENROLLMENT.md). The [member quick start](docs/FRIEND_QUICKSTART.md) explains joining an existing Hub with your own accounts.
 
 Do not expose development-machine SSH/RDP/VNC, guacd, Codex App Server or private databases directly to the Internet.
 
@@ -193,7 +199,7 @@ The repository includes a large screenshot catalog captured from the real React 
 <details>
 <summary><strong>Development</strong></summary>
 
-See [Contributing](CONTRIBUTING.md) for platform prerequisites, focused checks and known baseline failures ([#238](https://github.com/EriArk/abyssdeck/issues/238)). Full Hub verification targets Linux. GitHub Actions and automatic dependency PRs are disabled; checks are run locally.
+See [Local development](docs/DEVELOPMENT.md) for an isolated first run and [Contributing](CONTRIBUTING.md) for focused checks and known baseline failures ([#238](https://github.com/EriArk/abyssdeck/issues/238)). Full Hub verification targets Linux. GitHub Actions and automatic dependency PRs are disabled; checks are run locally.
 
 Requirements:
 
@@ -219,7 +225,3 @@ For loopback development use publicBaseUrl: http://127.0.0.1:8780 with secure co
 Copy [config.example.yaml](config.example.yaml) outside the repository and keep secrets out of Git.
 
 </details>
-
----
-
-**AbyssDeck is the workspace between “I have an idea” and “the change is implemented, inspected, on GitHub, and everybody involved knows what happened.”**

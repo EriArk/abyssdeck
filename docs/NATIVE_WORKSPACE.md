@@ -1,5 +1,11 @@
 # Native schedules, Canvas access and extended MCP forms
 
+> Historical integration and acceptance record. The former Canvas header entry,
+> account-wide uncertainty gate and fixed history/cache limits described below
+> are not a current UI or recovery contract. See [native GPT](GPT_NATIVE_LINUX.md),
+> [the October 7 repair](GPT_RELIABILITY_AUDIT_2026-10-07.md) and
+> [Codex integration](CODEX_INTEGRATION.md) for their current boundaries.
+
 This personal-installation follow-up is separate from dictation, read-aloud, human reminders and executable project Plans. Two-way voice conversation remains explicitly excluded by the owner.
 
 ## Access and behavior

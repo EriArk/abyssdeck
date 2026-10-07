@@ -1,13 +1,45 @@
 # Текущий статус — 7 октября 2026
 
 
+### Contributor entry and documentation cleanup - October 7
+
+The owner authorized retiring the four remaining historical branches. PRs #216
+and #217 are closed without merging obsolete code; the remote now has only
+`main`. All original branch tips remain in the verified local bundle. Local
+worktrees and deployed release paths were not removed. GitHub Actions are disabled
+at repository level, with no active runs. Issue/PR templates add reporting guidance,
+not automation.
+
+README and Contributing now point to an isolated local first run and checks by
+platform. The documentation map groups feature/operations guides; HISTORY indexes
+dated audits and mixed implementation journals without moving their URLs. Old
+platform/UX/native-work specifications are explicitly scoped as historical.
+Devices close/minimize behavior and dictation's native transport were reconciled
+with source. Member onboarding now uses the reader's own Hub rather than the
+maintainer's private installation address.
+
+Verification on Windows, Node 24.18.0 / pnpm 11.13.1: build and typecheck passed;
+the documented empty-machine local config started with disposable state, served
+the interface and healthy API, and created its private first-use link. No native
+account or production service was connected. The repository guard and its test
+passed; local Markdown/image paths and documentation anchors passed across 1,983
+Markdown files. This was not a clean Linux-host installation rehearsal.
+
+Remaining public-readiness findings: lint reports 95 errors, 1,310 warnings and
+1,893 informational diagnostics (#238); dependency audit reports 13 findings
+(4 high, 7 moderate, 2 low, none critical; #237). Applicability and upgrades require
+their own verification; these counts are not proven exploitable application paths.
+The full test baseline, clean-host installer (#11), specialist-document consistency
+(#176), and release notice/source packaging (#240) remain open. No application code,
+dependency version or installed service changed in this documentation pass.
+
 ### Public branch cleanup - October 7
 
 Verified the 76 remote branches against `main`, exact merged PR heads and patch
 equivalence. Removed 71 completed branches with an atomic, expected-SHA guarded
-push. Five remain: `main`, the open PR branches #216 and #217, and the historical
-`fix/settings-live` / `fix/speech-live` backports. The latter four require separate
-reconciliation; their age alone is not evidence that every change was integrated.
+push. That first pass retained `main`, PR branches #216/#217 and historical
+`fix/settings-live` / `fix/speech-live` backports. The owner's subsequent explicit
+retirement of the remaining four is recorded above.
 Open PRs, local worktrees and installed releases were preserved. A verified local
 Git bundle and exact ref manifest retain all 76 original branch tips.
 

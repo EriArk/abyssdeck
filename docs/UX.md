@@ -1,5 +1,12 @@
 # UX Specification
 
+> Evolving design record, including superseded layouts. For current window and
+> control rules use [UI layout](UI_LAYOUT_RULES.md), [Files](FILE_EDITOR.md) and
+> [format tools](FILE_WORKSPACE_TOOLS.md). Files is writable after unlocking;
+> the old read-only/deferred paragraph below is historical. Settings now uses
+> the October 3 structure recorded in `AGENTS.md`, with usage on its home page.
+> Dated sections below are not a single current screen specification.
+
 ## Direct Files/Git windows and Results — 2026-09-13
 
 The Codex header has separate folder and branch buttons for Files and Git. Each opens a native modal bound to the selected private project/checkout. The former combined support-pane tab is removed. Settings remains in the sidebar footer in both Codex and GPT; it no longer occupies the top bar.

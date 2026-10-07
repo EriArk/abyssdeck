@@ -20,4 +20,12 @@ Power and network-mount forms confirm a named target and open a separate command
 
 The UI shares theme tokens, uses a system/terminal split on wide tablets and two views on phones. Hiding the workspace preserves chat selection, drafts, scrolling and native work. Terminal code loads only when Devices is first opened.
 
+Explicitly closing Devices requests release of its visited terminals after the
+last viewer leaves and actual idle state is verified. Running commands are
+preserved until completion; reconnecting cancels pending release. Minimizing to
+the tablet/desktop dock, hiding the browser or losing the network only detaches
+the viewer and does not request terminal closure. The dock preserves the mounted
+window, selected device/session, draft and geometry. This supersedes the earlier
+indefinite retention on the window's Close button.
+
 Command-result output is a different, read-only feature: resolve the stored result's thread, turn and native command identity, then lazily retrieve its matching saved Activity event. Older cards work without duplicating output into every Results response. Empty output and no retained output are distinct states.

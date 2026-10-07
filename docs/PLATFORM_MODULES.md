@@ -1,5 +1,10 @@
 # Platform Modules
 
+> Historical design proposal. Notes, Tasks, Plans and other workspace modules
+> have since been implemented. The suggested/future capabilities below record
+> the original plan, not today's availability. Start with [Workspace](WORKSPACE.md),
+> [Architecture](ARCHITECTURE.md) and the [documentation map](README.md).
+
 These modules are intentionally **post-core**. They should grow around the Codex workspace without turning the first release into a dashboard project.
 
 The common rule: every module may be global, project-scoped, or both, but Projects remain the main daily navigation.
