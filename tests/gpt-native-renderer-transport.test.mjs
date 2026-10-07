@@ -60,6 +60,35 @@ function fixture(t, { pages, respond } = {}) {
   return { reader: new NativeRendererReader(), sockets, calls };
 }
 
+test("slow preparation and receipt reads outlive the old wrapper deadline without replay", async (t) => {
+  // Accelerate deadline time while retaining the real abort/success race.
+  const timeout = AbortSignal.timeout.bind(AbortSignal);
+  t.mock.method(AbortSignal, "timeout", (ms) => timeout(ms / 100));
+  let calls = 0;
+  const reader = new NativeRendererReader({
+    transport: {
+      evaluateMain: async (_expression, _guard, signal) => {
+        calls++;
+        await new Promise((resolve, reject) => {
+          const timer = setTimeout(resolve, 350);
+          signal.addEventListener(
+            "abort",
+            () => {
+              clearTimeout(timer);
+              reject(signal.reason);
+            },
+            { once: true },
+          );
+        });
+        return { ok: true, value: { ready: true } };
+      },
+    },
+  });
+  assert.deepEqual(await reader.prepareDispatch({}), { ready: true });
+  assert.deepEqual(await reader.readSubmission({}), { ready: true });
+  assert.equal(calls, 2);
+});
+
 test("private native transport selects main window and closes every connection", async (t) => {
   const f = fixture(t);
   assert.deepEqual(await f.reader.inspectAccount(), { writesEnabled: false });

@@ -151,7 +151,12 @@ export class NativeGptReadClient {
     const admittedLane = this.independentReads ? laneName : "legacy";
     const lane = this.lanes[admittedLane];
     const key = laneName === "read" && !cancellation ? JSON.stringify(input) : undefined;
-    if (laneName === "write") this.invalidateReads();
+    // Preparation navigates locally; reconciliation observes an existing receipt.
+    // Both retain serial admission but do not mutate upstream library metadata.
+    const invalidatesMetadata =
+      laneName === "write" &&
+      !["prepareDispatch", "reconcileDispatch"].includes(String(input.operation));
+    if (invalidatesMetadata) this.invalidateReads();
     const cached = key ? this.metadata.get(key) : undefined;
     if (cached !== undefined) return cached;
     const shared = key ? this.reads.get(key) : undefined;
@@ -168,7 +173,7 @@ export class NativeGptReadClient {
           cancellation?.throwIfAborted();
           this.authorize();
           // Reads admitted while a mutation waited must not survive its boundary.
-          if (laneName === "write") this.invalidateReads();
+          if (invalidatesMetadata) this.invalidateReads();
           const generation = this.metadata.generation;
           let result: unknown;
           for (let attempt = 0; ; attempt++) {
@@ -195,7 +200,7 @@ export class NativeGptReadClient {
         } catch (error) {
           reject(error);
         } finally {
-          if (laneName === "write") this.invalidateReads();
+          if (invalidatesMetadata) this.invalidateReads();
         }
       });
     });
@@ -265,6 +270,8 @@ export class NativeGptReadClient {
         ? await open(dirname(this.binding.socketPath), "r")
         : undefined;
     const result = await new Promise<unknown>((resolve, reject) => {
+      // Composite preparation includes navigation, models, optional project and
+      // canonical history. Its outer budget must outlive bounded inner reads.
       const deadline = AbortSignal.timeout(
         ["uploadStoredFile", "projectMutation"].includes(String(input.operation))
           ? 16 * 60000
@@ -272,19 +279,23 @@ export class NativeGptReadClient {
                 String(input.operation),
               )
             ? 120000
-            : [
-                  "readModels",
-                  "readCatalog",
-                  "readPins",
-                  "readProjects",
-                  "readProject",
-                  "readProjectConversations",
-                  "readConversation",
-                  "readConversationGraph",
-                  "readHistoryUpdate",
-                ].includes(String(input.operation))
-              ? 80000
-              : 25000,
+            : input.operation === "prepareDispatch"
+              ? 360000
+              : ["dispatchText", "reconcileDispatch"].includes(String(input.operation))
+                ? 240000
+                : [
+                      "readModels",
+                      "readCatalog",
+                      "readPins",
+                      "readProjects",
+                      "readProject",
+                      "readProjectConversations",
+                      "readConversation",
+                      "readConversationGraph",
+                      "readHistoryUpdate",
+                    ].includes(String(input.operation))
+                  ? 80000
+                  : 25000,
       );
       const signal = cancellation ? AbortSignal.any([deadline, cancellation]) : deadline;
       const req = request(

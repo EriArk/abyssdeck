@@ -73,6 +73,9 @@ export class NativeGptJobs {
     store.db.exec(
       "CREATE TABLE IF NOT EXISTS gpt_native_read_health(jobId TEXT PRIMARY KEY REFERENCES gpt_jobs(id), failures INTEGER NOT NULL DEFAULT 0, paused INTEGER NOT NULL DEFAULT 0, nextAt INTEGER NOT NULL DEFAULT 0)",
     );
+    store.db.exec(
+      "CREATE TABLE IF NOT EXISTS gpt_native_idle_watch(jobId TEXT PRIMARY KEY REFERENCES gpt_jobs(id) ON DELETE CASCADE,changedAt INTEGER NOT NULL,openedAt INTEGER NOT NULL DEFAULT 0)",
+    );
     for (const column of ["retryAt", "attempts"])
       if (
         !store.db
@@ -105,10 +108,32 @@ export class NativeGptJobs {
     return row;
   }
   canPoll(id: string) {
+    const job = this.store.db.prepare("SELECT status,createdAt FROM gpt_jobs WHERE id=?").get(id);
+    if (job?.status === "idle") {
+      const watch = this.store.db
+        .prepare("SELECT changedAt,openedAt FROM gpt_native_idle_watch WHERE jobId=?")
+        .get(id);
+      // Legacy idle rows have been touched by polling, so updatedAt is not
+      // evidence of new content. A restart must not revive forgotten work.
+      if (
+        Date.now() -
+          Math.max(Number(watch?.changedAt ?? job.createdAt), Number(watch?.openedAt ?? 0)) >=
+        300000
+      )
+        return false;
+    }
     const r = this.store.db
       .prepare("SELECT paused,nextAt FROM gpt_native_read_health WHERE jobId=?")
       .get(id);
     return !r || (!r.paused && Number(r.nextAt) <= Date.now());
+  }
+  openConversation(conversationId: string) {
+    this.authorize();
+    this.store.db
+      .prepare(
+        "INSERT INTO gpt_native_idle_watch(jobId,changedAt,openedAt) SELECT id,createdAt,? FROM gpt_jobs WHERE nativeId=? AND status='idle' ON CONFLICT(jobId) DO UPDATE SET openedAt=excluded.openedAt",
+      )
+      .run(Date.now(), conversationId);
   }
   private readFailed(id: string, code: string) {
     if (
@@ -476,6 +501,9 @@ export class NativeGptJobs {
       throw error;
     }
     // A temporary missing page must not erase already observed public output.
+    const changed =
+      result.state !== "unknown" &&
+      (row.status !== result.state || saved.messages !== JSON.stringify(result.messages));
     if (result.state !== "unknown") {
       this.store.db.prepare("DELETE FROM gpt_native_read_health WHERE jobId=?").run(id);
       if (result.state === "idle")
@@ -489,6 +517,12 @@ export class NativeGptJobs {
         .run(Date.now(), id);
       this.store.db.exec("BEGIN IMMEDIATE");
       try {
+        if (result.state === "idle" && changed)
+          this.store.db
+            .prepare(
+              "INSERT INTO gpt_native_idle_watch(jobId,changedAt) VALUES(?,?) ON CONFLICT(jobId) DO UPDATE SET changedAt=excluded.changedAt",
+            )
+            .run(id, Date.now());
         if (payload.conversationId === null) {
           if (!result.conversationId) fail("SUBMISSION_MISMATCH");
           this.store.db
@@ -547,6 +581,10 @@ export class NativeGptJobs {
         .run(Date.now(), id);
       this.readFailed(id, "NATIVE_UNCONFIRMED");
     }
-    return { status: String(this.row(id).status), userMessageId: payload.userMessageId as string };
+    return {
+      status: String(this.row(id).status),
+      userMessageId: payload.userMessageId as string,
+      changed,
+    };
   }
 }

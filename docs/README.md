@@ -40,6 +40,9 @@ evidence for the maintainer's deployment; its machine paths and versions are not
 defaults for a new installation. Source completion, deployment and ordinary-use
 verification are separate claims.
 
+The [October 7 GPT reliability audit](GPT_RELIABILITY_AUDIT_2026-10-07.md)
+maps the integration, live findings, source fixes and remaining reliability work.
+
 [Roadmap](ROADMAP.md), [decisions](DECISIONS.md), [releases](RELEASES.md) and
 [verification](VERIFICATION.md) retain historical evidence. Dated proposals and
 old "next stage" notes are not an instruction to repeat completed work.

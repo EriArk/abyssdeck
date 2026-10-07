@@ -1,4 +1,30 @@
-# Текущий статус — 6 октября 2026
+# Текущий статус — 7 октября 2026
+
+### GPT reliability audit and bounded polling fixes — October 7
+
+The [GPT integration audit](GPT_RELIABILITY_AUDIT_2026-10-07.md) follows the
+owner's failed-send report and request to inspect the whole GPT path. Live checks
+found a responsive native conversation reader, a model-read cooldown, and an idle
+receipt from October 3 still polled every 30 seconds. The dismissed attempt no
+longer retained its original error, so that failure cannot be attributed precisely.
+
+Source now expires unchanged idle receipt watching after five minutes, resumes it
+on explicit conversation opening, avoids warming history for unchanged receipts,
+preserves metadata caches during read-only preparation/reconciliation, and aligns
+outer preparation/receipt deadlines with their slower bounded inner reads.
+Actual active work and uncertain receipts remain intact; no send replay was added.
+
+Seven focused suites passed on Linux (120 tests); the metadata-cache regression
+passed separately on Linux and the inner slow-history regression passed separately
+on Windows. TypeScript build passed; focused lint had no errors, with existing
+warnings/information remaining. Temporary Linux test files used an isolated path,
+not installed runtime modules or native profiles.
+
+These changes are source-only: production still uses Hub/engine `00c8adc` and the
+owner's native runtime `26.928.31416-f7347ec`. No services were restarted and no
+user messages were sent. Cooldown timing propagation, consistent read-error
+handling and coordinated refresh scheduling remain follow-up work. A local ready
+process is not proof of upstream send availability.
 
 ### Owner-approved license adoption — October 6
 

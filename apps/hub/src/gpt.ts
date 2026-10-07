@@ -113,6 +113,10 @@ export class GptService {
   readonly historyCache: GptHistoryCache;
   readonly attention: GptAttention;
   readonly watchedHistory = new GptHistoryWatch();
+  openHistory(id: string) {
+    this.watchedHistory.active(id);
+    this.nativeJobs?.openConversation(id);
+  }
   private historyWatchTimer = setInterval(() => {
     if (this.stopped || this.libraryBusy) return;
     for (const id of this.watchedHistory.due()) {
@@ -1406,12 +1410,13 @@ export class GptService {
         let refreshed = false;
         try {
           const result = await this.nativeJobs.reconcile(String(row.id));
-          refreshed = result.status !== "unknown";
+          refreshed = result.changed;
           this.nativeReadFailures = result.status === "unknown" ? this.nativeReadFailures + 1 : 0;
         } catch {
           this.nativeReadFailures++;
         }
-        this.invalidateNativeJob(String(row.id), refreshed);
+        if (refreshed || this.job(String(row.id)).status === "unknown")
+          this.invalidateNativeJob(String(row.id), refreshed);
       }
       if (this.jobs().some((j) => j.status === "preparing")) return;
       next = nextReady();
@@ -2111,7 +2116,7 @@ export function registerGpt(
       )
       .get(p.id);
     service.library.assertExists("thread", p.id);
-    if (q.cached === "1" || !q.known) service.watchedHistory.active(p.id);
+    if (q.cached === "1" || !q.known) service.openHistory(p.id);
     const page = await service.historyCache.page(
       p.id,
       q,

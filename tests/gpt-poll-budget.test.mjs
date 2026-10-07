@@ -58,6 +58,19 @@ function fixture(t) {
   };
 }
 
+test("receipt polling and read-only preparation preserve shared navigation metadata", async (t) => {
+  const f = fixture(t);
+  await f.client.call({ operation: "readCatalog", offset: 0 });
+  for (const operation of ["prepareDispatch", "reconcileDispatch", "reconcileDispatch"]) {
+    await f.client.call({ operation });
+    await f.client.call({ operation: "readCatalog", offset: 0 });
+  }
+  assert.equal(f.calls.filter((x) => x === "readCatalog").length, 1);
+  await f.client.call({ operation: "dispatchText" });
+  await f.client.call({ operation: "readCatalog", offset: 0 });
+  assert.equal(f.calls.filter((x) => x === "readCatalog").length, 2);
+});
+
 test("viewers share pins and catalog reads; unchanged older pages do not refill every refresh", async (t) => {
   const f = fixture(t);
   const read = (operation, offset) =>

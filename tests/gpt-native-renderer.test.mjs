@@ -7,6 +7,33 @@ import { nativeRead } from "../ops/gpt-native/renderer-read.mjs";
 const conversationId = "10000000-0000-4000-8000-000000000001";
 const id = (n) => `20000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 
+test("exact receipt read tolerates the same slow history as the visible conversation", async (t) => {
+  const f = fixture(),
+    accountFingerprint = await f.binding();
+  f.node(1, "Parent", { end_turn: true });
+  f.node(2, "prompt", { id: id(2), author: { role: "user" } });
+  f.node(3, "Answer", { end_turn: true });
+  const get = f.service.kWt.safeGet;
+  let calls = 0;
+  f.service.kWt.safeGet = async (...args) => {
+    calls++;
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    return get(...args);
+  };
+  const timeout = AbortSignal.timeout.bind(AbortSignal);
+  t.mock.method(AbortSignal, "timeout", (ms) => timeout(ms / 100));
+  const result = await f.read({
+    operation: "readSubmission",
+    conversationId,
+    accountFingerprint,
+    userMessageId: id(2),
+    parentId: id(1),
+    text: "prompt",
+  });
+  assert.equal(result.state, "completed");
+  assert.equal(calls, 1);
+});
+
 test("failed public output survives and later canonical completion replaces its incomplete state", async () => {
   const f = fixture(),
     accountFingerprint = await f.binding();

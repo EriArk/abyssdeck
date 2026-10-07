@@ -137,8 +137,10 @@ export class NativeRendererReader {
   return this.#read({operation:'stopResponse',conversationId,accountFingerprint,userMessageId}, options, true);
  }
  async #read(request, {signal:callerSignal} = {}, control = false) {
-  const slowRead = !control && ['readModels','readCatalog','readPins','readProjects','readProject','readProjectConversations','readConversation','readConversationGraph','readHistoryUpdate'].includes(request.operation);
-  const deadline = AbortSignal.timeout(slowRead?75000:control==='dictation'?100000:['upload','stored-upload','operation','media'].includes(control)?65000:20000);
+  const slowRead = !control && ['readModels','readCatalog','readPins','readProjects','readProject','readProjectConversations','readConversation','readConversationGraph','readHistoryUpdate','readSubmission'].includes(request.operation);
+  // Dispatch may read a project and canonical history before the one native
+  // submission. A 20s wrapper used to abandon valid 60s reads still in flight.
+  const deadline = AbortSignal.timeout(control==='dispatch'?150000:slowRead?75000:control==='dictation'?100000:['upload','stored-upload','operation','media'].includes(control)?65000:20000);
   const signal = callerSignal ? AbortSignal.any([callerSignal, deadline]) : deadline;
   try {
    const read = `(request => (${nativeRead.toString()})(request,undefined,globalThis,${nativeActivity.toString()}))`;

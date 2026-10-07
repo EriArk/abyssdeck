@@ -972,3 +972,48 @@ test("finished exact stream releases Hub progress while another native chat is g
   assert.equal((await worker.reconcile(f.id)).status, "completed");
   assert.equal(f.state.sends, 1);
 });
+
+test("idle receipt polling expires on unchanged content and resumes only for its opened chat", async (t) => {
+  let now = 1000000;
+  t.mock.method(Date, "now", () => now);
+  const f = queue(t),
+    worker = f.open();
+  await worker.run(f.id);
+  f.state.readState = "idle";
+  assert.equal((await worker.reconcile(f.id)).changed, true);
+  now += 31000;
+  assert.equal(worker.canPoll(f.id), true);
+  assert.equal((await worker.reconcile(f.id)).changed, false);
+  now += 270000;
+  assert.equal(worker.canPoll(f.id), false, "unchanged reads do not renew the idle watch");
+  const restored = f.open();
+  assert.equal(restored.canPoll(f.id), false, "restart does not revive the watch");
+  restored.openConversation(randomUUID());
+  assert.equal(restored.canPoll(f.id), false, "another chat cannot revive this watch");
+  restored.openConversation(conversationId);
+  assert.equal(restored.canPoll(f.id), true);
+  f.state.public.push({ id: "later", text: "Later public output", role: "assistant" });
+  assert.equal((await restored.reconcile(f.id)).changed, true);
+  now += 31000;
+  assert.equal(restored.canPoll(f.id), true);
+  now += 270000;
+  assert.equal(restored.canPoll(f.id), false);
+  f.state.readState = "completed";
+  assert.equal((await restored.reconcile(f.id)).status, "completed");
+  assert.equal(f.state.sends, 1, "only the original dispatch is ever sent");
+});
+
+test("legacy idle receipts do not use polling updatedAt as fresh activity", async (t) => {
+  const f = queue(t),
+    worker = f.open();
+  await worker.run(f.id);
+  f.db.prepare("UPDATE gpt_jobs SET status='idle',updatedAt=?").run(Date.now());
+  assert.equal(worker.canPoll(f.id), false);
+  worker.openConversation(conversationId);
+  assert.equal(worker.canPoll(f.id), true);
+  f.db.prepare("UPDATE gpt_native_read_health SET paused=1 WHERE jobId=?").run(f.id);
+  // Opening never clears an existing failure pause.
+  f.db.prepare("INSERT OR REPLACE INTO gpt_native_read_health(jobId,paused) VALUES(?,1)").run(f.id);
+  worker.openConversation(conversationId);
+  assert.equal(worker.canPoll(f.id), false);
+});

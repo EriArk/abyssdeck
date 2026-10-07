@@ -11,6 +11,27 @@ import { listenNative, NativeReadService } from "../ops/gpt-native/service.mjs";
 const userId = "10000000-0000-4000-8000-000000000001";
 const accountFingerprint = "a".repeat(64);
 const tick = () => new Promise((resolve) => setImmediate(resolve));
+
+test("Hub waits for slow native preparation beyond the former 25-second deadline", async (t) => {
+  const f = await fixture(t);
+  const timeout = AbortSignal.timeout.bind(AbortSignal);
+  t.mock.method(AbortSignal, "timeout", (ms) => timeout(ms / 100));
+  let calls = 0;
+  f.service.canary.prepare = async () => {
+    calls++;
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    return {
+      parentId: randomUUID(),
+      model: "model",
+      effort: null,
+      versionId: "latest",
+      presetId: 1,
+    };
+  };
+  const value = await f.client.call({ operation: "prepareDispatch" });
+  assert.equal(value.model, "model");
+  assert.equal(calls, 1);
+});
 async function fixture(t) {
   const root = await mkdtemp(join(tmpdir(), "native-isolation-"));
   await chmod(root, 0o700);
