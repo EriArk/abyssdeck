@@ -20,7 +20,15 @@ The TrainerOS archive is already retained in the private Hub artifact store:
 reverified on the host. A second server buffer would not fix the browser worker
 failure. Broader automatic preservation of GPT result files and reuse from server
 storage are a proposed product direction, not implemented by this web repair.
-Verification and compatible web-only activation are in progress.
+Chromium passed the exact-byte transfer, incomplete-stream cancellation, nested
+preview return and authenticated fallback under the production script/worker
+policy. WebKit passed its supported save/fallback/login paths; its test port has
+no OPFS, so it does not prove native iPhone storage/sharing behavior. Linux build
+and typecheck passed. Activated as compatible web-only `564385f4`, release
+`5b9b1ac03c4832e9321913fa347789ce702c420f912a28896856c2ff286b9401`;
+the separate worker asset returns JavaScript successfully. Hub, engine and native
+container identities/start times are unchanged. Ordinary iPhone feedback remains
+the evidence for the platform's native save UI.
 
 ### iPhone save navigation correction - October 7
 
