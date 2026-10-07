@@ -1,5 +1,23 @@
 # Текущий статус — 8 октября 2026
 
+### GPT stale native conversation state recovery ? October 8
+
+The reported TrainerOS GPT send failed before submission with
+`NATIVE_CONVERSATION_BUSY`. A fresh canonical read showed the latest answer was
+`finished_successfully` with `end_turn=true`; the native UI reported no visible
+Stop. The current catalog explicitly accepts `latest` / preset 6 as
+`gpt-6-thinking` / `max`, so the selection itself was valid. A prepare-only probe
+still reproduced the busy rejection without sending input.
+
+Applied the owner's already-authorized recovery restart to only
+`codex-web-gpt-native-lab`, preserving its profile and durable receipts. After
+initial UI loading (one `NATIVE_CONTROL_TIMEOUT`), the same prepare-only check
+succeeded with the unchanged canonical parent and the selected model/effort.
+No user message was resent, no unknown receipt cleared, and Hub, engine and
+GPT-connect container identities/start times remained unchanged. No source
+change or claim about the cause of the native stale state is made; the owner's
+next ordinary send remains the end-to-end confirmation.
+
 ### Durable Codex conversation recovery logs — October 8
 
 The project overview now offers a chat selector and ZIP export from the Hub's
