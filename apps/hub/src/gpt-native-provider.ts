@@ -37,7 +37,7 @@ export interface NativeGptWorkspace {
     | "uploadFile"
     | "uploadFilePath"
   > &
-    Partial<Pick<NativeGptReadClient, "historyGraph" | "doctorObservation">>;
+    Partial<Pick<NativeGptReadClient, "historyGraph" | "doctorObservation" | "clientRecovery">>;
   transcribe?: (bytes: Buffer, signal: AbortSignal, mime: string) => Promise<string>;
   projects?: { has(id: string): boolean };
   conversations: { has(id: string): boolean };

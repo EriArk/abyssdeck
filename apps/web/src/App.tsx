@@ -1973,6 +1973,7 @@ function Workspace({
       <WorkspaceCommandHost onTarget={openNotebookTarget} />
       <WorkspaceHelp topic={client === "gpt" ? "gpt" : "codex"} />
       <WorkspaceSettings
+        client={client}
         open={settings}
         onClose={() => setSettings(false)}
         machines={machines}

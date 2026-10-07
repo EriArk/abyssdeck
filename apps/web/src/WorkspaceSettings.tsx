@@ -9,6 +9,7 @@ import { DeploymentStatus } from "./DeploymentStatus";
 import { DesktopControl } from "./DesktopControl";
 import { openTerminal } from "./DeviceWorkspaceHost";
 import { EntityArchive } from "./EntityMenu";
+import { GptClientRecovery } from "./GptClientRecovery";
 import { GptConnectionSettings } from "./GptConnectionSettings";
 import { MachineHealthPanel } from "./MachineHealth";
 import { openMemberSetup } from "./MemberSetup";
@@ -34,6 +35,7 @@ export const gptSettingsChanged = "codex-gpt-settings-changed";
 
 export function WorkspaceSettings({
   open,
+  client,
   onClose,
   machines,
   project,
@@ -49,6 +51,7 @@ export function WorkspaceSettings({
   onRefreshCodex,
 }: {
   open: boolean;
+  client: "codex" | "gpt";
   onClose: () => void;
   machines: Machine[];
   project?: Project;
@@ -572,28 +575,80 @@ export function WorkspaceSettings({
         open={open}
         onClose={() => dismiss(onClose)}
         pages={pages}
-        overview={(visible, go) =>
-          machine && (
-            <div className="settings-usage-summary" hidden={!visible}>
-              {machines.length > 1 && (
-                <label className="settings-machine-choice">
-                  Лимиты для устройства
-                  <select value={machine.id} onChange={(e) => setMachineId(e.target.value)}>
-                    {machines.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+        overview={(visible, go) => (
+          <>
+            <section className="settings-quick" hidden={!visible} aria-label="Быстрые настройки">
+              <h3>Быстрые настройки · {client === "gpt" ? "GPT" : "Codex"}</h3>
+              {client === "gpt" ? (
+                <>
+                  <GptClientRecovery visible={visible} />
+                  <GptConnectionSettings visible={visible} />
+                  {pageWorkspace && <TeamGpt visible={visible} />}
+                  <SettingsLink title="Настройки подключения GPT" onClick={() => go("gpt")} />
+                </>
+              ) : (
+                <>
+                  {machine && machines.length > 1 && (
+                    <label className="settings-machine-choice">
+                      Компьютер
+                      <select value={machine.id} onChange={(e) => setMachineId(e.target.value)}>
+                        {machines.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                  <DesktopControl
+                    quick
+                    machines={selectedMachines}
+                    open={visible}
+                    threadId={threadId}
+                    machineId={project?.machineId}
+                  />
+                  <button
+                    type="button"
+                    className="secondary"
+                    disabled={!!refreshing}
+                    onClick={() => void refresh("codex")}
+                  >
+                    {refreshing === "codex" ? "Обновляем…" : "Обновить проекты и чаты"}
+                  </button>
+                  {notice && <p role="status">{notice}</p>}
+                  <SettingsLink
+                    title="Подключение и управление Codex"
+                    onClick={() => go("codex")}
+                  />
+                </>
               )}
-              <UsageLimitsProvider machines={selectedMachines} open={visible}>
-                <UsageLimits machines={selectedMachines} open={false} />
-              </UsageLimitsProvider>
-              <SettingsLink title="Лимиты и кредиты" onClick={() => go("limits")} />
-            </div>
-          )
-        }
+              <div className="settings-quick-links">
+                <SettingsLink title="Тема" onClick={() => go("appearance")} />
+                <SettingsLink title="Размер текста" onClick={() => go("scale")} />
+              </div>
+            </section>
+            {machine && (
+              <div className="settings-usage-summary" hidden={!visible}>
+                {client === "gpt" && machines.length > 1 && (
+                  <label className="settings-machine-choice">
+                    Лимиты для устройства
+                    <select value={machine.id} onChange={(e) => setMachineId(e.target.value)}>
+                      {machines.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                <UsageLimitsProvider machines={selectedMachines} open={visible}>
+                  <UsageLimits machines={selectedMachines} open={false} />
+                </UsageLimitsProvider>
+                <SettingsLink title="Лимиты и кредиты" onClick={() => go("limits")} />
+              </div>
+            )}
+          </>
+        )}
       />
     </dialog>
   );

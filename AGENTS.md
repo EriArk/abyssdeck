@@ -1,5 +1,14 @@
 # AGENTS.md
 
+## Owner-requested contextual quick settings (2026-10-08)
+
+- Put quick settings on the existing Settings home, for the currently selected
+  GPT or Codex mode. GPT offers explicit client restart and connection actions;
+  Codex uses the selected computer's existing client controls. Keep common settings.
+- Restart GPT only after the user's button press. Slow loading, opening Settings
+  and failed health reads never trigger a restart. Preserve profile, history,
+  drafts and uncertain receipts; never replay messages or restart other services.
+
 ## Owner-requested conversation recovery log (2026-10-08)
 
 - Keep a durable server copy of public Codex conversations and offer ZIP export

@@ -177,6 +177,12 @@ export async function listenNative(service, socketPath) {
       const body = JSON.stringify({ ok: true, result });
       const limit = ['readHistoryUpdate','readConversationGraph','readConversation','reconcileDispatch','readSubmission'].includes(input.operation) ? 20 * 1024 ** 2 : 2 * 1024 ** 2;
       if (Buffer.byteLength(body) > limit) fail('RESPONSE_TOO_LARGE');
+      if (typeof service.afterResponse === 'function') {
+        const done = () => service.afterResponse(input);
+        res.once('finish', done);
+        res.once('close', done);
+        if (res.destroyed) done();
+      }
       res.end(body);
     } catch (error) {
       res.statusCode = 503;

@@ -1,5 +1,24 @@
 # Текущий статус — 8 октября 2026
 
+### Contextual quick settings and explicit client recovery - October 8
+
+Settings home now follows the current GPT/Codex mode, with common theme/text-size
+links and the existing selected-machine limits overview. GPT offers connection
+checks, client access and explicit one-tap restart; Codex reuses the exact selected
+computer's existing restart controls and retains confirmation for stopping tasks.
+
+GPT recovery is a typed, actor-bound supervisor operation, independent of the
+renderer lane. Durable operation keys coalesce simultaneous taps and survive
+restart/lost acknowledgements. It preserves the profile and message receipts;
+there is no health-triggered restart, automatic send replay or caller-selected
+command/container. Recovery reads run only on the visible settings home after a
+manual request. Opening settings performs no restart.
+
+Source validation: Linux type/build and 39 native/service/provider checks passed;
+Chromium and WebKit covered mode selection, one-tap Codex control, GPT duplicate
+taps/lost acknowledgement, draft continuity and phone/tablet/desktop layout.
+Native runtime smoke and actual installation are being completed separately.
+
 ### GPT stale native conversation state recovery ? October 8
 
 The reported TrainerOS GPT send failed before submission with

@@ -69,7 +69,7 @@ export function SettingsSections({
     prefix = useId();
   const active = pages.find((p) => p.id === selected) ?? pages[0];
   const detail = selected !== null || search;
-  const visible = open && (!compact || detail) && !search;
+  const visible = open && detail && !search;
   useLayoutEffect(() => {
     const el = root.current;
     if (!el) return;
@@ -94,7 +94,11 @@ export function SettingsSections({
     if (!open) return;
     if (search) input.current?.focus({ preventScroll: true });
     else if (selected) content.current?.focus({ preventScroll: true });
-    else nav.current?.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
+    else
+      (
+        root.current?.querySelector<HTMLButtonElement>(".settings-home button") ??
+        nav.current?.querySelector<HTMLButtonElement>("button")
+      )?.focus({ preventScroll: true });
   }, [selected, search, open]);
   const go = (id: string) => {
     if (!pages.some((p) => p.id === id)) return;
@@ -190,7 +194,6 @@ export function SettingsSections({
           max={300}
         />
         <div className="settings-overview">
-          {overview?.(open && !detail, go)}
           <nav ref={nav} className="settings-categories" aria-label="Категории настроек">
             {pages
               .filter((p) => !p.parent)
@@ -201,7 +204,9 @@ export function SettingsSections({
                   data-category={p.id}
                   data-admin={p.admin || undefined}
                   aria-current={
-                    !search && active && ancestry(active)[0]?.id === p.id ? "page" : undefined
+                    detail && !search && active && ancestry(active)[0]?.id === p.id
+                      ? "page"
+                      : undefined
                   }
                   onClick={() => go(p.id)}
                 >
@@ -215,7 +220,10 @@ export function SettingsSections({
           </nav>
         </div>
         <div ref={content} className="settings-content" tabIndex={-1}>
-          <div className="settings-path">
+          <div className="settings-home" hidden={detail}>
+            {overview?.(open && !detail, go)}
+          </div>
+          <div className="settings-path" hidden={!detail}>
             <button
               type="button"
               className="icon-button"
@@ -264,7 +272,7 @@ export function SettingsSections({
                 id={prefix + p.id}
                 className="settings-section"
                 data-page={p.id}
-                hidden={search || active?.id !== p.id}
+                hidden={!detail || search || active?.id !== p.id}
                 aria-labelledby={prefix + p.id + "-title"}
               >
                 <h3 id={prefix + p.id + "-title"} className="settings-section-title">

@@ -44,10 +44,12 @@ function Control({
   machine,
   open,
   threadId,
+  quick = false,
 }: {
   machine: Machine;
   open: boolean;
   threadId?: string;
+  quick?: boolean;
 }) {
   const [state, setState] = useState<State>(),
     [error, setError] = useState(""),
@@ -58,6 +60,8 @@ function Control({
     sendingRef = useRef(false);
   const base = "/machines/" + encodeURIComponent(machine.id),
     path = base + "/desktop";
+  const pendingOperation =
+    !!state?.returning || ["queued", "restarting"].includes(state?.operation?.state ?? "");
   const refresh = async () => {
     const value = await api<State>(path);
     if (alive.current) setState(value);
@@ -89,7 +93,8 @@ function Control({
       }
     };
     void update();
-    const timer = window.setInterval(() => void update(), 4000);
+    const timer =
+      !quick || pendingOperation ? window.setInterval(() => void update(), 4000) : undefined;
     document.addEventListener("visibilitychange", update);
     return () => {
       disposed = true;
@@ -97,7 +102,7 @@ function Control({
       clearInterval(timer);
       document.removeEventListener("visibilitychange", update);
     };
-  }, [open, path]);
+  }, [open, path, quick, pendingOperation]);
   const restarting =
     !!state?.returning ||
     (!!state?.operation &&
@@ -167,34 +172,36 @@ function Control({
           <span className="muted">{machine.name}</span>
         </div>
       </div>
-      <div className="desktop-control-actions">
-        <span className="small muted">
-          {state?.client === "desktop" ? "Управление: компьютер" : "Управление: сайт"}
-        </span>
-        <button
-          type="button"
-          className="secondary"
-          disabled={!state || sending || restarting}
-          onClick={() => {
-            if (state?.client === "desktop" && state.running) setConfirm("return");
-            else if (
-              state?.client !== "desktop" &&
-              ((state?.webActiveTasks ?? state?.activeTasks ?? 0) > 0 || !state?.activityKnown)
-            )
-              setConfirm("handoff");
-            else void run("client");
-          }}
-        >
-          {state?.returning
-            ? "Возвращаю…"
-            : sending && ["client", "handoff", "return"].includes(action ?? "")
-              ? "Передаю…"
-              : state?.client === "desktop"
-                ? "Продолжить на сайте"
-                : "Работать с компьютера"}
-        </button>
-      </div>
-      {state?.client === "desktop" && !restarting && (
+      {!quick && (
+        <div className="desktop-control-actions">
+          <span className="small muted">
+            {state?.client === "desktop" ? "Управление: компьютер" : "Управление: сайт"}
+          </span>
+          <button
+            type="button"
+            className="secondary"
+            disabled={!state || sending || restarting}
+            onClick={() => {
+              if (state?.client === "desktop" && state.running) setConfirm("return");
+              else if (
+                state?.client !== "desktop" &&
+                ((state?.webActiveTasks ?? state?.activeTasks ?? 0) > 0 || !state?.activityKnown)
+              )
+                setConfirm("handoff");
+              else void run("client");
+            }}
+          >
+            {state?.returning
+              ? "Возвращаю…"
+              : sending && ["client", "handoff", "return"].includes(action ?? "")
+                ? "Передаю…"
+                : state?.client === "desktop"
+                  ? "Продолжить на сайте"
+                  : "Работать с компьютера"}
+          </button>
+        </div>
+      )}
+      {!quick && state?.client === "desktop" && !restarting && (
         <button
           type="button"
           className="text-button"
@@ -257,7 +264,7 @@ function Control({
             type="button"
             className="secondary desktop-restart-button"
             disabled={unavailable}
-            onClick={() => setConfirm("restart")}
+            onClick={() => (quick ? void run("restart") : setConfirm("restart"))}
           >
             <Icon name="refresh" />
             {(sending && ["restart", "force"].includes(action ?? "")) ||
@@ -283,11 +290,13 @@ export function DesktopControl({
   open,
   threadId,
   machineId,
+  quick,
 }: {
   machines: Machine[];
   open: boolean;
   threadId?: string;
   machineId?: string;
+  quick?: boolean;
 }) {
   return (
     <>
@@ -299,6 +308,7 @@ export function DesktopControl({
             machine={machine}
             open={open}
             threadId={machine.id === machineId ? threadId : undefined}
+            quick={quick}
           />
         ))}
     </>

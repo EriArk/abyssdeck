@@ -606,3 +606,59 @@
     }
   }
 }
+.settings-quick {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.8rem;
+  border-bottom: 1px solid var(--line);
+}
+.settings-quick[hidden] {
+  display: none;
+}
+.settings-quick h3,
+.settings-quick p {
+  margin: 0;
+}
+.settings-quick .gpt-client-recovery,
+.settings-quick .gpt-connection-settings {
+  display: grid;
+  gap: 0.6rem;
+}
+.settings-quick button,
+.settings-quick a {
+  white-space: normal;
+}
+.settings-quick-links {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+}
+.settings-home {
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+}
+.settings-home[hidden],
+.settings-path[hidden] {
+  display: none;
+}
+.settings-browser .settings-sections[data-compact="true"][data-detail="false"] .settings-layout {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+.settings-browser .settings-sections[data-compact="true"][data-detail="false"] .settings-content {
+  display: block;
+  height: auto;
+  order: -1;
+  flex: none;
+  overflow: visible;
+}
+.settings-browser .settings-sections[data-compact="true"][data-detail="false"] .settings-overview {
+  height: auto;
+  flex: none;
+  overflow: visible;
+}
+.settings-browser .settings-sections[data-compact="true"][data-detail="false"] .settings-home {
+  overflow: visible;
+}

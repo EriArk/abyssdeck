@@ -1,4 +1,5 @@
 import {NativeEnrollment} from './enrollment.mjs';
+import {NativeClientRecovery} from './client-recovery.mjs';
 import {NativeOperationReceipts} from './operation-receipts.mjs';
 import {NativeWorkspaceReceipts} from './workspace-receipts.mjs';
 import {NativeProjectReceipts} from './project-receipts.mjs';
@@ -38,7 +39,10 @@ const child = spawn('/usr/bin/chatgpt', ['--disable-gpu', '--remote-debugging-pi
 closeSync(log);
 const transport = new NativePipe(child.stdio[3], child.stdio[4]);
 const reader=new NativeRendererReader({transport});
-const service=existsSync(`${root}/enrollment.json`)?new NativeEnrollment(root,reader,b=>createService(b,reader)):(privatePath(`${root}/binding.json`,'isFile'),createService(JSON.parse(readFileSync(`${root}/binding.json`,'utf8')),reader));
+const boundService=existsSync(`${root}/enrollment.json`)?new NativeEnrollment(root,reader,b=>createService(b,reader)):(privatePath(`${root}/binding.json`,'isFile'),createService(JSON.parse(readFileSync(`${root}/binding.json`,'utf8')),reader));
+// start.sh exits with this supervisor; the existing container restart policy relaunches
+// this same isolated profile. No host command, container name or target comes from HTTP.
+const service=new NativeClientRecovery({service:boundService,root,userId:boundService.userId,restart:()=>stop(0)});
 let server, stopping = false;
 function stop(code) {
   if (stopping) return;

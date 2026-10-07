@@ -310,6 +310,26 @@ export class GptService {
     }
     return this.connection();
   }
+  async clientRecovery(key?: string, checkOnly = false) {
+    this.authorize();
+    const client = this.native?.workspace.client;
+    if (!client?.clientRecovery) {
+      if (!key || checkOnly) return { available: false, operation: null };
+      throw error("GPT_RESTART_UNAVAILABLE", "Перезапуск этого клиента ещё не подключён.");
+    }
+    try {
+      const result = await client.clientRecovery(key, checkOnly);
+      if (key || result.operation?.state === "restarted") {
+        this.connectionCache = undefined;
+        this.modelCache = undefined;
+      }
+      return result;
+    } catch (e) {
+      if ((!key || checkOnly) && e instanceof Error && e.message === "NATIVE_INVALID_REQUEST")
+        return { available: false, operation: null };
+      throw e;
+    }
+  }
   private modelsPending: Promise<GptModels> | undefined;
   private modelCache: { value: GptModels; expires: number } | undefined;
   private readonly token: string;
@@ -2082,6 +2102,17 @@ export function registerGpt(
   });
   app.get("/api/gpt/status", async () => service.connection());
   app.post("/api/gpt/reconnect", async () => service.reconnect());
+  app.get("/api/gpt/client-restart", async (req) =>
+    service.clientRecovery(z.object({ key: uuid.optional() }).strict().parse(req.query).key, true),
+  );
+  app.post("/api/gpt/client-restart", async (req, reply) => {
+    z.object({ confirm: z.literal(true) })
+      .strict()
+      .parse(req.body);
+    return reply
+      .code(202)
+      .send(await service.clientRecovery(uuid.parse(req.headers["idempotency-key"])));
+  });
   app.get("/api/gpt/models", async () => service.models());
   app.get("/api/gpt/attention", async () => {
     service.authorize();

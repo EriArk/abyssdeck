@@ -544,6 +544,30 @@ export class NativeGptReadClient {
     this.nativeInstance = value.instanceId;
     return value;
   }
+  async clientRecovery(key?: string, checkOnly = false) {
+    // Local supervisor control stays reachable even when a renderer lane is hung.
+    // This is a single explicit request, never a retried write or a health probe.
+    return z
+      .object({
+        available: z.literal(true),
+        operation: z
+          .object({
+            key: uuid,
+            requestedAt: z.number().int().nonnegative(),
+            state: z.enum(["restarting", "restarted"]),
+          })
+          .strict()
+          .nullable(),
+      })
+      .strict()
+      .parse(
+        await this.request(
+          key && !checkOnly
+            ? { operation: "restartClient", key: uuid.parse(key) }
+            : { operation: "restartStatus", ...(key ? { key: uuid.parse(key) } : {}) },
+        ),
+      );
+  }
   async catalog(offset = 0, archived = false) {
     z.number().int().min(0).max(10000).parse(offset);
     return z
