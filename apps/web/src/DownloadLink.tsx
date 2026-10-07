@@ -6,7 +6,7 @@ import { FilePreview } from "./FilePreview";
 import { FileViewerDialog } from "./FileViewerDialog";
 import { CompactFileActions } from "./fileWorkspaceContext";
 import { Icon } from "./icons";
-import SaveFileWorker from "./saveFile.worker?worker&inline";
+import SaveFileWorker from "./saveFile.worker?worker";
 import { useWorkspaceDialog } from "./useWorkspaceDialog";
 import { ViewerEditButton } from "./ViewerEditButton";
 import "./download.css";
@@ -59,8 +59,12 @@ function BrowserDownload({
             className="secondary"
             onClick={() => {
               void (
-                navigator.clipboard?.writeText(new URL(href, location.origin).href) ??
-                Promise.reject(Error("Clipboard unavailable"))
+                navigator.clipboard?.writeText(
+                  new URL(
+                    "/download?" + new URLSearchParams({ source: href, name }),
+                    location.origin,
+                  ).href,
+                ) ?? Promise.reject(Error("Clipboard unavailable"))
               )
                 .then(() => {
                   setCopied(true);

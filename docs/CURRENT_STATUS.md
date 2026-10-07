@@ -1,4 +1,26 @@
-# Текущий статус — 7 октября 2026
+# Текущий статус — 8 октября 2026
+
+### Production save-worker policy and Safari sign-in - October 8
+
+Owner feedback exposed a concrete deployment defect in the previous save repair:
+the inline blob worker conflicted with the live site's `script-src 'self'` policy.
+The old browser fixture did not send that header. Save preparation now loads an
+ordinary same-origin worker asset; the site policy remains unchanged. The browser
+regression includes the production script/worker restrictions and an exact 38 MiB
+transfer, parent return and cancellation.
+
+The explicit Safari copy-link fallback now points to the existing authenticated
+file page, preserving its source/name through sign-in, instead of exposing a raw
+API URL that answers LOGIN_REQUIRED outside the PWA session. Ordinary in-place
+saves do not navigate there. No new file-size or elapsed-transfer limits are added.
+
+The TrainerOS archive is already retained in the private Hub artifact store:
+39,733,895 bytes, SHA-256
+`6d68a3cae487c8d8ce361ab9860b97dcb9bc633933e8aa7ab627498296a82d2d`,
+reverified on the host. A second server buffer would not fix the browser worker
+failure. Broader automatic preservation of GPT result files and reuse from server
+storage are a proposed product direction, not implemented by this web repair.
+Verification and compatible web-only activation are in progress.
 
 ### iPhone save navigation correction - October 7
 

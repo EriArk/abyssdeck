@@ -18,6 +18,11 @@ let gets = 0,
   denied = false,
   paused = false;
 const server = createServer(async (req, res) => {
+  // Match production's script/worker policy: blob/data workers are not permitted.
+  res.setHeader(
+    "content-security-policy",
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'",
+  );
   const url = new URL(req.url, "http://fixture");
   const json = (value) => {
     res.setHeader("content-type", "application/json");
@@ -32,6 +37,10 @@ const server = createServer(async (req, res) => {
   if (url.pathname === "/fixture.js") {
     res.setHeader("content-type", "text/javascript");
     return res.end(await readFile(join(dir, "fixture.js")));
+  }
+  if (/^\/assets\/[a-zA-Z0-9_.-]+\.js$/.test(url.pathname)) {
+    res.setHeader("content-type", "text/javascript");
+    return res.end(await readFile(join(dir, url.pathname.slice(1))));
   }
   if (url.pathname === "/fixture.css") {
     res.setHeader("content-type", "text/css");
@@ -123,7 +132,23 @@ try {
             throw new DOMException("Cancelled", "AbortError");
           },
         });
-        Object.defineProperty(navigator, "canShare", { value: () => true });
+        Object.defineProperty(navigator, "canShare", {
+          value: () => window.shareSupported !== false,
+        });
+        Object.defineProperty(navigator, "clipboard", {
+          value: {
+            writeText: async (text) => {
+              window.copiedLink = text;
+            },
+          },
+        });
+        window.policyViolations = [];
+        document.addEventListener("securitypolicyviolation", (event) =>
+          window.policyViolations.push({
+            directive: event.effectiveDirective,
+            blocked: event.blockedURI,
+          }),
+        );
       });
       const page = await context.newPage();
       const errors = [];
@@ -216,10 +241,20 @@ try {
         paused = false;
       }
       // Previously shared links have the same save flow and an explicit return.
+      await page.evaluate(() => {
+        window.shareSupported = false;
+      });
+      await page.getByRole("button", { name: "Save archive" }).click();
+      await page.getByRole("button", { name: "Копировать ссылку для Safari" }).click();
+      const copied = await page.evaluate(() => window.copiedLink);
+      assert.equal(new URL(copied).pathname, "/download");
+      assert.equal(new URL(copied).searchParams.get("source"), path);
+      await page.getByRole("button", { name: "Закрыть сохранение" }).click();
+      await page.evaluate(() => {
+        window.shareSupported = true;
+      });
       const popup = await context.newPage();
-      await popup.goto(
-        origin + "/download?source=" + encodeURIComponent(path) + "&name=archive.zip",
-      );
+      await popup.goto(copied);
       const downloadLink = popup.getByRole("button", { name: saveLabel });
       await expect(downloadLink).toBeVisible({ timeout: 30000 });
       await popup.getByRole("button", { name: "Закрыть сохранение" }).click();
@@ -249,6 +284,12 @@ try {
       await popup.goto(origin + "/download?source=http%3A%2F%2F%5B");
       await expect(popup.getByRole("alert")).toBeVisible();
       assert.deepEqual(errors, []);
+      assert.deepEqual(
+        await page.evaluate(() =>
+          window.policyViolations.filter((event) => event.directive === "worker-src"),
+        ),
+        [],
+      );
       await context.close();
       console.log(
         name +
