@@ -23,10 +23,20 @@ Native `systemError` no longer means ENTITY_BUSY for archive/delete. Actual loca
 turn ownership, native active status and queued work still gate these operations.
 Thread deletion also cleans up binary artifacts and the new preview cache files.
 
-Verification: Linux build/typecheck and 19 focused tests passed; Chromium and
+Verification: Linux build/typecheck and 23 focused tests passed; Chromium and
 WebKit verified lazy images larger than the former ceiling, original/close,
 individual retry and parent draft continuity. Both also loaded all 41 images
-from the owner's real gallery at phone width. Activation is pending below.
+from the owner's real gallery at phone width. A separate real Linux-to-Windows
+transfer probe captured all 41 originals (44,716,217 bytes) with a 24,190-byte
+HTML document; it used temporary proof storage, without mutating live history.
+
+Activated as `2133f030` through ordinary idle-admitted engine maintenance with a
+verified checkpoint and three-copy retention. Public web release
+`f9025242f037ac5ca8a5767b15480884c71c2c5c8050c7bdef1b61bd7752d2d7`
+and its entry return HTTP 200. Hub/engine are healthy; native GPT container IDs
+and start times are unchanged. The old TrainerOS chat has not been deleted or
+archived by the repair; its library actions are available to the owner. Native
+iPhone behavior remains subject to ordinary-use feedback.
 
 ### Production save-worker policy and Safari sign-in - October 8
 
