@@ -97,7 +97,7 @@ export class Catalog {
           let before = !state?.complete && state?.cursor ? String(state.cursor) : undefined;
           const cursors = new Set<string>();
           do {
-            const page = await this.history(thread, before);
+            const page = await this.logHistory(thread, before);
             if (this.logStopped) return;
             if (known.size && page.messages.length && page.messages.every((m) => known.has(m.id)))
               break;
@@ -139,6 +139,10 @@ export class Catalog {
   async closeChatLogs() {
     this.logStopped = true;
     await this.logPending;
+  }
+  private async logHistory(thread: ThreadRecord, before?: string): Promise<HistoryPage> {
+    await this.verifyThreadRoot(thread);
+    return this.fetchHistory(thread, before, undefined, true);
   }
   private refreshed = 0;
   private refreshing?: Promise<void>;
@@ -746,31 +750,32 @@ export class Catalog {
     thread: ThreadRecord,
     entry: Record<string, unknown>,
     index: number,
+    capture = true,
   ): MessageRecord | undefined {
     const item = obj(entry.item),
       type = str(item.type),
       turnId = str(entry.turnId, 100);
     if (!["userMessage", "agentMessage", "plan"].includes(type)) return;
     // Import exports from already existing native history as well as live events.
-    if (type === "agentMessage") this.artifacts.observe(thread, turnId || null, item);
+    if (capture && type === "agentMessage") this.artifacts.observe(thread, turnId || null, item);
     let content = typeof item.text === "string" ? item.text : "";
     const inputs = array(item.content);
     const messageId =
       (type === "userMessage" ? this.attachedMessage(thread.id, inputs) : undefined) ||
       str(item.clientId, 200) ||
       str(item.id, 200);
-    if (type === "userMessage")
+    if (capture && type === "userMessage")
       observeScheduleReceipt(this.store.db, messageId, thread.codexThreadId, turnId);
     // Reopening may recover the canonical user item without its live event.
     // Its client ID confirms consumption of an acknowledged queue submission.
-    if (type === "userMessage")
+    if (capture && type === "userMessage")
       this.store.db
         .prepare(
           "DELETE FROM queue_transfers WHERE threadId=? AND ((id=? AND state IN ('enqueue_pending','enqueue_unknown')) OR (state IN ('queued','steered') AND json_extract(value, '$.clientUserMessageId')=?))",
         )
         .run(thread.id, messageId, messageId);
     const images =
-      type === "userMessage"
+      capture && type === "userMessage"
         ? inputs.flatMap((c) => {
             const source =
               c.type === "localImage"
@@ -802,7 +807,7 @@ export class Catalog {
       );
     if (!content && !images.length) return;
     // Preserve the public request for Results without inserting synthetic chat messages.
-    if (type === "userMessage" && turnId)
+    if (capture && type === "userMessage" && turnId)
       this.store.result(thread.id, turnId, "request:" + messageId, "reasoning-request", "Запрос", {
         text: content || "Запрос с вложениями",
         codexTurn: true,
@@ -948,6 +953,7 @@ export class Catalog {
     thread: ThreadRecord,
     before?: string,
     turnId?: string,
+    logOnly = false,
   ): Promise<HistoryPage> {
     const project = this.projects().find((p) => p.id === thread.projectId);
     if (!project) throw new HubError(404, "PROJECT_NOT_FOUND", "Проект не найден");
@@ -1063,8 +1069,8 @@ export class Catalog {
                   .map((item) => ({ item, turnId: turn.id })),
               );
       for (const entry of entries) {
-        this.result(thread, entry);
-        const message = this.message(thread, entry, cursor.offset++);
+        if (!logOnly) this.result(thread, entry);
+        const message = this.message(thread, entry, cursor.offset++, !logOnly);
         if (message) {
           if (!turnId) saveChatLog(this.store, [message], cursor.logEpoch ?? Date.now() * 1000);
           cursor.pending.push(message);
@@ -1138,7 +1144,7 @@ export class Catalog {
     }
     return {
       sourceVersion: source.version,
-      messages: this.store.withAttachments(messages.reverse()),
+      messages: logOnly ? messages.reverse() : this.store.withAttachments(messages.reverse()),
       hasMore,
       nextBefore,
       lastSeq: this.store.lastSeq(thread.id),

@@ -57,5 +57,22 @@ export function readChatLog(store: Store, threadId: string): MessageRecord[] {
       );
     else saved.push(message);
   }
-  return store.withAttachments(saved);
+  // Export metadata only; withAttachments also hashes image previews for UI deduplication.
+  return saved.map((message) => ({
+    ...message,
+    attachments: store.db
+      .prepare("SELECT * FROM attachments WHERE threadId=? AND messageId=? ORDER BY createdAt")
+      .all(threadId, message.id)
+      .map((row) => store.attachmentPublic(row)),
+    images:
+      message.images ??
+      store.db
+        .prepare("SELECT id,name FROM native_images WHERE threadId=? AND messageId=?")
+        .all(threadId, message.id)
+        .map((row) => ({
+          id: String(row.id),
+          name: String(row.name),
+          url: `/api/native-images/${row.id}`,
+        })),
+  }));
 }

@@ -10,12 +10,23 @@ for (const [name, engine] of [
 ]) {
   const origin = "http://127.0.0.1:18859",
     f = await handoffFixture(origin);
+  // Keep the UI fixture's project stable; native discovery/backfill is tested separately.
+  f.sessions.catalog.refresh = async () => {};
+  f.sessions.catalog.syncThreads = async () => {};
+  f.sessions.catalog.history = async (thread) => ({
+    ...f.store.history(thread.id),
+    nextBefore: null,
+    hasMore: false,
+  });
   f.store.setPreferences({
     projectId: "project",
     threadId: f.thread.id,
     theme: "crt-green",
     view: "chat",
   });
+  f.store.db
+    .prepare("UPDATE threads SET origin='web',status='running' WHERE id=?")
+    .run(f.thread.id);
   f.store.append(f.thread.id, "user.message", {
     id: "request",
     text: "Continue the project from this saved conversation.",
@@ -46,6 +57,7 @@ for (const [name, engine] of [
     await page.goto(origin);
     const composer = page.getByRole("textbox", { name: "Сообщение Codex" });
     await composer.fill("Keep this draft");
+    await page.screenshot({ path: `.local/qa-chat-log/${name}-before-open.png` });
     await page.getByRole("button", { name: "Обзор текущего проекта" }).click();
     const logs = page.getByRole("region", { name: "Журнал чатов" });
     await expect(logs.getByLabel("Диалог")).toHaveValue(f.thread.id);

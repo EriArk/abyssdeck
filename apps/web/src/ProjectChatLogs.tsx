@@ -43,7 +43,7 @@ export function ProjectChatLogs({ projectId }: { projectId: string }) {
       </header>
       <p className="muted">
         Переписка сохраняется на сервере. Архив можно передать новому чату, даже если прежний
-        перестал работать.
+        перестал работать. В архиве только текст и ссылки, без содержимого вложений.
       </p>
       {error && <p role="alert">{error}</p>}
       {!!threads.length && (

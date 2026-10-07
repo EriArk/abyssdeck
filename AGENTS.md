@@ -9,8 +9,8 @@
   then retain new public messages from existing events. Existing source-change
   notifications may read the new native tail; do not add a history polling timer
   or repeatedly reload unchanged/broken chats. Preserve actual coverage metadata.
-- Use the shared closeable DownloadLink flow. Include saved files and readable
-  chat parts; never claim unavailable files or hidden reasoning were recovered.
+- Use the shared closeable DownloadLink flow. Include readable chat parts and file
+  references only, never attachment/artifact bytes; never claim unavailable files or hidden reasoning were recovered.
 
 ## Owner-corrected iPhone saving (2026-10-07)
 

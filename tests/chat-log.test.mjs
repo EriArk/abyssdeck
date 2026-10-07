@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { writeFile, readFile } from "node:fs/promises";
+import { writeFile, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
 import { saveChatLog, readChatLog } from "../apps/hub/dist/chat-log.js";
 import { handoffFixture } from "./handoff-fixture.mjs";
 
-test("saved chat, partial output and attachments download while native is broken; scope and deletion remain enforced", async (t) => {
+test("text-only recovery survives broken native and missing attachment bytes; scope and deletion remain enforced", async (t) => {
   const f = await handoffFixture();
   t.after(() => f.close());
   const { store, thread, sessions, app, headers } = f;
@@ -41,6 +41,7 @@ test("saved chat, partial output and attachments download while native is broken
     Buffer.from("exact attachment"),
   );
   store.db.prepare("UPDATE attachments SET messageId='old' WHERE id=?").run(file.id);
+  await unlink(join(sessions.attachments.root, file.id + ".bin"));
   sessions.catalog.connect = async () => {
     throw Error("native dead");
   };
@@ -62,7 +63,8 @@ test("saved chat, partial output and attachments download while native is broken
 z=zipfile.ZipFile(sys.argv[1]); assert z.testzip() is None
 m=json.loads(z.read('manifest.json')); assert m['messages']==2 and not m['historyBackfillComplete']
 rows=[json.loads(x) for x in z.read('messages.jsonl').splitlines()]; assert rows[0]['text']=='Old request'; assert len(rows[1]['text'])==300000
-f=m['files'][0]; assert z.read(f['name'])==b'exact attachment'
+f=m['files'][0]; assert f['name']=='test.txt' and f['included']==False
+assert not any(n.startswith('files/') for n in z.namelist())
 assert b'Old request' in z.read('chat-0001.md')
 `,
       path,
@@ -93,6 +95,12 @@ test("one full backfill, unchanged discoveries do not read Codex; a changed sour
   const f = await handoffFixture();
   t.after(() => f.close());
   const { catalog } = f.sessions;
+  catalog.artifacts.observe = () => {
+    throw Error("The logger must not capture files");
+  };
+  catalog.result = () => {
+    throw Error("The logger must not import result payloads");
+  };
   const items = Array.from({ length: 100 }, (_, i) => ({
     turnId: "turn",
     item: { type: "agentMessage", id: `item-${i}`, text: `message ${i}` },
@@ -132,7 +140,7 @@ test("interrupted first copy keeps a cursor and does not repeatedly query an unc
   t.after(() => f.close());
   const { catalog } = f.sessions;
   let calls = 0;
-  catalog.history = async (_thread, before) => {
+  catalog.logHistory = async (_thread, before) => {
     calls++;
     if (!before) return { messages: [], hasMore: true, nextBefore: "saved-page" };
     throw Error("native unavailable");
@@ -142,7 +150,7 @@ test("interrupted first copy keeps a cursor and does not repeatedly query an unc
   assert.equal(calls, 2);
   assert.equal(f.store.db.prepare("SELECT cursor FROM chat_log_sync").get().cursor, "saved-page");
   f.store.db.prepare("UPDATE threads SET sourceUpdatedAt=2 WHERE id=?").run(f.thread.id);
-  catalog.history = async (_thread, before) => {
+  catalog.logHistory = async (_thread, before) => {
     assert.equal(before, "saved-page");
     return { messages: [], hasMore: false, nextBefore: null };
   };
