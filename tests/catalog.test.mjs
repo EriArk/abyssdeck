@@ -87,6 +87,8 @@ function fixture(options = {}) {
     },
   };
   const catalog = new Catalog(config, store, async () => rpc);
+  // Background recovery has its own integration tests; keep these foreground read assertions isolated.
+  catalog.syncChatLogs = async () => {};
   return {
     store,
     catalog,

@@ -95,6 +95,10 @@ test("one full backfill, unchanged discoveries do not read Codex; a changed sour
   const f = await handoffFixture();
   t.after(() => f.close());
   const { catalog } = f.sessions;
+  f.store.setStatus(f.thread.id, "running");
+  f.store.withAttachments = () => {
+    throw Error("The logger must not load preview bytes");
+  };
   catalog.artifacts.observe = () => {
     throw Error("The logger must not capture files");
   };

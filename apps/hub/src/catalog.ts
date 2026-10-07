@@ -1083,55 +1083,57 @@ export class Catalog {
           : str(page.nextCursor, 8192) || undefined;
       more = !!cursor.rpc;
     }
-    // Reconcile the native snapshot with Hub events synchronously, before taking its stream cursor.
-    // Native user IDs differ from the optimistic Hub ID; keep the Hub ID and attachment metadata.
-    const matchedUsers = new Set(cursor.matchedUsers ?? []);
-    const reconcile = (message: MessageRecord): MessageRecord => {
-      let local = this.store.db
-        .prepare("SELECT * FROM messages WHERE threadId=? AND id=?")
-        .get(thread.id, message.id) as unknown as MessageRecord | undefined;
-      if (!local && message.role === "user" && message.turnId) {
-        // A turn may contain many Steers. The turn ID alone never identifies its user message.
-        const candidates = this.store.db
-          .prepare(
-            "SELECT * FROM messages WHERE threadId=? AND role='user' AND turnId=? AND text=? ORDER BY firstSeq DESC",
-          )
-          .all(thread.id, message.turnId, message.text) as unknown as MessageRecord[];
-        local = candidates.find((candidate) => !matchedUsers.has(candidate.id));
-      }
-      if (local?.role === "user") matchedUsers.add(local.id);
-      return local ?? message;
-    };
-    messages.splice(0, messages.length, ...messages.map(reconcile));
-    cursor.matchedUsers = [...matchedUsers];
-    if (!before && !turnId) {
-      const current = this.store.thread(thread.id);
-      if (["starting", "running", "waiting_approval"].includes(current.status)) {
-        const live = this.store
-          .history(thread.id)
-          .messages.filter(
-            (m) => m.turnId === current.activeTurnId || (!m.turnId && m.role === "user"),
-          );
-        const ids = new Set(messages.map((m) => m.id));
-        const anchors = messages.filter((m) => m.firstSeq > 0);
-        const oldest = Math.min(...anchors.map((m) => m.firstSeq));
-        for (const message of live) {
-          if (ids.has(message.id)) continue;
-          // A missing message can belong to an older native page. Never append it as new.
-          if (anchors.length && message.firstSeq < oldest && (more || cursor.pending.length))
-            continue;
-          // Native order remains authoritative; insert unpersisted live items at their Hub anchors.
-          const position = messages.findIndex(
-            (m) => m.firstSeq > 0 && m.firstSeq < message.firstSeq,
-          );
-          messages.splice(
-            position >= 0 ? position : anchors.length ? messages.length : 0,
-            0,
-            message,
-          );
-          ids.add(message.id);
+    if (!logOnly) {
+      // Reconcile the native snapshot with Hub events synchronously, before taking its stream cursor.
+      // Native user IDs differ from the optimistic Hub ID; keep the Hub ID and attachment metadata.
+      const matchedUsers = new Set(cursor.matchedUsers ?? []);
+      const reconcile = (message: MessageRecord): MessageRecord => {
+        let local = this.store.db
+          .prepare("SELECT * FROM messages WHERE threadId=? AND id=?")
+          .get(thread.id, message.id) as unknown as MessageRecord | undefined;
+        if (!local && message.role === "user" && message.turnId) {
+          // A turn may contain many Steers. The turn ID alone never identifies its user message.
+          const candidates = this.store.db
+            .prepare(
+              "SELECT * FROM messages WHERE threadId=? AND role='user' AND turnId=? AND text=? ORDER BY firstSeq DESC",
+            )
+            .all(thread.id, message.turnId, message.text) as unknown as MessageRecord[];
+          local = candidates.find((candidate) => !matchedUsers.has(candidate.id));
         }
-        cursor.pending.unshift(...messages.splice(20));
+        if (local?.role === "user") matchedUsers.add(local.id);
+        return local ?? message;
+      };
+      messages.splice(0, messages.length, ...messages.map(reconcile));
+      cursor.matchedUsers = [...matchedUsers];
+      if (!before && !turnId) {
+        const current = this.store.thread(thread.id);
+        if (["starting", "running", "waiting_approval"].includes(current.status)) {
+          const live = this.store
+            .history(thread.id)
+            .messages.filter(
+              (m) => m.turnId === current.activeTurnId || (!m.turnId && m.role === "user"),
+            );
+          const ids = new Set(messages.map((m) => m.id));
+          const anchors = messages.filter((m) => m.firstSeq > 0);
+          const oldest = Math.min(...anchors.map((m) => m.firstSeq));
+          for (const message of live) {
+            if (ids.has(message.id)) continue;
+            // A missing message can belong to an older native page. Never append it as new.
+            if (anchors.length && message.firstSeq < oldest && (more || cursor.pending.length))
+              continue;
+            // Native order remains authoritative; insert unpersisted live items at their Hub anchors.
+            const position = messages.findIndex(
+              (m) => m.firstSeq > 0 && m.firstSeq < message.firstSeq,
+            );
+            messages.splice(
+              position >= 0 ? position : anchors.length ? messages.length : 0,
+              0,
+              message,
+            );
+            ids.add(message.id);
+          }
+          cursor.pending.unshift(...messages.splice(20));
+        }
       }
     }
     const hasMore = !!cursor.pending.length || more;

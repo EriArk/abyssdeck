@@ -43,6 +43,7 @@ for (const [name, engine] of [
     const context = await browser.newContext({
       viewport: { width: 393, height: 852 },
       hasTouch: true,
+      reducedMotion: "reduce",
     });
     const [cookieName, value] = f.headers.cookie.split("=");
     await context.addCookies([
@@ -57,7 +58,6 @@ for (const [name, engine] of [
     await page.goto(origin);
     const composer = page.getByRole("textbox", { name: "Сообщение Codex" });
     await composer.fill("Keep this draft");
-    await page.screenshot({ path: `.local/qa-chat-log/${name}-before-open.png` });
     await page.getByRole("button", { name: "Обзор текущего проекта" }).click();
     const logs = page.getByRole("region", { name: "Журнал чатов" });
     await expect(logs.getByLabel("Диалог")).toHaveValue(f.thread.id);
