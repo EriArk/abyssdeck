@@ -19,6 +19,7 @@ import { Icon } from "./icons";
 import { cleanTarget, type NotebookRequest } from "./Notebook";
 import { PanelDivider } from "./PanelDivider";
 import { PinnedList } from "./PinnedList";
+import { ProjectChatLogs } from "./ProjectChatLogs";
 import { DeliveryButton } from "./ProjectDeliveryHost";
 import { ProjectRelays } from "./ProjectRelays";
 import { ProjectRotation } from "./ProjectRotation";
@@ -328,6 +329,7 @@ export function ProjectOverview({
                     </button>
                   )}
                 </section>
+                {scope.client === "codex" && <ProjectChatLogs projectId={scope.projectId} />}
                 {!!data.reviews?.length && (
                   <section className="overview-card" aria-label="Приёмка работы">
                     <header>

@@ -41,6 +41,7 @@ function record(value: unknown): Record<string, unknown> {
     ? (value as Record<string, unknown>)
     : {};
 }
+const publicText = (value: unknown): string => (typeof value === "string" ? value : "");
 function text(value: unknown, max = 200000): string {
   return typeof value === "string" ? value.slice(0, max) : "";
 }
@@ -1570,11 +1571,16 @@ export class Sessions extends EventEmitter {
                 .prepare("SELECT text,phase FROM messages WHERE threadId=? AND id=?")
                 .get(id, text(item.id));
               const phase = item.type === "plan" ? "plan" : text(item.phase);
-              if (existing?.text !== text(item.text) || existing?.phase !== phase)
+              if (existing?.text !== publicText(item.text) || existing?.phase !== phase)
                 this.emitEvent(
                   id,
                   "assistant.completed",
-                  { id: text(item.id), text: text(item.text), phase, questions: item.questions },
+                  {
+                    id: text(item.id),
+                    text: publicText(item.text),
+                    phase,
+                    questions: item.questions,
+                  },
                   text(last.id),
                 );
             }
@@ -2176,7 +2182,7 @@ export class Sessions extends EventEmitter {
       this.emitEvent(t.id, "queue.changed", {});
       const value = content
         .filter((c) => c.type === "text")
-        .map((c) => text(c.text))
+        .map((c) => publicText(c.text))
         .join("\n\n");
       // Normal sends already have an optimistic user event. Queued/steered messages arrive here.
       const existing = this.store.db
@@ -2200,7 +2206,7 @@ export class Sessions extends EventEmitter {
           "user.message",
           {
             id: messageId,
-            text: files.length ? text(content[0]?.text) : value,
+            text: files.length ? publicText(content[0]?.text) : value,
             attachments: files,
           },
           turnId,
@@ -2243,7 +2249,7 @@ export class Sessions extends EventEmitter {
         "assistant.delta",
         {
           id: text(p.itemId),
-          text: text(p.delta),
+          text: publicText(p.delta),
           ...(method === "item/plan/delta" ? { phase: "plan" } : {}),
         },
         turnId,
@@ -2275,7 +2281,7 @@ export class Sessions extends EventEmitter {
           "assistant.completed",
           {
             id,
-            text: text(item.text),
+            text: publicText(item.text),
             phase: type === "plan" ? "plan" : text(item.phase),
             questions: item.questions,
           },
@@ -2283,7 +2289,7 @@ export class Sessions extends EventEmitter {
         );
         if (type === "plan") {
           const resultId = this.store.result(t.id, turnId, id, "plan", "План работы", {
-            text: text(item.text),
+            text: publicText(item.text),
           });
           if (resultId)
             this.emitEvent(t.id, "result.created", { id: resultId, type: "plan" }, turnId);
@@ -2552,6 +2558,7 @@ export class Sessions extends EventEmitter {
     this.closing = true;
     clearInterval(this.idleTimer);
     await this.externalActivity.close();
+    await this.catalog.closeChatLogs();
     for (const p of [...this.runtimes.values()]) {
       try {
         (await p).rpc.close();

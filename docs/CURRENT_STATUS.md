@@ -1,5 +1,27 @@
 # Текущий статус — 8 октября 2026
 
+### Durable Codex conversation recovery logs — October 8
+
+The project overview now offers a chat selector and ZIP export from the Hub's
+saved public history, including archived and failed conversations. The archive
+contains START-HERE.md, ordered Markdown parts, JSONL with message/turn identity,
+coverage metadata and files already captured on the Hub. Export never resumes a
+chat or contacts its computer. Explicit deletion removes the log with its chat.
+
+Schema 31 retains native public history pages separately from the existing live
+message journal. Existing catalog discovery starts one initial paginated copy;
+its durable cursor survives interruption. Later source-version changes read only
+the new tail, while live messages continue through the existing event stream.
+There is no new polling timer. Unchanged sources, including failed reads, are not
+queried again by the logger. Hidden reasoning and native tool inputs are excluded.
+Existing native reads also preserve public pages. Files not previously captured
+remain references; incomplete history is explicitly reported rather than invented.
+
+The ZIP64 writer streams files with backpressure and has no 4 GiB file ceiling.
+The common DownloadLink retains one closeable saving overlay on iPhone/PWA.
+Source and focused Linux tests are complete; browser verification and ordinary
+engine/web activation are in progress. No physical iPhone acceptance is claimed.
+
 ### Codex gallery images and failed-thread library actions - October 8
 
 The reported TrainerOS gallery is a local HTML export with 41 sibling PNGs,

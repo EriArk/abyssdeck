@@ -369,6 +369,17 @@ export const migrations: readonly Migration[] = [
       );
     },
   },
+  {
+    version: 31,
+    name: "durable-public-chat-history",
+    up(db) {
+      db.exec(`
+        CREATE TABLE chat_log_messages(threadId TEXT NOT NULL REFERENCES threads(id) ON DELETE CASCADE,id TEXT NOT NULL,value TEXT NOT NULL,position REAL NOT NULL,PRIMARY KEY(threadId,id));
+        CREATE INDEX chat_log_order ON chat_log_messages(threadId,position);
+        CREATE TABLE chat_log_sync(threadId TEXT PRIMARY KEY REFERENCES threads(id) ON DELETE CASCADE,version REAL NOT NULL DEFAULT -1,complete INTEGER NOT NULL DEFAULT 0,updatedAt INTEGER NOT NULL DEFAULT 0,error TEXT NOT NULL DEFAULT '',cursor TEXT);
+      `);
+    },
+  },
 ];
 export const SCHEMA_VERSION = migrations.at(-1)?.version ?? 0;
 

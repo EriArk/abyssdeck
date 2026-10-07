@@ -8,6 +8,7 @@ import {
 } from "@codex-web/shared";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { registerChatLogs } from "./chat-log-routes.js";
 import { Notebook } from "./notebook.js";
 import type { ProjectActions } from "./project-actions.js";
 import { ProjectCores } from "./project-core.js";
@@ -144,6 +145,7 @@ export function registerProjectOverview(
   work?: ProjectActions,
 ) {
   const home = new ProjectHome(sessions, work);
+  registerChatLogs(app, sessions);
   app.get("/api/workspace/overview", (req) => {
     const q = z
       .object({

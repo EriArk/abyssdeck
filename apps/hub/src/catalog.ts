@@ -11,6 +11,7 @@ import {
   turnSettingsSchema,
 } from "@codex-web/shared";
 import { Artifacts } from "./artifacts.js";
+import { saveChatLog } from "./chat-log.js";
 import { observeScheduleReceipt } from "./codex-schedules.js";
 import { GeneratedArtifacts } from "./generatedArtifacts.js";
 import { gptResultContent } from "./gpt-result-content.js";
@@ -33,6 +34,7 @@ export type CatalogProject = ProjectConfig & {
   unassigned?: boolean;
 };
 type Cursor = {
+  logEpoch?: number;
   pageSize?: number;
   matchedUsers?: string[];
   rpc?: string;
@@ -53,6 +55,91 @@ type HistoryPage = {
 
 /** Native Codex metadata is the source. Only small catalog snapshots live in Hub storage. */
 export class Catalog {
+  private logPending?: Promise<void>;
+  private logStopped = false;
+  private logAttempts = new Map<string, number>();
+  /** One background reader per account; no writes or retries of native user input. */
+  syncChatLogs(machineId: string): Promise<void> {
+    if (this.logStopped) return Promise.resolve();
+    if (this.logPending) return this.logPending;
+    this.logPending = (async () => {
+      const projects = this.projects().filter((p) => p.machineId === machineId && !p.unassigned);
+      const threads = this.store.db
+        .prepare("SELECT id FROM threads WHERE diagnostic=0 ORDER BY updatedAt DESC")
+        .all();
+      for (const row of threads) {
+        if (this.logStopped) break;
+        const thread = this.store.thread(String(row.id));
+        if (
+          !projects.some((p) => p.id === thread.projectId) ||
+          this.library.get("thread", thread.codexThreadId)?.deleted
+        )
+          continue;
+        const state = this.store.db
+          .prepare("SELECT * FROM chat_log_sync WHERE threadId=?")
+          .get(thread.id);
+        const version = thread.sourceUpdatedAt ?? 0;
+        if (state?.complete && state.version === version) continue;
+        // Existing discovery notifications are the trigger, not an archive polling loop.
+        // A failed read at the same source version waits for a change or an explicit retry.
+        if (this.logAttempts.get(thread.id) === version) continue;
+        this.logAttempts.set(thread.id, version);
+        this.invalidate(thread.id);
+        const known = state?.complete
+          ? new Set(
+              this.store.db
+                .prepare("SELECT id FROM chat_log_messages WHERE threadId=?")
+                .all(thread.id)
+                .map((r) => String(r.id)),
+            )
+          : new Set<string>();
+        try {
+          let before = !state?.complete && state?.cursor ? String(state.cursor) : undefined;
+          const cursors = new Set<string>();
+          do {
+            const page = await this.history(thread, before);
+            if (this.logStopped) return;
+            if (known.size && page.messages.length && page.messages.every((m) => known.has(m.id)))
+              break;
+            before = page.hasMore ? (page.nextBefore ?? undefined) : undefined;
+            if (before && cursors.has(before)) throw new Error("HISTORY_CURSOR_REPEATED");
+            if (before) cursors.add(before);
+            this.store.db
+              .prepare(
+                "INSERT INTO chat_log_sync(threadId,cursor,updatedAt,version) VALUES(?,?,?,?) ON CONFLICT(threadId) DO UPDATE SET cursor=excluded.cursor,updatedAt=excluded.updatedAt",
+              )
+              .run(thread.id, before ?? null, Date.now(), version);
+            // Yield between pages; archive backfill must not monopolize the event loop.
+            await new Promise<void>((resolve) => setImmediate(resolve));
+          } while (before);
+          this.store.db
+            .prepare(
+              "INSERT INTO chat_log_sync(threadId,version,complete,updatedAt,error) VALUES(?,?,1,?,'') ON CONFLICT(threadId) DO UPDATE SET version=excluded.version,complete=1,updatedAt=excluded.updatedAt,error='',cursor=NULL",
+            )
+            .run(thread.id, state?.cursor ? Number(state.version) : version, Date.now());
+          if (state?.cursor && state.version !== version) this.logAttempts.delete(thread.id);
+        } catch (error) {
+          if (this.logStopped) return;
+          this.store.db
+            .prepare(
+              "INSERT INTO chat_log_sync(threadId,version,complete,updatedAt,error) VALUES(?,-1,0,?,?) ON CONFLICT(threadId) DO UPDATE SET updatedAt=excluded.updatedAt,error=excluded.error",
+            )
+            .run(
+              thread.id,
+              Date.now(),
+              error instanceof HubError ? error.code : "HISTORY_UNAVAILABLE",
+            );
+        }
+      }
+    })().finally(() => {
+      this.logPending = undefined;
+    });
+    return this.logPending;
+  }
+  async closeChatLogs() {
+    this.logStopped = true;
+    await this.logPending;
+  }
   private refreshed = 0;
   private refreshing?: Promise<void>;
   private threadRefresh = new Map<string, { at: number; pending?: Promise<void> }>();
@@ -540,6 +627,7 @@ export class Catalog {
         if (!cursor) break;
       }
       this.threadRefresh.set(machineId, { at: Date.now() });
+      void this.syncChatLogs(machineId).catch(() => {});
     })().catch((error) => {
       this.threadRefresh.delete(machineId);
       throw error;
@@ -665,7 +753,7 @@ export class Catalog {
     if (!["userMessage", "agentMessage", "plan"].includes(type)) return;
     // Import exports from already existing native history as well as live events.
     if (type === "agentMessage") this.artifacts.observe(thread, turnId || null, item);
-    let content = str(item.text);
+    let content = typeof item.text === "string" ? item.text : "";
     const inputs = array(item.content);
     const messageId =
       (type === "userMessage" ? this.attachedMessage(thread.id, inputs) : undefined) ||
@@ -698,7 +786,9 @@ export class Catalog {
       content = array(item.content)
         .map((c) =>
           c.type === "text"
-            ? str(c.text)
+            ? typeof c.text === "string"
+              ? c.text
+              : ""
             : (c.type === "localImage" || c.type === "image") && !images.length
               ? "🖼 Изображение"
               : "",
@@ -865,7 +955,13 @@ export class Catalog {
     const source = !before
       ? await this.readThread(thread)
       : { version: thread.sourceUpdatedAt ?? 0 };
-    let cursor: Cursor = { pending: [], offset: 0, kind: "items", ...(turnId ? { turnId } : {}) };
+    let cursor: Cursor = {
+      logEpoch: Date.now() * 1000,
+      pending: [],
+      offset: 0,
+      kind: "items",
+      ...(turnId ? { turnId } : {}),
+    };
     if (turnId && !before) {
       const saved = this.store.db
         .prepare("SELECT value FROM history_cursors WHERE id=? AND threadId=?")
@@ -969,7 +1065,10 @@ export class Catalog {
       for (const entry of entries) {
         this.result(thread, entry);
         const message = this.message(thread, entry, cursor.offset++);
-        if (message) cursor.pending.push(message);
+        if (message) {
+          if (!turnId) saveChatLog(this.store, [message], cursor.logEpoch ?? Date.now() * 1000);
+          cursor.pending.push(message);
+        }
       }
       messages.push(...cursor.pending.splice(0, 20 - messages.length));
       cursor.rpc =

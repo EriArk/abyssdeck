@@ -286,7 +286,7 @@ export class Store {
       if (["user.message", "assistant.delta", "assistant.completed"].includes(type)) {
         const role = type === "user.message" ? "user" : "assistant",
           id = String(payload.id),
-          value = String(payload.text ?? "").slice(0, 200000);
+          value = String(payload.text ?? "");
         const questions = role === "assistant" ? chatQuestions(payload.questions) : undefined;
         if (questions)
           this.db
@@ -302,7 +302,7 @@ export class Store {
         if (type === "assistant.delta")
           this.db
             .prepare(
-              "UPDATE messages SET text=substr(text || ?,1,200000),lastSeq=?,turnId=COALESCE(turnId,?) WHERE threadId=? AND id=?",
+              "UPDATE messages SET text=text || ?,lastSeq=?,turnId=COALESCE(turnId,?) WHERE threadId=? AND id=?",
             )
             .run(value, seq, turnId, threadId, id);
         else

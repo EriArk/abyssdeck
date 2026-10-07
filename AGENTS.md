@@ -1,5 +1,17 @@
 # AGENTS.md
 
+## Owner-requested conversation recovery log (2026-10-08)
+
+- Keep a durable server copy of public Codex conversations and offer ZIP export
+  from the project overview, including archived/failed chats. Export must use the
+  saved copy without resuming the native chat or requiring machine availability.
+- Copy existing history once, resume an interrupted initial copy from its cursor,
+  then retain new public messages from existing events. Existing source-change
+  notifications may read the new native tail; do not add a history polling timer
+  or repeatedly reload unchanged/broken chats. Preserve actual coverage metadata.
+- Use the shared closeable DownloadLink flow. Include saved files and readable
+  chat parts; never claim unavailable files or hidden reasoning were recovered.
+
 ## Owner-corrected iPhone saving (2026-10-07)
 
 - Saving must stay in one closeable window over the mounted source. Do not add
