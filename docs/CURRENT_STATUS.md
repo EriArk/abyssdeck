@@ -1,6 +1,20 @@
 # Текущий статус — 7 октября 2026
 
 
+### Public branch cleanup - October 7
+
+Verified the 76 remote branches against `main`, exact merged PR heads and patch
+equivalence. Removed 71 completed branches with an atomic, expected-SHA guarded
+push. Five remain: `main`, the open PR branches #216 and #217, and the historical
+`fix/settings-live` / `fix/speech-live` backports. The latter four require separate
+reconciliation; their age alone is not evidence that every change was integrated.
+Open PRs, local worktrees and installed releases were preserved. A verified local
+Git bundle and exact ref manifest retain all 76 original branch tips.
+
+Contributor guidance now identifies `main` and short-lived PR branches, with
+cleanup after verified integration. GitHub Actions remain disabled; no workflow,
+automatic merge or deployment was enabled. This was repository maintenance only.
+
 ### GPT native-outcome repair - October 7
 
 Owner-authorized follow-up to the audit removes duplicate history/renderer/send

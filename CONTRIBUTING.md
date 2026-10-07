@@ -65,6 +65,12 @@ the fixture behavior, not physical-device or live-provider acceptance.
 
 ## Submit a focused change
 
+Start from `main`, the current integration branch. Use a short-lived branch for
+each focused pull request; there are no separate long-lived branches for product
+features. After integration, remove the completed branch. For squash or rebase
+merges, verify the merged PR or equivalent patches rather than relying only on
+commit ancestry. Preserve open PRs and any changes not yet integrated.
+
 - Explain the concrete problem and resulting behavior.
 - Include relevant verification and any known limitations; attach wide/narrow
   screenshots for visible UI changes.
