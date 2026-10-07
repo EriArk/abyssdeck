@@ -134,3 +134,20 @@ Final source checks and activation are recorded in CURRENT_STATUS. No real user
 prompt was submitted or replayed for these checks. No claim is made that an
 upstream rate limit has disappeared or that previously discarded errors can be
 reconstructed.
+
+## Activation and live postchecks
+
+Source `aef6fd3` was installed through the ordinary guarded engine updater and
+per-profile native adapter updater. Hub/engine and public assets use `aef6fd3`;
+owner native image is `26.928.31416-aef6fd3`. The official native application was
+not upgraded. Account/profile paths stayed identical; the previous native
+container remains stopped for rollback. Other native user profiles were untouched.
+
+The Team checkpoint and admission completed, with three completed checkpoints
+retained. Warm preparation took 138 seconds; actual gateway/engine downtime was
+91 seconds. Both containers became healthy. Live read-only checks returned local
+status in 70 ms, ready/non-generating activity in 1.9 s, three model versions in
+2.3 s and 282 nodes of the reported conversation in 8.3 s. All installed adapter
+modules matched candidate source hashes. No real user input was submitted or
+replayed. Source/fixture verification, installed state and these live reads are
+separate evidence; future provider failures will still be reported as failures.

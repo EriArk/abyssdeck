@@ -14,9 +14,22 @@ upload/send. Pending history reads remain shared across cache expiry.
 Linux build and both TypeScript checks passed, together with 310 regression
 tests and nine native-adapter upgrade/rollback tests. Chromium and WebKit passed
 the phone/tablet flow, retained draft/output, one-send lost acknowledgement and
-visible native error. Repository guard and focused lint passed. Guarded activation
-is next; these results are source/fixture evidence. The earlier longer outer
-budgets below are superseded by native-owned operation completion. See
+visible native error. Repository guard and focused lint passed.
+
+Activated source `aef6fd3`: Hub/engine and published web use that revision; the
+owner native image is `26.928.31416-aef6fd3`, retaining the same official app,
+profile/account binding and previous container for rollback. Ordinary idle
+admission was used, without force. The verified Team checkpoint retains all
+managed namespaces; retention kept three completed checkpoints. Preparation took
+138 seconds while online, followed by 91 seconds of gateway/engine downtime.
+
+Post-install checks: gateway/engine healthy; local GPT status 70 ms, bound activity
+ready/non-generating in 1.9 s, three model versions in 2.3 s, and the reported
+TrainerOS conversation's 282-node canonical history in 8.3 s. Installed adapter
+modules match source hashes. No user prompt was submitted/replayed. Fixture tests
+cover send/error behavior; these live checks are reads, not a claim about future
+upstream availability. The earlier longer outer budgets below are superseded by
+native-owned operation completion. See
 [the audit and repair evidence](GPT_RELIABILITY_AUDIT_2026-10-07.md).
 
 ### GPT reliability audit and bounded polling fixes — October 7
