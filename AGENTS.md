@@ -1,5 +1,16 @@
 # AGENTS.md
 
+## Owner-requested native GPT error authority (2026-10-07)
+
+- Repair the GPT chain without adding arbitrary waiting limits. Let the native
+  client's network operations complete or report their own error; do not turn
+  slow history or submission startup into a synthetic failed send.
+- Show the native operation/stream error on its exact chat message, preserving
+  partial public output, attachments, drafts and uncertain delivery receipts.
+  Local transport loss, account/branch checks and at-most-once sends still apply.
+- Honor upstream Retry-After without lengthening it. Local queue backoff is
+  scheduling, not proof of a failed message; never automatically replay a POST.
+
 ## Owner-approved project license (2026-10-06)
 
 - Original AbyssDeck code uses AGPL-3.0-only. The owner explicitly accepts

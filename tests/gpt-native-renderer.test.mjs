@@ -208,7 +208,7 @@ test("multi-megabyte story history keeps the latest native turns and revision up
   assert.equal(next.graph.mapping[id(101)].message.content.parts[0], "New native mobile answer");
 });
 
-test("parallel readers share one canonical upstream response and preserve account checks", async () => {
+test("parallel readers share a still-pending history beyond cache expiry and preserve account checks", async () => {
   const f = fixture(),
     accountFingerprint = await f.binding();
   const original = f.service.kWt.safeGet;
@@ -222,6 +222,8 @@ test("parallel readers share one canonical upstream response and preserve accoun
   const request = { operation: "readConversation", conversationId, accountFingerprint };
   const a = f.read(request, true);
   await entered.promise;
+  for (const entry of f.runtime[Symbol.for("codex-web.native-history")].values())
+    entry.at = Date.now() - 301000;
   const b = f.read(request, true);
   release.resolve();
   const values = await Promise.all([a, b]);
@@ -886,35 +888,30 @@ test("native history shares canonical snapshots and backs off all readers after 
   assert.equal(attempts, 1);
 });
 
-test("stalled history body is cancelled at its deadline with a stage-specific error", async (t) => {
+test("history body waits for the native client's own failure, not an adapter deadline", async (t) => {
   const f = fixture(),
-    accountFingerprint = await f.binding(),
-    controller = new AbortController();
-  t.mock.method(AbortSignal, "timeout", () => controller.signal);
-  let cancelled = false,
-    timer;
+    accountFingerprint = await f.binding();
+  t.mock.method(AbortSignal, "timeout", () => {
+    throw Error("UNEXPECTED_ADAPTER_TIMER");
+  });
   f.service.$rn.getInstance = () => ({
     fetch: async () =>
       new Response(
         new ReadableStream({
-          start() {
-            timer = setTimeout(() => controller.abort(), 20);
-          },
-          cancel() {
-            cancelled = true;
+          start(controller) {
+            setTimeout(
+              () =>
+                controller.error(Object.assign(Error("native failure"), { responseStatus: 503 })),
+              30,
+            );
           },
         }),
       ),
   });
-  try {
-    await assert.rejects(
-      f.read({ operation: "readConversationGraph", conversationId, accountFingerprint }),
-      /NATIVE_HISTORY_BODY_TIMEOUT/,
-    );
-    assert.equal(cancelled, true);
-  } finally {
-    clearTimeout(timer);
-  }
+  await assert.rejects(
+    f.read({ operation: "readConversationGraph", conversationId, accountFingerprint }),
+    (error) => error.message === "NATIVE_READ_UNAVAILABLE" && error.httpStatus === 503,
+  );
 });
 
 test("native transport Retry-After survives its thrown HTTP error", async () => {

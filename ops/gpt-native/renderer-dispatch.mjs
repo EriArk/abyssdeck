@@ -1,3 +1,4 @@
+import {nativeFailure} from './failure.mjs';
 import {nativeModule} from './compatibility.mjs';
 // Pinned native consumer-Chat send canary. No credentials, HTTP bodies or raw events leave the renderer.
 export async function nativeDispatch(request, read, control,
@@ -126,6 +127,7 @@ export async function nativeDispatch(request, read, control,
   let attempts=0,submitted=false;
   const guarded=new Proxy(nativeService,{get(target,key){
    if(key==='createCompletionStreamHandlers')return args=>target.createCompletionStreamHandlers({...args,shouldAttemptResume:()=>false,
+    onError:error=>{if(sameAccount()&&liveCache.get(request.key)===live){live.failure=nativeFailure(error);live.finished=true;live.at=Date.now();live.finishedAt=live.at;}return args.onError?.(error);},
     onUpdate:update=>{observe(update);return args.onUpdate?.(update);}});
    if(key==='startCompletionStream')return args=>{
     const body=args.request;
@@ -156,7 +158,7 @@ export async function nativeDispatch(request, read, control,
   messages.message.id=request.userMessageId;
   // Preserve the exact submitted string, including intentional leading/trailing whitespace.
   messages.message.content=expectedContent;
-  const startupSignal=AbortSignal.timeout(15000);
+  const startupSignal=new AbortController().signal;
   try {
    const result=await m.mDt(boundScope,{conversationId:id,parentMessageId:request.parentId,
     model:request.model,thinkingEffort:request.effort,prompt:request.text,userCompletionMessages:messages,
@@ -167,7 +169,7 @@ export async function nativeDispatch(request, read, control,
    });
    if(creating){if(uuid(result?.serverConversationId))state.conversationId=result.serverConversationId;}
    else if(result?.serverConversationId!==request.conversationId)fail('CONVERSATION_MISMATCH');
-  } catch {state.state='unknown';}
-  return {key:request.key,state:state.state,userMessageId:request.userMessageId,...(creating?{conversationId:state.conversationId}: {})};
+  } catch(error) {state.state='unknown';live.failure=nativeFailure(error);live.finished=true;live.at=Date.now();live.finishedAt=live.at;}
+  return {key:request.key,state:state.state,userMessageId:request.userMessageId,...(live.failure?{failure:live.failure}:{}),...(creating?{conversationId:state.conversationId}: {})};
  } finally {runtime[lockKey]=false;}
 }

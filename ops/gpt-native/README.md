@@ -7,6 +7,20 @@
 
 # Isolated Linux ChatGPT evaluation
 
+## Native outcomes and waiting (2026-10-07)
+
+Native history and dispatch startup use the client's own network error handling,
+without an additional Hub/renderer deadline. Explicit cancellation and transport
+loss remain errors. A typed public failure envelope carries native messages,
+HTTP status, provider code and Retry-After, never request data or diagnostics.
+Errors are retained in exact submission receipts and shown with partial public
+output. An elapsed acknowledgement wait is not itself a failed message.
+
+Retry-After is used as supplied. If a 429 contains no timing, the existing bounded
+read backoff remains to avoid a hot loop. Waiting before dispatch may continue;
+uncertain or accepted mutations are never replayed. Temporary read errors do not
+permanently pause a chat. Identity, branch and receipt checks still apply.
+
 ## Shared read budget (2026-10-01)
 
 The Hub native client shares short-lived presentation metadata across viewers:
@@ -17,7 +31,7 @@ pending cache fills. The cache is bounded to 64 entries / 4 MiB and is never use
 for canonical history, action admission or account verification. Old deep catalog
 changes can take up to two minutes to appear without a first-page change.
 
-The supervisor heartbeat remains local. Warm-instance model verification is every
+The supervisor heartbeat remains local. Warm-instance local account/activity verification is every
 15 minutes; a cold/restarted instance and a manual account transition still require
 verification. Every dispatch independently checks its account/model.
 

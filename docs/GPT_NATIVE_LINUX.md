@@ -12,6 +12,16 @@ justify a repair or restart. See the dated owner decisions in `AGENTS.md`.
 > send (one exact native user message). See [current status](CURRENT_STATUS.md).
 > Older installation/version statements below are dated evidence.
 
+## Native error authority - 2026-10-07
+
+The owner-approved [reliability repair](GPT_RELIABILITY_AUDIT_2026-10-07.md)
+supersedes the historical fixed outer timeouts and temporary-read failure cap.
+Native operations own network completion/errors. Typed public errors survive the
+private transport and exact receipt ledgers; partial output stays readable.
+Temporary read errors/cooldowns keep waiting with bounded polling, without replay.
+The three-failure review remains for compatibility/identity/receipt faults, not
+ordinary latency or transport interruptions. See CURRENT_STATUS for activation.
+
 ## Compatibility maintenance — 2026-10-01
 
 The pinned official amd64 package SHA-256 is

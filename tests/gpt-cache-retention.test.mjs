@@ -1,15 +1,31 @@
 import assert from "node:assert/strict";
-import test from "node:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import test from "node:test";
 import { GptHistoryCache } from "../apps/hub/dist/gpt-cache.js";
 import { GptHistoryDisk } from "../apps/hub/dist/gpt-history-disk.js";
 import { gptResults } from "../apps/hub/dist/gpt-results.js";
+import { HubError } from "../packages/shared/dist/index.js";
 
 const messages = (text = "Saved") => [
   { id: "message", role: "assistant", text, files: [], createdAt: 1 },
 ];
+
+test("native authentication and missing-chat errors cannot fall back to a saved branch", async () => {
+  for (const status of [401, 403, 404, 503]) {
+    const error = new HubError(status, "GPT_HISTORY_UNAVAILABLE", "Native read failed");
+    const cache = new GptHistoryCache(async () => {
+      throw error;
+    });
+    cache.seed("chat", messages());
+    if (status === 503) {
+      const page = await cache.page("chat", {}, 0);
+      assert.equal(page.items[0].text, "Saved");
+      assert.equal(page.stale, true);
+    } else await assert.rejects(cache.page("chat", {}, 0), (e) => e === error);
+  }
+});
 
 test("cold Results cache lookup is immediate and does not persist an empty history", async () => {
   let reads = 0;

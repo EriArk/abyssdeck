@@ -55,6 +55,7 @@ function fixture(creating = false) {
     createCompletionStreamHandlers: (args) => {
       assert.equal(args.shouldAttemptResume(), false);
       state.emit = args.onUpdate;
+      state.fail = args.onError;
       return {};
     },
     startCompletionStream(args) {
@@ -830,7 +831,10 @@ test("three failed confirmations pause only that chat, survive restart and never
       "INSERT INTO gpt_jobs SELECT ?,fingerprint,nativeId,text,files,model,effort,'queued',answer,assets,createdAt,updatedAt,'',NULL,0 FROM gpt_jobs WHERE id=?",
     )
     .run(waiting, f.id);
-  f.state.fail = true;
+  const reconcile = f.client.reconcileDispatch;
+  f.client.reconcileDispatch = async () => {
+    throw Error("NATIVE_INCOMPATIBLE");
+  };
   for (let i = 0; i < 3; i++) await assert.rejects(worker.reconcile(f.id));
   const paused = f.db.prepare("SELECT status,error,answer FROM gpt_jobs WHERE id=?").get(f.id);
   assert.equal(paused.status, "unknown");
@@ -844,7 +848,7 @@ test("three failed confirmations pause only that chat, survive restart and never
   assert.equal(f.open().canPoll(f.id), false);
   assert.equal(worker.canPoll("another-job"), true);
   assert.equal(f.state.sends, 1);
-  f.state.fail = false;
+  f.client.reconcileDispatch = reconcile;
   f.state.readState = "completed";
   await worker.reconcile(f.id);
   assert.equal(worker.canPoll(f.id), true);
@@ -1016,4 +1020,54 @@ test("legacy idle receipts do not use polling updatedAt as fresh activity", asyn
   f.db.prepare("INSERT OR REPLACE INTO gpt_native_read_health(jobId,paused) VALUES(?,1)").run(f.id);
   worker.openConversation(conversationId);
   assert.equal(worker.canPoll(f.id), false);
+});
+
+test("native stream errors preserve the public message without exporting diagnostics or replaying", async () => {
+  const f = fixture();
+  await f.run();
+  f.state.fail({
+    type: "fetch-stream-error",
+    error: "Please try again later.",
+    errorCode: "rate_limit",
+    responseStatus: 429,
+    diagnostics: { secret: "PRIVATE" },
+    requestId: "PRIVATE",
+  });
+  const result = await nativeLive(f.input, f.read, f.runtime);
+  assert.deepEqual(result.failure, {
+    code: "NATIVE_READ_UNAVAILABLE",
+    publicMessage: "Please try again later.",
+    httpStatus: 429,
+    providerCode: "rate_limit",
+  });
+  assert.equal(result.finished, true);
+  assert.equal(JSON.stringify(result).includes("PRIVATE"), false);
+  await f.run();
+  assert.equal(f.state.post, 1);
+});
+
+test("temporary read errors never become a permanent chat pause or cancel queued text", async (t) => {
+  const f = queue(t),
+    worker = f.open();
+  await worker.run(f.id);
+  for (const code of [
+    "NATIVE_HISTORY_HEADERS_TIMEOUT",
+    "NATIVE_PIPE_CLOSED",
+    "NATIVE_CANCELLED",
+    "NATIVE_WINDOW_CHANGED",
+    "NATIVE_DISCONNECTED",
+  ]) {
+    f.client.reconcileDispatch = async () => {
+      throw Error(code);
+    };
+    for (let i = 0; i < 5; i++) await assert.rejects(worker.reconcile(f.id));
+  }
+  const row = f.db.prepare("SELECT status,answer FROM gpt_jobs WHERE id=?").get(f.id);
+  assert.equal(row.status, "running");
+  assert.equal(row.answer, "Public progress");
+  assert.equal(
+    f.db.prepare("SELECT paused FROM gpt_native_read_health WHERE jobId=?").get(f.id).paused,
+    0,
+  );
+  assert.equal(f.state.sends, 1);
 });

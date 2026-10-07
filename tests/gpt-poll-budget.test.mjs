@@ -31,6 +31,7 @@ function fixture(t) {
     if (input.operation === "status")
       return { instanceId, manual, busy: false, writesEnabled: true, independentReads: true };
     calls.push(input.operation);
+    if (input.operation === "workspace") return { ready: true, generating: false };
     if (input.operation === "readCatalog")
       return { items: [{ changed, offset: input.offset }], nextOffset: null };
     if (input.operation === "readModels")
@@ -152,19 +153,20 @@ test("a metadata read finishing after a write cannot seed the next viewer", asyn
   assert.equal(f.calls.filter((x) => x === "readPins").length, 1);
 });
 
-test("connection heartbeats do not fetch models every minute; restart verifies immediately", async (t) => {
+test("connection heartbeats share local readiness without upstream model probes; restart verifies immediately", async (t) => {
   const f = fixture(t),
     provider = new NativeGptProvider({ client: f.client });
   for (let n = 0; n < 90; n++) {
     await provider.connection();
     f.advance(10000);
   }
-  assert.equal(f.calls.filter((x) => x === "readModels").length, 1);
+  assert.equal(f.calls.filter((x) => x === "workspace").length, 1);
   await provider.connection();
-  assert.equal(f.calls.filter((x) => x === "readModels").length, 2);
+  assert.equal(f.calls.filter((x) => x === "workspace").length, 2);
   f.restart();
   await provider.connection();
-  assert.equal(f.calls.filter((x) => x === "readModels").length, 3);
+  assert.equal(f.calls.filter((x) => x === "workspace").length, 3);
+  assert.equal(f.calls.filter((x) => x === "readModels").length, 0);
 });
 
 test("unrelated successes cannot reset repeated history throttling or shorten Retry-After", () => {
@@ -227,4 +229,20 @@ test("scheduled reads honor the account cooldown; native thrown errors retain Re
   now += 599999;
   await assert.rejects(read(), /RATE_LIMITED/);
   assert.equal(calls, 1);
+});
+
+test("explicit short Retry-After is not extended by a guessed minimum", () => {
+  let now = 1000;
+  const gate = nativeRequestGate("owner", { Date: { now: () => now } });
+  assert.throws(
+    () => gate.limited("2"),
+    (e) => e.retryAt === 3000 && e.httpStatus === 429,
+  );
+  now = 2999;
+  assert.throws(
+    () => gate.check(),
+    (e) => e.retryAt === 3000,
+  );
+  now = 3000;
+  gate.check();
 });

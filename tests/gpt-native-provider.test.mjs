@@ -98,7 +98,7 @@ test("a paused chat and unrelated uncertain mutation leave another send usable",
   service.enqueue(stuck, f.input);
   await until(() => service.job(stuck).status === "running" && !service.working);
   f.client.reconcileDispatch = async () => {
-    throw Error("NATIVE_HISTORY_HEADERS_TIMEOUT");
+    throw Error("NATIVE_INCOMPATIBLE");
   };
   for (let i = 0; i < 3; i++) {
     f.store.db.prepare("UPDATE gpt_native_read_health SET nextAt=0").run();
@@ -381,7 +381,7 @@ test("native chats generate independently while messages in one chat retain thei
   await until(() => f.state.sends === 2);
   assert.equal(service.job(second).status, "running");
 });
-test("routine native delivery reconciliation is silent; prolonged uncertainty remains actionable", async (t) => {
+test("slow native delivery reconciliation does not manufacture a timed failure or replay input", async (t) => {
   const f = setup(t),
     service = f.open(),
     key = randomUUID();
@@ -401,10 +401,10 @@ test("routine native delivery reconciliation is silent; prolonged uncertainty re
   assert.equal(service.job(key).error, "");
   f.store.db
     .prepare("UPDATE gpt_native_receipts SET uncertainSince=? WHERE jobId=?")
-    .run(Date.now() - 120001, key);
+    .run(Date.now() - 3600000, key);
   f.store.db.prepare("UPDATE gpt_native_read_health SET nextAt=0 WHERE jobId=?").run(key);
   await service.pump();
-  assert.match(service.job(key).error, /доставку/);
+  assert.equal(service.job(key).error, "");
   assert.equal(f.state.sends, 1);
   f.client.reconcileDispatch = original;
   f.store.db.prepare("UPDATE gpt_native_read_health SET nextAt=0 WHERE jobId=?").run(key);
@@ -429,7 +429,7 @@ test("a history outage keeps confirmed work running and cached messages readable
   };
   await service.pump();
   assert.equal(service.job(key).status, "running");
-  assert.equal(service.job(key).error, "");
+  assert.match(service.job(key).error, /ограничил/);
   const page = await service.historyCache.page(f.conversationId, {}, 0);
   assert.equal(page.stale, true);
   assert(page.items.length > 0);
@@ -536,7 +536,7 @@ test("new manual send continues the same paused chat without releasing or replay
   await until(() => service.job(old).status === "running" && !service.working);
   const original = f.client.reconcileDispatch;
   f.client.reconcileDispatch = async () => {
-    throw Error("NATIVE_HISTORY_HEADERS_TIMEOUT");
+    throw Error("NATIVE_INCOMPATIBLE");
   };
   for (let i = 0; i < 3; i++) {
     f.store.db.prepare("UPDATE gpt_native_read_health SET nextAt=0").run();
@@ -708,4 +708,54 @@ test("account failure revokes prior readiness even when the next local read is b
   await assert.rejects(provider.connection(), /ACCOUNT_CHANGED/);
   error = "NATIVE_BUSY";
   assert.equal((await provider.connection()).canSend, false);
+});
+
+test("queued preparation honors repeated native Retry-After and exposes its exact failure", async (t) => {
+  const f = setup(t),
+    service = f.open(),
+    key = randomUUID();
+  let prepares = 0;
+  const prepare = f.client.prepareDispatch;
+  const untilAt = Date.now() + 120000;
+  f.client.prepareDispatch = async (input) => {
+    prepares++;
+    throw Object.assign(Error("NATIVE_RATE_LIMITED"), {
+      retryAt: untilAt,
+      httpStatus: 429,
+      publicMessage: "Native says wait.",
+    });
+  };
+  service.enqueue(key, f.input);
+  await until(() => prepares === 1 && !service.working);
+  for (let n = 0; n < 4; n++) {
+    assert.equal(service.job(key).status, "queued");
+    assert.match(service.job(key).error, /Native says wait/);
+    assert.equal(
+      f.store.db.prepare("SELECT retryAt FROM gpt_native_preparations WHERE jobId=?").get(key)
+        .retryAt,
+      untilAt,
+    );
+    f.store.db.prepare("UPDATE gpt_native_preparations SET retryAt=0 WHERE jobId=?").run(key);
+    await service.pump();
+  }
+  assert.equal(f.state.sends, 0);
+  f.client.prepareDispatch = prepare;
+  f.store.db.prepare("UPDATE gpt_native_preparations SET retryAt=0 WHERE jobId=?").run(key);
+  await service.pump();
+  assert.equal(f.state.sends, 1);
+});
+
+test("read endpoints preserve native HTTP failures instead of generic internal errors", async (t) => {
+  const f = setup(t),
+    service = f.open();
+  f.client.catalog = async () => {
+    throw Object.assign(Error("NATIVE_READ_UNAVAILABLE"), {
+      httpStatus: 503,
+      publicMessage: "Native is unavailable.",
+    });
+  };
+  await assert.rejects(
+    service.json("/catalog?offset=0"),
+    (e) => e.statusCode === 503 && e.message === "Native is unavailable.",
+  );
 });

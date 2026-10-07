@@ -57,6 +57,18 @@ for (const [engine, type] of [
     });
     await page.reload();
     await expect(page.getByText("nativeworkspaceok", { exact: false }).first()).toBeVisible();
+    native.workspace.client.prepareDispatch = async () => {
+      throw Object.assign(Error("NATIVE_INVALID_SETTINGS"), {
+        publicMessage: "The selected model is currently unavailable in GPT.",
+      });
+    };
+    await composer.fill("Keep this unsent prompt");
+    await page.getByRole("button", { name: "Отправить GPT", exact: true }).click();
+    await expect(
+      page.getByText("The selected model is currently unavailable in GPT.", { exact: false }),
+    ).toBeVisible({ timeout: 12000 });
+    await expect(page.getByText("Keep this unsent prompt", { exact: true })).toBeVisible();
+    assert.equal(native.state.sends, 1, "native rejection must not submit another message");
     await composer.fill("Сохранить черновик при смене размера");
     await page.setViewportSize({ width: 1024, height: 768 });
     await expect(composer).toHaveValue("Сохранить черновик при смене размера");
@@ -65,7 +77,7 @@ for (const [engine, type] of [
     assert.deepEqual(errors, []);
     console.log(
       engine +
-        ": shared GPT UI/native service, per-model presets, lost ack, public output and reload passed",
+        ": shared GPT UI, presets, lost ack, output/reload, native error and unsent text preservation passed",
     );
   } finally {
     await context.close();

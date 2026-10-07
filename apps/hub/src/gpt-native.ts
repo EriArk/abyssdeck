@@ -5,6 +5,12 @@ import { request } from "node:http";
 import { basename, dirname, isAbsolute } from "node:path";
 import type { GptFile, GptHistoryPage, GptMessage } from "@codex-web/shared";
 import { z } from "zod";
+import {
+  type NativeFailure,
+  nativeError,
+  nativeFailure,
+  nativeFailureSchema,
+} from "./gpt-native-error.js";
 import { NativeHistoryProjection } from "./gpt-native-history.js";
 import { NativeMetadataCache } from "./gpt-native-read-cache.js";
 import { gptSandboxFiles } from "./gpt-sandbox-files.js";
@@ -100,6 +106,7 @@ export class NativeGptReadClient {
   };
   private reads = new Map<string, Promise<unknown>>();
   private metadata = new NativeMetadataCache();
+  private upstreamWait?: NativeFailure;
   private invalidateReads() {
     this.reads.clear();
     this.metadata.clear();
@@ -174,6 +181,24 @@ export class NativeGptReadClient {
           this.authorize();
           // Reads admitted while a mutation waited must not survive its boundary.
           if (invalidatesMetadata) this.invalidateReads();
+          const waitsForUpstream = [
+            "readModels",
+            "readCatalog",
+            "readPins",
+            "readProjects",
+            "readProject",
+            "readProjectConversations",
+            "readConversation",
+            "readConversationGraph",
+            "readHistoryUpdate",
+            "prepareDispatch",
+          ].includes(String(input.operation));
+          if (
+            waitsForUpstream &&
+            this.upstreamWait?.retryAt &&
+            this.upstreamWait.retryAt > Date.now()
+          )
+            throw nativeError(this.upstreamWait);
           const generation = this.metadata.generation;
           let result: unknown;
           for (let attempt = 0; ; attempt++) {
@@ -214,6 +239,15 @@ export class NativeGptReadClient {
         this.observed = { code: null };
       return value;
     } catch (error) {
+      const failure = nativeFailure(error);
+      if (
+        instance === this.nativeInstance &&
+        healthEpoch === this.healthEpoch &&
+        failure.code === "NATIVE_RATE_LIMITED" &&
+        failure.retryAt &&
+        failure.retryAt > Date.now()
+      )
+        this.upstreamWait = failure;
       if (instance === this.nativeInstance && healthEpoch === this.healthEpoch)
         this.observed = {
           code:
@@ -270,34 +304,11 @@ export class NativeGptReadClient {
         ? await open(dirname(this.binding.socketPath), "r")
         : undefined;
     const result = await new Promise<unknown>((resolve, reject) => {
-      // Composite preparation includes navigation, models, optional project and
-      // canonical history. Its outer budget must outlive bounded inner reads.
-      const deadline = AbortSignal.timeout(
-        ["uploadStoredFile", "projectMutation"].includes(String(input.operation))
-          ? 16 * 60000
-          : ["uploadFile", "transcribe", "executeOperation", "openMedia", "readMedia"].includes(
-                String(input.operation),
-              )
-            ? 120000
-            : input.operation === "prepareDispatch"
-              ? 360000
-              : ["dispatchText", "reconcileDispatch"].includes(String(input.operation))
-                ? 240000
-                : [
-                      "readModels",
-                      "readCatalog",
-                      "readPins",
-                      "readProjects",
-                      "readProject",
-                      "readProjectConversations",
-                      "readConversation",
-                      "readConversationGraph",
-                      "readHistoryUpdate",
-                    ].includes(String(input.operation))
-                  ? 80000
-                  : 25000,
-      );
-      const signal = cancellation ? AbortSignal.any([deadline, cancellation]) : deadline;
+      // A transport heartbeat is local and bounded. Native operations own their
+      // deadlines; do not abandon a slow read or submission still in progress.
+      const signal =
+        cancellation ??
+        (input.operation === "status" ? AbortSignal.timeout(25000) : new AbortController().signal);
       const req = request(
         {
           socketPath: directoryHandle
@@ -334,18 +345,13 @@ export class NativeGptReadClient {
           res.on("end", () => {
             try {
               const value = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-              if (res.statusCode !== 200 || value.ok !== true)
-                throw Error(
-                  /^NATIVE_[A-Z_]+$/.test(value.code ?? "") ? value.code : "NATIVE_UNAVAILABLE",
-                );
+              if (res.statusCode !== 200 || value.ok !== true) throw nativeError(value);
               resolve(value.result);
             } catch (error) {
               reject(
-                Error(
-                  error instanceof Error && /^NATIVE_[A-Z_]+$/.test(error.message)
-                    ? error.message
-                    : "NATIVE_INVALID_RESPONSE",
-                ),
+                error instanceof Error && /^NATIVE_[A-Z_]+$/.test(error.message)
+                  ? error
+                  : Error("NATIVE_INVALID_RESPONSE"),
               );
             }
           });
@@ -371,6 +377,7 @@ export class NativeGptReadClient {
     return z
       .object({
         finished: z.boolean().optional(),
+        failure: nativeFailureSchema.optional(),
         items: z
           .array(
             z
@@ -530,6 +537,7 @@ export class NativeGptReadClient {
     if (this.nativeInstance !== value.instanceId || value.manual) {
       this.observed = undefined;
       this.healthEpoch++;
+      this.upstreamWait = undefined;
       this.historyProjection.clear();
       this.invalidateReads();
     }
@@ -837,6 +845,7 @@ export class NativeGptReadClient {
         state: z.enum(["unknown", "running", "idle", "completed", "cancelled"]),
         userMessageId: uuid,
         messages: historySchema.shape.messages,
+        failure: nativeFailureSchema.optional(),
         conversationId: uuid.nullable().optional(),
       })
       .strict()

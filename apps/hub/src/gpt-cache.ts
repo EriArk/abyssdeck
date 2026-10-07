@@ -237,7 +237,7 @@ export class GptHistoryCache {
         !["GPT_HISTORY_RATE_LIMITED", "GPT_HISTORY_UNAVAILABLE", "GPT_CONNECTION_LOST"].includes(
           error.code,
         ) ||
-        error.statusCode === 404
+        [401, 403, 404].includes(error.statusCode)
       )
         throw error;
       return {

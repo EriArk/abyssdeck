@@ -5,6 +5,7 @@ import type { GptFile } from "@codex-web/shared";
 import { gptFileLimit } from "@codex-web/shared";
 import { z } from "zod";
 import type { NativeGptReadClient, NativeUploadedFile } from "./gpt-native.js";
+import { type NativeFailure, nativeFailure } from "./gpt-native-error.js";
 import { nativeResponseIdle } from "./gpt-response-state.js";
 import type { Store } from "./store.js";
 
@@ -76,6 +77,9 @@ export class NativeGptJobs {
     store.db.exec(
       "CREATE TABLE IF NOT EXISTS gpt_native_idle_watch(jobId TEXT PRIMARY KEY REFERENCES gpt_jobs(id) ON DELETE CASCADE,changedAt INTEGER NOT NULL,openedAt INTEGER NOT NULL DEFAULT 0)",
     );
+    store.db.exec(
+      "CREATE TABLE IF NOT EXISTS gpt_native_failures(jobId TEXT PRIMARY KEY REFERENCES gpt_jobs(id) ON DELETE CASCADE,value TEXT NOT NULL)",
+    );
     for (const column of ["retryAt", "attempts"])
       if (
         !store.db
@@ -135,16 +139,45 @@ export class NativeGptJobs {
       )
       .run(Date.now(), conversationId);
   }
-  private readFailed(id: string, code: string) {
+  failure(id: string): NativeFailure | undefined {
+    const saved = this.store.db
+      .prepare("SELECT value FROM gpt_native_failures WHERE jobId=?")
+      .get(id);
+    return saved ? nativeFailure(JSON.parse(String(saved.value))) : undefined;
+  }
+  saveFailure(id: string, value: NativeFailure) {
+    this.store.db
+      .prepare(
+        "INSERT INTO gpt_native_failures VALUES(?,?) ON CONFLICT(jobId) DO UPDATE SET value=excluded.value",
+      )
+      .run(id, JSON.stringify(value));
+  }
+  private readFailed(id: string, code: string, retryAt?: number) {
     if (
       [
         "NATIVE_BUSY",
         "NATIVE_MANUAL_RECOVERY",
         "NATIVE_RATE_LIMITED",
         "NATIVE_QUEUE_FULL",
+        "NATIVE_TIMEOUT",
+        "NATIVE_HISTORY_HEADERS_TIMEOUT",
+        "NATIVE_HISTORY_BODY_TIMEOUT",
+        "NATIVE_READ_UNAVAILABLE",
+        "NATIVE_DISCONNECTED",
+        "NATIVE_PIPE_CLOSED",
+        "NATIVE_CANCELLED",
+        "NATIVE_UNAVAILABLE",
+        "NATIVE_WINDOW_CHANGED",
+        "NATIVE_WINDOW_AMBIGUOUS",
       ].includes(code)
-    )
+    ) {
+      this.store.db
+        .prepare(
+          "INSERT INTO gpt_native_read_health(jobId,nextAt) VALUES(?,?) ON CONFLICT(jobId) DO UPDATE SET nextAt=excluded.nextAt",
+        )
+        .run(id, retryAt && retryAt > Date.now() ? retryAt : Date.now() + 30000);
       return;
+    }
     const db = this.store.db;
     db.prepare(
       "INSERT INTO gpt_native_read_health(jobId,failures,nextAt) VALUES(?,1,?) ON CONFLICT(jobId) DO UPDATE SET failures=failures+1,nextAt=excluded.nextAt",
@@ -305,6 +338,8 @@ export class NativeGptJobs {
           this.authorize();
         }
       } catch (error) {
+        const failure = nativeFailure(error);
+        this.saveFailure(id, failure);
         const attempts = Number(
           this.store.db
             .prepare("SELECT attempts FROM gpt_native_preparations WHERE jobId=?")
@@ -312,9 +347,15 @@ export class NativeGptJobs {
         );
         const retry =
           preparing &&
-          attempts < 1 &&
+          (attempts < 1 ||
+            [
+              "NATIVE_RATE_LIMITED",
+              "NATIVE_BUSY",
+              "NATIVE_QUEUE_FULL",
+              "NATIVE_MANUAL_RECOVERY",
+            ].includes(failure.code)) &&
           error instanceof Error &&
-          /^(NATIVE_RATE_LIMITED|NATIVE_READ_UNAVAILABLE|NATIVE_TIMEOUT|NATIVE_HISTORY_HEADERS_TIMEOUT|NATIVE_HISTORY_BODY_TIMEOUT|NATIVE_BUSY|NATIVE_MANUAL_RECOVERY|NATIVE_DISCONNECTED|NATIVE_UNAVAILABLE|NATIVE_WINDOW_CHANGED|NATIVE_WINDOW_AMBIGUOUS)$/.test(
+          /^(NATIVE_RATE_LIMITED|NATIVE_READ_UNAVAILABLE|NATIVE_TIMEOUT|NATIVE_HISTORY_HEADERS_TIMEOUT|NATIVE_HISTORY_BODY_TIMEOUT|NATIVE_BUSY|NATIVE_QUEUE_FULL|NATIVE_MANUAL_RECOVERY|NATIVE_DISCONNECTED|NATIVE_UNAVAILABLE|NATIVE_WINDOW_CHANGED|NATIVE_WINDOW_AMBIGUOUS)$/.test(
             error.message,
           );
         // Only failed read-only preparation may return to the accepted outbox.
@@ -325,20 +366,16 @@ export class NativeGptJobs {
               "UPDATE gpt_native_preparations SET attempts=attempts+1,retryAt=? WHERE jobId=?",
             )
             .run(
-              Date.now() +
-                (error.message === "NATIVE_RATE_LIMITED" ? 60000 : 10000) * 2 ** attempts,
+              failure.retryAt && failure.retryAt > Date.now()
+                ? failure.retryAt
+                : Date.now() + (error.message === "NATIVE_RATE_LIMITED" ? 60000 : 10000),
               id,
             );
         this.store.db
           .prepare(
             "UPDATE gpt_jobs SET status=?,error=?,updatedAt=? WHERE id=? AND status='preparing'",
           )
-          .run(
-            retry ? "queued" : "failed",
-            retry ? "" : "NATIVE_PREPARATION_FAILED",
-            Date.now(),
-            id,
-          );
+          .run(retry ? "queued" : "failed", failure.code, Date.now(), id);
         throw error;
       }
       const payload = {
@@ -479,13 +516,15 @@ export class NativeGptJobs {
       )
         fail("SUBMISSION_MISMATCH");
     } catch (error) {
-      this.readFailed(id, error instanceof Error ? error.message : "NATIVE_READ_UNAVAILABLE");
+      const failure = nativeFailure(error);
+      this.saveFailure(id, failure);
+      this.readFailed(id, failure.code, failure.retryAt);
       // Delivery was already proved. A temporary history outage does not undo
       // that proof or turn an ongoing long task into an uncertain submission.
       if (
         saved.deliveredAt != null &&
         error instanceof Error &&
-        /^(NATIVE_RATE_LIMITED|NATIVE_READ_UNAVAILABLE|NATIVE_TIMEOUT|NATIVE_HISTORY_HEADERS_TIMEOUT|NATIVE_HISTORY_BODY_TIMEOUT|NATIVE_BUSY|NATIVE_QUEUE_FULL|NATIVE_MANUAL_RECOVERY|NATIVE_DISCONNECTED|NATIVE_UNAVAILABLE|NATIVE_WINDOW_CHANGED|NATIVE_WINDOW_AMBIGUOUS)$/.test(
+        /^(NATIVE_RATE_LIMITED|NATIVE_READ_UNAVAILABLE|NATIVE_TIMEOUT|NATIVE_HISTORY_HEADERS_TIMEOUT|NATIVE_HISTORY_BODY_TIMEOUT|NATIVE_BUSY|NATIVE_QUEUE_FULL|NATIVE_MANUAL_RECOVERY|NATIVE_DISCONNECTED|NATIVE_PIPE_CLOSED|NATIVE_CANCELLED|NATIVE_UNAVAILABLE|NATIVE_WINDOW_CHANGED|NATIVE_WINDOW_AMBIGUOUS)$/.test(
           error.message,
         )
       ) {
@@ -500,6 +539,9 @@ export class NativeGptJobs {
         .run(Date.now(), id);
       throw error;
     }
+    if (result.failure) this.saveFailure(id, result.failure);
+    else if (result.state !== "unknown")
+      this.store.db.prepare("DELETE FROM gpt_native_failures WHERE jobId=?").run(id);
     // A temporary missing page must not erase already observed public output.
     const changed =
       result.state !== "unknown" &&
@@ -556,7 +598,7 @@ export class NativeGptJobs {
         }
         this.store.db
           .prepare(
-            "UPDATE gpt_jobs SET status=?,answer=?,error='',updatedAt=? WHERE id=? AND status!='completed'",
+            "UPDATE gpt_jobs SET status=?,answer=?,error=?,updatedAt=? WHERE id=? AND status!='completed'",
           )
           .run(
             result.state,
@@ -564,6 +606,7 @@ export class NativeGptJobs {
               .filter((m) => m.channel !== "commentary")
               .map((m) => m.text)
               .join("\n\n"),
+            result.failure?.code ?? "",
             Date.now(),
             id,
           );

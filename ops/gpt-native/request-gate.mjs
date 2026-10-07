@@ -9,15 +9,15 @@ export function nativeRequestGate(fingerprint, runtime = globalThis) {
  }
  const state=states.get(fingerprint),now=()=>runtime.Date?.now?.()??Date.now();
  return {
-  check(){if(now()<state.until)throw Error('NATIVE_RATE_LIMITED');},
+  check(){if(now()<state.until)throw Object.assign(Error('NATIVE_RATE_LIMITED'),{retryAt:state.until,httpStatus:429});},
   success(scope='general'){if(now()>=state.until)state.failures.delete(scope);},
   limited(retryAfter,scope='general'){
    const at=now(),raw=String(retryAfter??'').trim();
    const requested=/^\d+(?:\.\d+)?$/.test(raw)?Number(raw)*1000:Date.parse(raw)-at;
    const failures=Math.min(5,(state.failures.get(scope)??0)+1);
    state.failures.set(scope,failures);
-   state.until=Math.max(state.until,at+Math.max(Math.min(300000,60000*2**(failures-1)),Number.isFinite(requested)?Math.max(0,Math.min(86400000,requested)):0));
-   throw Error('NATIVE_RATE_LIMITED');
+   state.until=Math.max(state.until,at+(Number.isFinite(requested)?Math.max(0,requested):Math.min(300000,60000*2**(failures-1))));
+   throw Object.assign(Error('NATIVE_RATE_LIMITED'),{retryAt:state.until,httpStatus:429});
   },
  };
 }

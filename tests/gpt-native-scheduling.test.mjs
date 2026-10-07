@@ -39,30 +39,32 @@ test("reads coalesce independently of ordered writes and invalidate sharing on w
   assert.deepEqual(calls, ["dispatchText", "readCatalog", "libraryMutation", "readCatalog"]);
 });
 
-test("readiness shares model verification and invalidates it on native restart or manual mode", async () => {
+test("readiness shares local activity verification without upstream models and invalidates it on restart or manual mode", async () => {
   let instanceId = "one",
     manual = false,
-    models = 0;
+    activity = 0;
   const provider = new NativeGptProvider({
     client: {
       status: async () => ({ instanceId, manual }),
-      models: async () => {
-        models++;
-        return { versions: [] };
+      models: async () => assert.fail("readiness must not probe upstream models"),
+      workspace: async (operation) => {
+        assert.equal(operation, "activity");
+        activity++;
+        return { ready: true };
       },
     },
   });
   await Promise.all([provider.connection(), provider.connection()]);
   await provider.connection();
-  assert.equal(models, 1);
+  assert.equal(activity, 1);
   instanceId = "two";
   await provider.connection();
-  assert.equal(models, 2);
+  assert.equal(activity, 2);
   manual = true;
   assert.equal((await provider.connection()).canSend, false);
   manual = false;
   await provider.connection();
-  assert.equal(models, 3);
+  assert.equal(activity, 3);
 });
 
 test("native status bypasses a pending renderer read; mutations remain serialized", async () => {

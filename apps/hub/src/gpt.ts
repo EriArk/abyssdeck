@@ -45,6 +45,7 @@ import { GptHistoryDisk } from "./gpt-history-disk.js";
 import { GptHistoryWatch } from "./gpt-history-watch.js";
 import { gptLinkedText } from "./gpt-links.js";
 import { gptMutationBlocked } from "./gpt-mutation-admission.js";
+import { nativeFailure, nativeFailureText } from "./gpt-native-error.js";
 import { NativeGptJobs } from "./gpt-native-jobs.js";
 import { NativeGptLibrary } from "./gpt-native-library.js";
 import { nativeProjectTransport } from "./gpt-native-project.js";
@@ -641,16 +642,21 @@ export class GptService {
         this.authorize();
         return result;
       } catch (cause) {
-        // Preserve the existing cached-history recovery path in native mode.
-        // Identity/branch errors deliberately do not qualify for this fallback.
-        if (path.startsWith("/conversation?") && cause instanceof Error) {
-          if (cause.message === "NATIVE_RATE_LIMITED")
+        if (
+          body === undefined &&
+          cause instanceof Error &&
+          /^NATIVE_[A-Z_]+$/.test(cause.message)
+        ) {
+          const failure = nativeFailure(cause);
+          const history = path.startsWith("/conversation?");
+          if (failure.code === "NATIVE_RATE_LIMITED" || failure.httpStatus === 429)
             throw error(
-              "GPT_HISTORY_RATE_LIMITED",
-              "ChatGPT временно ограничил обновление истории. Повторим автоматически после паузы.",
+              history ? "GPT_HISTORY_RATE_LIMITED" : "GPT_RATE_LIMITED",
+              nativeFailureText(failure),
               429,
             );
           if (
+            failure.httpStatus ||
             [
               "NATIVE_READ_UNAVAILABLE",
               "NATIVE_TIMEOUT",
@@ -663,12 +669,12 @@ export class GptService {
               "NATIVE_WINDOW_CHANGED",
               "NATIVE_WINDOW_AMBIGUOUS",
               "NATIVE_QUEUE_FULL",
-            ].includes(cause.message)
+            ].includes(failure.code)
           )
             throw error(
-              "GPT_HISTORY_UNAVAILABLE",
-              "Не удалось обновить историю ChatGPT. Повторим автоматически.",
-              503,
+              history ? "GPT_HISTORY_UNAVAILABLE" : "GPT_READ_UNAVAILABLE",
+              nativeFailureText(failure),
+              failure.httpStatus ?? 503,
             );
         }
         throw cause;
@@ -973,6 +979,12 @@ export class GptService {
       JSON.parse(String(row.payload)).conversationId,
     )
       .then((result) => {
+        if (result.failure) {
+          this.nativeJobs?.saveFailure(jobId, result.failure);
+          this.store.db
+            .prepare("UPDATE gpt_jobs SET error=?,updatedAt=? WHERE id=? AND status!='completed'")
+            .run(result.failure.code, Date.now(), jobId);
+        }
         if (result.finished && !this.working && !this.liveCompletions.has(jobId)) {
           this.liveCompletions.add(jobId);
           while (this.liveCompletions.size > 32)
@@ -1036,6 +1048,11 @@ export class GptService {
   private publicJob(row: Json): GptJob {
     const confirmation = gptConfirmationState(this.store, String(row.id));
     const delivered = gptDeliveryConfirmed(this.store, String(row.id));
+    const dismissed = this.library.get("thread", "outbox:" + row.id)?.deleted === true;
+    const failure =
+      !dismissed && row.status !== "completed"
+        ? this.nativeJobs?.failure(String(row.id))
+        : undefined;
     return {
       id: row.id,
       ...(typeof row.requestId === "string" &&
@@ -1044,7 +1061,7 @@ export class GptService {
         .get(row.id)
         ? { userMessageId: String(row.requestId) }
         : {}),
-      dismissed: this.library.get("thread", "outbox:" + row.id)?.deleted === true,
+      dismissed,
       nativeId: row.nativeId,
       text: row.text,
       files: JSON.parse(row.files),
@@ -1062,8 +1079,9 @@ export class GptService {
       assets: JSON.parse(row.assets),
       createdAt: Number(row.createdAt),
       updatedAt: Number(row.updatedAt),
-      error:
-        delivered && row.status === "unknown"
+      error: failure
+        ? `${nativeFailureText(failure)}${row.status === "queued" ? " Ожидаем возможности продолжить подготовку; сообщение ещё не отправлено." : row.status === "failed" ? " Текст и файлы сохранены." : row.status === "unknown" ? (delivered ? " Сообщение доставлено; состояние ответа пока не подтверждено." : " Статус доставки пока не подтверждён; повторной отправки не будет.") : ""}`
+        : delivered && row.status === "unknown"
           ? "Сообщение доставлено. Не удалось обновить состояние ответа."
           : confirmation === "waiting"
             ? ""
@@ -1078,7 +1096,7 @@ export class GptService {
                     : typeof row.error === "string" && row.error.startsWith("NATIVE_")
                       ? row.status === "unknown"
                         ? ""
-                        : "Отправка не подготовлена. Текст и файлы сохранены."
+                        : `${nativeFailureText({ code: row.error })} Текст и файлы сохранены.`
                       : row.error,
     };
   }
@@ -1436,6 +1454,7 @@ export class GptService {
         await this.nativeJobs.run(jobId);
       } catch (cause) {
         const current = this.job(jobId);
+        this.nativeJobs.saveFailure(jobId, nativeFailure(cause));
         if (
           current.status === "queued" &&
           Number(

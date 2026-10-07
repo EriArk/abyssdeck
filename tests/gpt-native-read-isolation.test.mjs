@@ -483,3 +483,28 @@ test("history delta negotiation reconstructs exact display graph; canonical read
   f.revoke();
   await assert.rejects(f.client.historyGraph(id), /REVOKED/);
 });
+
+test("native failure envelope survives the private socket and cached Retry-After", async (t) => {
+  const f = await fixture(t);
+  let calls = 0;
+  const retryAt = Date.now() + 120000;
+  f.service.reader.readModels = async () => {
+    calls++;
+    throw Object.assign(Error("NATIVE_RATE_LIMITED"), {
+      retryAt,
+      httpStatus: 429,
+      publicMessage: "Please wait.",
+      diagnostics: "PRIVATE",
+    });
+  };
+  for (let n = 0; n < 2; n++)
+    await assert.rejects(
+      f.client.call({ operation: "readModels" }),
+      (e) =>
+        e.retryAt === retryAt &&
+        e.httpStatus === 429 &&
+        e.publicMessage === "Please wait." &&
+        !JSON.stringify(e).includes("PRIVATE"),
+    );
+  assert.equal(calls, 1, "other refreshes share the actual native cooldown");
+});

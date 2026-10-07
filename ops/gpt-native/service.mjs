@@ -1,3 +1,4 @@
+import {nativeFailure} from './failure.mjs';
 import { createServer } from 'node:http';
 import { chmodSync, closeSync, fsyncSync, lstatSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
@@ -179,12 +180,12 @@ export async function listenNative(service, socketPath) {
       res.end(body);
     } catch (error) {
       res.statusCode = 503;
-      res.end(JSON.stringify({ ok: false, code: /^NATIVE_[A-Z_]+$/.test(error?.message ?? '') ? error.message : 'NATIVE_UNAVAILABLE' }));
+      res.end(JSON.stringify({ ok: false, ...nativeFailure(error) }));
     }
   });
   server.requestTimeout = 5000;
   server.headersTimeout = 5000;
-  server.timeout = 1000000;
+  server.timeout = 0; // Native operations report completion/errors; do not time out their response.
   server.maxConnections = 16;
   server.on('timeout', socket => socket.destroy());
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(socketPath, resolve); });

@@ -24,8 +24,8 @@ export async function nativeRead(request, load = () => nativeModule(), runtime =
  if(request.cursor!=null&&(typeof request.cursor!=='string'||request.cursor.length>4000))fail('INVALID_CURSOR');
  if(request.projectId!=null&&!projectId(request.projectId))fail('INVALID_PROJECT');
  if(request.revision!=null&&(request.operation!=='readHistoryUpdate'||!/^[a-f0-9]{64}$/.test(request.revision)))fail('INVALID_REQUEST');
- // Ordinary library/history reads can be slow. One bounded request, never a retry.
- const signal = AbortSignal.timeout(['readModels','readCatalog','readPins','readProjects','readProject','readProjectConversations','readConversation','readConversationGraph','readHistoryUpdate','readSubmission'].includes(request.operation)?60000:15000);
+ // Let the native HTTP client finish or report its own error; no second read timer.
+ const signal = new AbortController().signal;
  const bounded = promise => new Promise((resolve, reject) => {
   const abort = () => reject(Error('NATIVE_TIMEOUT'));
   signal.addEventListener('abort', abort, {once:true});
@@ -107,7 +107,7 @@ export async function nativeRead(request, load = () => nativeModule(), runtime =
   const offset=request.operation==='readCatalog'?(request.offset??0):0;
   let result;
   try{result=await get('/conversations',{parameters:{query:{offset,limit:20,order:'updated',is_archived:request.operation==='readCatalog'&&request.archived===true,hide_snorlax:false}},expectedIdentity:before.principal,signal});}
-  catch(e){if(e?.message==='NATIVE_RATE_LIMITED')throw e;fail(signal.aborted?'TIMEOUT':'READ_UNAVAILABLE');}
+  catch(e){throw Object.assign(Error(e?.message?.startsWith('NATIVE_')?e.message:'NATIVE_READ_UNAVAILABLE'),{httpStatus:e?.httpStatus??e?.responseStatus??e?.status,retryAt:e?.retryAt});}
   if((await account()).fingerprint!==before.fingerprint)fail('ACCOUNT_CHANGED');
   if(!Array.isArray(result?.items)||result.items.length>20)fail('INVALID_CATALOG');
   const time=x=>{const ms=typeof x==='string'?Date.parse(x):NaN;if(!Number.isFinite(ms)||ms<0)fail('INVALID_CATALOG');return ms;};
@@ -139,7 +139,7 @@ export async function nativeRead(request, load = () => nativeModule(), runtime =
   let catalog;
   try { catalog = await get('/models', {
    parameters:{query:{iim:false,include_icons:false}}, expectedIdentity:before.principal, signal,
-  }); } catch(e) { if(e?.message==='NATIVE_RATE_LIMITED')throw e;fail(signal.aborted ? 'TIMEOUT' : 'READ_UNAVAILABLE'); }
+  }); } catch(e) { throw Object.assign(Error(e?.message?.startsWith('NATIVE_')?e.message:'NATIVE_READ_UNAVAILABLE'),{httpStatus:e?.httpStatus??e?.responseStatus??e?.status,retryAt:e?.retryAt}); }
   if ((await account()).fingerprint !== before.fingerprint) fail('ACCOUNT_CHANGED');
   const text = value => typeof value === 'string' && value.length > 0 && value.length <= 128;
   if (!Array.isArray(catalog?.versions) || !catalog.versions.length || catalog.versions.length > 32) fail('INVALID_MODELS');
@@ -161,8 +161,8 @@ export async function nativeRead(request, load = () => nativeModule(), runtime =
  // In particular, a rate-limited read must not be repeated by each web poller.
  const cacheKey=Symbol.for('codex-web.native-history'),cache=runtime[cacheKey]??=new Map();
  const key=before.fingerprint+':'+request.conversationId,now=Date.now();
- for(const [k,v] of cache)if(now-v.at>300000)cache.delete(k);
- if(cache.size>=20&&!cache.has(key))cache.delete(cache.keys().next().value);
+ for(const [k,v] of cache)if(!v.pending&&now-v.at>300000)cache.delete(k);
+ if(cache.size>=20&&!cache.has(key))for(const [k,v] of cache)if(!v.pending){cache.delete(k);break;}
  let saved=cache.get(key),conversation;
  if(saved?.retryAt>now)fail('RATE_LIMITED');
  // Receipt polling follows a newly submitted turn. A navigation snapshot from
@@ -237,13 +237,13 @@ export async function nativeRead(request, load = () => nativeModule(), runtime =
   reading.pending=fetchHistory().catch(e=>{
    if(e?.responseStatus===429&&e.status===429)gate.limited(e.headers?.get?.('retry-after'),'history');
    if(/^NATIVE_[A-Z_]+$/.test(e?.message??''))throw e;
-   fail(signal.aborted?'TIMEOUT':'READ_UNAVAILABLE');
+   throw Object.assign(Error('NATIVE_READ_UNAVAILABLE'),{httpStatus:e?.responseStatus??e?.status});
   });
   try { conversation=await reading.pending; }
   catch(e){
    if(cache.get(key)===reading)cache.delete(key);
    if(/^NATIVE_[A-Z_]+$/.test(e?.message??''))throw e;
-   fail(signal.aborted?'TIMEOUT':'READ_UNAVAILABLE');
+   throw Object.assign(Error('NATIVE_READ_UNAVAILABLE'),{httpStatus:e?.responseStatus??e?.status});
   }
  }
  if ((await account()).fingerprint !== before.fingerprint) fail('ACCOUNT_CHANGED');
@@ -332,7 +332,7 @@ export async function nativeRead(request, load = () => nativeModule(), runtime =
   if(entry?.value===conversation){
    entry.history={revision,graph};entry.publicBytes=size;
    let total=0;for(const v of cache.values())total+=(v.bytes??0)+(v.publicBytes??0);
-   for(const [k,v] of cache){if(total<=64*1024**2)break;if(k!==key){cache.delete(k);total-=(v.bytes??0)+(v.publicBytes??0);}}
+   for(const [k,v] of cache){if(total<=64*1024**2)break;if(k!==key&&!v.pending){cache.delete(k);total-=(v.bytes??0)+(v.publicBytes??0);}}
   }
   if(request.revision===revision)return {kind:'unchanged',conversationId:request.conversationId,revision};
   if(previous&&request.revision===previous.revision){

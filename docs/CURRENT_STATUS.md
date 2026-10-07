@@ -1,5 +1,24 @@
 # Текущий статус — 7 октября 2026
 
+
+### GPT native-outcome repair - October 7
+
+Owner-authorized follow-up to the audit removes duplicate history/renderer/send
+startup deadlines and the two-minute synthetic delivery warning. Real native
+stream/read errors now reach the exact chat job through a small typed envelope;
+partial output, attachments and uncertain receipts remain. Temporary read errors
+no longer cause permanent chat pauses. Explicit Retry-After is honored without
+an extra minimum, and repeated cooldown/busy preflight remains queued before any
+upload/send. Pending history reads remain shared across cache expiry.
+
+Linux build and both TypeScript checks passed, together with 310 regression
+tests and nine native-adapter upgrade/rollback tests. Chromium and WebKit passed
+the phone/tablet flow, retained draft/output, one-send lost acknowledgement and
+visible native error. Repository guard and focused lint passed. Guarded activation
+is next; these results are source/fixture evidence. The earlier longer outer
+budgets below are superseded by native-owned operation completion. See
+[the audit and repair evidence](GPT_RELIABILITY_AUDIT_2026-10-07.md).
+
 ### GPT reliability audit and bounded polling fixes — October 7
 
 The [GPT integration audit](GPT_RELIABILITY_AUDIT_2026-10-07.md) follows the

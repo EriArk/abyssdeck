@@ -1,3 +1,4 @@
+import {nativeFailure} from './failure.mjs';
 import {nativeModule} from './compatibility.mjs';
 import {nativeOperation} from './renderer-operation.mjs';
 import {nativeWorkspace} from './renderer-workspace.mjs';
@@ -137,16 +138,14 @@ export class NativeRendererReader {
   return this.#read({operation:'stopResponse',conversationId,accountFingerprint,userMessageId}, options, true);
  }
  async #read(request, {signal:callerSignal} = {}, control = false) {
-  const slowRead = !control && ['readModels','readCatalog','readPins','readProjects','readProject','readProjectConversations','readConversation','readConversationGraph','readHistoryUpdate','readSubmission'].includes(request.operation);
-  // Dispatch may read a project and canonical history before the one native
-  // submission. A 20s wrapper used to abandon valid 60s reads still in flight.
-  const deadline = AbortSignal.timeout(control==='dispatch'?150000:slowRead?75000:control==='dictation'?100000:['upload','stored-upload','operation','media'].includes(control)?65000:20000);
-  const signal = callerSignal ? AbortSignal.any([callerSignal, deadline]) : deadline;
+  // The native client owns operation deadlines. Caller cancellation and a lost
+  // renderer pipe still settle this call; elapsed time alone is not a failure.
+  const signal = callerSignal ?? new AbortController().signal;
   try {
    const read = `(request => (${nativeRead.toString()})(request,undefined,globalThis,${nativeActivity.toString()}))`;
    const call = control === 'live' ? `(${nativeLive.toString()})(${JSON.stringify(request)},${nativeRead.toString()})` : control === 'operation' ? `(${nativeOperation.toString()})(${JSON.stringify(request)},${read},${nativeControl.toString()})` : control === 'workspace' ? `(${nativeWorkspace.toString()})(${JSON.stringify(request)},${nativeRead.toString()})` : control === 'media' ? `(${nativeMedia.toString()})(${JSON.stringify(request)},${read},${nativeArtifacts.toString()})` : control === 'dictation' ? `(${nativeDictation.toString()})(${JSON.stringify(request)},${nativeRead.toString()})` : control === 'project' ? `(${nativeProject.toString()})(${JSON.stringify(request)},${nativeRead.toString()})` : control === 'library' ? `(${nativeLibrary.toString()})(${JSON.stringify(request)},${nativeRead.toString()})` : control === 'stored-upload' ? `(${nativeStoredUpload.toString()})(${JSON.stringify(request)},${nativeRead.toString()})` : control === 'upload-stage' ? `(${nativeUploadStage.toString()})(${JSON.stringify(request)})` : control === 'upload' ? `(${nativeUpload.toString()})(${JSON.stringify(request)},${nativeRead.toString()})` : control === 'dispatch' ? `(${nativeDispatch.toString()})(${JSON.stringify(request)},${read},${nativeControl.toString()},undefined,globalThis,undefined,${nativeActivity.toString()})` : control === 'artifacts' ? `(${nativeArtifacts.toString()})(${JSON.stringify(request)},${nativeRead.toString()})` : control === 'composer' ? `(${nativeComposer.toString()})(${JSON.stringify(request)},${nativeRead.toString()})` : control === 'settings' ? `(${nativeSettings.toString()})(${JSON.stringify(request)},${read},${nativeControl.toString()})` : control ? `(${nativeControl.toString()})(${JSON.stringify(request)},${nativeRead.toString()})` : `(${read})(${JSON.stringify(request)})`;
-   const expression = `(async()=>{const nativeModule=${nativeModule.toString()};const nativeRequestGate=${nativeRequestGate.toString()};try{if(!(${guard}))throw Error('NATIVE_WINDOW_CHANGED');return {ok:true,value:await ${call}}}catch(e){return {ok:false,code:/^NATIVE_[A-Z_]+$/.test(e?.message)?e.message:'NATIVE_READ_UNAVAILABLE'}}})()`;
-   const unwrap=result=>{if(result?.ok!==true)throw Error(/^NATIVE_[A-Z_]+$/.test(result?.code??'')?result.code:'NATIVE_INVALID_RESPONSE');return result.value;};
+   const expression = `(async()=>{const nativeModule=${nativeModule.toString()};const nativeRequestGate=${nativeRequestGate.toString()};const nativeFailure=${nativeFailure.toString()};try{if(!(${guard}))throw Error('NATIVE_WINDOW_CHANGED');return {ok:true,value:await ${call}}}catch(e){return {ok:false,...nativeFailure(e)}}})()`;
+   const unwrap=result=>{if(result?.ok!==true)throw Object.assign(Error(nativeFailure(result).code),nativeFailure(result));return result.value;};
    const responseLimit=['readHistoryUpdate','readConversationGraph','readConversation','reconcileDispatch','readSubmission'].includes(request.operation)?20*1024**2:maxBytes;
    if(this.transport)return unwrap(await this.transport.evaluateMain(expression,guard,signal,responseLimit));
    const response = await fetch(`${endpoint}/json/list`, {signal, redirect:'error'});
@@ -168,7 +167,7 @@ export class NativeRendererReader {
    return unwrap(result);
   } catch (error) {
    if (signal.aborted) throw Error(callerSignal?.aborted ? 'NATIVE_CANCELLED' : 'NATIVE_TIMEOUT');
-   throw Error(/^NATIVE_[A-Z_]+$/.test(error?.message ?? '') ? error.message : 'NATIVE_UNAVAILABLE');
+   throw Object.assign(Error(nativeFailure(error).code),nativeFailure(error));
   }
  }
 }

@@ -1,3 +1,4 @@
+import {nativeFailure} from './failure.mjs';
 import {DatabaseSync} from 'node:sqlite';
 import {chmodSync} from 'node:fs';
 import {createHash,randomUUID} from 'node:crypto';
@@ -20,6 +21,7 @@ export class NativeDispatchReceipts {
   this.db.exec("CREATE TABLE IF NOT EXISTS project_receipts(key TEXT PRIMARY KEY,hash TEXT NOT NULL,payload TEXT NOT NULL,state TEXT NOT NULL,uploaded TEXT)");
   this.db.exec("CREATE TABLE IF NOT EXISTS operation_receipts(key TEXT PRIMARY KEY,hash TEXT NOT NULL,payload TEXT NOT NULL,baseline TEXT NOT NULL,resultId TEXT,state TEXT NOT NULL)");
   this.db.exec("CREATE TABLE IF NOT EXISTS workspace_receipts(key TEXT PRIMARY KEY,hash TEXT NOT NULL,payload TEXT NOT NULL,expected TEXT,state TEXT NOT NULL)");
+  this.db.exec('CREATE TABLE IF NOT EXISTS receipt_failures(key TEXT PRIMARY KEY REFERENCES receipts(key),value TEXT NOT NULL)');
   this.db.exec('CREATE TABLE IF NOT EXISTS creations(key TEXT PRIMARY KEY REFERENCES receipts(key),candidate TEXT,confirmed TEXT)');
   if(!this.db.prepare('PRAGMA table_info(creations)').all().some(x=>x.name==='createdAfter'))this.db.exec('ALTER TABLE creations ADD COLUMN createdAfter INTEGER');
   this.db.exec('CREATE TABLE IF NOT EXISTS uploads(key TEXT NOT NULL,id TEXT NOT NULL,hash TEXT NOT NULL,result TEXT,PRIMARY KEY(key,id))');
@@ -143,17 +145,21 @@ export class NativeDispatchReceipts {
    if(r.conversationId===null)this.db.prepare('INSERT INTO creations(key,candidate,confirmed,createdAfter) VALUES(?,NULL,NULL,?)').run(r.key,Date.now());
    this.db.exec('COMMIT');
   }catch(e){this.db.exec('ROLLBACK');throw e;}
-  try{const result=await reader.dispatchText(r);if(r.conversationId===null&&uuid(result?.conversationId))this.candidate(r.key,result.conversationId);}catch{}
+  try{const result=await reader.dispatchText(r);if(r.conversationId===null&&uuid(result?.conversationId))this.candidate(r.key,result.conversationId);if(result?.failure)this.failure(r.key,result.failure);}catch(error){this.failure(r.key,error);}
   return {state:'unknown',userMessageId:r.userMessageId};
  }
+ failure(key,error){this.db.prepare('INSERT INTO receipt_failures VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').run(key,JSON.stringify(nativeFailure(error)));}
  async live({key,conversationId},reader){
   if(!uuid(key)||!(conversationId===null?this.creationKeys.has(key):this.allowed.has(conversationId)))fail('INVALID_CANARY');
   const row=this.db.prepare('SELECT payload FROM receipts WHERE key=?').get(key);
   if(!row)return {items:[]};
   const payload=JSON.parse(row.payload);
   if(payload.conversationId!==conversationId)fail('CONVERSATION_MISMATCH');
-  return reader.readLive({key,conversationId,userMessageId:payload.userMessageId,accountFingerprint:payload.accountFingerprint},
+  const result=await reader.readLive({key,conversationId,userMessageId:payload.userMessageId,accountFingerprint:payload.accountFingerprint},
    {signal:AbortSignal.timeout(900)});
+  if(result?.failure)this.failure(key,result.failure);
+  const saved=this.db.prepare('SELECT value FROM receipt_failures WHERE key=?').get(key);
+  return {...result,...(saved?{failure:JSON.parse(saved.value)}:{})};
  }
  async reconcile({key,conversationId},reader){
   if(!uuid(key)||!(conversationId===null?this.creationKeys.has(key):this.allowed.has(conversationId)))fail('INVALID_CANARY');
@@ -161,6 +167,9 @@ export class NativeDispatchReceipts {
   if(!row)fail('RECEIPT_MISSING');
   const payload=JSON.parse(row.payload);
   if(payload.conversationId!==conversationId)fail('CONVERSATION_MISMATCH');
+  if(typeof reader.readLive==='function')try{await this.live({key,conversationId},reader);}catch{}
+  const savedFailure=this.db.prepare('SELECT value FROM receipt_failures WHERE key=?').get(key);
+  const failure=savedFailure?JSON.parse(savedFailure.value):undefined;
   let candidate=conversationId;
   if(conversationId===null){
    const creation=this.db.prepare('SELECT candidate,confirmed,createdAfter FROM creations WHERE key=?').get(key);
@@ -174,7 +183,7 @@ export class NativeDispatchReceipts {
      if(uuid(recovered?.conversationId)){this.candidate(key,recovered.conversationId);candidate=recovered.conversationId;}
     }
    }
-   if(candidate==null)return {state:'unknown',messages:[],userMessageId:payload.userMessageId,conversationId:null};
+   if(candidate==null)return {state:'unknown',messages:[],userMessageId:payload.userMessageId,conversationId:null,...(failure?{failure}:{})};
   }
   const result=await reader.readSubmission({...payload,conversationId:candidate,...(conversationId===null?{newChat:true}:{})});
   if(result.state==='running'&&typeof reader.inspectConversation==='function'&&!this.db.prepare('SELECT 1 FROM stops WHERE key=?').get(key)){
@@ -203,7 +212,7 @@ export class NativeDispatchReceipts {
   }
   if(conversationId===null&&result.state!=='unknown')this.db.prepare('UPDATE creations SET confirmed=? WHERE key=?').run(candidate,key);
   if(['running','idle','completed','cancelled'].includes(result.state))this.db.prepare("UPDATE receipts SET state=? WHERE key=?").run(result.state,key);
-  return {...result,userMessageId:payload.userMessageId,...(conversationId===null?{conversationId:result.state==='unknown'?null:candidate}: {})};
+  return {...result,...(failure&&result.state!=='completed'?{failure}:{}),userMessageId:payload.userMessageId,...(conversationId===null?{conversationId:result.state==='unknown'?null:candidate}: {})};
  }
  async review(r,reader){
   const result=await this.reconcile(r,reader);
