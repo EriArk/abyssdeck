@@ -17,10 +17,21 @@ There is no new polling timer. Unchanged sources, including failed reads, are no
 queried again by the logger. Hidden reasoning and native tool inputs are excluded.
 Existing native reads also preserve public pages. All files remain references; incomplete history is explicitly reported rather than invented.
 
-The ZIP64 writer streams files with backpressure and has no 4 GiB file ceiling.
-The common DownloadLink retains one closeable saving overlay on iPhone/PWA.
-Source and focused Linux tests are complete; browser verification and ordinary
-engine/web activation are in progress. No physical iPhone acceptance is claimed.
+The text-only ZIP uses the common DownloadLink and one closeable saving overlay
+on iPhone/PWA. Backfill has a separate public-text mapping path: it does not
+register old artifacts, copy images, import tool results or prepare previews.
+Linux build/typecheck, 26 focused tests and 3 account-scope/maintenance tests pass.
+Chromium and WebKit verified phone/desktop selection, one closeable save overlay,
+no document navigation and retained composer draft. Initial copy, unchanged-source
+suppression, new-tail reads, interrupted cursor recovery and offline export with
+missing attachment bytes are covered. No physical iPhone acceptance is claimed.
+Activated as `18ffcee9` through ordinary idle-admitted maintenance with a verified
+checkpoint and three-copy retention. Hub/engine are healthy; public web release
+`5abfcab39d4306bb27fb4a62f8fe3e8778883f2f80fde29541f7f0415805d957`
+and its entry return HTTP 200. Native GPT container IDs/start times are unchanged.
+Initial native backfill is running sequentially and has already completed several
+conversations. Existing live-journal text is immediately exportable; no claim that
+every historical conversation has completed its first copy yet.
 
 ### Codex gallery images and failed-thread library actions - October 8
 

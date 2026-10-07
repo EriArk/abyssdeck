@@ -7,7 +7,7 @@ await mkdir(".local/qa-chat-log", { recursive: true });
 for (const [name, engine] of [
   ["chromium", chromium],
   ["webkit", webkit],
-]) {
+].filter(([name]) => !process.env.BROWSER || process.env.BROWSER === name)) {
   const origin = "http://127.0.0.1:18859",
     f = await handoffFixture(origin);
   // Keep the UI fixture's project stable; native discovery/backfill is tested separately.
@@ -44,6 +44,7 @@ for (const [name, engine] of [
       viewport: { width: 393, height: 852 },
       hasTouch: true,
       reducedMotion: "reduce",
+      serviceWorkers: "block",
     });
     const [cookieName, value] = f.headers.cookie.split("=");
     await context.addCookies([
