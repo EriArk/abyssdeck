@@ -188,11 +188,14 @@ try {
   await button("Настройки").click();
   await expect(settings).toBeVisible();
   await expect(settings.locator('[data-category="people"]')).toHaveCount(1);
-  assert.equal(count("/limits"), 0);
+  await expect.poll(() => count("/limits")).toBeGreaterThan(0);
   assert.equal(count("/team/users"), 0);
   assert.equal(count("/team/gpt"), 0);
   const divider = settings.getByRole("separator", { name: "Ширина категорий настроек" });
   await expect(divider).toBeVisible();
+  await expect
+    .poll(async () => Number(await divider.getAttribute("aria-valuenow")))
+    .toBeLessThanOrEqual(300);
   const widthBefore = Number(await divider.getAttribute("aria-valuenow"));
   await divider.focus();
   await divider.press("ArrowRight");

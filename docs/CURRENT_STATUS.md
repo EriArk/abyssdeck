@@ -14,10 +14,29 @@ there is no health-triggered restart, automatic send replay or caller-selected
 command/container. Recovery reads run only on the visible settings home after a
 manual request. Opening settings performs no restart.
 
-Source validation: Linux type/build and 39 native/service/provider checks passed;
+Source validation: Linux type/build and 42 distinct native/service/provider and
+Team checkpoint/rollback checks passed;
 Chromium and WebKit covered mode selection, one-tap Codex control, GPT duplicate
 taps/lost acknowledgement, draft continuity and phone/tablet/desktop layout.
-Native runtime smoke and actual installation are being completed separately.
+The existing Chromium settings continuity check also passed; its home-limit
+expectation now reflects the already-approved usage overview, and it waits for
+responsive geometry before checking keyboard resizing.
+
+Installed Hub/engine and web source `eebc3a4a`; both containers are healthy.
+Web release `08c349fe9a5be9f5b3fdd6238a01580b9462eaa43d085490e43af9f66fefd263`
+serves `/assets/index-TYlqEy-H.js`; public page and entry returned HTTP 200.
+The owner's native image is `codex-web-gpt-native:26.928.31416-eebc3a4a`.
+Its ordinary idle-admitted replacement preserved the profile and receipts;
+subsequent native activity reported ready, and the installed Hub read the new
+recovery capability successfully. The GPT gateway and native container were
+unchanged during the later Hub update. Other users' older adapters are not
+silently replaced; unsupported runtimes report restart unavailable.
+
+An isolated offline enrollment container verified one actual restart, new
+instance identity and no repeated restart from the same durable key. No owner
+prompt was sent and the owner's recovery button was not invoked as a test.
+Private evidence: `/tmp/abyssdeck-quick-settings` on the host. Normal user feedback
+remains the source of device-specific findings, not a separate acceptance gate.
 
 ### GPT stale native conversation state recovery ? October 8
 
