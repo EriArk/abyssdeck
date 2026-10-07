@@ -17,6 +17,10 @@ function standalone() {
   );
 }
 
+// A memory budget for preparing Web Share / previews, never a download-size limit.
+// Larger files use the authenticated browser page and stream directly to Downloads.
+const bufferedSaveBytes = 32 * 1024 * 1024;
+
 /** iOS may handle `download` in the PWA itself even with target=_blank.
  * Unsupported/large files explicitly leave saving to a separate browser context. */
 function BrowserDownload({
@@ -35,7 +39,7 @@ function BrowserDownload({
     <a
       className={compact ? "icon-button" : className}
       title={compact ? "Скачать файл" : undefined}
-      href={href}
+      href={standalone() && !href.startsWith("blob:") ? browserDownloadUrl(href, name) : href}
       download={standalone() ? undefined : name}
       target="_blank"
       rel="noopener noreferrer"
@@ -50,6 +54,11 @@ function BrowserDownload({
       )}
     </a>
   );
+}
+
+/** Open a document first: iOS's in-app Safari handoff can leave a raw binary URL blank. */
+export function browserDownloadUrl(href: string, name: string) {
+  return "/download?" + new URLSearchParams({ source: href, name });
 }
 
 export function isDownloadUrl(value: string | undefined): value is string {
@@ -207,7 +216,7 @@ export function DownloadLink({
                 : "Файл удалён или доступ к нему закрыт.",
             );
           const bytes = Number(head.headers.get("content-length"));
-          if (bytes > 32 * 1024 * 1024) {
+          if (bytes > bufferedSaveBytes) {
             if (!controller.signal.aborted)
               setDirect({
                 name: fileName(head.headers.get("content-disposition"), name, mime || ""),
@@ -235,7 +244,7 @@ export function DownloadLink({
             const part = await reader.read();
             if (part.done) break;
             size += part.value.length;
-            if (size > 32 * 1024 * 1024) {
+            if (size > bufferedSaveBytes) {
               if (!controller.signal.aborted)
                 setDirect({
                   name: fileName(response.headers.get("content-disposition"), name, mime || ""),

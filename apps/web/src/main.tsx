@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import { applyLayoutPreference } from "./AppearanceSettings";
+import { BrowserDownloadPage } from "./BrowserDownloadPage";
 import { DeviceWorkspaceHost } from "./DeviceWorkspaceHost";
 import { GuiPreviewHost } from "./GuiPreviewHost";
 import { applyCachedPersonalScale } from "./PersonalScale";
@@ -33,15 +34,19 @@ applyCachedPersonalScale();
 const root = document.getElementById("root");
 if (!root) throw new Error("Missing root");
 createRoot(root).render(
-  <>
-    <App />
-    <DeviceWorkspaceHost />
-    <QuickCaptureHost />
-    <ProjectDeliveryHost />
-    <GuiPreviewHost />
-    <TeamProjectsHost />
-    <WindowDock />
-  </>,
+  location.pathname === "/download" ? (
+    <BrowserDownloadPage />
+  ) : (
+    <>
+      <App />
+      <DeviceWorkspaceHost />
+      <QuickCaptureHost />
+      <ProjectDeliveryHost />
+      <GuiPreviewHost />
+      <TeamProjectsHost />
+      <WindowDock />
+    </>
+  ),
 );
 if ("serviceWorker" in navigator)
   window.addEventListener("load", () => {

@@ -2,7 +2,6 @@ import { createHash, randomUUID } from "node:crypto";
 import { createReadStream, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { rename, rm } from "node:fs/promises";
 import { join } from "node:path";
-import { ARTIFACT_FILE_LIMIT } from "@codex-web/machines";
 import { defaultStoragePolicy, HubError } from "@codex-web/shared";
 import type { Store } from "./store.js";
 export class Artifacts {
@@ -104,12 +103,12 @@ export class Artifacts {
     if (used() >= this.maxBytes)
       throw new HubError(507, "ARTIFACT_STORAGE_FULL", "Хранилище результатов заполнено.");
     try {
-      const receipt = await transfer(
-        temporary,
-        Math.min(ARTIFACT_FILE_LIMIT, this.maxBytes - used()),
-      );
+      const available = this.maxBytes - used();
+      const receipt = await transfer(temporary, available);
       if (
-        receipt.bytes > ARTIFACT_FILE_LIMIT ||
+        !Number.isSafeInteger(receipt.bytes) ||
+        receipt.bytes < 0 ||
+        receipt.bytes > available ||
         statSync(temporary).size !== receipt.bytes ||
         !/^[a-f0-9]{64}$/.test(receipt.sha256)
       )

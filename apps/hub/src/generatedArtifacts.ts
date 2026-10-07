@@ -116,7 +116,7 @@ export class GeneratedArtifacts {
           message:
             c.status === "capturing"
               ? "Сохраняем файл…"
-              : failure || "Файл не сохранён. Можно повторить загрузку текущей версии (до 512 МБ).",
+              : failure || "Файл не сохранён. Можно повторить загрузку текущей версии.",
         };
     const sourceKey = "artifact:" + c.id;
     const old = this.store.db

@@ -12,7 +12,6 @@ import { verifyProjectRoot } from "./projectRoots.js";
 import { spawnWorkspace } from "./serverWorkspace.js";
 import { workspaceTransferScript } from "./workspaceFiles.js";
 
-export const ARTIFACT_FILE_LIMIT = 512 * 1024 * 1024;
 // Only this fixed, root-checked read is sent through system SSH. Neither endpoint
 // buffers the file; the sender's checksum also detects truncated transfers.
 export function projectTransferScript(root: string, path: string, limit: number) {
@@ -34,7 +33,7 @@ export async function copyProjectFile(
   root: string,
   input: string,
   destination: string,
-  limit = ARTIFACT_FILE_LIMIT,
+  limit: number,
 ): Promise<{ bytes: number; sha256: string }> {
   return transferFile(machine, root, input, destination, limit, false);
 }
@@ -44,7 +43,7 @@ export async function copyCodexArtifact(
   root: string,
   input: string,
   destination: string,
-  limit = ARTIFACT_FILE_LIMIT,
+  limit: number,
 ) {
   return transferFile(machine, root, input, destination, limit, true);
 }
@@ -104,11 +103,9 @@ async function transferFile(
           throw new HubError(
             413,
             "ARTIFACT_TOO_LARGE",
-            "Файл больше 512 МБ или не помещается в хранилище.",
+            "Файл не помещается в доступную квоту хранилища.",
           );
-        await pipeline(file.createReadStream({ autoClose: false }), meter, output(), {
-          signal: AbortSignal.timeout(600000),
-        });
+        await pipeline(file.createReadStream({ autoClose: false }), meter, output());
         const after = await file.stat();
         if (
           bytes !== before.size ||
@@ -143,6 +140,10 @@ async function transferFile(
               "StrictHostKeyChecking=yes",
               "-o",
               "ConnectTimeout=8",
+              "-o",
+              "ServerAliveInterval=30",
+              "-o",
+              "ServerAliveCountMax=3",
               machine.ssh?.target ?? "",
               "powershell.exe",
               "-NoLogo",
@@ -162,10 +163,6 @@ async function transferFile(
       child.on("close", resolve);
     });
     const controller = new AbortController();
-    const timer = setTimeout(() => {
-      controller.abort();
-      stopProcess(child);
-    }, 600000);
     child.stdin.end();
     try {
       await Promise.all([
@@ -180,7 +177,6 @@ async function transferFile(
         throw new Error("TRANSFER_MISMATCH");
       return { bytes, sha256: digest };
     } finally {
-      clearTimeout(timer);
       controller.abort();
       stopProcess(child);
       await closed.catch(() => {});
@@ -191,7 +187,7 @@ async function transferFile(
     throw new HubError(
       503,
       "PROJECT_FILE_UNAVAILABLE",
-      "Файл недоступен, изменился при переносе или превышает 512 МБ. Проверь файл и подключение к компьютеру.",
+      "Файл недоступен или изменился при переносе. Проверь файл, свободное место и подключение к компьютеру.",
     );
   }
 }

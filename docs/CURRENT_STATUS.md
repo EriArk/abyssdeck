@@ -1,5 +1,29 @@
 # Текущий статус — 7 октября 2026
 
+### Download handoff and large Codex exports - October 7
+
+Source fix: standalone PWA saves open an authenticated same-origin download page
+instead of navigating directly to an attachment in the iOS browser sheet. The
+page retains the exact source through login, checks headers, shows access/network
+errors, and provides a native browser download without buffering the body.
+Public file URLs and bypass tokens are not introduced. Existing small-file sharing
+and local immutable editor snapshots retain their save flow. The 32 MiB preparation
+budget is only for in-memory sharing/preview; larger originals use browser streaming.
+
+Codex export capture now uses the available storage quota rather than a fixed
+512 MiB ceiling. Transfers no longer expire after ten minutes of total elapsed
+time; SSH retains connection/keepalive failure detection. Source identity, checksum,
+partial-file cleanup and storage quota checks remain intact. GPT upstream upload
+limits and format preview budgets are unchanged.
+
+Verification: Chromium and WebKit downloaded an exact 38 MiB file through the PWA
+handoff, retained the parent draft and exact source through sign-in, and handled
+denied/malformed/external URLs. Linux build and 18 focused tests passed, including
+a real 4 GiB + 16 byte disk transfer with checksum and bounded memory, plus HEAD
+and byte ranges beyond 4 GiB. The owner's 39,733,895-byte archive matches its SHA-256
+on the Hub. This is not physical iPhone acceptance. Publication is tracked below;
+the export ceiling changes require a separate admitted engine update.
+
 ### Website demo using the real application - October 7
 
 The current website edition is `demo/site/index.html` with its entire sibling

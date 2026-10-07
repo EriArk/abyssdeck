@@ -221,7 +221,7 @@ export {
   projectFilePath,
   readProjectFile,
 } from "./projectFile.js";
-export { ARTIFACT_FILE_LIMIT, copyCodexArtifact, copyProjectFile } from "./projectFileTransfer.js";
+export { copyCodexArtifact, copyProjectFile } from "./projectFileTransfer.js";
 export { runProjectSetup, setupMessage } from "./projectSetup.js";
 export { readMachineResources } from "./resources.js";
 export { inspectMachineStaging } from "./staging.js";

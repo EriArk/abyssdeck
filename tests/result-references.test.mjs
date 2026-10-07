@@ -18,10 +18,7 @@ import test from "node:test";
 import { Artifacts } from "../apps/hub/dist/artifacts.js";
 import { deploymentBlockers } from "../apps/hub/dist/deployment-status.js";
 import { Store } from "../apps/hub/dist/store.js";
-import {
-  ARTIFACT_FILE_LIMIT,
-  copyProjectFile,
-} from "../packages/machines/dist/projectFileTransfer.js";
+import { copyProjectFile } from "../packages/machines/dist/projectFileTransfer.js";
 import { handoffFixture } from "./handoff-fixture.mjs";
 
 test("exact message references reveal the captured version, never another thread/turn/project or filename", async () => {
@@ -186,6 +183,17 @@ test("large captured files stream through authenticated HEAD/GET/ranges and rema
     for (const range of ["bytes=80-", "bytes=3-1", "bytes=0-1,3-5", "bytes=-0"])
       assert.equal((await get("GET", { range })).statusCode, 416);
     assert.equal((await f.app.inject({ method: "HEAD", url: file.url })).statusCode, 401);
+    const largeSize = 4 * 1024 ** 3 + 16;
+    await truncate(join(artifacts.root, file.artifactId + ".bin"), largeSize);
+    f.store.db.prepare("UPDATE artifacts SET bytes=? WHERE id=?").run(largeSize, file.artifactId);
+    assert.equal((await get("HEAD")).headers["content-length"], String(largeSize));
+    const tail = await get("GET", { range: `bytes=${largeSize - 16}-` });
+    assert.equal(tail.statusCode, 206);
+    assert.equal(
+      tail.headers["content-range"],
+      `bytes ${largeSize - 16}-${largeSize - 1}/${largeSize}`,
+    );
+    assert.deepEqual(tail.rawPayload, Buffer.alloc(16));
     await rm(join(artifacts.root, file.artifactId + ".bin"));
     assert.equal((await get("HEAD")).statusCode, 404);
   } finally {
@@ -193,7 +201,7 @@ test("large captured files stream through authenticated HEAD/GET/ranges and rema
   }
 });
 
-test("400 MiB export transfers to disk with bounded memory; limits, escaping links and partial failures leave no artifact", async () => {
+test("large export transfers to disk with bounded memory; quota, escaping links and partial failures leave no artifact", async () => {
   const root = await mkdtemp(join(tmpdir(), "large-export-")),
     project = join(root, "project"),
     resultRoot = join(root, "results");
@@ -205,7 +213,7 @@ test("400 MiB export transfers to disk with bounded memory; limits, escaping lin
   try {
     const source = join(project, "case.zip");
     await writeFile(source, "PK archive fixture");
-    const size = 400 * 1024 * 1024;
+    const size = Number(process.env.ABYSSDECK_TRANSFER_TEST_BYTES) || 520 * 1024 * 1024;
     await truncate(source, size);
     const before = process.memoryUsage().arrayBuffers;
     const saved = await artifacts.putStream(
@@ -224,14 +232,14 @@ test("400 MiB export transfers to disk with bounded memory; limits, escaping lin
     const hash = createHash("sha256");
     for await (const chunk of artifacts.stream(saved.artifactId)) hash.update(chunk);
     assert.equal(hash.digest("hex"), saved.sha256);
-    await truncate(source, ARTIFACT_FILE_LIMIT + 1);
+    await truncate(source, size + 1);
     await assert.rejects(
-      copyProjectFile(machine, project, source, join(resultRoot, "too-large.part")),
+      copyProjectFile(machine, project, source, join(resultRoot, "too-large.part"), size),
     );
     await writeFile(join(root, "private.txt"), "private");
     await symlink(join(root, "private.txt"), join(project, "escape.txt"));
     await assert.rejects(
-      copyProjectFile(machine, project, "escape.txt", join(resultRoot, "escape.part")),
+      copyProjectFile(machine, project, "escape.txt", join(resultRoot, "escape.part"), size),
     );
     await assert.rejects(
       artifacts.putStream(thread.id, "t", "broken.zip", source, "application/zip", async (path) => {
