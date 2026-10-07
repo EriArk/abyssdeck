@@ -214,16 +214,29 @@
   border-radius: var(--control-radius, 6px);
   box-shadow: var(--screen-shadow, inset 0 1px 4px #0004);
 }
-.reader-navigation-heading, .reader-search-form {
+.reader-navigation-heading,
+.reader-search-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 44px;
   align-items: center;
   gap: 6px;
   flex: none;
 }
-.reader-search-form input { min-width: 0; width: 100%; min-height: 44px; }
-.reader-navigation > small { flex: none; padding-inline: 4px; }
-.reader-navigation-list { min-height: 0; flex: 1; overflow: auto; overscroll-behavior: contain; }
+.reader-search-form input {
+  min-width: 0;
+  width: 100%;
+  min-height: 44px;
+}
+.reader-navigation > small {
+  flex: none;
+  padding-inline: 4px;
+}
+.reader-navigation-list {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
 .reader-navigation .reader-navigation-entry {
   display: flex;
   flex-direction: column;
@@ -239,9 +252,33 @@
   box-shadow: none;
   overflow-wrap: anywhere;
 }
-.reader-navigation-entry span { font-size: .9em; }
-.reader-navigation-entry:hover { background: var(--hover); }
-.reader-bookmark-row { display: grid; grid-template-columns: minmax(0, 1fr) 44px; align-items: center; gap: 6px; }
-.reader-bookmark-add { display: flex; align-items: center; justify-content: center; gap: 8px; flex: none; }
-.reader-search-highlight { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
-.reader-search-highlight i { position: absolute; background: var(--accent, var(--ink)); opacity: .3; }
+.reader-navigation-entry span {
+  font-size: 0.9em;
+}
+.reader-navigation-entry:hover {
+  background: var(--hover);
+}
+.reader-bookmark-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 6px;
+}
+.reader-bookmark-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex: none;
+}
+.reader-search-highlight {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.reader-search-highlight i {
+  position: absolute;
+  background: var(--accent, var(--ink));
+  opacity: 0.3;
+}

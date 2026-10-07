@@ -1,7 +1,8 @@
 ﻿import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
-import { chromium, webkit, expect } from "@playwright/test";
+import { chromium, expect, webkit } from "@playwright/test";
 import { handoffFixture } from "./handoff-fixture.mjs";
+
 const origin = "http://127.0.0.1:18949";
 const f = await handoffFixture(origin);
 f.sessions.catalog.history = async (t) => ({ ...f.store.history(t.id), nextBefore: null });

@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { formatJson, markdownChange } from "../apps/web/src/textFormatOperations.ts";
 import { animatedRaster, imageSize, imageTransform } from "../apps/web/src/imageAnnotations.ts";
+import { formatJson, markdownChange } from "../apps/web/src/textFormatOperations.ts";
+
 test("JSON formatting preserves exact values, duplicate keys and escaped strings", () => {
   const input =
     '{"id":900719925474099312345,"x":-0,"x":1e+300,"s":"a  b\\n\\\"z","empty":[],"o":{}}';

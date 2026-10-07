@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { once } from "node:events";
-import { createServer } from "node:http";
 import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { chromium, expect, webkit } from "@playwright/test";
@@ -41,7 +41,7 @@ try {
       rolldownOptions: { input: resolve("apps/web/tests/fixtures/file-popup.html") },
     },
   });
-  console.log('DOCX browser fixture built');
+  console.log("DOCX browser fixture built");
   for (const [engine, type] of [
     ["chromium", chromium],
     ["webkit", webkit],
@@ -49,7 +49,7 @@ try {
     const origin = "http://127.0.0.1:18849",
       f = await handoffFixture(origin, dir),
       browser = await type.launch();
-    console.log(engine+' fixture started');
+    console.log(engine + " fixture started");
     try {
       await f.app.listen({ host: "127.0.0.1", port: 18849 });
       const thread = f.store.createThread("project", randomUUID(), "Document fixture");
@@ -74,7 +74,7 @@ try {
           });
         });
         const page = await context.newPage();
-        console.log(engine+' '+layout+' opening');
+        console.log(engine + " " + layout + " opening");
         const previousRequests = requests;
         await page.goto(
           origin +

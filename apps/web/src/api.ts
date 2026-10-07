@@ -6,12 +6,12 @@ let sessionRevision = 0;
 let sessionRotation: Promise<void> | undefined;
 let unauthorized = () => {};
 export class ApiError extends Error {
-  constructor(
-    public status: number,
-    public code: string,
-    message: string,
-  ) {
+  public status: number;
+  public code: string;
+  constructor(status: number, code: string, message: string) {
     super(message);
+    this.status = status;
+    this.code = code;
   }
 }
 export function configureApi(token: string, onUnauthorized: () => void): void {

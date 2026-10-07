@@ -202,7 +202,9 @@ test("explicit start reconciles an existing container and never creates or resta
 });
 test("team checkpoint retains workspace owners and blocks execution after restore", async (t) => {
   const { dir, config, registry, member } = await fixture(t);
-  registry.db.prepare("UPDATE team_namespaces SET initialized=1 WHERE userId=?").run(registry.ownerId);
+  registry.db
+    .prepare("UPDATE team_namespaces SET initialized=1 WHERE userId=?")
+    .run(registry.ownerId);
   for (const owner of [registry.ownerId, member.id])
     registry.db.prepare("INSERT INTO team_server_workspaces VALUES(?,'ready',0)").run(owner);
   const snapshot = await createTeamSnapshot(config, join(dir, "backups"));

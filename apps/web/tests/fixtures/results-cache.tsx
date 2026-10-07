@@ -9,6 +9,7 @@ function Fixture() {
     <>
       {["a", "b"].map((id) => (
         <button
+          type="button"
           key={id}
           onClick={() => {
             setChat(id);
@@ -19,6 +20,7 @@ function Fixture() {
         </button>
       ))}
       <button
+        type="button"
         onClick={() => {
           window.dispatchEvent(new Event("private-session-ended"));
           setChat("b");

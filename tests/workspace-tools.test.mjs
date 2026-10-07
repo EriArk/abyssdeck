@@ -103,7 +103,7 @@ test("unknown desktop tools return a tool failure without poisoning chat connect
   }
 });
 
-test("resume checks paged turn state even when excluded turns are empty and thread was loaded", async () => {
+test("status inspection reads paged turns without claiming a native writer", async () => {
   const f = await handoffFixture();
   try {
     await f.release();
@@ -116,10 +116,11 @@ test("resume checks paged turn state even when excluded turns are empty and thre
         ? { data: [{ id: "active-native", status, items: [] }] }
         : original(method, params);
     f.store.setStatus(f.thread.id, "unknown", "active-native");
-    assert.equal((await f.sessions.resume(f.thread.id)).status, "running");
+    assert.equal((await f.sessions.resume(f.thread.id)).status, "unknown");
+    assert.equal(r.active.has(f.thread.id), false);
     status = "interrupted";
     f.store.setStatus(f.thread.id, "unknown", "active-native");
-    assert.equal((await f.sessions.resume(f.thread.id)).status, "idle");
+    assert.equal((await f.sessions.resume(f.thread.id)).status, "interrupted");
     assert.equal(r.active.has(f.thread.id), false);
     status = "future-status";
     f.store.setStatus(f.thread.id, "unknown", "active-native");
@@ -129,28 +130,30 @@ test("resume checks paged turn state even when excluded turns are empty and thre
     await assert.rejects(() => f.sessions.resume(f.thread.id), { code: "INVALID_CODEX_RESPONSE" });
     assert.equal(f.store.thread(f.thread.id).status, "unknown");
     assert.equal(f.calls.filter((c) => c.method === "turn/start").length, 0);
+    assert.equal(f.calls.filter((c) => c.method === "thread/resume").length, 0);
   } finally {
     await f.close();
   }
 });
 
-test("empty unpersisted web placeholder can recover without reading nonexistent native turns", async () => {
+test("status inspection preserves an unpersisted placeholder without recreating it", async () => {
   const f = await handoffFixture();
   try {
     await f.release();
     f.store.db.prepare("UPDATE threads SET origin='web' WHERE id=?").run(f.thread.id);
     const r = await f.sessions.runtime("project"),
       original = r.rpc.request.bind(r.rpc);
+    const calls = [];
     r.rpc.request = async (method, params) => {
+      calls.push(method);
       if (method === "thread/resume" || method === "thread/turns/list")
         throw new HubError(404, "THREAD_NOT_PERSISTED", "No rollout");
       if (method === "thread/start") return { thread: { id: "new-placeholder", turns: [] } };
       return original(method, params);
     };
-    const restored = await f.sessions.resume(f.thread.id);
-    assert.equal(restored.codexThreadId, "new-placeholder");
-    assert.equal(restored.status, "idle");
-    assert.equal(f.calls.filter((c) => c.method === "turn/start").length, 0);
+    await assert.rejects(() => f.sessions.resume(f.thread.id), { code: "THREAD_NOT_PERSISTED" });
+    assert.equal(f.store.thread(f.thread.id).codexThreadId, f.thread.codexThreadId);
+    assert.deepEqual(calls, ["thread/turns/list"]);
   } finally {
     await f.close();
   }

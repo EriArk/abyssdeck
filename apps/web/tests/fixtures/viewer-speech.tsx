@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { FileViewerDialog } from "../../src/FileViewerDialog";
-import { ReadableFilePreview } from "../../src/ReadableFilePreview";
 import { SpeechSettings } from "../../src/MessageSpeech";
+import { ReadableFilePreview } from "../../src/ReadableFilePreview";
 import "../../src/styles.css";
 import "../../src/themes.css";
 import "../../src/fonts.css";
@@ -38,7 +38,9 @@ function Fixture() {
     <main>
       <input aria-label="Черновик" defaultValue="Сохранённый черновик" />
       <SpeechSettings />
-      <button onClick={() => setOpen(true)}>Открыть файл</button>
+      <button type="button" onClick={() => setOpen(true)}>
+        Открыть файл
+      </button>
       {open && (
         <FileViewerDialog
           name={files[index]!.name}
@@ -47,7 +49,9 @@ function Fixture() {
           onClose={() => setOpen(false)}
           navigation={
             <nav className="file-viewer-navigation">
-              <button onClick={() => setIndex((index + 1) % files.length)}>Следующий файл</button>
+              <button type="button" onClick={() => setIndex((index + 1) % files.length)}>
+                Следующий файл
+              </button>
             </nav>
           }
         >

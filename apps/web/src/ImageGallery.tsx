@@ -56,6 +56,7 @@ export function ImageGallery({ children }: { children: ReactNode }) {
   if (slides.length < 2) return <>{children}</>;
   const show = (next: number) => setSelected(identity(slides[next], next));
   return (
+    // biome-ignore lint/a11y/useSemanticElements: This named image carousel is a group, not a form fieldset.
     <div className="image-gallery" role="group" aria-label="Галерея изображений">
       <div className="image-gallery-slide">{slides[index]}</div>
       <GalleryNavigation

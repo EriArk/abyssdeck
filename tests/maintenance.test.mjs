@@ -15,7 +15,9 @@ import { configSchema } from "../packages/shared/dist/index.js";
 
 test("online WAL backup pins a snapshot while another connection keeps writing", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "codex-backup-writer-"));
-  const config = { hub: { databasePath: join(root, "app.db"), resultsPath: join(root, "results") } };
+  const config = {
+    hub: { databasePath: join(root, "app.db"), resultsPath: join(root, "results") },
+  };
   const store = new Store(config.hub.databasePath);
   try {
     await mkdir(config.hub.resultsPath, { mode: 0o700 });

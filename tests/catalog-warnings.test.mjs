@@ -1,6 +1,7 @@
 ﻿import assert from "node:assert/strict";
 import test from "node:test";
 import { handoffFixture } from "./handoff-fixture.mjs";
+
 test("project refresh warnings retain exact machine scope and authentication", async (t) => {
   const f = await handoffFixture();
   t.after(() => f.close());

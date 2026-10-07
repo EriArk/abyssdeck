@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { accountLocalStorage as localStorage } from "./accountStorage.ts";
 import { api, messageOf } from "./api";
 import {
-  createPushState,
   type PushCategories as Categories,
+  createPushState,
   type PushStatus,
 } from "./pushState.ts";
 import "./notifications.css";

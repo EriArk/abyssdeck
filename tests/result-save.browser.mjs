@@ -5,8 +5,8 @@ import { join, resolve } from "node:path";
 import { chromium, expect, webkit } from "@playwright/test";
 import react from "../apps/web/node_modules/@vitejs/plugin-react/dist/index.js";
 import { build } from "../apps/web/node_modules/vite/dist/node/index.js";
-import { zip } from "./package-fixtures.mjs";
 import { handoffFixture } from "./handoff-fixture.mjs";
+import { zip } from "./package-fixtures.mjs";
 
 const archive = zip({ "entry.md": "# Archive entry\n" });
 const dir = await mkdtemp(join(tmpdir(), "result-save-"));

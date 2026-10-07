@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
-import { chromium, expect, webkit } from "@playwright/test";
 import { createRequire } from "node:module";
+import { chromium, expect, webkit } from "@playwright/test";
+
 const sharp = createRequire(new URL("../apps/hub/package.json", import.meta.url))("sharp");
-import { handoffFixture } from "./handoff-fixture.mjs";
+
 import { gptResults } from "../apps/hub/dist/gpt-results.js";
 import { GptTextArtifacts } from "../apps/hub/dist/gpt-text-artifacts.js";
+import { handoffFixture } from "./handoff-fixture.mjs";
 
 await mkdir(".local/qa-message-results", { recursive: true });
 const picture = await sharp({

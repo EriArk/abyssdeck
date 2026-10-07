@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { chromium, webkit, expect } from "@playwright/test";
+import { chromium, expect, webkit } from "@playwright/test";
 import react from "../apps/web/node_modules/@vitejs/plugin-react/dist/index.js";
 import { build } from "../apps/web/node_modules/vite/dist/node/index.js";
 

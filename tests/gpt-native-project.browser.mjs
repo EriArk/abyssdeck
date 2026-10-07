@@ -93,13 +93,11 @@ for (const [engine, type] of [
     await expect(modal.getByRole("textbox", { name: "Инструкции проекта ChatGPT" })).toHaveValue(
       "Verified instructions",
     );
-    await modal
-      .locator("input[type=file]")
-      .setInputFiles({
-        name: "project-large.pdf",
-        mimeType: "application/pdf",
-        buffer: Buffer.alloc(32 * 1024 ** 2, 65),
-      });
+    await modal.locator("input[type=file]").setInputFiles({
+      name: "project-large.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.alloc(32 * 1024 ** 2, 65),
+    });
     await expect(modal.getByText("project-large.pdf", { exact: true })).toBeVisible({
       timeout: 10000,
     });

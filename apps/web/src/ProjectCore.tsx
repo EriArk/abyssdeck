@@ -1,4 +1,3 @@
-import { PanelDivider } from "./PanelDivider";
 import {
   type ProjectCore as Core,
   type CoreHistoryPage,
@@ -17,6 +16,7 @@ import { accountLocalStorage as localStorage } from "./accountStorage.ts";
 import { ApiError, api, messageOf } from "./api";
 import { Icon } from "./icons";
 import type { NotebookRequest } from "./Notebook";
+import { PanelDivider } from "./PanelDivider";
 import { useWorkspaceDialog } from "./useWorkspaceDialog";
 import "./notebook.css";
 import "./project-core.css";

@@ -148,10 +148,15 @@ test("team backup accepts a personal SQLite file above 1 GiB and restores its id
 
 test("server workspace connects during active work without replacing the personal runtime", async (t) => {
   const f = await fixture(t);
-  f.registry.db.prepare("INSERT INTO team_server_workspaces VALUES(?,'ready',0)").run(f.registry.ownerId);
+  f.registry.db
+    .prepare("INSERT INTO team_server_workspaces VALUES(?,'ready',0)")
+    .run(f.registry.ownerId);
   assert.equal((await f.request("/api/team/server-workspace")).body.available, false);
   for (const path of ["/api/team/server-workspace", "/api/team/server-workspace/start"])
-    assert.equal((await f.request(path, f.owner, "POST", {})).body.error.code, "WORKSPACE_NOT_NEEDED");
+    assert.equal(
+      (await f.request(path, f.owner, "POST", {})).body.error.code,
+      "WORKSPACE_NOT_NEEDED",
+    );
   const ownerId = f.friendId;
   const current = await f.personal(ownerId);
   f.config.serverWorkspaces = {
@@ -188,10 +193,14 @@ test("server workspace connects during active work without replacing the persona
     1,
   );
   assert.ok(
-    (await f.request("/api/devices", f.friend)).body.devices.some((d) => d.id === "server-workspace"),
+    (await f.request("/api/devices", f.friend)).body.devices.some(
+      (d) => d.id === "server-workspace",
+    ),
   );
   assert.ok(
-    !(await f.request("/api/machines", f.friend)).body.machines.some((m) => m.id === "server-workspace"),
+    !(await f.request("/api/machines", f.friend)).body.machines.some(
+      (m) => m.id === "server-workspace",
+    ),
   );
   assert.equal(
     (await f.request("/api/team/server-workspace/connect", f.owner, "POST", {})).body.error.code,

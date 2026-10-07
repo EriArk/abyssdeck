@@ -106,9 +106,11 @@ These browser scripts launch their own fixtures; they are run with Node, not
 Screenshots and private run output belong in `.local`, not tracked source.
 
 `pnpm test` builds and runs the full Node suite. The full baseline is not yet
-clean: see [#238](https://github.com/EriArk/abyssdeck/issues/238). On October 7,
-Windows build/typecheck passed; lint reported 95 errors. The earlier full-suite
-audit includes platform-specific failures and a TypeScript test-loader failure.
+clean: see [#238](https://github.com/EriArk/abyssdeck/issues/238). The October 7
+repair cleared the 95 blocking lint errors and the TypeScript test-loader failure;
+existing lint warnings remain. Build/typecheck and 54 focused tests passed on
+Windows and in an isolated Linux container using preinstalled dependencies.
+The full Linux suite and a fresh dependency installation were not rerun in that pass.
 Report the exact command, platform and result; a focused pass is not a full pass.
 GitHub Actions are disabled; no hosted CI approval is required.
 

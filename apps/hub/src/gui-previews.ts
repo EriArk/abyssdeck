@@ -160,7 +160,13 @@ export function registerGuiPreviews(
     const { id } = keys.parse(req.params),
       c = context(id);
     if (c.machine.type === "server-workspace")
-      return { serverWorkspace: true, installed: true, actions: [], operations: [], threadId: null };
+      return {
+        serverWorkspace: true,
+        installed: true,
+        actions: [],
+        operations: [],
+        threadId: null,
+      };
     const catalog = z
       .object({ installed: z.boolean(), actions: z.array(guiPreviewActionSchema).max(100) })
       .parse(await probe(c.machine, c.project.workingDirectory, { op: "catalog" }));

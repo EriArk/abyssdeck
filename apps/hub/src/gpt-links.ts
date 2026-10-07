@@ -76,10 +76,13 @@ export function gptLinkedText(body: string, metadata: unknown): string {
       try {
         const entity: unknown = JSON.parse(parts[1]!);
         if (Array.isArray(entity) && typeof entity[1] === "string")
-          return entity[1]
-            .slice(0, 2000)
-            .replace(/[\u0000-\u001f\u007f\ue200-\ue203]/g, " ")
-            .replace(/[\\\x60*_[\]<>!]/g, "\\$&");
+          return (
+            entity[1]
+              .slice(0, 2000)
+              // biome-ignore lint/suspicious/noControlCharactersInRegex: Strip control characters from native reference labels.
+              .replace(/[\u0000-\u001f\u007f\ue200-\ue203]/g, " ")
+              .replace(/[\\\x60*_[\]<>!]/g, "\\$&")
+          );
       } catch {
         // Incomplete streaming tokens are resolved by the next canonical read.
       }

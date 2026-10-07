@@ -1,5 +1,30 @@
 # Текущий статус — 7 октября 2026
 
+### Contributor check repairs - October 7
+
+Cleared all 95 blocking Biome errors: targeted formatting/import ordering,
+explicit fixture button types and document languages, callback/assignment cleanup,
+a typed screenshot result and a stable settings callback. Narrow documented
+suppressions retain intentional control-character sanitization, source-change
+speech cleanup, non-form carousel semantics and trusted-code serialization tests.
+The shared lint configuration and warning severity remain unchanged.
+
+`ApiError` now uses erasable TypeScript fields so Node's built-in type stripping
+can load the quiet-recovery test without a new loader. Two outdated workspace
+tests now check read-only inspection: no native writer acquisition or replacement
+conversation, with the original identity and native completion status preserved.
+The Sessions implementation was not changed to satisfy those tests.
+
+Verification: lint exits 0 (0 errors, 1,310 warnings, 1,893 informational diagnostics);
+build/typecheck and 54 focused tests passed on Windows and Linux with Node 24.18.0.
+Linux used a disposable network-isolated container with preinstalled dependencies,
+not production state. The Linux native-compatibility fixture was rerun separately
+after adding its omitted source module to the temporary verification archive.
+The focused set covers quiet recovery, workspace tools, book-reader indexing and
+speech, native compatibility, GPT links and retained results. Full-suite and
+clean-install reproducibility remain open in #238; no additional check framework,
+dependency update, GitHub Actions, deployment or service restart was introduced.
+
 
 ### Contributor entry and documentation cleanup - October 7
 
@@ -25,8 +50,9 @@ account or production service was connected. The repository guard and its test
 passed; local Markdown/image paths and documentation anchors passed across 1,983
 Markdown files. This was not a clean Linux-host installation rehearsal.
 
-Remaining public-readiness findings: lint reports 95 errors, 1,310 warnings and
-1,893 informational diagnostics (#238); dependency audit reports 13 findings
+At the end of this documentation pass, lint reported 95 errors, 1,310 warnings and
+1,893 informational diagnostics (#238; blocking errors subsequently fixed above).
+The dependency audit reported 13 findings
 (4 high, 7 moderate, 2 low, none critical; #237). Applicability and upgrades require
 their own verification; these counts are not proven exploitable application paths.
 The full test baseline, clean-host installer (#11), specialist-document consistency

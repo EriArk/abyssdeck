@@ -93,23 +93,21 @@ function fixture(action) {
     czt: async () => ({ clientThreadId: "local" }),
   };
   const dispatch = (s, messages) =>
-    s
-      .get("service")
-      .startCompletionStream({
-        request: {
-          model: state.corrupt ? "other" : "model",
-          thinking_effort: "standard",
-          parent_message_id: action === "edit" ? root : action === "fork" ? assistant : user,
-          action: action === "regenerate" ? "variant" : "next",
-          messages,
-          ...(action === "fork"
-            ? {
-                branching_from_conversation_id: conversationId,
-                branching_from_message_id: assistant,
-              }
-            : { conversation_id: conversationId }),
-        },
-      });
+    s.get("service").startCompletionStream({
+      request: {
+        model: state.corrupt ? "other" : "model",
+        thinking_effort: "standard",
+        parent_message_id: action === "edit" ? root : action === "fork" ? assistant : user,
+        action: action === "regenerate" ? "variant" : "next",
+        messages,
+        ...(action === "fork"
+          ? {
+              branching_from_conversation_id: conversationId,
+              branching_from_message_id: assistant,
+            }
+          : { conversation_id: conversationId }),
+      },
+    });
   m.mDt = async (s, args) => {
     if (action === "edit")
       assert.equal(args.userCompletionMessages.message.metadata.attachments[0].id, "file-original");

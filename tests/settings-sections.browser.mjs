@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
-import { chromium, webkit, expect } from "@playwright/test";
+import { chromium, expect, webkit } from "@playwright/test";
 import { usageFixture } from "./usage-resets-fixture.mjs";
 
 // Current production React components; all account/service data is disposable.

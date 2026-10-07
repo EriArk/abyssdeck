@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { DownloadLink } from "../../src/DownloadLink";
-import { FileEditorPreview } from "../../src/FileEditorPreview";
-import { FileCopySave } from "../../src/FileCopySave";
-import { ResultFilePreview } from "../../src/ResultFilePreview";
 import { createRoot } from "react-dom/client";
+import { DownloadLink } from "../../src/DownloadLink";
+import { FileCopySave } from "../../src/FileCopySave";
+import { FileEditorPreview } from "../../src/FileEditorPreview";
+import { ResultFilePreview } from "../../src/ResultFilePreview";
 import { Results } from "../../src/Results";
 import type { Result } from "../../src/types";
 import "../../src/styles.css";
@@ -31,9 +31,15 @@ function Fixture() {
         <DownloadLink href="/api/team/brainstorm-conversions/room-export/export" directDownload>
           Архив комнаты
         </DownloadLink>
-        <button onClick={() => setOpened("result")}>Открыть ZIP результата</button>
-        <button onClick={() => setOpened("draft")}>Открыть черновик</button>
-        <button onClick={() => setOpened("copy")}>Открыть копию</button>
+        <button type="button" onClick={() => setOpened("result")}>
+          Открыть ZIP результата
+        </button>
+        <button type="button" onClick={() => setOpened("draft")}>
+          Открыть черновик
+        </button>
+        <button type="button" onClick={() => setOpened("copy")}>
+          Открыть копию
+        </button>
         <DownloadLink
           preparedFile={new File(["zip-bytes"], "installer.zip", { type: "application/zip" })}
           directDownload

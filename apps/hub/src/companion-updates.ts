@@ -1,8 +1,8 @@
 import { constants, createHash, verify } from "node:crypto";
 import { createReadStream, lstatSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { HubError } from "@codex-web/shared";
 import type { HubConfig } from "@codex-web/shared";
+import { HubError } from "@codex-web/shared";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { CompanionDevices } from "./companion-devices.js";

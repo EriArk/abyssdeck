@@ -1,14 +1,15 @@
 // Opt-in empty-profile smoke; never loads production config or account data.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, mkdirSync, existsSync } from "node:fs";
-import { resolve, join } from "node:path";
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { NativeGptReadClient } from "../apps/hub/dist/gpt-native.js";
 import { Store } from "../apps/hub/dist/store.js";
-import { TeamStore } from "../apps/hub/dist/team-store.js";
 import { TeamGpt, teamGptName } from "../apps/hub/dist/team-gpt.js";
 import { reconcileGptProfiles } from "../apps/hub/dist/team-gpt-host.js";
-import { NativeGptReadClient } from "../apps/hub/dist/gpt-native.js";
+import { TeamStore } from "../apps/hub/dist/team-store.js";
 import { configSchema } from "../packages/shared/dist/index.js";
+
 if (process.platform !== "linux" || process.getuid() !== 1000 || !process.env.TEAM_QA_NATIVE_IMAGE)
   throw Error("Explicit Linux QA image required");
 mkdirSync(".local", { recursive: true });

@@ -19,8 +19,13 @@ for (const type of [chromium, webkit]) {
     theme: "classic-dark",
     machineClients: { pc: "web" },
   });
-  f.store.append(f.thread.id, "assistant.completed", {id: "terminal-link", text: "[Терминал сервера](codexweb://terminal/server)"}, "turn");
-const browser = await type.launch();
+  f.store.append(
+    f.thread.id,
+    "assistant.completed",
+    { id: "terminal-link", text: "[Терминал сервера](codexweb://terminal/server)" },
+    "turn",
+  );
+  const browser = await type.launch();
   const context = await browser.newContext({
     viewport: { width: 393, height: 852 },
     serviceWorkers: "block",
@@ -39,7 +44,7 @@ const browser = await type.launch();
       page.getByRole("button", { name, exact: true }).filter({ visible: true }).first();
     const open = async () => {
       await button("Терминал сервера").click();
-      
+
       await expect(page.locator(".device-terminal-status")).toContainText("Подключено");
     };
     await open();

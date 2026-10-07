@@ -306,6 +306,7 @@ export function SpeechButton({
     return () => engine.removeEventListener("voiceschanged", refresh);
   }, []);
   useEffect(() => () => player.stop(id), [id]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: A new source clears the previous source's preparation error.
   useEffect(() => setPreparationError(""), [id]);
   if ((!device() && !background) || !spokenText.trim()) return null;
   const playable =

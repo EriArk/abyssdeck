@@ -222,14 +222,12 @@ for (const [engine, type] of [
     if (page) {
       await page.screenshot({ path: `.local/qa-project-upload/${engine}-failure.png` });
       console.log(
-        await page
-          .locator("dialog[open]")
-          .evaluateAll((nodes) =>
-            nodes.map((n) => ({
-              label: n.getAttribute("aria-label"),
-              text: n.textContent?.slice(-1800),
-            })),
-          ),
+        await page.locator("dialog[open]").evaluateAll((nodes) =>
+          nodes.map((n) => ({
+            label: n.getAttribute("aria-label"),
+            text: n.textContent?.slice(-1800),
+          })),
+        ),
       );
     }
     throw error;

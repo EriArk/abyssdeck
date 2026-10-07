@@ -68,6 +68,7 @@ export function gptResultContent(text: string, publicBaseUrl?: string) {
         : node.type === "linkReference" || node.type === "imageReference"
           ? definitions.get(node.identifier ?? "")
           : undefined;
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: Reject control characters and spaces in external URLs.
     if (raw && /^https?:\/\//i.test(raw) && raw.length <= 8192 && !/[\x00-\x20\x7f]/.test(raw)) {
       try {
         const url = new URL(raw);

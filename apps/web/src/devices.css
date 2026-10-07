@@ -622,7 +622,9 @@
   max-height: 65%;
   background: var(--paper);
 }
-.device-terminal-entry textarea { width: 100%; }
+.device-terminal-entry textarea {
+  width: 100%;
+}
 .device-terminal-extra {
   padding-top: 0;
 }

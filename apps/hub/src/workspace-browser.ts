@@ -173,7 +173,7 @@ export async function workspaceBrowser(port: number, width: number, height: numb
           .then(async () => {
             const input = JSON.parse(line);
             if (input.op === "frame") {
-              let frame;
+              let frame: { data: string } | undefined;
               for (let attempt = 0; attempt < 3; attempt++) {
                 try {
                   frame = await command("Page.captureScreenshot", {
@@ -189,7 +189,7 @@ export async function workspaceBrowser(port: number, width: number, height: numb
                   await new Promise((resolve) => setTimeout(resolve, 150));
                 }
               }
-              if (frame.data.length > 3 * 1024 ** 2) throw Error("FRAME_LIMIT");
+              if (!frame || frame.data.length > 3 * 1024 ** 2) throw Error("FRAME_LIMIT");
               await output({ id: input.id, image: frame.data });
             } else {
               if (input.op === "click") {

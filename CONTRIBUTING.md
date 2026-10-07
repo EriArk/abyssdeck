@@ -51,9 +51,10 @@ These commands do not deploy the application. GitHub Actions, automatic dependen
 PRs and auto-merge are not used; verification is run locally or on an isolated
 Linux verification host. Do not add a hosted workflow as a prerequisite.
 
-The October 7 check still found 95 lint errors in tracked files; build and
-typecheck passed on Windows with the pinned toolchain. Full-suite failures from
-the earlier audit have not been cleared. Their resolution is tracked
+The October 7 repair cleared the 95 blocking lint errors. Build, typecheck and
+54 focused tests passed on Windows and in an isolated Linux container with the
+pinned toolchain. Existing lint warnings and full-suite failures from the earlier
+audit have not been cleared. Their resolution is tracked
 in [#238](https://github.com/EriArk/abyssdeck/issues/238); do not present the full
 suite as green or hide unrelated failures. Report exact commands, platform,
 revision and outcomes in a PR. Dependency follow-up is tracked in

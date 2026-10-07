@@ -329,10 +329,10 @@ function Workspace({
     [rightHidden, setRightHidden] = useState(readPreference("right-hidden", "false") === "true"),
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState("");
-  const setSettings = (open: boolean) => {
+  const setSettings = useCallback((open: boolean) => {
     if (open) restoreWorkspaceWindow("settings");
     changeSettings(open);
-  };
+  }, []);
   useEffect(() => {
     try {
       localStorage.setItem("codex-right-hidden", String(rightHidden));
@@ -567,7 +567,7 @@ function Workspace({
       disposed = true;
       window.removeEventListener("hashchange", hash);
     };
-  }, [initialized]);
+  }, [initialized, setSettings]);
   const storedProject = projects.find((p) => p.id === projectId);
   const project = storedProject
     ? {
