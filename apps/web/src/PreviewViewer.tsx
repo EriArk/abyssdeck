@@ -16,10 +16,72 @@ export function PreviewViewer({
   embedded?: boolean;
 }) {
   const dialog = useRef<HTMLDivElement>(null);
+  const frame = useRef<HTMLIFrameElement>(null);
   const [ready, setReady] = useState(false),
     [error, setError] = useState(""),
     [wide, setWide] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Retry replaces the frame and must cancel its old image requests.
+  useEffect(() => {
+    const base = result.payload.url ?? "";
+    if (!/^\/api\/previews\/[0-9a-f]{64}$/.test(base)) return;
+    const controller = new AbortController();
+    const pending = new Set<string>();
+    const queue: string[] = [];
+    let running = 0;
+    const pump = () => {
+      while (running < 3 && queue.length && !controller.signal.aborted) {
+        const key = queue.shift()!;
+        const target = frame.current?.contentWindow;
+        running++;
+        void (async () => {
+          const file = await api<{ url: string }>(base.slice(4) + "/images/" + key, {
+            signal: controller.signal,
+          });
+          if (!/^\/api\/artifacts\/[a-f0-9-]{36}$/.test(file.url))
+            throw new Error("Изображение недоступно.");
+          const response = await fetch(workspaceMediaUrl(file.url)!, {
+            credentials: "same-origin",
+            signal: controller.signal,
+          });
+          if (!response.ok) throw new Error("Не удалось загрузить изображение. Повтори загрузку.");
+          const blob = await response.blob();
+          if (!controller.signal.aborted && target === frame.current?.contentWindow)
+            target?.postMessage({ kind: "abyssdeck-preview-image", key, blob }, "*");
+        })()
+          .catch((error) => {
+            if (!controller.signal.aborted && target === frame.current?.contentWindow)
+              target?.postMessage(
+                { kind: "abyssdeck-preview-image", key, error: messageOf(error) },
+                "*",
+              );
+          })
+          .finally(() => {
+            pending.delete(key);
+            running--;
+            pump();
+          });
+      }
+    };
+    const receive = (event: MessageEvent) => {
+      if (
+        event.source !== frame.current?.contentWindow ||
+        event.data?.kind !== "abyssdeck-preview-image" ||
+        typeof event.data.key !== "string" ||
+        !/^[a-f0-9]{64}$/.test(event.data.key) ||
+        pending.has(event.data.key)
+      )
+        return;
+      pending.add(event.data.key);
+      queue.push(event.data.key);
+      pump();
+    };
+    window.addEventListener("message", receive);
+    return () => {
+      controller.abort();
+      window.removeEventListener("message", receive);
+    };
+  }, [result.payload.url, attempt]);
   useEffect(() => {
     if (embedded) return;
     const root = document.getElementById("root"),
@@ -42,7 +104,7 @@ export function PreviewViewer({
       setError("Демо недоступно.");
       return;
     }
-    void api(path.slice(4) + "/ready")
+    void api(path.slice(4) + "/ready?images=1")
       .then(() => {
         if (!disposed) setReady(true);
       })
@@ -125,8 +187,9 @@ export function PreviewViewer({
           )}
           {ready && (
             <iframe
+              ref={frame}
               title={result.title}
-              src={workspaceMediaUrl(result.payload.url)}
+              src={workspaceMediaUrl(result.payload.url + "?images=1")}
               sandbox="allow-scripts"
               referrerPolicy="no-referrer"
             />

@@ -931,7 +931,9 @@ export class Sessions extends EventEmitter {
                 includeTurns: false,
               });
               const status = record(record(result.thread).status);
-              if (status.type === "active" || status.type === "systemError")
+              // systemError describes a failed thread, not an active writer.
+              // Local turn ownership above and the native queue below still apply.
+              if (status.type === "active")
                 throw new HubError(
                   409,
                   "ENTITY_BUSY",
@@ -1027,7 +1029,11 @@ export class Sessions extends EventEmitter {
             ...this.store.db
               .prepare("SELECT id FROM artifacts WHERE threadId=?")
               .all(id)
-              .map((row) => join(this.config.hub.resultsPath, String(row.id) + ".png")),
+              .flatMap((row) =>
+                [".png", ".bin"].map((extension) =>
+                  join(this.config.hub.resultsPath, String(row.id) + extension),
+                ),
+              ),
             ...this.store.db
               .prepare("SELECT id FROM attachments WHERE threadId=?")
               .all(id)
@@ -1039,8 +1045,10 @@ export class Sessions extends EventEmitter {
             ...this.store.db
               .prepare("SELECT id FROM html_previews WHERE threadId=?")
               .all(id)
-              .map((row) =>
-                join(this.config.hub.resultsPath, "previews", String(row.id) + ".html"),
+              .flatMap((row) =>
+                [".html", ".interactive.html", ".interactive.json"].map((extension) =>
+                  join(this.config.hub.resultsPath, "previews", String(row.id) + extension),
+                ),
               ),
           ];
           this.store.db.exec("BEGIN IMMEDIATE");

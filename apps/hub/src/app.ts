@@ -875,14 +875,17 @@ export async function createApp(
   app.get("/api/previews/:id/ready", async (req) => {
     const id = paramId(req);
     sessions.thread(sessions.catalog.previews.thread(id));
-    await sessions.catalog.previews.document(id);
+    await sessions.catalog.previews.document(id, (req.query as { images?: string }).images === "1");
     return { ready: true };
   });
   app.get("/api/previews/:id", async (req, reply) => {
     assertPreviewFrame(req.headers);
     const id = paramId(req);
     sessions.thread(sessions.catalog.previews.thread(id));
-    const document = await sessions.catalog.previews.document(id);
+    const document = await sessions.catalog.previews.document(
+      id,
+      (req.query as { images?: string }).images === "1",
+    );
     return reply
       .header("Content-Security-Policy", previewCsp)
       .removeHeader("X-Frame-Options")
@@ -891,6 +894,13 @@ export async function createApp(
       .header("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()")
       .type("text/html; charset=utf-8")
       .send(document);
+  });
+  app.get("/api/previews/:id/images/:key", async (req) => {
+    const { id, key } = z
+      .object({ id: z.string().regex(/^[a-f0-9]{64}$/), key: z.string().regex(/^[a-f0-9]{64}$/) })
+      .parse(req.params);
+    sessions.thread(sessions.catalog.previews.thread(id));
+    return sessions.catalog.previews.image(id, key);
   });
   app.get("/api/artifacts/:id", async (req, reply) => {
     const id = z.string().uuid().parse(paramId(req)),

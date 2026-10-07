@@ -11,7 +11,9 @@ import {
   readMachinePreviewAsset,
 } from "@codex-web/machines";
 import { HubError, type MachineConfig, visualizationReferences } from "@codex-web/shared";
+import type { Artifacts } from "./artifacts.js";
 import { bundlePreview } from "./preview-bundle.js";
+import { previewImages } from "./preview-images.js";
 import { previewControls } from "./previewControls.js";
 import { previewIcons } from "./previewIcons.js";
 import type { Store, ThreadRecord } from "./store.js";
@@ -89,6 +91,7 @@ export class Previews {
     readonly store: Store,
     private target: (threadId: string) => { machine: MachineConfig; root: string },
     private captured?: (id: string) => Promise<Buffer>,
+    private artifacts?: Artifacts,
   ) {}
   inline(scope: string, itemId: string, html: string): string | undefined {
     if (!html || Buffer.byteLength(html) > PREVIEW_LIMIT) return;
@@ -152,15 +155,16 @@ export class Previews {
     if (!row) throw new HubError(404, "PREVIEW_NOT_FOUND", "Демо не найдено.");
     return String(row.threadId);
   }
-  async document(id: string): Promise<string> {
+  async document(id: string, interactive = false): Promise<string> {
     const row = this.store.db.prepare("SELECT * FROM html_previews WHERE id=?").get(id);
     if (!row) throw new HubError(404, "PREVIEW_NOT_FOUND", "Демо не найдено.");
-    const pending = this.pending.get(id);
+    const cacheKey = id + (interactive && this.artifacts ? ".interactive" : "");
+    const pending = this.pending.get(cacheKey);
     if (pending) return pending;
     if (this.pending.size >= 4)
       throw new HubError(429, "PREVIEW_BUSY", "Другое демо ещё загружается.");
     const action = (async () => {
-      const file = join(this.root, id + ".html");
+      const file = join(this.root, cacheKey + ".html");
       let html: string;
       try {
         html = await readFile(file, "utf8");
@@ -182,35 +186,74 @@ export class Previews {
         if (source.path) {
           const target = this.target(String(row.threadId));
           const paths = target.machine.type !== "ssh-windows" ? posix : win32;
+          const imagePaths: Record<string, string> = {};
+          const image =
+            interactive && this.artifacts
+              ? (asset: string) => {
+                  const base = source.captureId ? paths.dirname(source.path!) : target.root;
+                  const path = paths.resolve(base, asset),
+                    relative = paths.relative(base, path);
+                  if (
+                    !relative ||
+                    relative === ".." ||
+                    relative.startsWith(".." + paths.sep) ||
+                    paths.isAbsolute(relative)
+                  )
+                    throw new HubError(400, "INVALID_PREVIEW_PATH", "Неверный путь ресурса демо.");
+                  const key = createHash("sha256").update(path).digest("hex");
+                  imagePaths[key] = path;
+                  return key;
+                }
+              : undefined;
           if (source.captureId) {
             // Explicit exports use the captured HTML. Related static assets are
             // resolved beside that exact export, on the same authorized machine.
             const directory = paths.dirname(source.path);
-            html = await bundlePreview(html, paths.basename(source.path), async (asset) => {
-              const path = paths.resolve(directory, asset),
-                relative = paths.relative(directory, path);
-              if (!relative || relative.startsWith("..") || paths.isAbsolute(relative))
-                throw new HubError(400, "INVALID_PREVIEW_PATH", "Неверный путь ресурса демо.");
-              const temporary = await mkdtemp(join(tmpdir(), "codex-preview-"));
-              try {
-                const destination = join(temporary, "asset");
-                await copyCodexArtifact(
-                  target.machine,
-                  target.root,
-                  path,
-                  destination,
-                  PREVIEW_LIMIT,
-                );
-                return await readFile(destination);
-              } finally {
-                await rm(temporary, { recursive: true, force: true });
-              }
-            });
+            html = await bundlePreview(
+              html,
+              paths.basename(source.path),
+              async (asset) => {
+                const path = paths.resolve(directory, asset),
+                  relative = paths.relative(directory, path);
+                if (!relative || relative.startsWith("..") || paths.isAbsolute(relative))
+                  throw new HubError(400, "INVALID_PREVIEW_PATH", "Неверный путь ресурса демо.");
+                const temporary = await mkdtemp(join(tmpdir(), "codex-preview-"));
+                try {
+                  const destination = join(temporary, "asset");
+                  await copyCodexArtifact(
+                    target.machine,
+                    target.root,
+                    path,
+                    destination,
+                    PREVIEW_LIMIT,
+                  );
+                  return await readFile(destination);
+                } finally {
+                  await rm(temporary, { recursive: true, force: true });
+                }
+              },
+              image,
+            );
           } else {
             const entry = paths.relative(target.root, source.path);
-            html = await bundlePreview(html, entry, (path) =>
-              readMachinePreviewAsset(target.machine, target.root, path),
+            html = await bundlePreview(
+              html,
+              entry,
+              (path) => readMachinePreviewAsset(target.machine, target.root, path),
+              image,
             );
+          }
+          if (image) {
+            await mkdir(this.root, { recursive: true, mode: 0o700 });
+            await writeFile(
+              join(this.root, cacheKey + ".json"),
+              JSON.stringify({
+                binding: this.binding(target),
+                paths: imagePaths,
+              }),
+              { mode: 0o600 },
+            );
+            html += previewImages;
           }
         }
         await mkdir(this.root, { recursive: true, mode: 0o700 });
@@ -224,8 +267,62 @@ export class Previews {
       }
       // Prefix works for full documents as well as visualize-style HTML fragments.
       return previewMarkup(html);
-    })().finally(() => this.pending.delete(id));
-    this.pending.set(id, action);
+    })().finally(() => this.pending.delete(cacheKey));
+    this.pending.set(cacheKey, action);
     return action;
   }
+  private binding(target: { machine: MachineConfig; root: string }) {
+    return createHash("sha256").update(JSON.stringify(target)).digest("hex");
+  }
+  private imagePending = new Map<string, Promise<{ url: string }>>();
+  async image(id: string, key: string): Promise<{ url: string }> {
+    const threadId = this.thread(id);
+    if (!this.artifacts || !/^[a-f0-9]{64}$/.test(key))
+      throw new HubError(404, "PREVIEW_IMAGE_NOT_FOUND", "Изображение не найдено.");
+    await this.document(id, true);
+    const manifest = JSON.parse(await readFile(join(this.root, id + ".interactive.json"), "utf8"));
+    const target = this.target(threadId);
+    if (manifest.binding !== this.binding(target))
+      throw new HubError(409, "PREVIEW_SOURCE_CHANGED", "Компьютер или папка демо изменились.");
+    const path = Object.hasOwn(manifest.paths, key) && manifest.paths[key];
+    if (typeof path !== "string")
+      throw new HubError(404, "PREVIEW_IMAGE_NOT_FOUND", "Изображение не найдено.");
+    const source = `preview-image:${id}:${key}:${manifest.binding}`;
+    const saved = this.store.db
+      .prepare(
+        "SELECT a.id FROM artifacts a JOIN artifact_files f ON f.id=a.id WHERE a.threadId=? AND f.sourcePath=?",
+      )
+      .get(threadId, source);
+    if (saved) return { url: `/api/artifacts/${saved.id}` };
+    const pending = this.imagePending.get(source);
+    if (pending) return pending;
+    const action = this.artifacts
+      .putStream(
+        threadId,
+        null,
+        path.split(/[\\/]/).at(-1)!,
+        source,
+        imageMime(path),
+        (destination, limit) =>
+          copyCodexArtifact(target.machine, target.root, path, destination, limit),
+      )
+      .then((file) => ({ url: file.url }))
+      .finally(() => this.imagePending.delete(source));
+    this.imagePending.set(source, action);
+    return action;
+  }
+}
+
+function imageMime(path: string) {
+  const ext = path.split(".").at(-1)!.toLowerCase();
+  return (
+    (
+      {
+        jpg: "image/jpeg",
+        jpeg: "image/jpeg",
+        svg: "image/svg+xml",
+        ico: "image/x-icon",
+      } as Record<string, string>
+    )[ext] ?? `image/${ext}`
+  );
 }

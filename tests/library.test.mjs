@@ -135,6 +135,29 @@ test("Deleting a Codex project detaches its chats, preserves source files and do
   assert.equal(store.thread(thread.id).projectId, "unassigned-pc");
   assert(!rpc.calls.some((c) => c.method.startsWith("fs/") || c.method === "thread/delete"));
 });
+
+test("A failed native thread can be archived and deleted; its queue and actual writer remain protected", async (t) => {
+  const { store, sessions, rpc, thread } = await codex(t);
+  store.setStatus(thread.id, "failed");
+  rpc.state = "systemError";
+  rpc.queue = [{ id: "queued" }];
+  await assert.rejects(
+    sessions.manageEntity("thread", thread.id, { action: "archive", value: true }),
+    { code: "ENTITY_QUEUED" },
+  );
+  rpc.queue = [];
+  store.setStatus(thread.id, "running", "live-turn");
+  await assert.rejects(
+    sessions.manageEntity("thread", thread.id, { action: "delete", confirm: true }),
+    { code: "ENTITY_BUSY" },
+  );
+  store.setStatus(thread.id, "failed");
+  await sessions.manageEntity("thread", thread.id, { action: "archive", value: true });
+  assert.equal(Boolean(store.thread(thread.id).archived), true);
+  await sessions.manageEntity("thread", thread.id, { action: "delete", confirm: true });
+  assert.equal(rpc.calls.filter((c) => c.method === "thread/archive").length, 1);
+  assert.equal(rpc.calls.filter((c) => c.method === "thread/delete").length, 1);
+});
 test("Native thread deletion purges Hub history and idempotent repeats do not resend it", async (t) => {
   const { store, sessions, rpc, thread } = await codex(t);
   store.append(thread.id, "user.message", { id: "u", text: "private history" }, "turn");

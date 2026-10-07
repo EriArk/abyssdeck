@@ -89,6 +89,7 @@ export class Catalog {
         };
       },
       (id) => this.artifacts.preview(id),
+      new Artifacts(config.hub.resultsPath, store, config.hub.storage.artifactBytes),
     );
     this.artifacts = new GeneratedArtifacts(
       store,

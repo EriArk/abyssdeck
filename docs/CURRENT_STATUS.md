@@ -1,5 +1,33 @@
 # Текущий статус — 8 октября 2026
 
+### Codex gallery images and failed-thread library actions - October 8
+
+The reported TrainerOS gallery is a local HTML export with 41 sibling PNGs,
+several larger than 3 MiB. Its HTML was already captured correctly. Preview
+sidecar transfer imposed a 2 MiB cap and the base64 bundle imposed 16 MiB total,
+so a valid gallery failed with a misleading generic transfer error.
+
+Interactive Codex previews now keep image references in a private source-bound
+manifest, transfer visible images independently into quota-accounted artifact
+storage, and deliver them through the authenticated parent to the sandbox as
+Blobs. Image originals open in an in-frame dialog with Close; individual failures
+offer Retry. No image count, per-image size or total-gallery byte ceiling is
+introduced. The old 30-second bundle deadline is removed. Static text/script/CSS
+parser budgets remain; the owner requested a separate broader limits audit next.
+Old browser clients retain the portable bundle protocol; new clients explicitly
+request the interactive image protocol. Portable share/export bundling is still
+the old path. Server-backed HTTP/IP/port applications are distinct from local
+HTML exports and are not newly proxied by this repair.
+
+Native `systemError` no longer means ENTITY_BUSY for archive/delete. Actual local
+turn ownership, native active status and queued work still gate these operations.
+Thread deletion also cleans up binary artifacts and the new preview cache files.
+
+Verification: Linux build/typecheck and 19 focused tests passed; Chromium and
+WebKit verified lazy images larger than the former ceiling, original/close,
+individual retry and parent draft continuity. Both also loaded all 41 images
+from the owner's real gallery at phone width. Activation is pending below.
+
 ### Production save-worker policy and Safari sign-in - October 8
 
 Owner feedback exposed a concrete deployment defect in the previous save repair:

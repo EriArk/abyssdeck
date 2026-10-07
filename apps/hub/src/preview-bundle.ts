@@ -47,6 +47,7 @@ export async function bundlePreview(
   html: string,
   entry: string,
   read: (path: string) => Promise<Buffer>,
+  image?: (path: string) => string,
 ) {
   const base = new URL(
     entry.replace(/\\/g, "/").split("/").map(encodeURIComponent).join("/"),
@@ -57,7 +58,6 @@ export async function bundlePreview(
     moduleData: Record<string, string> = {};
   let total = Buffer.byteLength(html),
     packed = 0;
-  const deadline = Date.now() + 30000;
   const resolve = (ref: string, from: string) => {
     if (!ref || /^(?:[a-z][\w+.-]*:|\/\/|#)/i.test(ref)) return null;
     const url = new URL(ref, from);
@@ -68,12 +68,12 @@ export async function bundlePreview(
   };
   const load = async (url: string) => {
     if (bytes.has(url)) return bytes.get(url)!;
-    if (bytes.size >= 64 || Date.now() > deadline) throw failure();
+    if (bytes.size >= 64) throw failure();
     // Reserve before awaiting; traversal is sequential and bounded.
     bytes.set(url, Buffer.alloc(0));
     const value = await read(decodeURIComponent(new URL(url).pathname.slice(1)));
     total += value.length;
-    if (total > PREVIEW_BUNDLE_BYTES || Date.now() > deadline) throw failure();
+    if (total > PREVIEW_BUNDLE_BYTES) throw failure();
     bytes.set(url, value);
     return value;
   };
@@ -182,6 +182,27 @@ export async function bundlePreview(
     if ("tagName" in node) {
       const attr = (name: string) => node.attrs.find((a) => a.name === name);
       const src = attr("src");
+      // Gallery originals travel independently, on demand. They are not part of
+      // the text/parser budget and never inflate the HTML into base64 images.
+      const picture =
+        image &&
+        resolve(
+          (node.tagName === "img" ? src : node.tagName === "a" ? attr("href") : undefined)?.value ??
+            "",
+          base,
+        );
+      if (picture && /^image\//.test(type(picture.path) ?? "")) {
+        const key = image!(picture.path);
+        node.attrs.push({ name: "data-abyss-image", value: key });
+        if (node.tagName === "img") {
+          src!.value =
+            "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='960' height='540'/%3E";
+          node.attrs = node.attrs.filter((a) => a.name !== "srcset");
+        } else {
+          attr("href")!.value = "#";
+          node.attrs = node.attrs.filter((a) => a.name !== "target");
+        }
+      }
       if (
         node.tagName === "script" &&
         /^(?:|module|(?:text|application)\/(?:java|ecma)script)$/i.test(attr("type")?.value ?? "")
@@ -205,7 +226,12 @@ export async function bundlePreview(
             : []),
         ]) {
           const a = attr(name);
-          if (a && node.tagName !== "iframe") a.value = await resource(a.value, base);
+          if (
+            a &&
+            node.tagName !== "iframe" &&
+            !(picture && node.tagName === "img" && name === "src")
+          )
+            a.value = await resource(a.value, base);
         }
         if (node.tagName === "link")
           node.attrs = node.attrs.filter((a) => a.name !== "integrity" && a.name !== "crossorigin");
