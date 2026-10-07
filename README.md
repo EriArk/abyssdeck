@@ -6,6 +6,8 @@ AbyssDeck brings your AI conversations, project files, GitHub work, generated re
 
 It is for people who already use AI to build real things and are tired of moving the same context between ChatGPT, Codex, GitHub, folders, Remote Desktop and team chat.
 
+**Try it:** [Download the standalone interactive demo](demo/abyssdeck-demo.html) ? [Embed it on your website](demo/README.md). English, fictional data, no account or server required.
+
 **Start here:** [Run locally](docs/DEVELOPMENT.md) · [Contribute](CONTRIBUTING.md) · [Self-host](docs/DEPLOYMENT.md) · [Documentation](docs/README.md) · [Open work](https://github.com/EriArk/abyssdeck/issues)
 
 AbyssDeck is in active development. Self-hosting currently requires operator

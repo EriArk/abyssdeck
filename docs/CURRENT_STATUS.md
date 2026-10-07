@@ -1,5 +1,28 @@
 # Текущий статус — 7 октября 2026
 
+### Standalone English website demo - October 7
+
+Added `demo/abyssdeck-demo.html`, a self-contained interactive artifact to copy
+into the website's own static files and embed with the documented sandboxed iframe.
+All visible text and fictional examples are English. The searchable feature map
+covers 54 areas, with six theme finishes and phone/tablet/desktop layouts.
+Production theme CSS and icon paths are embedded by a dependency-free builder.
+Local text edits, image markup, CSV values, notes, task state, window docking and
+downloads work in the browser. AI, GitHub, device and maintenance operations use
+explicitly labeled simulations; binary format pages are capability illustrations.
+No account, backend, CDN, analytics or external asset requests are required.
+This is a distributable demo, not a production client or native integration proof.
+No production service, dependency, deployment or GitHub Actions setting changed.
+
+Verification: Chromium and WebKit passed all 54 feature entries with English-only
+visible text, retained editor drafts, exact downloaded text, dock restoration,
+terminal samples, review receipts and escaped message input. Both engines passed
+six finishes at 393, 1194 and 1440 px inside the documented sandboxed iframe,
+with no page overflow, JavaScript errors or requests beyond the two local HTML
+pages. Chromium screenshots were visually reviewed. The repository guard and
+staged whitespace check passed. This is browser evidence, not physical-device
+or real AI/device integration acceptance.
+
 ### Contributor check repairs - October 7
 
 Cleared all 95 blocking Biome errors: targeted formatting/import ordering,

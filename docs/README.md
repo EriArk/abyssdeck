@@ -13,6 +13,7 @@
 | Understand access and isolation | [Security model](SECURITY.md) |
 | Back up, diagnose or recover | [Maintenance](MAINTENANCE.md) |
 | Connect another user's Windows machine | [Enrollment](WINDOWS_ENROLLMENT.md), [Companion](COMPANION_APP.md) |
+| Try or embed the interactive demo | [Standalone English HTML and embedding guide](../demo/README.md) |
 | Find website assets | [English promotional screenshots](../polish/marketing-en-2026-10-04/README.md), [full gallery](../polish/README.md) |
 
 Deployment is operator-managed. A clean-host guided installer is still tracked in

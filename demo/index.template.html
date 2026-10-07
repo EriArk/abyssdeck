@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en" data-theme="crt-green" data-theme-variant="green" data-case-color="red">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="dark light">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>AbyssDeck — Interactive demo</title>
+  <style>/* THEME_CSS */
+/* DEMO_CSS */</style>
+</head>
+<body>
+  <header class="demo-bar"><strong>AbyssDeck <span class="demo-label">Interactive demo</span></strong><span class="demo-explanation">Fictional data · simulated AI & devices</span><div class="demo-bar-actions"><select id="finish" aria-label="Theme"><option value="burgundy">CRT · Burgundy</option><option value="blue">2000 · Blue</option><option value="red">2000 · Red</option><option value="paper">Organizer · Light</option><option value="night">Organizer · Dark</option><option value="classic">Classic · Dark</option></select><button type="button" data-open="explore" class="bar-button">Explore features</button><button type="button" data-open="about" class="bar-button" aria-label="About this demo">?</button></div></header>
+  <main id="deck" class="demo-deck">
+    <aside id="navigation" class="navigation"><div class="nav-heading"><strong>AbyssDeck</strong><button type="button" data-action="toggle-nav" class="icon-button mobile-only" aria-label="Close navigation">×</button></div><div id="nav-content"></div></aside>
+    <div id="nav-splitter" class="splitter" role="separator" aria-label="Navigation width" aria-orientation="vertical" tabindex="0"></div>
+    <section class="main-workspace"><header id="workspace-header" class="workspace-top"></header><div id="workspace-body" class="workspace-body"><section class="conversation screen"><div id="chat-feed" class="chat-feed" aria-live="polite"></div><form id="composer" class="composer"><div class="composer-options"><select id="model" aria-label="Model"><option>Codex</option><option>GPT</option></select><select aria-label="Work mode"><option>Work</option><option>Plan</option></select><select aria-label="Reasoning effort"><option>Medium</option><option>High</option><option>Low</option></select><span class="spacer"></span><small>Scripted demo replies</small></div><textarea id="prompt" aria-label="Message" placeholder="Try: Prepare the next release" rows="3"></textarea><div class="composer-actions"><button type="button" class="icon-button" data-action="attach" aria-label="Attach a demo file"></button><span id="attachment-label"></span><span class="spacer"></span><button type="button" class="icon-button" data-open="dictation" aria-label="Dictation"></button><button type="submit" class="primary" aria-label="Send message">Send</button></div></form></section><div id="results-splitter" class="splitter" role="separator" aria-label="Results width" aria-orientation="vertical" tabindex="0"></div><aside id="results" class="results screen"></aside></div><nav class="phone-tabs"><button type="button" data-action="phone-chat" aria-pressed="true">Chat</button><button type="button" data-action="phone-results" aria-pressed="false">Results</button></nav></section>
+    <nav id="dock" class="dock" aria-label="Minimized windows" hidden></nav><div id="windows"></div>
+  </main>
+  <div id="toast" role="status" hidden></div><input type="file" id="file-input" accept=".txt,.md,.csv,.json,.js,.ts,.css,.html" hidden>
+  <script>/* ICON_DATA */
+/* CATALOG_JS */
+/* DEMO_JS */</script>
+</body>
+</html>
