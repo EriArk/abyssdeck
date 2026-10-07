@@ -21,8 +21,13 @@ handoff, retained the parent draft and exact source through sign-in, and handled
 denied/malformed/external URLs. Linux build and 18 focused tests passed, including
 a real 4 GiB + 16 byte disk transfer with checksum and bounded memory, plus HEAD
 and byte ranges beyond 4 GiB. The owner's 39,733,895-byte archive matches its SHA-256
-on the Hub. This is not physical iPhone acceptance. Publication is tracked below;
-the export ceiling changes require a separate admitted engine update.
+on the Hub. This is not physical iPhone acceptance.
+
+Activated as `5c7dd818` on October 7: compatible web publication followed by the
+ordinary idle-admitted engine update with a verified checkpoint and automatic
+three-copy retention. Gateway and engine are healthy; the new public download
+page is available. Native GPT client/container identities did not change. The
+server-side quota-based export transfer is installed too; no force admission was used.
 
 ### Website demo using the real application - October 7
 
