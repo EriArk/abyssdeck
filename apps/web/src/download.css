@@ -39,6 +39,14 @@
 .download-actions > * {
   min-height: 44px;
 }
+.download-fallback {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.download-fallback p {
+  overflow-wrap: anywhere;
+}
 button.download-text {
   display: inline;
   border: 0;

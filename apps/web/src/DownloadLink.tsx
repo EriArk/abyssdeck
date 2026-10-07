@@ -6,6 +6,7 @@ import { FilePreview } from "./FilePreview";
 import { FileViewerDialog } from "./FileViewerDialog";
 import { CompactFileActions } from "./fileWorkspaceContext";
 import { Icon } from "./icons";
+import SaveFileWorker from "./saveFile.worker?worker&inline";
 import { useWorkspaceDialog } from "./useWorkspaceDialog";
 import { ViewerEditButton } from "./ViewerEditButton";
 import "./download.css";
@@ -17,34 +18,74 @@ function standalone() {
   );
 }
 
-// A memory budget for preparing Web Share / previews, never a download-size limit.
-// Larger files use the authenticated browser page and stream directly to Downloads.
+// A preview memory budget. Explicit saves stream to disk without this ceiling.
 const bufferedSaveBytes = 32 * 1024 * 1024;
 
-/** iOS may handle `download` in the PWA itself even with target=_blank.
- * Unsupported/large files explicitly leave saving to a separate browser context. */
+function needsInPlaceSave() {
+  return (
+    standalone() ||
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  );
+}
+
+/** Native browser downloads on desktop; an explicit copy fallback on iOS/PWA. */
 function BrowserDownload({
   href,
   name,
   className = "secondary",
   children,
+  visibleLabel = false,
 }: {
   href: string;
   name: string;
   className?: string;
   children: ReactNode;
+  visibleLabel?: boolean;
 }) {
   const compact = useContext(CompactFileActions);
+  const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
+  // Never navigate an iOS/PWA window to binary content, even if sharing is unavailable.
+  if (needsInPlaceSave())
+    return (
+      <div className="download-fallback">
+        <p>
+          Для этого файла системное сохранение здесь недоступно. Ссылку можно вставить в Safari.
+        </p>
+        {!href.startsWith("blob:") && (
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => {
+              void (
+                navigator.clipboard?.writeText(new URL(href, location.origin).href) ??
+                Promise.reject(Error("Clipboard unavailable"))
+              )
+                .then(() => {
+                  setCopied(true);
+                  setCopyError(false);
+                })
+                .catch(() => setCopyError(true));
+            }}
+          >
+            Копировать ссылку для Safari
+          </button>
+        )}
+        {copied && <p role="status">Ссылка скопирована. Исходное окно остаётся здесь.</p>}
+        {copyError && <p role="alert">Не удалось скопировать ссылку.</p>}
+      </div>
+    );
   return (
     <a
-      className={compact ? "icon-button" : className}
+      className={compact && !visibleLabel ? "icon-button" : className}
       title={compact ? "Скачать файл" : undefined}
-      href={standalone() && !href.startsWith("blob:") ? browserDownloadUrl(href, name) : href}
-      download={standalone() ? undefined : name}
+      href={href}
+      download={name}
       target="_blank"
       rel="noopener noreferrer"
     >
-      {compact ? (
+      {compact && !visibleLabel ? (
         <>
           <Icon name="arrow-down" />
           <span className="file-action-label">{children}</span>
@@ -54,11 +95,6 @@ function BrowserDownload({
       )}
     </a>
   );
-}
-
-/** Open a document first: iOS's in-app Safari handoff can leave a raw binary URL blank. */
-export function browserDownloadUrl(href: string, name: string) {
-  return "/download?" + new URLSearchParams({ source: href, name });
 }
 
 export function isDownloadUrl(value: string | undefined): value is string {
@@ -137,12 +173,15 @@ export function DownloadLink({
   preparedFile,
   initiallyOpen = false,
   title,
+  visibleLabel = false,
 }: {
   href?: string;
   /** Exact immutable local bytes, e.g. an editor snapshot or extracted archive entry. */
   preparedFile?: File;
   initiallyOpen?: boolean;
   title?: string;
+  /** Explicit save label in viewers, including narrow layouts. */
+  visibleLabel?: boolean;
   name?: string;
   mime?: string;
   children: ReactNode;
@@ -160,6 +199,8 @@ export function DownloadLink({
     [error, setError] = useState(""),
     [direct, setDirect] = useState<{ name: string; bytes: number } | null>(null),
     [retry, setRetry] = useState(0);
+  const [progress, setProgress] = useState<{ received: number; total: number } | null>(null);
+  const activeShare = useRef<Promise<void> | null>(null);
   const editRequest = useRef<AbortController | null>(null);
   const [editing, setEditing] = useState(false),
     [editError, setEditError] = useState("");
@@ -189,10 +230,12 @@ export function DownloadLink({
     }
     const controller = new AbortController();
     let url = "";
+    let worker: Worker | undefined;
     setFile(null);
     setObjectUrl("");
     setError("");
     setDirect(null);
+    setProgress(null);
     void (async () => {
       try {
         if (preparedFile) {
@@ -202,12 +245,66 @@ export function DownloadLink({
           return;
         }
         if (!isDownloadUrl(href)) throw Error("Ссылка на файл недоступна.");
+        if (
+          directDownload &&
+          typeof navigator.share === "function" &&
+          typeof navigator.canShare === "function" &&
+          typeof navigator.storage?.getDirectory === "function"
+        ) {
+          const saveWorker = new SaveFileWorker();
+          worker = saveWorker;
+          const value = await new Promise<File>((resolve, reject) => {
+            controller.signal.addEventListener("abort", () => reject(controller.signal.reason), {
+              once: true,
+            });
+            saveWorker.onerror = () =>
+              reject(Error("Не удалось подготовить файл в хранилище браузера."));
+            saveWorker.onmessage = (event) => {
+              if (event.data.released) {
+                worker?.terminate();
+                return;
+              }
+              if (controller.signal.aborted) return;
+              if (event.data.progress) setProgress(event.data.progress);
+              if (event.data.error)
+                reject(
+                  Error(
+                    event.data.error === "HTTP_401"
+                      ? "Войди снова, чтобы скачать файл."
+                      : /HTTP_40[34]/.test(event.data.error)
+                        ? "Файл удалён или доступ к нему закрыт."
+                        : /quota/i.test(event.data.error)
+                          ? "В хранилище браузера не хватает места для подготовки файла."
+                          : "Не удалось подготовить файл: " + event.data.error,
+                  ),
+                );
+              if (event.data.file) {
+                const type = event.data.type || mime || "application/octet-stream";
+                resolve(
+                  new File([event.data.file], fileName(event.data.disposition, name, type), {
+                    type,
+                  }),
+                );
+              }
+            };
+            saveWorker.postMessage({ source: new URL(workspaceUrl(href), location.origin).href });
+          });
+          if (!controller.signal.aborted) setFile(value);
+          return;
+        }
+        if (
+          directDownload &&
+          (typeof navigator.share !== "function" || typeof navigator.canShare !== "function")
+        ) {
+          setDirect({ name, bytes: 0 });
+          return;
+        }
         if (/^\/api\/artifacts\/[a-zA-Z0-9_-]+$/.test(href)) {
           const head = await fetch(workspaceUrl(href), {
             method: "HEAD",
             credentials: "same-origin",
             redirect: "error",
-            signal: AbortSignal.any([controller.signal, AbortSignal.timeout(30000)]),
+            signal: controller.signal,
           });
           if (!head.ok)
             throw Error(
@@ -228,7 +325,7 @@ export function DownloadLink({
         const response = await fetch(workspaceUrl(href), {
           credentials: "same-origin",
           redirect: "error",
-          signal: AbortSignal.any([controller.signal, AbortSignal.timeout(60000)]),
+          signal: controller.signal,
         });
         if (!response.ok || !response.body)
           throw Error(
@@ -284,11 +381,24 @@ export function DownloadLink({
           );
       }
     })();
-    return () => {
+    const dispose = () => {
       controller.abort();
-      if (url) URL.revokeObjectURL(url);
+      const release = () => {
+        worker?.postMessage({ cancel: true });
+        if (url) URL.revokeObjectURL(url);
+      };
+      if (activeShare.current) void activeShare.current.finally(release);
+      else release();
     };
-  }, [open, href, name, mime, retry, sourceRevision, preparedFile]);
+    const leaving = (event: PageTransitionEvent) => {
+      if (!event.persisted) dispose();
+    };
+    window.addEventListener("pagehide", leaving);
+    return () => {
+      window.removeEventListener("pagehide", leaving);
+      dispose();
+    };
+  }, [open, href, name, mime, retry, sourceRevision, preparedFile, directDownload]);
   const shareable =
     !!file &&
     typeof navigator.share === "function" &&
@@ -310,24 +420,36 @@ export function DownloadLink({
     setSharing(true);
     setError("");
     // Run directly in this fresh tap; a slow fetch must not consume iOS user activation.
-    void navigator
-      .share({ files: [file] })
+    let nativeShare: Promise<void>;
+    try {
+      nativeShare = navigator.share({ files: [file] });
+    } catch (error) {
+      nativeShare = Promise.reject(error);
+    }
+    const operation = nativeShare
       .catch((e) => {
         if (request === shareRequest.current && e?.name !== "AbortError")
           setError("Не удалось открыть меню сохранения. Попробуй ещё раз.");
       })
       .finally(() => {
+        if (activeShare.current === operation) activeShare.current = null;
         if (request === shareRequest.current) setSharing(false);
       });
+    activeShare.current = operation;
   };
   // File-capable system sharing keeps standalone PWAs on their current screen.
   // Do not navigate to a raw attachment: iOS may replace the PWA with unclosable Quick Look.
   const systemSave =
     typeof navigator.share === "function" && typeof navigator.canShare === "function";
   const downloadHref = preparedFile ? objectUrl : isDownloadUrl(href) ? workspaceUrl(href) : "";
-  if (directDownload && !systemSave && !initiallyOpen && !standalone())
+  if (directDownload && !systemSave && !initiallyOpen && !needsInPlaceSave())
     return downloadHref ? (
-      <BrowserDownload className={className} href={downloadHref} name={preparedFile?.name || name}>
+      <BrowserDownload
+        visibleLabel={visibleLabel}
+        className={className}
+        href={downloadHref}
+        name={preparedFile?.name || name}
+      >
         {children}
       </BrowserDownload>
     ) : null;
@@ -335,11 +457,15 @@ export function DownloadLink({
     <>
       <button
         type="button"
-        className={compact ? "icon-button" : className}
+        className={compact && !visibleLabel ? "icon-button" : className}
         title={title ?? (compact ? "Скачать файл" : undefined)}
-        onClick={() => setOpen(true)}
+        onClick={(event) => {
+          // Safari does not focus a tapped button by default; retain an exact return target.
+          event.currentTarget.focus({ preventScroll: true });
+          setOpen(true);
+        }}
       >
-        {compact ? (
+        {compact && !visibleLabel ? (
           <>
             <Icon name="arrow-down" />
             <span className="file-action-label">{children}</span>
@@ -353,6 +479,18 @@ export function DownloadLink({
           {!file && !direct && !error && (
             <p role="status">
               <span className="spinner" /> Подготавливаю файл…
+              {progress && (
+                <>
+                  {" "}
+                  {new Intl.NumberFormat("ru", { maximumFractionDigits: 1 }).format(
+                    progress.received / 1024 / 1024,
+                  )}{" "}
+                  МБ
+                  {progress.total > 0
+                    ? ` / ${new Intl.NumberFormat("ru", { maximumFractionDigits: 1 }).format(progress.total / 1024 / 1024)} МБ`
+                    : ""}
+                </>
+              )}
             </p>
           )}
           {file && shareable ? (
@@ -365,6 +503,11 @@ export function DownloadLink({
             </BrowserDownload>
           ) : null}
           {error && <p role="alert">{error}</p>}
+          {error && !file && needsInPlaceSave() && downloadHref && (
+            <BrowserDownload href={downloadHref} name={name}>
+              Скачать
+            </BrowserDownload>
+          )}
           {error && (
             <button type="button" className="secondary" onClick={() => setRetry((v) => v + 1)}>
               Повторить
@@ -411,22 +554,17 @@ export function DownloadLink({
                     {editing ? "Открываю редактор…" : editLabel}
                   </button>
                 )}
-                {file && shareable ? (
-                  <button
-                    type="button"
-                    className="icon-button"
-                    aria-label="Сохранить / поделиться"
-                    title="Сохранить / поделиться"
-                    disabled={sharing}
-                    onClick={share}
+                {(file || downloadHref) && (
+                  <DownloadLink
+                    href={href}
+                    preparedFile={file ?? preparedFile}
+                    name={file?.name || name}
+                    directDownload
+                    visibleLabel
                   >
-                    <Icon name="send" />
-                  </button>
-                ) : downloadHref ? (
-                  <BrowserDownload href={downloadHref} name={file?.name || name}>
-                    Скачать файл
-                  </BrowserDownload>
-                ) : null}
+                    <Icon name="arrow-down" size={17} /> Скачать
+                  </DownloadLink>
+                )}
               </>
             }
           >
@@ -451,11 +589,8 @@ export function DownloadLink({
                   {new Intl.NumberFormat("ru", { maximumFractionDigits: 1 }).format(
                     direct.bytes / 1024 / 1024,
                   )}{" "}
-                  МБ · Сохранение через загрузки браузера
+                  МБ · Исходный файл доступен для сохранения
                 </p>
-                <BrowserDownload href={workspaceUrl(href!)} name={direct.name}>
-                  Скачать файл
-                </BrowserDownload>
               </div>
             )}
             {error && <p role="alert">{error}</p>}

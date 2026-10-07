@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { once } from "node:events";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -14,7 +15,8 @@ const bytes = Buffer.alloc(38 * 1024 * 1024, 71);
 let gets = 0,
   heads = 0,
   signedIn = true,
-  denied = false;
+  denied = false,
+  paused = false;
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, "http://fixture");
   const json = (value) => {
@@ -24,12 +26,20 @@ const server = createServer(async (req, res) => {
   if (["/", "/download"].includes(url.pathname)) {
     res.setHeader("content-type", "text/html");
     return res.end(
-      '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><div id="root"></div><script src="/fixture.js"></script>',
+      '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/fixture.css"><div id="root"></div><script src="/fixture.js"></script>',
     );
   }
   if (url.pathname === "/fixture.js") {
     res.setHeader("content-type", "text/javascript");
     return res.end(await readFile(join(dir, "fixture.js")));
+  }
+  if (url.pathname === "/fixture.css") {
+    res.setHeader("content-type", "text/css");
+    return res.end(await readFile(join(dir, "fixture.css")));
+  }
+  if (/^\/fonts\/[a-zA-Z0-9._-]+\.woff2$/.test(url.pathname)) {
+    res.setHeader("content-type", "font/woff2");
+    return res.end(await readFile(resolve("apps/web/public" + url.pathname)));
   }
   if (url.pathname === "/api/auth/status") return json({ team: false });
   if (url.pathname === "/api/auth/login") signedIn = true;
@@ -53,12 +63,17 @@ const server = createServer(async (req, res) => {
       return res.end();
     }
     gets++;
+    if (paused) {
+      res.write(bytes.subarray(0, 1024));
+      return; // Closing preparation must abort this still-open response.
+    }
     return res.end(bytes);
   }
   res.statusCode = 404;
   res.end();
 });
 try {
+  await mkdir(".local/qa-downloads", { recursive: true });
   await build({
     configFile: false,
     root: resolve("apps/web"),
@@ -73,6 +88,7 @@ try {
         name: "Fixture",
         formats: ["iife"],
         fileName: () => "fixture.js",
+        cssFileName: "fixture",
       },
     },
   });
@@ -92,39 +108,128 @@ try {
       });
       await context.addInitScript(() => {
         Object.defineProperty(navigator, "standalone", { value: true });
-        Object.defineProperty(navigator, "share", { value: async () => {} });
+        window.shares = [];
+        Object.defineProperty(navigator, "share", {
+          value: async ({ files }) => {
+            const file = files[0];
+            const hash = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+            window.shares.push({
+              name: file.name,
+              size: file.size,
+              hash: Array.from(new Uint8Array(hash), (b) => b.toString(16).padStart(2, "0")).join(
+                "",
+              ),
+            });
+            throw new DOMException("Cancelled", "AbortError");
+          },
+        });
         Object.defineProperty(navigator, "canShare", { value: () => true });
       });
       const page = await context.newPage();
       const errors = [];
       page.on("pageerror", (e) => errors.push(e.message));
       await page.goto(origin);
-      await page.getByRole("button", { name: "Save archive" }).click();
-      const handoff = page.getByRole("link", { name: "Скачать через браузер" });
-      await expect(handoff).toBeVisible();
-      assert.equal(await handoff.getAttribute("download"), null);
-      assert.match(await handoff.getAttribute("href"), /^\/download\?/);
+      const diskAvailable = await page.evaluate(
+        () => typeof navigator.storage?.getDirectory === "function",
+      );
+      const saveLabel = diskAvailable ? "Сохранить / поделиться" : "Копировать ссылку для Safari";
       const before = gets;
-      const popupPromise = context.waitForEvent("page");
-      await handoff.click();
-      const popup = await popupPromise;
-      const downloadLink = popup.getByRole("link", { name: "Скачать файл", exact: true });
-      await expect(downloadLink).toBeVisible();
-      assert.equal(gets, before, "handoff must not buffer the file");
-      assert.equal(await downloadLink.getAttribute("href"), path);
-      const downloadPromise = popup.waitForEvent("download");
-      await downloadLink.click();
-      const download = await downloadPromise;
-      assert.equal(download.suggestedFilename(), "archive.zip");
-      assert.deepEqual(await readFile(await download.path()), bytes);
+      await page.getByRole("button", { name: "Save archive" }).click();
+      const save = page.getByRole("button", { name: saveLabel });
+      await expect(save).toBeVisible({ timeout: 30000 });
+      assert.equal(context.pages().length, 1, "no handoff or binary navigation");
+      assert.equal(page.url(), origin + "/");
+      assert.equal(
+        gets - before,
+        diskAvailable ? 1 : 0,
+        "one streaming GET; headers-only fallback without disk storage",
+      );
+      if (diskAvailable) {
+        await save.click();
+        await expect.poll(() => page.evaluate(() => window.shares.length)).toBe(1);
+        assert.deepEqual(await page.evaluate(() => window.shares[0]), {
+          name: "archive.zip",
+          size: bytes.length,
+          hash: createHash("sha256").update(bytes).digest("hex"),
+        });
+        await expect(save).toBeEnabled();
+        await expect(page.getByRole("alert")).toHaveCount(0);
+      }
+      await page.getByRole("button", { name: "Закрыть сохранение" }).click();
       await expect(page.getByRole("textbox", { name: "Draft" })).toHaveValue("Keep this draft");
-      // Safari may use a separate cookie jar: sign-in must return to the exact download.
+      if (diskAvailable)
+        await expect
+          .poll(() =>
+            page.evaluate(async () => {
+              const directory = await (await navigator.storage.getDirectory()).getDirectoryHandle(
+                "abyssdeck-save-temporary",
+              );
+              let count = 0;
+              for await (const _entry of directory.values()) count++;
+              return count;
+            }),
+          )
+          .toBe(0);
+      await page.getByRole("button", { name: "Open preview" }).click();
+      const viewer = page.getByRole("dialog", { name: "Просмотр файла", exact: true });
+      const previewSave = viewer.getByRole("button", { name: "Скачать", exact: true });
+      await expect(previewSave).toBeInViewport();
+      await expect(previewSave).toHaveText("Скачать");
+      await page.screenshot({ path: `.local/qa-downloads/${name}-preview-download.png` });
+      await previewSave.click();
+      await expect(save).toBeVisible({ timeout: 30000 });
+      await page.screenshot({ path: `.local/qa-downloads/${name}-in-place-save.png` });
+      await page.getByRole("button", { name: "Закрыть сохранение" }).click();
+      await expect(viewer).toBeVisible();
+      await expect(previewSave).toBeFocused();
+      await viewer.getByRole("button", { name: "Закрыть просмотр" }).click();
+      await page.getByRole("button", { name: "Save local draft" }).click();
+      const localShare = page.getByRole("button", { name: "Сохранить / поделиться" });
+      await localShare.click();
+      await expect.poll(() => page.evaluate(() => window.shares.at(-1)?.name)).toBe("draft.md");
+      assert.equal(
+        (await page.evaluate(() => window.shares.at(-1))).hash,
+        createHash("sha256").update("# Exact local draft\n").digest("hex"),
+      );
+      await page.getByRole("button", { name: "Закрыть сохранение" }).click();
+      await expect(page.getByRole("textbox", { name: "Draft" })).toHaveValue("Keep this draft");
+      assert.equal(page.url(), origin + "/");
+      assert.equal(context.pages().length, 1);
+      if (diskAvailable) {
+        paused = true;
+        const beforeCancel = gets;
+        await page.getByRole("button", { name: "Save archive" }).click();
+        await expect.poll(() => gets).toBe(beforeCancel + 1);
+        await page.getByRole("button", { name: "Закрыть сохранение" }).click();
+        await expect
+          .poll(() =>
+            page.evaluate(async () => {
+              const directory = await (await navigator.storage.getDirectory()).getDirectoryHandle(
+                "abyssdeck-save-temporary",
+              );
+              let count = 0;
+              for await (const _entry of directory.values()) count++;
+              return count;
+            }),
+          )
+          .toBe(0);
+        paused = false;
+      }
+      // Previously shared links have the same save flow and an explicit return.
+      const popup = await context.newPage();
+      await popup.goto(
+        origin + "/download?source=" + encodeURIComponent(path) + "&name=archive.zip",
+      );
+      const downloadLink = popup.getByRole("button", { name: saveLabel });
+      await expect(downloadLink).toBeVisible({ timeout: 30000 });
+      await popup.getByRole("button", { name: "Закрыть сохранение" }).click();
+      await expect(popup.getByRole("link", { name: "Вернуться в AbyssDeck" })).toBeVisible();
       signedIn = false;
       await popup.reload();
       await expect(popup.locator('input[type="password"]')).toBeVisible();
       await popup.locator('input[type="password"]').fill("fixture-only");
       await popup.locator('button[type="submit"]').click();
-      await expect(downloadLink).toBeVisible();
+      await expect(downloadLink).toBeVisible({ timeout: 30000 });
       assert.match(popup.url(), /source=/);
       denied = true;
       await popup.reload();
@@ -147,7 +252,10 @@ try {
       await context.close();
       console.log(
         name +
-          ": PWA handoff, exact 38 MiB download, retained draft, sign-in return and error states passed",
+          (diskAvailable
+            ? ": OPFS exact 38 MiB save/share cancel/cleanup"
+            : ": this WebKit port has no OPFS; safe unsupported-storage fallback") +
+          ", no navigation, legacy return/login and errors passed",
       );
     } finally {
       await browser.close();

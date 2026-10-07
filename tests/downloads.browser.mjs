@@ -195,7 +195,7 @@ try {
       await expect(inspector.locator(".result-inspector-heading")).toContainText("test.md");
       await inspector.getByRole("button", { name: "Скачать файл", exact: true }).tap();
       const dialog = page.getByRole("dialog", { name: "Сохранить файл" });
-      await expect(dialog.getByRole("alert")).toContainText("Не удалось получить файл");
+      await expect(dialog.getByRole("alert")).toContainText("Не удалось");
       failure = false;
       slow = true;
       await dialog.getByRole("button", { name: "Повторить", exact: true }).tap();
@@ -262,10 +262,10 @@ try {
         .locator(".result-inspector")
         .getByRole("button", { name: "Скачать", exact: true })
         .click();
-      const downloading = page.waitForEvent("download");
-      await dialog.getByRole("link", { name: "Скачать файл", exact: true }).click();
-      const downloaded = await downloading;
-      assert.equal(downloaded.suggestedFilename(), "Изображение.png");
+      await expect(
+        dialog.getByRole("button", { name: "Копировать ссылку для Safari" }),
+      ).toBeVisible();
+      await expect(dialog.locator("a")).toHaveCount(0);
       assert.equal(page.url(), initialUrl);
       await dialog.getByRole("button", { name: "Закрыть сохранение" }).click();
       console.log(

@@ -118,8 +118,8 @@ export function ResultFilePreview({
           <>
             <ResultShareButton result={result} />
             {isDownloadUrl(path) ? (
-              <DownloadLink href={path} name={title} mime={mime} directDownload>
-                Скачать файл
+              <DownloadLink href={path} name={title} mime={mime} directDownload visibleLabel>
+                <Icon name="arrow-down" size={17} /> Скачать
               </DownloadLink>
             ) : null}
           </>

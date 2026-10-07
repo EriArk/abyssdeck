@@ -1,5 +1,38 @@
 # Текущий статус — 7 октября 2026
 
+### iPhone save navigation correction - October 7
+
+The owner rejected the `5c7dd818` web handoff in ordinary iPhone use: it added a
+second Download page and then opened native ZIP Quick Look without a return.
+The passing desktop browser download tests did not establish that interaction.
+
+Current source removes that handoff from ordinary saves. The common save dialog
+stays over its parent, prepares remote files into temporary OPFS storage in a
+worker, displays progress and invokes native file sharing only on a fresh tap.
+There is no application file-size ceiling or elapsed-transfer deadline in this
+disk path. Closing aborts preparation and removes temporary bytes; native sharing
+retains its backing file until completion. Browser locks protect concurrent saves
+and allow abandoned temporary files to be reclaimed after a crashed tab.
+
+Unsupported storage retains the existing small-file memory preparation; its
+32 MiB preview/memory budget does not reject browser downloads. Unsupported
+iPhone/PWA system saves offer an explicit copy-link fallback without navigating
+the app. Desktop browser downloads remain direct. Platform storage capacity and
+native sharing support still apply. Previously shared `/download` URLs retain
+authentication and now offer the same save dialog plus an explicit return.
+
+The universal viewer and Results preview show a visible Download label, including
+when a format has no preview. Source identity, editor snapshots and the installed
+quota-based server transfer from `5c7dd818` are preserved. Help is updated.
+Chromium verified a disk-backed 38 MiB download by SHA-256, share cancellation,
+temporary-file cleanup and one request with no navigation. Chromium and WebKit
+verified the visible preview button, closing the nested save back to its preview,
+exact local editor bytes, retained draft, and legacy-link login/return/errors.
+The Playwright WebKit ports do not expose OPFS: their large-file fallback was
+checked, not presented as proof of disk-backed preparation on an iPhone. Native
+iPhone sharing remains subject to ordinary-use feedback. The initial Linux build
+passed; web-only publication follows the final source build without native restarts.
+
 ### Download handoff and large Codex exports - October 7
 
 Source fix: standalone PWA saves open an authenticated same-origin download page

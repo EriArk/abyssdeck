@@ -1,5 +1,16 @@
 # AGENTS.md
 
+## Owner-corrected iPhone saving (2026-10-07)
+
+- Saving must stay in one closeable window over the mounted source. Do not add
+  an intermediate download page or navigate an iPhone/PWA to a binary URL that
+  can replace it with Quick Look. This corrects the old browser-handoff fallback.
+- Show a visible Download label in previews. Keep large-file transfer separate
+  from preview/memory budgets; prepare system sharing on disk where supported,
+  with progress, cancellation and a fresh tap for the native save menu.
+- Preserve drafts, scroll and exact source. Browser tests do not prove physical
+  iPhone behavior; owner-reported navigation traps supersede their earlier results.
+
 ## Owner-requested native GPT error authority (2026-10-07)
 
 - Repair the GPT chain without adding arbitrary waiting limits. Let the native

@@ -1,11 +1,11 @@
 ﻿import { useEffect, useState } from "react";
-import { admitWorkspace } from "./accountStorage";
+import { admitWorkspace, workspaceUrl } from "./accountStorage";
 import { ApiError, api, configureApi, messageOf } from "./api";
-import { isDownloadUrl } from "./DownloadLink";
+import { DownloadLink, isDownloadUrl } from "./DownloadLink";
 import { Login } from "./Login";
 import type { Session } from "./types";
 
-/** Same-origin, authenticated handoff. The browser streams the body directly to Downloads. */
+/** Compatibility for previously shared /download links. New saves never open this page. */
 export function BrowserDownloadPage() {
   const [request] = useState(() => {
     const query = new URLSearchParams(location.search);
@@ -29,6 +29,14 @@ export function BrowserDownloadPage() {
     return {
       valid,
       source: source.pathname + source.search,
+      unscopedSource:
+        source.pathname +
+        (() => {
+          const params = new URLSearchParams(source.search);
+          params.delete("workspace");
+          return params.size ? "?" + params : "";
+        })(),
+      workspace: scope[0],
       name: query.get("name") || "Файл",
       location: location.pathname + location.search,
     };
@@ -39,7 +47,6 @@ export function BrowserDownloadPage() {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
-  const [started, setStarted] = useState(false);
   // biome-ignore lint/correctness/useExhaustiveDependencies: Retry and completed login explicitly recheck this source.
   useEffect(() => {
     if (!request.valid) return;
@@ -60,6 +67,14 @@ export function BrowserDownloadPage() {
         throw e;
       }
       if (!admitWorkspace(current)) return;
+      // A copied link cannot silently switch the acting account/workspace.
+      if (
+        request.workspace &&
+        new URL(workspaceUrl(request.unscopedSource), location.origin).searchParams.get(
+          "workspace",
+        ) !== request.workspace
+      )
+        throw Error("Открой файл из его исходного рабочего пространства.");
       setSession(current);
       setLoginRequired(false);
       configureApi(current.csrf, () => setLoginRequired(true));
@@ -104,6 +119,9 @@ export function BrowserDownloadPage() {
   return (
     <main className="login-page">
       <section className="login-card browser-download-page">
+        <a className="secondary" href="/">
+          Вернуться в AbyssDeck
+        </a>
         <h1>Скачать файл</h1>
         <p className="browser-download-name">{request.name}</p>
         {!request.valid ? (
@@ -118,28 +136,14 @@ export function BrowserDownloadPage() {
         ) : !ready || !session ? (
           <p role="status">Проверяю доступ к файлу…</p>
         ) : (
-          <>
-            <a
-              className="primary"
-              href={request.source}
-              download={request.name}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => setStarted(true)}
-            >
-              Скачать файл
-            </a>
-            <p>
-              Файл сохраняется через загрузки браузера. Это окно можно закрыть после завершения
-              загрузки.
-            </p>
-            {started && (
-              <p role="status">
-                Смотри ход скачивания в загрузках браузера. Если встроенное окно iPhone не начало
-                загрузку, открой эту страницу в Safari кнопкой с компасом и нажми «Скачать файл».
-              </p>
-            )}
-          </>
+          <DownloadLink
+            href={request.unscopedSource}
+            name={request.name}
+            directDownload
+            initiallyOpen
+          >
+            Сохранить файл
+          </DownloadLink>
         )}
       </section>
     </main>

@@ -165,7 +165,7 @@ try {
         }
         // The actual universal viewer used by chat references previously bypassed safe saving.
         for (const [entry, action, parentClose, filename, bytes] of [
-          ["Открыть ZIP результата", "Скачать файл", "Закрыть просмотр", "diagnostics.zip", null],
+          ["Открыть ZIP результата", "Скачать", "Закрыть просмотр", "diagnostics.zip", null],
           [
             "Открыть черновик",
             "Скачать черновик",
@@ -229,16 +229,14 @@ try {
         await page.getByRole("button", { name: "Закрыть просмотр", exact: true }).last().click();
         await expect(page.getByRole("button", { name: /entry.md/ })).toBeVisible();
         await page.getByRole("button", { name: "Закрыть просмотр", exact: true }).click();
-        // Standalone fallback deliberately avoids the download attribute that iOS can
-        // consume in the app's own window despite target=_blank.
+        // Unsupported system sharing must never navigate the PWA into Quick Look.
         await page.evaluate(() =>
           Object.defineProperty(navigator, "canShare", { configurable: true, value: () => false }),
         );
         await source.tap();
-        const fallback = dialog.getByRole("link", { name: "Скачать через браузер" });
+        const fallback = dialog.getByRole("button", { name: "Копировать ссылку для Safari" });
         await expect(fallback).toBeVisible();
-        await expect(fallback).not.toHaveAttribute("download");
-        await expect(fallback).toHaveAttribute("target", "_blank");
+        await expect(dialog.locator("a")).toHaveCount(0);
         await close.click();
         // Desktop without file sharing retains direct browser downloads.
         await page.evaluate(() => {
