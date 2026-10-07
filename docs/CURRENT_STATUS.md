@@ -25,13 +25,17 @@ The universal viewer and Results preview show a visible Download label, includin
 when a format has no preview. Source identity, editor snapshots and the installed
 quota-based server transfer from `5c7dd818` are preserved. Help is updated.
 Chromium verified a disk-backed 38 MiB download by SHA-256, share cancellation,
-temporary-file cleanup and one request with no navigation. Chromium and WebKit
+temporary-file cleanup (including a cancelled incomplete stream) and one request
+with no navigation. Chromium and WebKit
 verified the visible preview button, closing the nested save back to its preview,
 exact local editor bytes, retained draft, and legacy-link login/return/errors.
 The Playwright WebKit ports do not expose OPFS: their large-file fallback was
 checked, not presented as proof of disk-backed preparation on an iPhone. Native
-iPhone sharing remains subject to ordinary-use feedback. The initial Linux build
-passed; web-only publication follows the final source build without native restarts.
+iPhone sharing remains subject to ordinary-use feedback. The final Linux typecheck
+and web build passed. Activated as web-only `57689e42`, release
+`4ef01392e75a6745efa112a4c846925bd4d90edd03626975fe44a42abaf2cd35`.
+Hub, engine and native-client container identities/start times are unchanged;
+the installed server transfer remains `5c7dd818`.
 
 ### Download handoff and large Codex exports - October 7
 
