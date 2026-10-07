@@ -1,2 +1,5 @@
 # Preserve upstream Guacamole distribution/license bytes and keep review focused on our code.
 apps/web/public/vendor/** linguist-vendored -whitespace
+# Static demo output includes upstream shader/template strings and license bytes.
+# Review its sources under demo/app; do not rewrite generated string whitespace.
+demo/site/** linguist-generated -whitespace

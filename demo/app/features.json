@@ -1,0 +1,380 @@
+[
+  [
+    "codex",
+    "Assistants",
+    "Codex workspace",
+    "chat",
+    "Continue a project, choose Work or Plan, attach files and inspect a scripted task result."
+  ],
+  [
+    "gpt",
+    "Assistants",
+    "ChatGPT workspace",
+    "chat",
+    "Explore a separate conversation and keep its files and public progress summaries together."
+  ],
+  [
+    "history",
+    "Assistants",
+    "History & pins",
+    "history",
+    "Switch conversations, pin a chat and search the fictional history."
+  ],
+  [
+    "schedules",
+    "Assistants",
+    "Scheduled tasks",
+    "schedule",
+    "Prepare a chat-bound schedule and review its next example run."
+  ],
+  [
+    "dictation",
+    "Assistants",
+    "Dictation & speech",
+    "microphone",
+    "Explore voice input and reading controls without requesting microphone access."
+  ],
+  [
+    "profiles",
+    "Assistants",
+    "Behavior profiles",
+    "person",
+    "Choose project-specific working instructions and review their scope."
+  ],
+  [
+    "rotation",
+    "Assistants",
+    "Current chat & handoff",
+    "arrow-right",
+    "Review the project summary carried into the next conversation."
+  ],
+  [
+    "files",
+    "Files & results",
+    "Project files",
+    "folder",
+    "Browse folders, search, create, rename, upload, edit and download demo text files."
+  ],
+  [
+    "viewer",
+    "Files & results",
+    "Shared viewer & editor",
+    "file",
+    "Switch between reading and editing in the same window. Save a local demo copy."
+  ],
+  [
+    "formats",
+    "Files & results",
+    "Document & technical formats",
+    "grid",
+    "Explore the supported format families and clearly labeled sample previews."
+  ],
+  [
+    "images",
+    "Files & results",
+    "Images & annotations",
+    "image",
+    "Step through a gallery, draw on an image and export your annotated copy."
+  ],
+  [
+    "tables",
+    "Files & results",
+    "CSV & spreadsheet values",
+    "table-header",
+    "Edit a small table and export its values as CSV."
+  ],
+  [
+    "results",
+    "Files & results",
+    "Results feed",
+    "bookmark",
+    "Browse files, images, links and public task summaries beside the conversation."
+  ],
+  [
+    "batch",
+    "Files & results",
+    "Selection & export",
+    "select",
+    "Choose demo result files and export them together in a readable bundle."
+  ],
+  [
+    "sharing",
+    "Files & results",
+    "Share a result",
+    "link",
+    "Choose exact demo material and review its recipients before sharing."
+  ],
+  [
+    "git",
+    "Git & delivery",
+    "Working copy & diff",
+    "branch",
+    "Review changes, stage files, create a demo commit and inspect history."
+  ],
+  [
+    "issues",
+    "Git & delivery",
+    "Issues & pull requests",
+    "repository",
+    "Create an example issue, review a PR and see the resulting activity."
+  ],
+  [
+    "delivery",
+    "Git & delivery",
+    "Project delivery",
+    "upload",
+    "Review a branch, commit and pull-request delivery before simulating publication."
+  ],
+  [
+    "intake",
+    "Git & delivery",
+    "Engineering intake",
+    "download",
+    "Turn an example GitHub discussion into reviewed implementation work."
+  ],
+  [
+    "issue-drawer",
+    "Git & delivery",
+    "Issue drawer",
+    "file-plus",
+    "Prepare a finding, inspect its context and review the outgoing issue."
+  ],
+  [
+    "activity",
+    "Git & delivery",
+    "Space activity",
+    "bell",
+    "Read example commits, reviews and assignments in one project feed."
+  ],
+  [
+    "core",
+    "Project organization",
+    "Project Core",
+    "folder",
+    "Keep project purpose, rules and useful context in one editable document."
+  ],
+  [
+    "notes",
+    "Project organization",
+    "Notes",
+    "note-edit",
+    "Write a note, keep its draft and return to the conversation."
+  ],
+  [
+    "tasks",
+    "Project organization",
+    "Tasks",
+    "check",
+    "Create tasks, change their status and keep a launch checklist."
+  ],
+  [
+    "plans",
+    "Project organization",
+    "Plans & work review",
+    "select",
+    "Edit the plan, review a simulated execution and accept or request changes."
+  ],
+  [
+    "reports",
+    "Project organization",
+    "Reports",
+    "file",
+    "Read a project digest and generate a new example report."
+  ],
+  [
+    "capture",
+    "Project organization",
+    "Quick capture",
+    "file-plus",
+    "Capture a thought and choose whether it becomes a note, task or discussion."
+  ],
+  [
+    "prepare",
+    "Project organization",
+    "Prepare for Codex",
+    "code",
+    "Review a GPT discussion as a scoped implementation request."
+  ],
+  [
+    "search",
+    "Project organization",
+    "Search & commands",
+    "search",
+    "Find demo files, projects, conversations and any feature in this edition."
+  ],
+  [
+    "projects",
+    "Project organization",
+    "Projects & checkouts",
+    "folder-plus",
+    "Create a fictional project with a device and working-copy location."
+  ],
+  [
+    "spaces",
+    "Collaboration",
+    "Shared spaces",
+    "people",
+    "Explore members, roles, projects and shared material."
+  ],
+  [
+    "communication",
+    "Collaboration",
+    "Messages & discussions",
+    "chat",
+    "Post locally in an example team discussion."
+  ],
+  [
+    "brainstorm",
+    "Collaboration",
+    "Brainstorm rooms",
+    "people",
+    "Collect ideas, vote and turn a selected idea into a project note."
+  ],
+  [
+    "links",
+    "Collaboration",
+    "Project links & consultations",
+    "link",
+    "Review a bounded exchange between two example projects."
+  ],
+  [
+    "bridge",
+    "Collaboration",
+    "Bridge coordination",
+    "link",
+    "Inspect the coordinator, linked project scopes and example decisions."
+  ],
+  [
+    "sync",
+    "Collaboration",
+    "Checkout synchronization",
+    "refresh",
+    "Review an incoming revision for a participant's independent working copy."
+  ],
+  [
+    "notifications",
+    "Collaboration",
+    "Notifications",
+    "bell",
+    "Separate workspace activity from GPT answers and mark examples read."
+  ],
+  [
+    "devices",
+    "Devices",
+    "System & terminal",
+    "terminal",
+    "Switch machines and terminal sessions; try help, ls, pwd or a demo build."
+  ],
+  [
+    "remote",
+    "Devices",
+    "Remote Desktop",
+    "monitor",
+    "Open example desktop apps and try the text-paste handoff."
+  ],
+  [
+    "browser",
+    "Devices",
+    "Companion browser",
+    "external",
+    "Explore an isolated example browser session and its page controls."
+  ],
+  [
+    "gui",
+    "Devices",
+    "Application previews",
+    "monitor",
+    "Choose a configured app and open its example preview."
+  ],
+  [
+    "computer-use",
+    "Devices",
+    "Computer Use",
+    "touch",
+    "Review an example task, its selected window and simulated action receipt."
+  ],
+  [
+    "companion",
+    "Devices",
+    "Companion & onboarding",
+    "server",
+    "Walk through a device setup checklist with simulated component checks."
+  ],
+  [
+    "linux",
+    "Devices",
+    "Personal Linux",
+    "server",
+    "See the independent Linux/SSH direction and its current readiness boundary."
+  ],
+  [
+    "settings",
+    "Settings & account",
+    "Appearance & layout",
+    "settings",
+    "Change the real demo theme, panels and text size; reset your demo workspace."
+  ],
+  [
+    "connections",
+    "Settings & account",
+    "Connections",
+    "link",
+    "Inspect example Codex, GPT and GitHub bindings for each machine."
+  ],
+  [
+    "usage",
+    "Settings & account",
+    "Limits & credits",
+    "schedule",
+    "Inspect fictional usage and reset information for the selected machine."
+  ],
+  [
+    "data",
+    "Settings & account",
+    "History, storage & backups",
+    "archive",
+    "Review the example retention policy and simulate a backup receipt."
+  ],
+  [
+    "updates",
+    "Settings & account",
+    "Updates & diagnostics",
+    "refresh",
+    "Review a staged example update without touching an installation."
+  ],
+  [
+    "doctor",
+    "Settings & account",
+    "Bridge Doctor",
+    "check",
+    "Inspect a simulated compatibility incident in its independent conversation."
+  ],
+  [
+    "account",
+    "Settings & account",
+    "My account",
+    "person",
+    "Edit the demo display name and inspect account/session settings."
+  ],
+  [
+    "users",
+    "Settings & account",
+    "Users & access",
+    "people",
+    "Invite an example member and explore scoped roles."
+  ],
+  [
+    "help",
+    "Settings & account",
+    "User guide",
+    "help",
+    "Find an explanation and open the corresponding interactive example."
+  ],
+  [
+    "windows",
+    "Workspace",
+    "Windows, dock & panels",
+    "grid",
+    "Drag and resize windows, minimize them to the dock and resize the side panels."
+  ]
+]

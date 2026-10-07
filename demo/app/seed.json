@@ -1,0 +1,929 @@
+{
+  "threadId": "2f503255-f999-474e-a407-f850d677c2e7",
+  "doc": "# Northstar\n\nA shared workspace for a small team with big ideas.\n\n## From first idea to release\n\nDiscuss the idea, change the code, and review the result — in one project.\n\n### In this release\n\n- Responsive navigation for phones and tablets.\n- A project gallery with instant previews.\n- Notes, files, and revision history beside your conversation.\n\n## Quick start\n\n```sh\npnpm install\npnpm dev\n```\n\n### Project structure\n\n| Folder | Purpose |\n| --- | --- |\n| src | Components and pages |\n| public | Images and icons |\n| docs | Decisions and notes |\n\nNext up: prepare the release page.\n",
+  "values": {
+    "/auth/status": {
+      "requiresSetup": false
+    },
+    "/auth/session": {
+      "authenticated": true,
+      "csrf": "public-demo",
+      "expires": 1791983319419,
+      "team": false
+    },
+    "/projects": {
+      "projects": [
+        {
+          "id": "atlas",
+          "name": "Atlas · field notes",
+          "pinned": false,
+          "archived": false,
+          "deleted": false,
+          "unassigned": false,
+          "machineId": "pc",
+          "machineName": "Studio PC",
+          "remoteAvailable": false,
+          "workingDirectory": "/demo/northstar",
+          "roots": ["/demo/northstar"],
+          "source": "configured",
+          "threadCount": 1
+        },
+        {
+          "id": "project",
+          "name": "Northstar",
+          "pinned": false,
+          "archived": false,
+          "deleted": false,
+          "unassigned": false,
+          "machineId": "pc",
+          "machineName": "Studio PC",
+          "remoteAvailable": false,
+          "workingDirectory": "/demo/northstar",
+          "roots": ["/demo/northstar"],
+          "source": "configured",
+          "threadCount": 2
+        },
+        {
+          "id": "studio",
+          "name": "Studio · portfolio",
+          "pinned": false,
+          "archived": false,
+          "deleted": false,
+          "unassigned": false,
+          "machineId": "pc",
+          "machineName": "Studio PC",
+          "remoteAvailable": false,
+          "workingDirectory": "/demo/northstar",
+          "roots": ["/demo/northstar"],
+          "source": "configured",
+          "threadCount": 1
+        },
+        {
+          "id": "weekend",
+          "name": "Weekend · ideas",
+          "pinned": false,
+          "archived": false,
+          "deleted": false,
+          "unassigned": false,
+          "machineId": "pc",
+          "machineName": "Studio PC",
+          "remoteAvailable": false,
+          "workingDirectory": "/demo/northstar",
+          "roots": ["/demo/northstar"],
+          "source": "configured",
+          "threadCount": 1
+        },
+        {
+          "id": "unassigned-pc",
+          "name": "Без проекта",
+          "pinned": false,
+          "archived": false,
+          "deleted": false,
+          "unassigned": true,
+          "machineId": "pc",
+          "machineName": "Studio PC",
+          "remoteAvailable": false,
+          "workingDirectory": "/demo/northstar",
+          "roots": ["/demo/northstar"],
+          "source": "configured",
+          "threadCount": 0
+        }
+      ],
+      "warnings": [],
+      "machineWarnings": []
+    },
+    "/machines": {
+      "machines": [
+        {
+          "id": "pc",
+          "name": "Studio PC",
+          "type": "local-linux",
+          "projectsDirectory": ".",
+          "canCreateProjects": true,
+          "remoteAvailable": false,
+          "desktopRestartAvailable": false
+        }
+      ]
+    },
+    "/preferences": {
+      "theme": "crt-green",
+      "machineClients": {
+        "pc": "web"
+      },
+      "desktopReturns": {},
+      "projectId": "project",
+      "threadId": "2f503255-f999-474e-a407-f850d677c2e7",
+      "view": "chat",
+      "crtCaseColor": "red",
+      "hitechCaseColor": "blue",
+      "hitechVariant": "light",
+      "organizerVariant": "light"
+    },
+    "/navigation": {
+      "usageRevision": {},
+      "projects": [
+        {
+          "id": "atlas",
+          "active": 0,
+          "unread": 0,
+          "waiting": 0,
+          "updatedAt": "2026-10-07T13:08:40.541Z",
+          "activityAt": ""
+        },
+        {
+          "id": "project",
+          "active": 0,
+          "unread": 1,
+          "waiting": 0,
+          "updatedAt": "2026-10-07T13:08:40.542Z",
+          "activityAt": ""
+        },
+        {
+          "id": "studio",
+          "active": 0,
+          "unread": 0,
+          "waiting": 0,
+          "updatedAt": "2026-10-07T13:08:40.541Z",
+          "activityAt": ""
+        },
+        {
+          "id": "weekend",
+          "active": 0,
+          "unread": 0,
+          "waiting": 0,
+          "updatedAt": "2026-10-07T13:08:40.542Z",
+          "activityAt": ""
+        },
+        {
+          "id": "unassigned-pc",
+          "active": 0,
+          "unread": 0,
+          "waiting": 0,
+          "updatedAt": "",
+          "activityAt": ""
+        }
+      ],
+      "threads": [
+        {
+          "id": "6e305fa9-d070-43fe-aa45-75986c55f2c2",
+          "projectId": "project",
+          "title": "Plan the next release",
+          "status": "idle",
+          "activeTurnId": null,
+          "updatedAt": "2026-10-07T13:08:40.542Z",
+          "activityAt": null,
+          "completedSeq": 0,
+          "seenSeq": 0,
+          "completedTurnId": null,
+          "completedStatus": null,
+          "activitySource": "hub"
+        },
+        {
+          "id": "2f503255-f999-474e-a407-f850d677c2e7",
+          "projectId": "project",
+          "title": "Gallery, ready for every screen",
+          "status": "completed",
+          "activeTurnId": null,
+          "updatedAt": "2026-10-07T13:08:37.590Z",
+          "activityAt": null,
+          "completedSeq": 3,
+          "seenSeq": 0,
+          "completedTurnId": "release",
+          "completedStatus": "completed",
+          "activitySource": "hub"
+        },
+        {
+          "id": "0f7d080d-a6aa-4dbb-b62c-627bb87259d0",
+          "projectId": "atlas",
+          "title": "Ideas and next steps",
+          "status": "idle",
+          "activeTurnId": null,
+          "updatedAt": "2026-10-07T13:08:40.541Z",
+          "activityAt": null,
+          "completedSeq": 0,
+          "seenSeq": 0,
+          "completedTurnId": null,
+          "completedStatus": null,
+          "activitySource": "hub"
+        },
+        {
+          "id": "4060ac66-afc9-48cc-b341-ee41f9ab6f02",
+          "projectId": "studio",
+          "title": "Ideas and next steps",
+          "status": "idle",
+          "activeTurnId": null,
+          "updatedAt": "2026-10-07T13:08:40.541Z",
+          "activityAt": null,
+          "completedSeq": 0,
+          "seenSeq": 0,
+          "completedTurnId": null,
+          "completedStatus": null,
+          "activitySource": "hub"
+        },
+        {
+          "id": "d934c60b-7143-45e3-b80f-1b2c7418255c",
+          "projectId": "weekend",
+          "title": "Ideas and next steps",
+          "status": "idle",
+          "activeTurnId": null,
+          "updatedAt": "2026-10-07T13:08:40.542Z",
+          "activityAt": null,
+          "completedSeq": 0,
+          "seenSeq": 0,
+          "completedTurnId": null,
+          "completedStatus": null,
+          "activitySource": "hub"
+        }
+      ],
+      "library": [],
+      "warnings": []
+    },
+    "/devices": {
+      "devices": [
+        {
+          "id": "server",
+          "name": "Linux Hub",
+          "platform": "linux",
+          "power": true,
+          "mounts": true
+        },
+        {
+          "id": "pc",
+          "name": "Studio PC",
+          "platform": "windows",
+          "power": true,
+          "mounts": true
+        }
+      ]
+    },
+    "/workspace/notes?scope=all": {
+      "items": [
+        {
+          "id": "343335a3-6a57-4bc9-af2a-803abef18240",
+          "scope": {
+            "client": "codex",
+            "projectId": "project",
+            "name": "Northstar"
+          },
+          "title": "Visual direction",
+          "excerpt": "Warm surfaces, calm typography, and expressive imagery.",
+          "revision": 1,
+          "createdAt": 1791378520547,
+          "updatedAt": 1791378520547
+        },
+        {
+          "id": "a8984aae-7ac6-43e2-9d27-60c90b935ac9",
+          "scope": {
+            "client": "codex",
+            "projectId": "project",
+            "name": "Northstar"
+          },
+          "title": "Launch checklist",
+          "excerpt": "Check links, mobile layouts, and page metadata.",
+          "revision": 1,
+          "createdAt": 1791378520547,
+          "updatedAt": 1791378520547
+        },
+        {
+          "id": "f25fb297-d96e-4da0-ac79-1334092a2027",
+          "scope": {
+            "client": "codex",
+            "projectId": "project",
+            "name": "Northstar"
+          },
+          "title": "Release concept",
+          "excerpt": "## Less noise. More room for the work.\n\nLet the work tell the story. Start with a strong visual and leave the details one step away.\n\n- A generous cover image\n-",
+          "revision": 1,
+          "createdAt": 1791378520546,
+          "updatedAt": 1791378520546
+        }
+      ],
+      "nextOffset": null
+    },
+    "/workspace/tasks?scope=all": {
+      "items": [
+        {
+          "id": "c1fccfb6-ab48-4bb2-94a5-7e2bd3e9c759",
+          "scope": {
+            "client": "codex",
+            "projectId": "project",
+            "name": "Northstar"
+          },
+          "title": "Write the release notes",
+          "excerpt": "Northstar 1.2 launch",
+          "revision": 1,
+          "createdAt": 1791378520550,
+          "updatedAt": 1791378520550,
+          "status": "todo",
+          "priority": 2,
+          "dueAt": null,
+          "completedAt": null
+        },
+        {
+          "id": "dc4cfc59-1f8c-4e4c-9163-541d0013891b",
+          "scope": {
+            "client": "codex",
+            "projectId": "project",
+            "name": "Northstar"
+          },
+          "title": "Publish the update",
+          "excerpt": "Northstar 1.2 launch",
+          "revision": 1,
+          "createdAt": 1791378520550,
+          "updatedAt": 1791378520550,
+          "status": "todo",
+          "priority": 2,
+          "dueAt": null,
+          "completedAt": null
+        },
+        {
+          "id": "7b90c9a4-7b4e-4914-8f78-a3a365cda8b1",
+          "scope": {
+            "client": "codex",
+            "projectId": "project",
+            "name": "Northstar"
+          },
+          "title": "Review the mobile layout",
+          "excerpt": "Northstar 1.2 launch",
+          "revision": 1,
+          "createdAt": 1791378520549,
+          "updatedAt": 1791378520549,
+          "status": "doing",
+          "priority": 2,
+          "dueAt": null,
+          "completedAt": null
+        }
+      ],
+      "nextOffset": null
+    },
+    "/workspace/plans?scope=all": {
+      "items": [],
+      "nextOffset": null
+    },
+    "/workspace/projects": {
+      "items": [
+        {
+          "scope": {
+            "client": "codex",
+            "projectId": "atlas",
+            "name": "Atlas · field notes"
+          },
+          "availability": "available"
+        },
+        {
+          "scope": {
+            "client": "codex",
+            "projectId": "project",
+            "name": "Northstar"
+          },
+          "availability": "available"
+        },
+        {
+          "scope": {
+            "client": "codex",
+            "projectId": "studio",
+            "name": "Studio · portfolio"
+          },
+          "availability": "available"
+        },
+        {
+          "scope": {
+            "client": "codex",
+            "projectId": "weekend",
+            "name": "Weekend · ideas"
+          },
+          "availability": "available"
+        }
+      ],
+      "nextOffset": null
+    },
+    "/workspace/pins?scope=all": {
+      "items": [],
+      "nextOffset": null
+    },
+    "/workspace/navigation": {
+      "recent": [],
+      "pinned": [],
+      "shortcuts": {},
+      "shortcutWarning": ""
+    },
+    "/projects/project/threads": {
+      "threads": [
+        {
+          "id": "6e305fa9-d070-43fe-aa45-75986c55f2c2",
+          "projectId": "project",
+          "codexThreadId": "396fa234-0f48-4589-a352-9c1b54d72290",
+          "title": "Plan the next release",
+          "status": "idle",
+          "activeTurnId": null,
+          "createdAt": "2026-10-07T13:08:40.542Z",
+          "updatedAt": "2026-10-07T13:08:40.542Z",
+          "origin": "web",
+          "workingDirectory": null,
+          "historyMode": null,
+          "sourceUpdatedAt": null,
+          "archived": 0,
+          "activityAt": null,
+          "completedSeq": 0,
+          "seenSeq": 0,
+          "completedTurnId": null,
+          "completedStatus": null,
+          "activitySource": "hub",
+          "nativeObservedTurn": null,
+          "nativeObservedStatus": null,
+          "nativeObservedAt": null,
+          "diagnostic": 0,
+          "pinned": false
+        },
+        {
+          "id": "2f503255-f999-474e-a407-f850d677c2e7",
+          "projectId": "project",
+          "codexThreadId": "ee6d9c64-76ca-4e79-95b1-54d180f221c5",
+          "title": "Gallery, ready for every screen",
+          "status": "completed",
+          "activeTurnId": null,
+          "createdAt": "2026-10-07T13:08:37.590Z",
+          "updatedAt": "2026-10-07T13:08:37.590Z",
+          "origin": "web",
+          "workingDirectory": null,
+          "historyMode": null,
+          "sourceUpdatedAt": null,
+          "archived": 0,
+          "activityAt": null,
+          "completedSeq": 3,
+          "seenSeq": 0,
+          "completedTurnId": "release",
+          "completedStatus": "completed",
+          "activitySource": "hub",
+          "nativeObservedTurn": null,
+          "nativeObservedStatus": null,
+          "nativeObservedAt": null,
+          "diagnostic": 0,
+          "pinned": false
+        }
+      ]
+    },
+    "/projects/project/files": {
+      "path": "",
+      "offset": 0,
+      "total": 6,
+      "entries": [
+        {
+          "name": "docs",
+          "path": "docs",
+          "kind": "directory",
+          "size": 0,
+          "modifiedAt": 1791378519550.7512
+        },
+        {
+          "name": "public",
+          "path": "public",
+          "kind": "directory",
+          "size": 0,
+          "modifiedAt": 1791378519466.7512
+        },
+        {
+          "name": "src",
+          "path": "src",
+          "kind": "directory",
+          "size": 0,
+          "modifiedAt": 1791378520539.7522
+        },
+        {
+          "name": "tests",
+          "path": "tests",
+          "kind": "directory",
+          "size": 0,
+          "modifiedAt": 1791378519474.7502
+        },
+        {
+          "name": "package.json",
+          "path": "package.json",
+          "kind": "file",
+          "size": 160,
+          "modifiedAt": 1791378519514.753
+        },
+        {
+          "name": "README.md",
+          "path": "README.md",
+          "kind": "file",
+          "size": 635,
+          "modifiedAt": 1791378520538.7505
+        }
+      ],
+      "nextOffset": null,
+      "truncated": false
+    },
+    "/projects/project/git": {
+      "repository": true,
+      "dirty": true,
+      "stagedCount": 0,
+      "workingCount": 1,
+      "untrackedCount": 1,
+      "hiddenCount": 0,
+      "summary": {
+        "staged": {
+          "files": 0,
+          "added": 0,
+          "removed": 0
+        },
+        "working": {
+          "files": 1,
+          "added": 4,
+          "removed": 0
+        }
+      },
+      "branch": "main",
+      "detached": false,
+      "ahead": 0,
+      "behind": 0,
+      "changes": [
+        {
+          "path": "README.md",
+          "index": " ",
+          "working": "M"
+        },
+        {
+          "path": "src/gallery.ts",
+          "index": "?",
+          "working": "?"
+        }
+      ],
+      "commits": [
+        {
+          "id": "0aa37a9",
+          "subject": "Create the project foundation",
+          "date": "2026-10-07T16:08:40+03:00",
+          "author": "Demo"
+        }
+      ]
+    },
+    "/projects/project/git/repository": {
+      "repository": true,
+      "name": "codexweb-promo-mZkRxj",
+      "readme": {
+        "path": "README.md",
+        "text": "# Northstar\n\nA shared workspace for a small team with big ideas.\n\n## From first idea to release\n\nDiscuss the idea, change the code, and review the result — in one project.\n\n### In this release\n\n- Responsive navigation for phones and tablets.\n- A project gallery with instant previews.\n- Notes, files, and revision history beside your conversation.\n\n## Quick start\n\n```sh\npnpm install\npnpm dev\n```\n\n### Project structure\n\n| Folder | Purpose |\n| --- | --- |\n| src | Components and pages |\n| public | Images and icons |\n| docs | Decisions and notes |\n\nNext up: prepare the release page.\n\n## Ready to ship\n\nThe page is ready to publish.\n",
+        "truncated": false
+      },
+      "branches": [
+        {
+          "name": "main",
+          "current": true,
+          "upstream": ""
+        }
+      ],
+      "tags": [],
+      "subdirectory": ""
+    },
+    "/projects/project/status": {
+      "available": true
+    },
+    "/threads/2f503255-f999-474e-a407-f850d677c2e7/history": {
+      "messages": [
+        {
+          "threadId": "2f503255-f999-474e-a407-f850d677c2e7",
+          "id": "u",
+          "turnId": "release",
+          "role": "user",
+          "phase": "",
+          "text": "Prepare the gallery for launch. One column on phones, two on tablets. Save the changes and check the build.",
+          "firstSeq": 1,
+          "lastSeq": 1,
+          "createdAt": "2026-10-07T13:08:40.543Z",
+          "attachments": [],
+          "images": []
+        },
+        {
+          "threadId": "2f503255-f999-474e-a407-f850d677c2e7",
+          "id": "a",
+          "turnId": "release",
+          "role": "assistant",
+          "phase": "final_answer",
+          "text": "The gallery is ready. It adapts to every screen and keeps your selected image as you move between views.\n\n### What changed\n\n- **Phone:** one column with easy image navigation.\n- **Tablet:** two columns with more room for your work.\n- **Desktop:** three columns and instant previews.\n\nBuild and checks passed. The release notes are saved in **README.md** — open it directly from your project files.\n\nNext, we can prepare the release page.",
+          "firstSeq": 2,
+          "lastSeq": 2,
+          "createdAt": "2026-10-07T13:08:40.543Z",
+          "attachments": [],
+          "images": []
+        }
+      ],
+      "hasMore": false,
+      "nextBefore": null,
+      "lastSeq": 3,
+      "turnOutcomes": {
+        "release": {
+          "seq": 3,
+          "status": "completed"
+        }
+      },
+      "thread": {
+        "id": "2f503255-f999-474e-a407-f850d677c2e7",
+        "projectId": "project",
+        "codexThreadId": "ee6d9c64-76ca-4e79-95b1-54d180f221c5",
+        "title": "Gallery, ready for every screen",
+        "status": "completed",
+        "activeTurnId": null,
+        "createdAt": "2026-10-07T13:08:37.590Z",
+        "updatedAt": "2026-10-07T13:08:37.590Z",
+        "origin": "web",
+        "workingDirectory": null,
+        "historyMode": null,
+        "sourceUpdatedAt": null,
+        "archived": 0,
+        "activityAt": null,
+        "completedSeq": 3,
+        "seenSeq": 0,
+        "completedTurnId": "release",
+        "completedStatus": "completed",
+        "activitySource": "hub",
+        "nativeObservedTurn": null,
+        "nativeObservedStatus": null,
+        "nativeObservedAt": null,
+        "diagnostic": 0
+      },
+      "approvals": []
+    },
+    "/threads/2f503255-f999-474e-a407-f850d677c2e7/results": {
+      "items": [],
+      "counts": {
+        "all": 0,
+        "images": 0,
+        "demos": 0,
+        "files": 0,
+        "links": 0,
+        "work": 0,
+        "reasoning": 1
+      },
+      "nextBefore": null
+    },
+    "/deployment": {
+      "separated": false,
+      "engineRevision": "development",
+      "schema": 30,
+      "web": null,
+      "maintenance": null,
+      "ownerForceAllowed": false,
+      "blockers": []
+    },
+    "/push": {
+      "available": false,
+      "enabled": false,
+      "categories": {
+        "completed": true,
+        "attention": true,
+        "errors": true
+      },
+      "preview": true
+    },
+    "/workspace/notices": {
+      "items": [
+        {
+          "id": "22e3581ec9a3169f201a1e6a19cae23fad442b7c9d696eb7908157431e7984a5",
+          "title": "Gallery, ready for every screen",
+          "detail": "Работа Codex завершена",
+          "at": 1791378517590,
+          "target": {
+            "client": "codex",
+            "kind": "thread",
+            "id": "2f503255-f999-474e-a407-f850d677c2e7",
+            "threadId": "2f503255-f999-474e-a407-f850d677c2e7",
+            "projectId": "project",
+            "title": "Gallery, ready for every screen",
+            "turnId": "release",
+            "availability": "available"
+          }
+        }
+      ]
+    },
+    "/workspace/destinations": {
+      "items": [
+        {
+          "ref": {
+            "client": "codex",
+            "kind": "project",
+            "id": "atlas"
+          },
+          "title": "Atlas · field notes",
+          "subtitle": "Проект · Codex",
+          "projectId": "atlas"
+        },
+        {
+          "ref": {
+            "client": "codex",
+            "kind": "discuss",
+            "id": "atlas"
+          },
+          "title": "Atlas · field notes",
+          "subtitle": "Обсуждение проекта · GPT",
+          "projectId": "atlas"
+        },
+        {
+          "ref": {
+            "client": "codex",
+            "kind": "project",
+            "id": "project"
+          },
+          "title": "Northstar",
+          "subtitle": "Проект · Codex",
+          "projectId": "project"
+        },
+        {
+          "ref": {
+            "client": "codex",
+            "kind": "discuss",
+            "id": "project"
+          },
+          "title": "Northstar",
+          "subtitle": "Обсуждение проекта · GPT",
+          "projectId": "project"
+        },
+        {
+          "ref": {
+            "client": "codex",
+            "kind": "project",
+            "id": "studio"
+          },
+          "title": "Studio · portfolio",
+          "subtitle": "Проект · Codex",
+          "projectId": "studio"
+        },
+        {
+          "ref": {
+            "client": "codex",
+            "kind": "discuss",
+            "id": "studio"
+          },
+          "title": "Studio · portfolio",
+          "subtitle": "Обсуждение проекта · GPT",
+          "projectId": "studio"
+        },
+        {
+          "ref": {
+            "client": "codex",
+            "kind": "project",
+            "id": "weekend"
+          },
+          "title": "Weekend · ideas",
+          "subtitle": "Проект · Codex",
+          "projectId": "weekend"
+        },
+        {
+          "ref": {
+            "client": "codex",
+            "kind": "discuss",
+            "id": "weekend"
+          },
+          "title": "Weekend · ideas",
+          "subtitle": "Обсуждение проекта · GPT",
+          "projectId": "weekend"
+        },
+        {
+          "ref": {
+            "client": "codex",
+            "kind": "thread",
+            "id": "d934c60b-7143-45e3-b80f-1b2c7418255c"
+          },
+          "title": "Ideas and next steps",
+          "subtitle": "Диалог · Codex",
+          "projectId": "weekend"
+        },
+        {
+          "ref": {
+            "client": "codex",
+            "kind": "thread",
+            "id": "6e305fa9-d070-43fe-aa45-75986c55f2c2"
+          },
+          "title": "Plan the next release",
+          "subtitle": "Диалог · Codex",
+          "projectId": "project"
+        },
+        {
+          "ref": {
+            "client": "codex",
+            "kind": "thread",
+            "id": "0f7d080d-a6aa-4dbb-b62c-627bb87259d0"
+          },
+          "title": "Ideas and next steps",
+          "subtitle": "Диалог · Codex",
+          "projectId": "atlas"
+        },
+        {
+          "ref": {
+            "client": "codex",
+            "kind": "thread",
+            "id": "4060ac66-afc9-48cc-b341-ee41f9ab6f02"
+          },
+          "title": "Ideas and next steps",
+          "subtitle": "Диалог · Codex",
+          "projectId": "studio"
+        },
+        {
+          "ref": {
+            "client": "codex",
+            "kind": "thread",
+            "id": "2f503255-f999-474e-a407-f850d677c2e7"
+          },
+          "title": "Gallery, ready for every screen",
+          "subtitle": "Диалог · Codex",
+          "projectId": "project"
+        }
+      ],
+      "bounded": true
+    },
+    "/workspace/reviews": {
+      "items": [],
+      "nextOffset": null
+    },
+    "/dictation/status": {
+      "available": false
+    },
+    "/projects/project/capabilities": {
+      "accessModes": ["workspace", "full"],
+      "warnings": [],
+      "models": [
+        {
+          "id": "demo-model",
+          "name": "Codex (demo)",
+          "description": "Scripted example replies",
+          "efforts": ["low", "medium", "high"],
+          "defaultEffort": "medium",
+          "supportsImages": true
+        }
+      ],
+      "modes": ["default", "plan"],
+      "defaults": {
+        "model": "demo-model",
+        "effort": "medium",
+        "mode": "default"
+      }
+    },
+    "/machines/pc/limits": {
+      "available": false,
+      "groups": [],
+      "resetCredits": null,
+      "checkedAt": "2026-10-07T13:08:42.749Z"
+    },
+    "/devices/pc/snapshot": {
+      "checkedAt": 1791378522751,
+      "online": true,
+      "hostname": "pc",
+      "os": "Windows 10",
+      "cpu": "Intel Core i7",
+      "architecture": "x86_64",
+      "cores": 8,
+      "uptimeSeconds": 72000,
+      "memoryTotal": 16000000000,
+      "memoryAvailable": 8000000000,
+      "disks": [
+        {
+          "name": "System",
+          "mount": "C:",
+          "total": 1000000000000,
+          "available": 800000000000
+        }
+      ],
+      "temperatures": [
+        {
+          "name": "Package",
+          "celsius": 48
+        }
+      ]
+    },
+    "/devices/server/snapshot": {
+      "checkedAt": 1791378522753,
+      "online": true,
+      "hostname": "server",
+      "os": "Ubuntu Linux",
+      "cpu": "Intel Core i7",
+      "architecture": "x86_64",
+      "cores": 8,
+      "uptimeSeconds": 72000,
+      "memoryTotal": 16000000000,
+      "memoryAvailable": 8000000000,
+      "disks": [
+        {
+          "name": "System",
+          "mount": "/",
+          "total": 1000000000000,
+          "available": 800000000000
+        }
+      ],
+      "temperatures": [
+        {
+          "name": "Package",
+          "celsius": 48
+        }
+      ]
+    },
+    "/threads/2f503255-f999-474e-a407-f850d677c2e7/context": {},
+    "/threads/2f503255-f999-474e-a407-f850d677c2e7/queue": {
+      "available": true,
+      "items": [],
+      "canSteer": false
+    },
+    "/threads/2f503255-f999-474e-a407-f850d677c2e7/attachments": {
+      "attachments": []
+    }
+  }
+}

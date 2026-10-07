@@ -1,6 +1,35 @@
 # Текущий статус — 7 октября 2026
 
-### Standalone English website demo - October 7
+### Website demo using the real application - October 7
+
+The current website edition is `demo/site/index.html` with its entire sibling
+asset folder. It builds the real React application, shared windows, editors and
+theme CSS with fictional browser-local data. Relative assets support embedding
+under a website subdirectory; no Hub, account, external fonts or CDN is needed.
+The English demo includes local file edits, notes/tasks/plans, image browsing,
+scripted Codex/GPT replies, simulated Git review, terminal and Remote Desktop.
+The feature guide distinguishes connected product capabilities from local examples.
+Reloading resets the demo. Storage, socket/API calls and service-worker startup are
+isolated by the demo build/runtime; production source and services are unchanged.
+
+The earlier independent design and its sources are preserved byte for byte from
+`9979549` in `demo/concepts/original/`. The old demo entry redirects to the new
+package; embedding now requires copying the whole `demo/site/` directory.
+Build/check recipes, iframe markup and redistribution notices are included.
+GitHub Actions remain disabled. This is a static website artifact, not a live
+deployment or evidence of native AI/device integration.
+
+Verification: Chromium and WebKit passed the nested-path iframe package with
+English chat/GPT, Markdown save, Git review/commit simulation, notes/plans,
+Devices terminal, Remote canvas, image navigation, settings/help and window
+minimize/restore. Both passed all six finishes at 393, 1194 and 1440 px without
+page overflow, uncaught JavaScript errors, external requests or API requests
+reaching the static host. No installed-app IndexedDB database was created.
+WebKit editor input used keyboard focus and a real pointer save with the
+automation stability wait bypassed; this is browser evidence, not physical iPad
+acceptance. Screenshots and the report are under `.local/real-demo-check/`.
+
+### Standalone English website demo - October 7 (superseded by real-UI edition above)
 
 Added `demo/abyssdeck-demo.html`, a self-contained interactive artifact to copy
 into the website's own static files and embed with the documented sandboxed iframe.
