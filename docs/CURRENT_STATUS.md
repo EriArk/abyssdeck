@@ -12,7 +12,14 @@ Linux typecheck/build and all nine focused rich-content checks passed.
 Chromium and WebKit passed at 390/820/1366 widths, including block-body copying,
 Markdown, neighboring prose and retained drafts. Phone and desktop screenshots
 were reviewed. Evidence: `/tmp/abyssdeck-writing-block` and local
-`.tmp/gpt-rich-evidence`. Publication is recorded below after activation.
+`.tmp/gpt-rich-evidence`.
+
+Activated web source `f108c86c`, release
+`07ce7c0617cfa69f22b3328a18285121b8a6ea5a4b7090f07bfcc44637ce4e13`.
+Public page and `/assets/index-BzaUNWfy.js` returned HTTP 200; the served asset
+contains the WritingBlock renderer. Hub, engine, GPT native client and gateway
+container identities/start times stayed unchanged. Engine remains `eebc3a4a`
+with schema 31. Physical iPhone acceptance is left to ordinary use.
 
 ### GPT public progress continuity follow-up - October 8
 
