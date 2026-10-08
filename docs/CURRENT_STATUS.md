@@ -13,7 +13,13 @@ Linux typecheck/build and ten focused parser/projection tests passed. Chromium
 and WebKit cover 390/820/1366 widths, including repeated citations, multiline
 attributes, literal code, exact attachment URL dispatch and retained drafts.
 Phone rendering was reviewed. Evidence: `/tmp/abyssdeck-file-cite` and local
-`.tmp/gpt-rich-evidence`. Activation is recorded after publication.
+`.tmp/gpt-rich-evidence`.
+
+Activated source `f934e728`, web release
+`2e018691f158af420709482ac9ce2b1cc3886c8e110ac1b345cde3381e9bbc27`.
+Public page and `/assets/index-BOEsD68o.js` returned HTTP 200 and the served asset
+contains the citation renderer. Hub, engine, native GPT and gateway identities
+and start times remained unchanged throughout this publication.
 
 ### GPT WritingBlock display follow-up - October 8
 
