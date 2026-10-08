@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { Components } from "react-markdown";
+import type { GptFile } from "@codex-web/shared";
 import { CopyButton } from "./CopyButton";
 import { Icon } from "./icons";
 import "./gpt-rich-layout.css";
@@ -42,8 +43,48 @@ const icons: Record<string, string> = {
 };
 const values = (value: string | undefined, choices: string[]) =>
   choices.includes(value ?? "") ? value : undefined;
-function layout(tag: string, raw: unknown, children: ReactNode, text?: unknown) {
+type FileSources = { files?: GptFile[]; onOpen?: (source: string) => void };
+function layout(
+  tag: string,
+  raw: unknown,
+  children: ReactNode,
+  text?: unknown,
+  sources?: FileSources,
+) {
   const a: Record<string, string> = typeof raw === "string" ? JSON.parse(raw) : {};
+  if (tag === "FileCite") {
+    const file = sources?.files?.find((file) => file.id === a.ref);
+    const start = /^\d+$/.test(a.line_range_start ?? "") ? Number(a.line_range_start) : 0;
+    const end = /^\d+$/.test(a.line_range_end ?? "") ? Number(a.line_range_end) : 0;
+    const lines =
+      Number.isSafeInteger(start) && start > 0
+        ? `стр. ${start}${Number.isSafeInteger(end) && end > start ? `–${end}` : ""}`
+        : "";
+    const label = [file?.name || "Файл", lines].filter(Boolean).join(" · ");
+    const content = (
+      <>
+        <Icon name="file" size={14} />
+        <span>{label}</span>
+      </>
+    );
+    return file && sources?.onOpen ? (
+      <button
+        type="button"
+        className="gpt-file-citation"
+        title={`Открыть ${label}`}
+        onClick={() => sources.onOpen?.(file.url)}
+      >
+        {content}
+      </button>
+    ) : (
+      <span
+        className="gpt-file-citation"
+        title={`Источник: ${a.ref || "не указан"}. Файл отсутствует среди загруженных вложений чата.`}
+      >
+        {content}
+      </span>
+    );
+  }
   if (tag === "WritingBlock")
     return (
       <section className="gpt-writing-block">
@@ -162,7 +203,7 @@ function layout(tag: string, raw: unknown, children: ReactNode, text?: unknown) 
   );
 }
 
-export function gptLayoutComponents(base: Components = {}): Components {
+export function gptLayoutComponents(base: Components = {}, sources?: FileSources): Components {
   const Div = base.div;
   return {
     ...base,
@@ -173,6 +214,7 @@ export function gptLayoutComponents(base: Components = {}): Components {
           props.node.properties.dataGptAttrs,
           props.children,
           props.node.properties.dataGptText,
+          sources,
         )
       ) : typeof Div === "function" ? (
         <Div {...props} />
@@ -186,6 +228,7 @@ export function gptLayoutComponents(base: Components = {}): Components {
           props.node.properties.dataGptAttrs,
           props.children,
           props.node.properties.dataGptText,
+          sources,
         )
       ) : (
         <span>{props.children}</span>

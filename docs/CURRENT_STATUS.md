@@ -1,5 +1,20 @@
 # Текущий статус — 8 октября 2026
 
+### GPT file citation display - October 8
+
+The reported `FileCite` markup now renders as compact file/line-range markers
+in messages and public steps. Exact file IDs matching loaded conversation
+attachments open the existing viewer with the attachment's source message.
+Unresolved references retain their ID in the tooltip without inventing an URL
+or a jump to extracted line numbers. Literal code and original message text
+remain unchanged; no native read, polling or restart was added.
+
+Linux typecheck/build and ten focused parser/projection tests passed. Chromium
+and WebKit cover 390/820/1366 widths, including repeated citations, multiline
+attributes, literal code, exact attachment URL dispatch and retained drafts.
+Phone rendering was reviewed. Evidence: `/tmp/abyssdeck-file-cite` and local
+`.tmp/gpt-rich-evidence`. Activation is recorded after publication.
+
 ### GPT WritingBlock display follow-up - October 8
 
 The reported native `WritingBlock` tag now renders as a themed document card

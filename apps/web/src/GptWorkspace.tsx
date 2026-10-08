@@ -1120,7 +1120,8 @@ export function GptWorkspace({
   };
   const openArtifact = (source: string, files: GptFile[], messageId: string) => {
     const scope = selected || createdJob;
-    const file = files.find((item) => item.url === source);
+    const sourceMessage = messages.find((message) => message.files.some((file) => file.url === source));
+    const file = files.find((item) => item.url === source) ?? sourceMessage?.files.find((file) => file.url === source);
     openResults();
     setArtifactRequest(
       file
@@ -1128,7 +1129,7 @@ export function GptWorkspace({
             scope,
             result: {
               id: file.id,
-              turnId: messageId,
+              turnId: sourceMessage?.id ?? messageId,
               type: file.image ? "image" : "file",
               title: file.name,
               createdAt: new Date().toISOString(),
@@ -1142,6 +1143,12 @@ export function GptWorkspace({
           },
     );
   };
+  const citationFilesRef = useRef<GptFile[]>([]);
+  const nextCitationFiles = messages.flatMap((message) => message.files);
+  // Live text/history updates must not invalidate every message's Markdown cache.
+  if (JSON.stringify(nextCitationFiles) !== JSON.stringify(citationFilesRef.current))
+    citationFilesRef.current = nextCitationFiles;
+  const citationFiles = citationFilesRef.current;
   const completionLocked = useCompletionPosition({
     scope: createdJob || selected,
     enabled:
@@ -1314,6 +1321,7 @@ export function GptWorkspace({
                   <Text
                     value={job.answer}
                     rich
+                    citationFiles={citationFiles}
                     issueSource={issueSource}
                     onArtifact={(source) => openArtifact(source, job.assets, job.id)}
                   />
@@ -2076,6 +2084,7 @@ export function GptWorkspace({
                             ? (source) => openArtifact(source, message.files, message.id)
                             : undefined
                         }
+                        citationFiles={citationFiles}
                       />
                       {!!message.unsupported?.length && (
                         <aside className="native-content-notice">

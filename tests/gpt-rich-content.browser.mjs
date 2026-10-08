@@ -169,6 +169,17 @@ try {
         );
         await expect(page.getByTestId("memory")).not.toContainText("<MemoryCite");
         await expect(page.getByTestId("memory")).toContainText("Память");
+        const citations = page.getByTestId("citations");
+        await expect(citations.locator(".gpt-file-citation")).toHaveCount(3);
+        await expect(citations).toContainText("Файл · стр. 285–288");
+        await expect(citations.locator("code")).toHaveText('<FileCite ref="file_chapter"/>');
+        await citations
+          .getByRole("button", { name: "Chapter.md · стр. 167–171", exact: true })
+          .click();
+        await expect(page.getByTestId("opened-citation")).toHaveText(
+          "/api/gpt/native-assets/chat/user/file_chapter",
+        );
+        await citations.screenshot({ path: join(evidence, `${name}-citations-${width}.png`) });
         const writing = page.getByTestId("writing");
         await expect(writing.locator(".gpt-writing-block")).toHaveCount(1);
         await expect(writing).not.toContainText("<WritingBlock");

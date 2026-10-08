@@ -13,6 +13,24 @@ const parse = (value) => {
 const flatten = (node) => [node, ...(node.children ?? []).flatMap(flatten)];
 const rich = (tree) => flatten(tree).filter((n) => n.type === "gptLayout");
 
+test("FileCite keeps repeated file identities and multiline line ranges without touching code", () => {
+  const tag = '<FileCite ref="file_example" line_range_start={167} line_range_end=\n{171}/>';
+  const source = `Before ${tag} ${tag}\n\nAfter \`${tag.replace(/\n/g, " ")}\`\n\n\`\`\`xml\n${tag}\n\`\`\``;
+  const nodes = flatten(parse(source));
+  const refs = nodes.filter((node) => node.type === "gptReference");
+  assert.equal(refs.length, 2);
+  for (const ref of refs) {
+    assert.equal(ref.data.hProperties.dataGptLayout, "FileCite");
+    assert.deepEqual(JSON.parse(ref.data.hProperties.dataGptAttrs), {
+      ref: "file_example",
+      line_range_start: "167",
+      line_range_end: "171",
+    });
+  }
+  assert.ok(nodes.some((node) => node.type === "code" && node.value === tag));
+  assert.ok(nodes.some((node) => node.type === "inlineCode" && node.value.includes("FileCite")));
+});
+
 test("WritingBlock preserves its exact body, Markdown and neighboring prose", () => {
   const body =
     "Heyo! 😁 No worries!\n\n**Good news** — nearly finished.\n\nI'll share an update! 😁";

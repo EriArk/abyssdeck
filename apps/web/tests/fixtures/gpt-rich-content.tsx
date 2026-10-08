@@ -72,6 +72,7 @@ const job = {
   error: "",
 } satisfies GptJob;
 function Fixture() {
+  const [openedCitation, setOpenedCitation] = useState("");
   const [sample, setSample] = useState(content);
   useEffect(() => {
     const update = (event: Event) => setSample((event as CustomEvent<string>).detail);
@@ -162,6 +163,26 @@ function Fixture() {
       </section>
       <section data-testid="memory">
         <GptMessageText value="Uses memory <MemoryCite />" rich />
+      </section>
+      <section className="message-body" data-testid="citations">
+        <GptMessageText
+          rich
+          value={
+            'The garden road was blocked. <FileCite ref="file_missing" line_range_start={285} line_range_end={288}/> <FileCite ref="file_missing" line_range_start={354} line_range_end={362}/>\n\nThe passage in the chapter: <FileCite ref="file_chapter" line_range_start={167} line_range_end=\n{171}/>\n\nLiteral: `<FileCite ref="file_chapter"/>`'
+          }
+          citationFiles={[
+            {
+              id: "file_chapter",
+              name: "Chapter.md",
+              mime: "text/markdown",
+              bytes: 100,
+              url: "/api/gpt/native-assets/chat/user/file_chapter",
+              image: false,
+            },
+          ]}
+          onArtifact={setOpenedCitation}
+        />
+        <output data-testid="opened-citation">{openedCitation}</output>
       </section>
       <section className="message-body" data-testid="writing">
         <GptMessageText

@@ -1,6 +1,6 @@
-import type { IssueSource } from "@codex-web/shared";
+import type { GptFile, IssueSource } from "@codex-web/shared";
 import { projectContextEnd, projectContextStart } from "@codex-web/shared";
-import { memo, useMemo } from "react";
+import { memo, useCallback, useMemo, useRef } from "react";
 import Markdown, { defaultUrlTransform } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { artifactSource, useArtifactComponents } from "./ArtifactMarkdown";
@@ -17,6 +17,7 @@ export const GptMessageText = memo(function GptMessageText({
   complete = true,
   issueSource,
   rich = false,
+  citationFiles,
 }: {
   value: string;
   onArtifact?: (source: string) => void;
@@ -24,8 +25,12 @@ export const GptMessageText = memo(function GptMessageText({
   complete?: boolean;
   issueSource?: IssueSource;
   rich?: boolean;
+  citationFiles?: GptFile[];
 }) {
   const hasArtifacts = !!onArtifact;
+  const artifactHandler = useRef(onArtifact);
+  artifactHandler.current = onArtifact;
+  const openCitation = useCallback((source: string) => artifactHandler.current?.(source), []);
   const artifacts = useArtifactComponents(onArtifact, resolveImage);
   const code = useIssueCode(value, onArtifact, complete, issueSource);
   const contextEnd = value.startsWith(projectContextStart) ? value.indexOf(projectContextEnd) : -1;
@@ -48,16 +53,19 @@ export const GptMessageText = memo(function GptMessageText({
           }
           remarkPlugins={rich ? [remarkGfm, remarkGptLayout] : [remarkGfm]}
           rehypePlugins={[rehypeImageGallery]}
-          components={gptLayoutComponents({
-            pre: code,
-            table: MarkdownTable,
-            ...artifacts,
-          })}
+          components={gptLayoutComponents(
+            {
+              pre: code,
+              table: MarkdownTable,
+              ...artifacts,
+            },
+            { files: citationFiles, onOpen: hasArtifacts ? openCitation : undefined },
+          )}
         >
           {contextEnd >= 0 ? value.slice(contextEnd + projectContextEnd.length) : value}
         </Markdown>
       </>
     ),
-    [value, hasArtifacts, contextEnd, artifacts, code, rich],
+    [value, hasArtifacts, contextEnd, artifacts, code, rich, citationFiles, openCitation],
   );
 });

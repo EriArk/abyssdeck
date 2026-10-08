@@ -3,6 +3,35 @@
   max-width: 100%;
   overflow-wrap: anywhere;
 }
+.gpt-file-citation {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  max-width: 100%;
+  padding: 0.15em 0.45em;
+  margin-inline: 0.15em;
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-radius: 0.4em;
+  background: color-mix(in srgb, currentColor 6%, transparent);
+  color: inherit;
+  font: inherit;
+  font-size: 0.8em;
+  vertical-align: baseline;
+  overflow-wrap: anywhere;
+}
+.gpt-file-citation > svg {
+  flex-shrink: 0;
+}
+.gpt-file-citation > span {
+  min-width: 0;
+}
+button.gpt-file-citation {
+  cursor: pointer;
+}
+button.gpt-file-citation:hover,
+button.gpt-file-citation:focus-visible {
+  background: color-mix(in srgb, currentColor 14%, transparent);
+}
 .gpt-writing-block {
   min-width: 0;
   max-width: 100%;
