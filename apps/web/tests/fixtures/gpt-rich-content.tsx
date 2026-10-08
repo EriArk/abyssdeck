@@ -1,8 +1,8 @@
+import type { GptJob, GptMessage } from "@codex-web/shared";
 import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import type { GptJob, GptMessage } from "@codex-web/shared";
 import { GptMessageText } from "../../src/GptMessageText";
-import { GptSteps } from "../../src/GptProgress";
+import { GptProgress, GptSteps } from "../../src/GptProgress";
 import { gptLiveResults } from "../../src/gptLiveResults";
 import { ResultFeed } from "../../src/ResultFeed";
 import "../../src/styles.css";
@@ -81,11 +81,16 @@ function Fixture() {
   const [jobs, setJobs] = useState<GptJob[]>([]);
   const [messages, setMessages] = useState<GptMessage[]>([]);
   const [revision, setRevision] = useState(0);
+  const [live, setLive] = useState<{
+    jobId: string;
+    items: NonNullable<GptJob["progress"]>;
+  } | null>(null);
+  const [running, setRunning] = useState(true);
   return (
     <main style={{ maxWidth: 900, margin: "auto", padding: 16 }}>
       <textarea aria-label="Draft" defaultValue="Keep my draft" />
-      <button onClick={() => setJobs([{ ...job, deliveryConfirmed: false }])}>Queue request</button>
-      <button
+      <button type="button" onClick={() => setJobs([{ ...job, deliveryConfirmed: false }])}>Queue request</button>
+      <button type="button"
         onClick={() => {
           setJobs([job]);
           setRevision((r) => r + 1);
@@ -93,7 +98,7 @@ function Fixture() {
       >
         Confirm request
       </button>
-      <button
+      <button type="button"
         onClick={() => {
           setMessages([
             { id: "request", role: "user", text: job.text, createdAt: 1, files: [] },
@@ -111,6 +116,26 @@ function Fixture() {
       >
         Canonical history
       </button>
+      <button type="button"
+        onClick={() =>
+          setLive({
+            jobId: "job",
+            items: [
+              {
+                id: "summary",
+                text: "Reviewing the repository and documentation",
+                state: "active",
+              },
+            ],
+          })
+        }
+      >
+        Public summary event
+      </button>
+      <button type="button" onClick={() => setRunning(false)}>Local stream ended</button>
+      <section data-testid="live-chat">
+        <GptProgress items={live?.items ?? []} running={running} />
+      </section>
       <div className="support-pane" style={{ height: 500 }}>
         <ResultFeed
           endpoint="/gpt/conversations/chat/results"
@@ -118,7 +143,7 @@ function Fixture() {
           visible
           focusCategory="reasoning"
           focusVersion={1}
-          extras={gptLiveResults("chat", messages, jobs)}
+          extras={gptLiveResults("chat", messages, jobs, live)}
           onOverlayChange={() => {}}
         />
       </div>
@@ -127,6 +152,9 @@ function Fixture() {
       </section>
       <section className="message-body" data-testid="user">
         <GptMessageText value={"<box><text>User code stays literal</text></box>"} />
+      </section>
+      <section data-testid="memory">
+        <GptMessageText value="Uses memory <MemoryCite />" rich />
       </section>
       <section data-testid="steps">
         <GptSteps

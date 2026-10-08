@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readdir, readFile, rm, mkdir } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { chromium, expect, webkit } from "@playwright/test";
 import react from "../apps/web/node_modules/@vitejs/plugin-react/dist/index.js";
 import { build } from "../apps/web/node_modules/vite/dist/node/index.js";
+
 const dir = await mkdtemp(join(tmpdir(), "gpt-rich-"));
 const evidence = resolve(process.env.GPT_RICH_EVIDENCE || ".tmp/gpt-rich-evidence");
 const samples = process.env.GPT_RICH_SAMPLES
@@ -55,7 +56,7 @@ try {
         const errors = [];
         page.on("pageerror", (e) => errors.push(e.message));
         let reads = 0,
-          pause = false;
+          pause = false, staleCard = false;
         const pending = [];
         await page.route("https://rich.test/**", async (route) => {
           const path = new URL(route.request().url()).pathname;
@@ -73,7 +74,19 @@ try {
             return route
               .fulfill({
                 json: {
-                  items: [],
+                  items:
+                    staleCard
+                      ? [
+                          {
+                            id: "reasoning-request",
+                            turnId: "request",
+                            type: "reasoning",
+                            title: "Write the next chapter",
+                            createdAt: new Date(1000).toISOString(),
+                            payload: { text: "Write the next chapter", steps: [] },
+                          },
+                        ]
+                      : [],
                   nextBefore: null,
                   counts: {
                     all: 0,
@@ -115,6 +128,7 @@ try {
         await page.getByRole("button", { name: "Queue request", exact: true }).click();
         await expect(page.locator('[data-result="reasoning-request"]')).toHaveCount(0);
         pause = true;
+        staleCard = true;
         await page.getByRole("button", { name: "Confirm request", exact: true }).click();
         await expect(page.locator('[data-result="reasoning-request"]')).toHaveCount(1);
         await expect(page.locator('[data-result="reasoning-request"]')).toContainText(
@@ -125,6 +139,27 @@ try {
         assert.ok(reads - before <= 1, "no extra polling for immediate cards");
         await page.getByRole("button", { name: "Canonical history", exact: true }).click();
         await expect(page.locator('[data-result="reasoning-request"]')).toHaveCount(1);
+        await page.getByRole("button", { name: "Public summary event", exact: true }).click();
+        const card = page.locator('[data-result="reasoning-request"]');
+        await card.locator("summary").first().click();
+        await expect(card).toContainText("Reviewing the repository and documentation");
+        pause = false;
+        for (const done of pending.splice(0)) done();
+        await expect(card).toContainText("Reviewing the repository and documentation");
+        await page.getByTestId("live-chat").getByRole("button", { name: "Ход ответа GPT" }).click();
+        await expect(page.getByTestId("live-chat")).toContainText(
+          "Reviewing the repository and documentation",
+        );
+        await page.getByRole("button", { name: "Local stream ended" }).click();
+        await page
+          .getByTestId("live-chat")
+          .getByRole("button", { name: "Этапы ответа", exact: true })
+          .click();
+        await expect(page.getByTestId("live-chat")).toContainText(
+          "Reviewing the repository and documentation",
+        );
+        await expect(page.getByTestId("memory")).not.toContainText("<MemoryCite");
+        await expect(page.getByTestId("memory")).toContainText("Память");
         await expect(page.getByLabel("Draft")).toHaveValue("Keep my draft");
         assert.ok(
           await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
@@ -148,7 +183,7 @@ try {
         }
         assert.deepEqual(errors, []);
         pause = false;
-        pending.forEach((done) => done());
+        for (const done of pending) done();
         await context.close();
         console.log(
           `${name} ${width}: rich layout, literal code, public steps, immediate request and draft passed`,

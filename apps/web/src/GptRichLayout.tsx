@@ -44,6 +44,12 @@ const values = (value: string | undefined, choices: string[]) =>
 function layout(tag: string, raw: unknown, children: ReactNode) {
   const a: Record<string, string> = typeof raw === "string" ? JSON.parse(raw) : {};
   if (tag === "Entity") return <span title={a.disambig}>{a.value}</span>;
+  if (tag === "MemoryCite")
+    return (
+      <span className="muted" title="GPT использовал сохранённую память">
+        Память
+      </span>
+    );
   if (tag === "Link")
     return /^https?:\/\//i.test(a.url ?? "") ? (
       <a href={a.url} target="_blank" rel="noopener noreferrer">

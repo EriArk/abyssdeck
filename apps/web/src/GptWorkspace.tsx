@@ -34,11 +34,11 @@ import { GptImage } from "./GptImage";
 import { GptMessageText as Text } from "./GptMessageText";
 import { useGptNativeOperations } from "./GptNativeOperations";
 import { GptProgress } from "./GptProgress";
-import { gptLiveResults } from "./gptLiveResults";
 import { GptProjectPending } from "./GptProjectContent";
 import { GptResultHandoffs } from "./GptResultHandoffs";
 import { beginGptHistory, gptCache, gptCacheEpoch, saveGptCache } from "./gptCache";
 import { type GptCatalogPage, readGptNavigation } from "./gptCatalog";
+import { gptLiveResults } from "./gptLiveResults";
 import {
   currentGptProgress,
   gptJobUser,
@@ -745,8 +745,8 @@ export function GptWorkspace({
     .filter((job) => (selected ? job.nativeId === selected : job.id === createdJob))
     .sort((a, b) => a.createdAt - b.createdAt);
   const liveRequestResults = useMemo(
-    () => gptLiveResults(selected, messages, jobs),
-    [selected, messages, jobs],
+    () => gptLiveResults(selected, messages, jobs, live),
+    [selected, messages, jobs, live],
   );
   const active = currentJobs.find(isActive);
   const awaitingReply = currentJobs.find((job) => job.status === "unknown" && !job.error);
@@ -759,7 +759,9 @@ export function GptWorkspace({
     !historyNotice &&
     turnProgress.external &&
     turnProgress.pending;
-  const cachedProgress = turnProgress.items;
+  const cachedProgress =
+    liveRequestResults.find((item) => item.turnId === turnProgress.userId)?.payload.steps ??
+    turnProgress.items;
   const historicalJobs = new Set(
     currentJobs
       .filter((job) =>
@@ -2179,7 +2181,7 @@ export function GptWorkspace({
               </div>
             )}
             <div className="chat-status-row gpt-status-row">
-              {(active || awaitingReply || busy || externalReply) && (
+              {(active || awaitingReply || busy || externalReply || cachedProgress.length > 0) && (
                 <GptProgress
                   key={externalReply ? turnProgress.userId : (progressJob?.id ?? "sending")}
                   items={
@@ -2194,7 +2196,7 @@ export function GptWorkspace({
                       ? live.items
                       : undefined
                   }
-                  running
+                  running={!!(active || awaitingReply || busy || externalReply)}
                   label={
                     externalReply
                       ? "Ответ GPT в другом клиенте"

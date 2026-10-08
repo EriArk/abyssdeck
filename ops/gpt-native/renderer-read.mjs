@@ -2,6 +2,7 @@ import {nativeModule} from './compatibility.mjs';
 // Version-specific, private research adapter. No sends, navigation or generic RPC.
 // Keep this function self-contained: it also runs inside the native renderer.
 import {nativeRequestGate} from './request-gate.mjs';
+import {nativePublicContent} from './public-content.mjs';
 export async function nativeRead(request, load = () => nativeModule(), runtime = globalThis, activity = () => null) {
  const fail = code => { throw Error(`NATIVE_${code}`); };
  const projectId = value => typeof value==='string'&&/^g-p-[a-zA-Z0-9-]{1,80}$/.test(value);
@@ -252,21 +253,7 @@ export async function nativeRead(request, load = () => nativeModule(), runtime =
  if (!mapping || typeof mapping !== 'object' || Array.isArray(mapping) || Object.keys(mapping).length > 10000) fail('INVALID_HISTORY');
  // Match the pinned client's public summary presentation, never raw analysis.
  // Keep this shared by history and exact-message artifact authorization.
- const publicContent = m => {
-  const meta=m?.metadata??{},c=m?.content;
-  if(meta.is_visually_hidden_from_conversation===true||meta.is_visually_hidden_reasoning_group===true||
-     meta.summary_type==='raw_cot'||meta.reasoning_recap_type==='hide_all'||meta.tool_invoking_message===true||
-     (m?.recipient!=null&&m.recipient!=='all'))return null;
-  if(m?.author?.role==='assistant'&&['thoughts','reasoning_recap'].includes(c?.content_type)){
-   // The native thought card uses the last summary. Its separate content field
-   // is not a public-summary contract and must never cross the adapter boundary.
-   const text=c.content_type==='thoughts'?(Array.isArray(c.thoughts)?c.thoughts.at(-1)?.summary:null):c.content;
-   return typeof text==='string'&&text.trim()?{channel:'commentary',content:{content_type:'text',parts:[text]}}:null;
-  }
-  if((m?.channel!=null&&!['final','commentary'].includes(m.channel))||
-     ['thoughts','reasoning','reasoning_recap','tool_call','computer_output','error','system_error'].includes(c?.content_type))return null;
-  return {channel:m?.channel??'final',content:c};
- };
+ const publicContent = nativePublicContent;
  const stopped = m => m && (m.metadata?.finish_details?.type==='interrupted'||m.metadata?.is_error===true||
   (m.status==='finished_partial_completion'&&m.end_turn===true)||['error','system_error'].includes(m.content?.content_type));
  // A failed turn can end on a hidden error node. Retain its preceding public

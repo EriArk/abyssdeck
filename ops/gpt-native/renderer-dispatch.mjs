@@ -1,5 +1,6 @@
 import {nativeFailure} from './failure.mjs';
 import {nativeModule} from './compatibility.mjs';
+import {nativePublicContent} from './public-content.mjs';
 // Pinned native consumer-Chat send canary. No credentials, HTTP bodies or raw events leave the renderer.
 export async function nativeDispatch(request, read, control,
  load = () => nativeModule(), runtime = globalThis,
@@ -108,12 +109,10 @@ export async function nativeDispatch(request, read, control,
      if(index<0)live.items.push(item);else live.items[index]=item;
      while(live.items.length>48||live.items.reduce((n,x)=>n+x.text.length,0)>196608)live.items.shift();return;
     }
+    const visible=nativePublicContent(message);
     if(!uuid(message?.id)||message.author?.role!=='assistant'||
-       (message.channel!=null&&!['final','commentary'].includes(message.channel))||
-       (message.recipient!=null&&message.recipient!=='all')||
-       message.metadata?.is_visually_hidden_from_conversation===true||message.metadata?.tool_invoking_message===true||
-       message.content?.content_type!=='text'||!Array.isArray(message.content.parts))return;
-    const text=message.content.parts.filter(p=>typeof p==='string').join('\n').slice(0,32768)
+       visible?.content?.content_type!=='text'||!Array.isArray(visible.content.parts))return;
+    const text=visible.content.parts.filter(p=>typeof p==='string').join('\n').slice(0,32768)
       .replace(/\ue200[^\ue201]*\ue201/g,'').replace(/\ue200[^\ue201]*$/g,'').replace(/[\ue200-\ue203]/g,'');
     if(!text.trim())return;
     live.conversationId=update.conversationId;live.at=Date.now();

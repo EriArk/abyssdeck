@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { remarkGptLayout } from "../apps/web/src/gptRichMarkdown.ts";
-import { gptLiveResults } from "../apps/web/src/gptLiveResults.ts";
-import { unified } from "../apps/web/node_modules/unified/index.js";
 import remarkParse from "../apps/web/node_modules/remark-parse/index.js";
+import { unified } from "../apps/web/node_modules/unified/index.js";
+import { gptLiveResults, mergeResultItems } from "../apps/web/src/gptLiveResults.ts";
+import { remarkGptLayout } from "../apps/web/src/gptRichMarkdown.ts";
 
 const parse = (value) => {
   const tree = unified().use(remarkParse).parse(value);
@@ -93,4 +93,49 @@ test("confirmed request appears before history or response, and canonical identi
     1,
   );
   assert.equal(gptLiveResults("chat", [{ ...history[0], id: "external" }], []).length, 1);
+});
+
+test("live summaries survive an older Results card, settle canonically and stay on their request", () => {
+  const user = { id: "request", role: "user", text: "Question", createdAt: 1, files: [] };
+  const job = {
+    id: "job",
+    nativeId: "chat",
+    userMessageId: "request",
+    text: "Question",
+    createdAt: 1000,
+    deliveryConfirmed: true,
+    progress: [],
+  };
+  const live = {
+    jobId: "job",
+    items: [{ id: "summary", text: "Reviewing the repository", state: "active" }],
+  };
+  const old = gptLiveResults("chat", [user], [job]);
+  const current = gptLiveResults("chat", [user], [job], live);
+  assert.equal(mergeResultItems([...current, ...old])[0].payload.steps[0].text, live.items[0].text);
+  assert.equal(
+    gptLiveResults("chat", [user], [job], { ...live, jobId: "other" })[0].payload.steps.length,
+    0,
+  );
+  const final = {
+    id: "summary",
+    role: "assistant",
+    text: "Final text",
+    createdAt: 2,
+    complete: true,
+    phase: "final",
+    files: [],
+  };
+  assert.equal(
+    gptLiveResults("chat", [user, final], [job], live)[0].payload.steps[0].text,
+    "Final text",
+  );
+  assert.equal(gptLiveResults("other", [], [job], live).length, 0);
+});
+
+test("memory citation is a display marker while quoted code remains literal", () => {
+  const value = "Text <MemoryCite /> and `<MemoryCite />`";
+  const nodes = flatten(parse(value));
+  assert.equal(nodes.filter((n) => n.type === "gptReference").length, 1);
+  assert.equal(nodes.find((n) => n.type === "inlineCode").value, "<MemoryCite />");
 });

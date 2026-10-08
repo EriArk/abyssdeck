@@ -8,6 +8,7 @@ import {
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import type { ArtifactRequest, ArtifactSelection } from "./ArtifactMarkdown";
 import { ApiError, api, messageOf } from "./api";
+import { mergeResultItems } from "./gptLiveResults";
 import { ResultSearch } from "./ResultSearch";
 import { Results } from "./Results";
 import { cachedResults, rememberResults, resultCacheEpoch } from "./resultCache";
@@ -357,11 +358,7 @@ export function ResultFeed({
       if (current === generation.current) setBusy(false);
     }
   };
-  const all = [
-    ...new Map(
-      [...(focused ? [focused] : []), ...extras, ...items].map((row) => [row.id, row]),
-    ).values(),
-  ];
+  const all = mergeResultItems([...(focused ? [focused] : []), ...extras, ...items]);
   const totals = { ...counts };
   totals.all = Math.max(totals.all, all.length);
   for (const key of ["images", "demos", "files", "links", "reasoning", "work"] as const)

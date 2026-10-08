@@ -74,7 +74,7 @@ function references(tree: Node) {
     const parts: Node[] = [];
     let cursor = 0;
     for (const match of node.value.matchAll(
-      /<(Entity|Link|Cite|AsyncImage)\b((?:[^>"']|"[^"]*"|'[^']*')*)\/>/g,
+      /<(Entity|Link|Cite|AsyncImage|MemoryCite)\b((?:[^>"']|"[^"]*"|'[^']*')*)\/>/g,
     )) {
       if (cursor < match.index!)
         parts.push({ type: "text", value: node.value.slice(cursor, match.index) });

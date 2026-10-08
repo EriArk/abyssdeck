@@ -20,6 +20,17 @@ Results replace it without creating a second card. Queued, unconfirmed,
 dismissed, other-chat and superseded-branch receipts cannot become new cards.
 There is no new timer, native read or message replay. No reasoning is fabricated.
 
+Follow-up: request creation alone did not deliver live content. The stream
+observer previously discarded public `thoughts.summary` / `reasoning_recap`
+records even though canonical history supported them, and Results ignored the
+existing live response. Both use the same public-content projection now. Results
+merges exact step identities rather than letting an older full card replace
+fresh live steps. Canonical final/incomplete output remains authoritative.
+The latest turn's received steps remain accessible in the chat when local
+activity ends. This does not declare a remote response finished or running from
+elapsed time. Private thought bodies remain excluded. `MemoryCite` becomes a
+memory-use marker, with no invented reference destination.
+
 ## Coverage
 
 | Content / operation | Current support and limits |

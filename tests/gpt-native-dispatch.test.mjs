@@ -1071,3 +1071,42 @@ test("temporary read errors never become a permanent chat pause or cancel queued
   );
   assert.equal(f.state.sends, 1);
 });
+
+test("public summaries stream while history is pending, without private thought content", async () => {
+  const f = fixture();
+  await f.run();
+  const id = randomUUID();
+  const emit = (summary, extra = {}) =>
+    f.state.emit({
+      type: "message",
+      conversationId,
+      message: {
+        id,
+        author: { role: "assistant" },
+        channel: "analysis",
+        recipient: "all",
+        status: "in_progress",
+        content: {
+          content_type: "thoughts",
+          thoughts: [{ summary, content: "PRIVATE_THOUGHT_BODY", finished: false }],
+        },
+        ...extra,
+      },
+    });
+  emit("Reviewing project");
+  const read = () => nativeLive(f.input, f.read, f.runtime);
+  assert.equal((await read()).items[0].text, "Reviewing project");
+  emit("Reviewing project documentation");
+  assert.equal((await read()).items.length, 1);
+  assert.equal((await read()).items[0].text, "Reviewing project documentation");
+  for (const metadata of [
+    { summary_type: "raw_cot" },
+    { is_visually_hidden_reasoning_group: true },
+    { is_visually_hidden_from_conversation: true },
+    { reasoning_recap_type: "hide_all" },
+  ])
+    emit("HIDDEN_SUMMARY", { metadata });
+  assert.doesNotMatch(JSON.stringify(await read()), /PRIVATE|HIDDEN/);
+  assert.equal(f.state.send, 1);
+  assert.equal(f.state.post, 1);
+});

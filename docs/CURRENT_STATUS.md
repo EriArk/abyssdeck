@@ -1,5 +1,29 @@
 # Текущий статус — 8 октября 2026
 
+### GPT public progress continuity follow-up - October 8
+
+The owner's simultaneous native/web screenshots exposed missing live content
+after the earlier request-card fix. The stream observer excluded public summary
+formats accepted by the canonical reader; Results received no live updates and
+its whole-card merge could replace newer steps with an older history card. The
+chat also hid all received steps whenever local activity stopped.
+
+The native stream and history now share the pinned public-content projection.
+Web Results includes the existing live stream, merges by exact request/step IDs,
+and retains canonical final/incomplete output. The last turn's public steps stay
+reachable in chat independently of activity visibility. MemoryCite renders as a
+memory-use marker. No extra history polling, send replay, private thought export
+or elapsed-time completion was introduced.
+
+Read-only diagnosis of the affected conversation verified public intermediate
+messages in both the native projection and saved Hub history. The final history
+available during diagnosis cannot prove the exact timing/content seen by the
+iPhone while streaming. Linux typecheck/build and 96 focused checks passed.
+Chromium and WebKit passed at 390/820/1366 widths, including live summary arrival,
+stale Results response, retained chat steps and literal MemoryCite code. Activation
+is pending. Private evidence is stored in
+`/tmp/abyssdeck-public-progress`; no private transcript is committed.
+
 ### Immediate GPT request cards and rich public content - October 8
 
 Results now displays the request using its native user-message identity as soon
