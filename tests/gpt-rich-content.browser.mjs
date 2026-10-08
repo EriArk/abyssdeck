@@ -53,10 +53,20 @@ try {
           reducedMotion: "reduce",
         });
         const page = await context.newPage();
+        await page.addInitScript(() => {
+          Object.defineProperty(navigator, "clipboard", {
+            value: {
+              writeText: async (text) => {
+                window.copiedText = text;
+              },
+            },
+          });
+        });
         const errors = [];
         page.on("pageerror", (e) => errors.push(e.message));
         let reads = 0,
-          pause = false, staleCard = false;
+          pause = false,
+          staleCard = false;
         const pending = [];
         await page.route("https://rich.test/**", async (route) => {
           const path = new URL(route.request().url()).pathname;
@@ -74,19 +84,18 @@ try {
             return route
               .fulfill({
                 json: {
-                  items:
-                    staleCard
-                      ? [
-                          {
-                            id: "reasoning-request",
-                            turnId: "request",
-                            type: "reasoning",
-                            title: "Write the next chapter",
-                            createdAt: new Date(1000).toISOString(),
-                            payload: { text: "Write the next chapter", steps: [] },
-                          },
-                        ]
-                      : [],
+                  items: staleCard
+                    ? [
+                        {
+                          id: "reasoning-request",
+                          turnId: "request",
+                          type: "reasoning",
+                          title: "Write the next chapter",
+                          createdAt: new Date(1000).toISOString(),
+                          payload: { text: "Write the next chapter", steps: [] },
+                        },
+                      ]
+                    : [],
                   nextBefore: null,
                   counts: {
                     all: 0,
@@ -160,6 +169,17 @@ try {
         );
         await expect(page.getByTestId("memory")).not.toContainText("<MemoryCite");
         await expect(page.getByTestId("memory")).toContainText("Память");
+        const writing = page.getByTestId("writing");
+        await expect(writing.locator(".gpt-writing-block")).toHaveCount(1);
+        await expect(writing).not.toContainText("<WritingBlock");
+        await expect(writing.locator("strong")).toHaveText("Good news");
+        await expect(writing).toContainText("No specific date promised.");
+        await writing.getByRole("button", { name: "Копировать текст блока", exact: true }).click();
+        assert.equal(
+          await page.evaluate(() => window.copiedText),
+          "Heyo! 😁 No worries!\n\n**Good news** — the book server software is nearly finished.\n\nI'll share an update here as soon as it's ready! 😁",
+        );
+        await writing.screenshot({ path: join(evidence, `${name}-writing-${width}.png`) });
         await expect(page.getByLabel("Draft")).toHaveValue("Keep my draft");
         assert.ok(
           await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),

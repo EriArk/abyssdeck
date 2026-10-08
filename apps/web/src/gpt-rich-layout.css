@@ -3,6 +3,38 @@
   max-width: 100%;
   overflow-wrap: anywhere;
 }
+.gpt-writing-block {
+  min-width: 0;
+  max-width: 100%;
+  margin-block: 1rem;
+  border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+  border-radius: 0.75rem;
+  overflow-wrap: anywhere;
+}
+.gpt-writing-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+  background: color-mix(in srgb, currentColor 7%, transparent);
+  border-radius: 0.75rem 0.75rem 0 0;
+  font-size: 0.875em;
+  font-weight: 600;
+}
+.gpt-writing-block-header > span:first-child {
+  min-width: 0;
+}
+.gpt-writing-block-body {
+  padding: 0.75rem 1rem;
+}
+.gpt-writing-block-body > :first-child {
+  margin-top: 0;
+}
+.gpt-writing-block-body > :last-child {
+  margin-bottom: 0;
+}
 .gpt-rich[data-layout="grid"] {
   display: grid;
   grid-template-columns: repeat(var(--gpt-columns, 2), minmax(0, 1fr));

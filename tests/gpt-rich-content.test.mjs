@@ -12,6 +12,48 @@ const parse = (value) => {
 };
 const flatten = (node) => [node, ...(node.children ?? []).flatMap(flatten)];
 const rich = (tree) => flatten(tree).filter((n) => n.type === "gptLayout");
+
+test("WritingBlock preserves its exact body, Markdown and neighboring prose", () => {
+  const body =
+    "Heyo! 😁 No worries!\n\n**Good news** — nearly finished.\n\nI'll share an update! 😁";
+  const source = `Before\n\n<WritingBlock id="58321" variant="chat_message">${body}</WritingBlock>\n\nAfter`;
+  const tree = parse(source);
+  assert.equal(rich(tree).length, 1);
+  assert.equal(rich(tree)[0].data.hProperties.dataGptText, body);
+  assert.deepEqual(JSON.parse(rich(tree)[0].data.hProperties.dataGptAttrs), {
+    id: "58321",
+    variant: "chat_message",
+  });
+  assert.ok(flatten(tree).some((n) => n.type === "strong"));
+  for (const text of ["Before", "After"]) assert.ok(flatten(tree).some((n) => n.value === text));
+  const second = parse(
+    `${source}\n\n<WritingBlock variant="email" subject="Update">Second</WritingBlock>`,
+  );
+  assert.equal(rich(second).length, 2);
+  assert.equal(rich(second)[1].data.hProperties.dataGptText, "Second");
+});
+
+test("WritingBlock does not consume literal code or lose incomplete source", () => {
+  const tag = '<WritingBlock id="1">Example</WritingBlock>';
+  for (const source of [
+    `\`${tag}\``,
+    `\`\`\`xml\n${tag}\n\`\`\``,
+    '<WritingBlock id="1">Still writing',
+  ]) {
+    assert.equal(rich(parse(source)).length, 0);
+    assert.ok(flatten(parse(source)).some((n) => n.value?.includes("WritingBlock")));
+  }
+  const body = "\n```html\n</WritingBlock>\n```\n\n<script>alert(1)</script>\n";
+  const source = `<WritingBlock>${body}</WritingBlock>`;
+  const tree = parse(source);
+  assert.equal(rich(tree).length, 1);
+  assert.equal(rich(tree)[0].data.hProperties.dataGptText, body);
+  const code = flatten(tree).find((n) => n.type === "code");
+  assert.equal(
+    source.slice(code.position.start.offset, code.position.end.offset),
+    "```html\n</WritingBlock>\n```",
+  );
+});
 test("inline native references support braced citation arrays without executing them", () => {
   const tree = parse(
     'Read <Entity value="Example"/>. <Cite refs={["source1","source2"]}/> <Link url="https://example.com" title="Details"/>',

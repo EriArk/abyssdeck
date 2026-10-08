@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { Components } from "react-markdown";
+import { CopyButton } from "./CopyButton";
 import { Icon } from "./icons";
 import "./gpt-rich-layout.css";
 
@@ -41,8 +42,26 @@ const icons: Record<string, string> = {
 };
 const values = (value: string | undefined, choices: string[]) =>
   choices.includes(value ?? "") ? value : undefined;
-function layout(tag: string, raw: unknown, children: ReactNode) {
+function layout(tag: string, raw: unknown, children: ReactNode, text?: unknown) {
   const a: Record<string, string> = typeof raw === "string" ? JSON.parse(raw) : {};
+  if (tag === "WritingBlock")
+    return (
+      <section className="gpt-writing-block">
+        <header className="gpt-writing-block-header">
+          <span>
+            {a.title ||
+              a.subject ||
+              (a.variant === "email"
+                ? "Письмо"
+                : a.variant === "chat_message"
+                  ? "Сообщение"
+                  : "Текст")}
+          </span>
+          <CopyButton text={typeof text === "string" ? text : ""} label="Копировать текст блока" />
+        </header>
+        <div className="gpt-writing-block-body">{children}</div>
+      </section>
+    );
   if (tag === "Entity") return <span title={a.disambig}>{a.value}</span>;
   if (tag === "MemoryCite")
     return (
@@ -153,6 +172,7 @@ export function gptLayoutComponents(base: Components = {}): Components {
           props.node.properties.dataGptLayout,
           props.node.properties.dataGptAttrs,
           props.children,
+          props.node.properties.dataGptText,
         )
       ) : typeof Div === "function" ? (
         <Div {...props} />
@@ -165,6 +185,7 @@ export function gptLayoutComponents(base: Components = {}): Components {
           props.node.properties.dataGptLayout,
           props.node.properties.dataGptAttrs,
           props.children,
+          props.node.properties.dataGptText,
         )
       ) : (
         <span>{props.children}</span>

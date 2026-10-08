@@ -89,8 +89,11 @@ function Fixture() {
   return (
     <main style={{ maxWidth: 900, margin: "auto", padding: 16 }}>
       <textarea aria-label="Draft" defaultValue="Keep my draft" />
-      <button type="button" onClick={() => setJobs([{ ...job, deliveryConfirmed: false }])}>Queue request</button>
-      <button type="button"
+      <button type="button" onClick={() => setJobs([{ ...job, deliveryConfirmed: false }])}>
+        Queue request
+      </button>
+      <button
+        type="button"
         onClick={() => {
           setJobs([job]);
           setRevision((r) => r + 1);
@@ -98,7 +101,8 @@ function Fixture() {
       >
         Confirm request
       </button>
-      <button type="button"
+      <button
+        type="button"
         onClick={() => {
           setMessages([
             { id: "request", role: "user", text: job.text, createdAt: 1, files: [] },
@@ -116,7 +120,8 @@ function Fixture() {
       >
         Canonical history
       </button>
-      <button type="button"
+      <button
+        type="button"
         onClick={() =>
           setLive({
             jobId: "job",
@@ -132,7 +137,9 @@ function Fixture() {
       >
         Public summary event
       </button>
-      <button type="button" onClick={() => setRunning(false)}>Local stream ended</button>
+      <button type="button" onClick={() => setRunning(false)}>
+        Local stream ended
+      </button>
       <section data-testid="live-chat">
         <GptProgress items={live?.items ?? []} running={running} />
       </section>
@@ -155,6 +162,14 @@ function Fixture() {
       </section>
       <section data-testid="memory">
         <GptMessageText value="Uses memory <MemoryCite />" rich />
+      </section>
+      <section className="message-body" data-testid="writing">
+        <GptMessageText
+          rich
+          value={
+            'I would reply like this.\n\n<WritingBlock id="58321" variant="chat_message">Heyo! 😁 No worries!\n\n**Good news** — the book server software is nearly finished.\n\nI\'ll share an update here as soon as it\'s ready! 😁</WritingBlock>\n\nNo specific date promised.'
+          }
+        />
       </section>
       <section data-testid="steps">
         <GptSteps

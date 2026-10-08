@@ -20,6 +20,7 @@ type Rich = {
   children: Rich[];
 };
 const tags = new Set([
+  "WritingBlock",
   "box",
   "row",
   "col",
@@ -39,6 +40,7 @@ const tags = new Set([
   "list-item",
 ]);
 const roots = new Set([
+  "WritingBlock",
   "box",
   "row",
   "col",
@@ -104,7 +106,11 @@ function references(tree: Node) {
 export function remarkGptLayout() {
   return (tree: Node, file: { value: unknown }) => {
     const source = String(file.value);
-    if (!/<(?:box|row|col|column|grid|list|caption|title|heading|text|badge)\b/.test(source)) {
+    if (
+      !/<(?:WritingBlock|box|row|col|column|grid|list|caption|title|heading|text|badge)\b/.test(
+        source,
+      )
+    ) {
       references(tree);
       return;
     }
@@ -143,13 +149,16 @@ export function remarkGptLayout() {
       stack: Rich[] = [];
     // Quoted values may include >; expressions are accepted only as primitive
     // numbers/strings below. No evaluation, event handlers or raw style objects.
-    const tokens = /<\/?([a-z][a-z0-9-]*)\b((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
+    const tokens = /<\/?(WritingBlock|[a-z][a-z0-9-]*)\b((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
     let invalid = false;
     for (const match of source.matchAll(tokens)) {
       const start = match.index!,
         end = start + match[0].length,
         tag = match[1]!;
       if (protectedRanges.some(([a, b]) => start >= a && start < b)) continue;
+      // A writing block contains a document, not layout children. Preserve any
+      // HTML examples in its body as literal Markdown, without interpreting them.
+      if (stack.at(-1)?.tag === "WritingBlock" && tag !== "WritingBlock") continue;
       if (!stack.length) {
         if (
           match[0][1] === "/" ||
@@ -245,7 +254,13 @@ export function remarkGptLayout() {
         children,
         data: {
           hName: leaves.has(node.tag) ? "span" : "div",
-          hProperties: { dataGptLayout: node.tag, dataGptAttrs: JSON.stringify(node.attrs) },
+          hProperties: {
+            dataGptLayout: node.tag,
+            dataGptAttrs: JSON.stringify(node.attrs),
+            ...(node.tag === "WritingBlock"
+              ? { dataGptText: source.slice(node.body, node.end) }
+              : {}),
+          },
         },
         position: { start: point(node.start), end: point(close(node)) },
       };

@@ -37,6 +37,7 @@ memory-use marker, with no invented reference destination.
 | --- | --- |
 | Ordinary Markdown | Headings, emphasis, links, quotes, lists, task lists, tables, inline/fenced code. Original message text remains available for copying. |
 | Code and long blocks | Existing copy controls, syntax/editor/artifact workflow retained. Layout parsing retains original source offsets for fenced blocks. |
+| Writing blocks | Paired `WritingBlock` renders a themed document card with Markdown and a copy-body button. Title/subject and chat-message/email variants are displayed; original body bytes and surrounding prose are preserved. Literal code stays literal. This does not recreate native editing or send-email actions. |
 | Public progress | Request visible on confirmed delivery, public steps appear as received, including Markdown/layout. Private reasoning/tool input is excluded. |
 | Native layout in text | `box`, `row`, `col`/`column`, `grid`/`grid-item`, `list`/`list-item`, `text`, `caption`, `heading`/`title`, `badge`, `icon`, `divider`, `spacer`, `markdown`. Numeric spacing, flex/alignment, wrap, columns and common themed sizes/surfaces. This is the observed markup dialect, not a JSX runtime or every ChatKit property. |
 | Native inline references | `Entity` retains its visible label/disambiguation; `Link` renders its supplied HTTP(S) destination. Unresolved `Cite`/`AsyncImage` show an unavailable-content label. Search IDs and image queries are not URLs and are never guessed. |

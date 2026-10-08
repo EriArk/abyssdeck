@@ -1,5 +1,19 @@
 # Текущий статус — 8 октября 2026
 
+### GPT WritingBlock display follow-up - October 8
+
+The reported native `WritingBlock` tag now renders as a themed document card
+in the shared GPT Markdown renderer. Its copy action uses the exact inner text,
+without wrapper tags or surrounding commentary. Markdown, title/subject and
+chat-message/email labels are retained. Code examples and incomplete blocks
+remain readable; this adds no native editor or email-send action.
+
+Linux typecheck/build and all nine focused rich-content checks passed.
+Chromium and WebKit passed at 390/820/1366 widths, including block-body copying,
+Markdown, neighboring prose and retained drafts. Phone and desktop screenshots
+were reviewed. Evidence: `/tmp/abyssdeck-writing-block` and local
+`.tmp/gpt-rich-evidence`. Publication is recorded below after activation.
+
 ### GPT public progress continuity follow-up - October 8
 
 The owner's simultaneous native/web screenshots exposed missing live content
