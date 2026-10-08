@@ -20,9 +20,18 @@ messages in both the native projection and saved Hub history. The final history
 available during diagnosis cannot prove the exact timing/content seen by the
 iPhone while streaming. Linux typecheck/build and 96 focused checks passed.
 Chromium and WebKit passed at 390/820/1366 widths, including live summary arrival,
-stale Results response, retained chat steps and literal MemoryCite code. Activation
-is pending. Private evidence is stored in
+stale Results response, retained chat steps and literal MemoryCite code. Private evidence is stored in
 `/tmp/abyssdeck-public-progress`; no private transcript is committed.
+
+Activated source `45d65400`: web release
+`029589a9e525245a6f7f0f84d71cd556ab838dccb81923c94be41de57d02704b`
+serves `/assets/index-DNVzeKFJ.js`; public page and entry returned HTTP 200.
+The owner adapter is `codex-web-gpt-native:26.928.31416-45d65400`, installed through
+ordinary idle admission with its profile and stopped rollback container preserved.
+The installed reader successfully returned the affected chat's 46 public messages,
+including 14 intermediate messages. Hub/engine and GPT gateway identities/start
+times were unchanged; engine remains `eebc3a4a` / schema 31. No owner prompt was
+sent as a test; real iPhone live-stream parity is not claimed from fixtures.
 
 ### Immediate GPT request cards and rich public content - October 8
 
