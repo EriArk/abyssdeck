@@ -23,7 +23,12 @@ the affected conversation, pending Results reads, immediate confirmed cards,
 canonical identity, draft continuity, safe markup and retained literal code.
 Private evidence is in `/tmp/abyssdeck-gpt-rich` on the host and
 `.tmp/gpt-rich-evidence` locally; private samples are excluded from Git.
-Source verified; compatible web-only publication is pending.
+Activated source `4088704c` through the compatible web-only publisher. Release
+`1fa6a17a2f81b4d869ba5c0e81b927552a73d49bb16b164e749a21e3bf2a633a`
+serves `/assets/index-hwkyNh4y.js`; public page, version and entry returned
+HTTP 200. Hub, engine, owner native GPT and GPT gateway retained their container
+identities and start times. Engine remains `eebc3a4a` / schema 31; only
+`WEB_REVISION` changed. Browser evidence is not a physical iPhone test.
 
 ### Contextual quick settings and explicit client recovery - October 8
 
