@@ -14,6 +14,9 @@ justify a repair or restart. See the dated owner decisions in `AGENTS.md`.
 
 ## Native error authority - 2026-10-07
 
+For current public message formatting and known gaps, see the
+[GPT content support inventory](GPT_CONTENT_SUPPORT.md).
+
 The owner-approved [reliability repair](GPT_RELIABILITY_AUDIT_2026-10-07.md)
 supersedes the historical fixed outer timeouts and temporary-read failure cap.
 Native operations own network completion/errors. Typed public errors survive the

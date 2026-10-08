@@ -1,6 +1,12 @@
 import type { GptProgress as Progress } from "@codex-web/shared";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Icon } from "./icons";
+import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { remarkGptLayout } from "./gptRichMarkdown";
+import { gptLayoutComponents } from "./GptRichLayout";
+import { MarkdownTable } from "./MarkdownTable";
+import { CollapsibleCode } from "./CollapsibleCode";
 
 const actionIcons = {
   search: "search",
@@ -15,10 +21,15 @@ export function GptSteps({ items }: { items: Progress[] }) {
       {items.map((item) => (
         <li key={item.id}>
           <Icon name={item.activity ? actionIcons[item.activity] : "chat"} size={17} />
-          <span>
-            {item.text}
+          <div className="gpt-step-body">
+            <Markdown
+              remarkPlugins={[remarkGfm, remarkGptLayout]}
+              components={gptLayoutComponents({ table: MarkdownTable, pre: CollapsibleCode })}
+            >
+              {item.text}
+            </Markdown>
             {item.incomplete && <small className="muted"> · Ответ не завершён</small>}
-          </span>
+          </div>
         </li>
       ))}
     </ol>

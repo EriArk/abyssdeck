@@ -1,0 +1,129 @@
+.gpt-rich {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.gpt-rich[data-layout="grid"] {
+  display: grid;
+  grid-template-columns: repeat(var(--gpt-columns, 2), minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.gpt-rich-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-inline-start: 1.5em;
+}
+.gpt-rich-list-item {
+  min-width: 0;
+}
+.gpt-rich-list-item > p {
+  margin: 0;
+}
+@media (max-width: 600px) {
+  .gpt-rich[data-layout="grid"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.gpt-rich[data-layout="box"],
+.gpt-rich[data-layout="column"],
+.gpt-rich[data-layout="col"] {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.gpt-rich[data-layout="row"] {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.gpt-rich[data-layout="row"] > .gpt-rich {
+  flex-shrink: 1;
+}
+.gpt-rich > p {
+  margin: 0;
+}
+.gpt-rich[data-background="surface-secondary"],
+.gpt-rich[data-background="surface-tertiary"] {
+  background: color-mix(in srgb, currentColor 7%, transparent);
+}
+.gpt-rich[data-border="true"],
+.gpt-rich[data-layout="badge"] {
+  border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+}
+.gpt-rich[data-radius="sm"] {
+  border-radius: 0.25rem;
+}
+.gpt-rich[data-radius="md"] {
+  border-radius: 0.5rem;
+}
+.gpt-rich[data-radius="lg"] {
+  border-radius: 0.75rem;
+}
+.gpt-rich[data-radius="xl"] {
+  border-radius: 1rem;
+}
+.gpt-rich[data-radius="full"] {
+  border-radius: 999px;
+}
+.gpt-rich[data-layout="caption"],
+.gpt-rich[data-color="secondary"],
+.gpt-rich[data-color="tertiary"] {
+  opacity: 0.75;
+}
+.gpt-rich[data-layout="caption"],
+.gpt-rich[data-size="sm"] {
+  font-size: 0.875em;
+}
+.gpt-rich[data-size="xs"] {
+  font-size: 0.75em;
+}
+.gpt-rich[data-size="lg"] {
+  font-size: 1.15em;
+}
+.gpt-rich[data-size="xl"] {
+  font-size: 1.35em;
+}
+.gpt-rich[data-layout="title"],
+.gpt-rich[data-layout="heading"],
+.gpt-rich[data-weight="bold"] {
+  font-weight: 700;
+}
+.gpt-rich[data-weight="medium"],
+.gpt-rich[data-weight="semibold"] {
+  font-weight: 600;
+}
+.gpt-rich[data-layout="badge"] {
+  display: inline-flex;
+  padding: 0.15em 0.5em;
+  border-radius: 0.4em;
+}
+.gpt-rich-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  vertical-align: middle;
+}
+.gpt-rich-divider {
+  display: block;
+  align-self: stretch;
+  width: 100%;
+  border-top: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  margin-block: 0.5rem;
+}
+.gpt-rich-spacer {
+  display: block;
+  flex: 1;
+  min-height: 0.5rem;
+}
+.gpt-public-steps .gpt-step-body {
+  min-width: 0;
+  width: 100%;
+}
+.gpt-step-body > :first-child {
+  margin-top: 0;
+}
+.gpt-step-body > :last-child {
+  margin-bottom: 0;
+}

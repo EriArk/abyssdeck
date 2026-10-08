@@ -1,5 +1,17 @@
 # AGENTS.md
 
+## Owner-requested immediate GPT requests and rich chat output (2026-10-08)
+
+- Show a request in Results / Reasoning as soon as its native delivery is proved,
+  using the exact user-message ID and already saved text. Do not wait for the
+  answer or a separate full-history read, and do not add polling for this UI.
+- Render public native layout markup alongside Markdown in GPT answers and
+  public progress. Preserve literal code, source offsets, original copy/export
+  text, and unavailable-content explanations. Never execute model-supplied JSX.
+- Track actual format coverage in docs/GPT_CONTENT_SUPPORT.md. Public ChatKit
+  and Responses docs are references, not a specification of every native ChatGPT
+  component or authority to invent missing assets, source URLs or actions.
+
 ## Owner-requested contextual quick settings (2026-10-08)
 
 - Put quick settings on the existing Settings home, for the currently selected

@@ -14,10 +14,8 @@ import type {
 import { isGptChatMessage, projectContextEnd, projectContextStart } from "@codex-web/shared";
 import type { CSSProperties } from "react";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import Markdown, { defaultUrlTransform } from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { ActivityBadge } from "./ActivityBadge";
-import { type ArtifactRequest, artifactSource, useArtifactComponents } from "./ArtifactMarkdown";
+import type { ArtifactRequest } from "./ArtifactMarkdown";
 import { AutoTextarea } from "./AutoTextarea";
 import {
   accountLocalStorage as localStorage,
@@ -29,13 +27,14 @@ import { openContentSearch } from "./ContentSearch";
 import { CopyButton } from "./CopyButton";
 import { hasChatSelection } from "./chatSelection";
 import { composerShortcut } from "./composerShortcut";
-import { terminalDevice } from "./DeviceWorkspaceHost";
 import { useDictation } from "./Dictation";
 import { DownloadLink } from "./DownloadLink";
 import { EntityMenu, type LibraryChange, libraryEvent } from "./EntityMenu";
 import { GptImage } from "./GptImage";
+import { GptMessageText as Text } from "./GptMessageText";
 import { useGptNativeOperations } from "./GptNativeOperations";
 import { GptProgress } from "./GptProgress";
+import { gptLiveResults } from "./gptLiveResults";
 import { GptProjectPending } from "./GptProjectContent";
 import { GptResultHandoffs } from "./GptResultHandoffs";
 import { beginGptHistory, gptCache, gptCacheEpoch, saveGptCache } from "./gptCache";
@@ -49,10 +48,9 @@ import {
   showGptJob,
   waitingGptJob,
 } from "./gptState";
-import { ImageGallery, rehypeImageGallery } from "./ImageGallery";
-import { IssueCollect, useIssueCode } from "./IssueDrawer";
+import { ImageGallery } from "./ImageGallery";
+import { IssueCollect } from "./IssueDrawer";
 import { Icon } from "./icons";
-import { MarkdownTable } from "./MarkdownTable";
 import { MessageNavigation } from "./MessageNavigation";
 import { SpeechButton, useSpeechScope } from "./MessageSpeech";
 import { NavigationDivider } from "./NavigationDivider";
@@ -105,55 +103,6 @@ const Files = memo(function Files({ files }: { files: GptFile[] }) {
         </DownloadLink>
       ))}
     </div>
-  );
-});
-const Text = memo(function Text({
-  value,
-  onArtifact,
-  resolveImage,
-  complete = true,
-  issueSource,
-}: {
-  value: string;
-  onArtifact?: (source: string) => void;
-  resolveImage?: (source: string) => Promise<string | undefined>;
-  complete?: boolean;
-  issueSource?: IssueSource;
-}) {
-  const hasArtifacts = !!onArtifact;
-  const artifacts = useArtifactComponents(onArtifact, resolveImage);
-  const code = useIssueCode(value, onArtifact, complete, issueSource);
-  const contextEnd = value.startsWith(projectContextStart) ? value.indexOf(projectContextEnd) : -1;
-  // Drawer, draft and job updates must not reparse unchanged replies. Keep the
-  // latest handler separately so cached links still target the current message.
-  return useMemo(
-    () => (
-      <>
-        {contextEnd >= 0 && (
-          <details className="project-gpt-envelope">
-            <summary>Контекст проекта</summary>
-            <pre>{value.slice(projectContextStart.length, contextEnd)}</pre>
-          </details>
-        )}
-        <Markdown
-          urlTransform={(url) =>
-            terminalDevice(url) || (hasArtifacts && artifactSource(url))
-              ? url
-              : defaultUrlTransform(url)
-          }
-          remarkPlugins={[remarkGfm]}
-          rehypePlugins={[rehypeImageGallery]}
-          components={{
-            pre: code,
-            table: MarkdownTable,
-            ...artifacts,
-          }}
-        >
-          {contextEnd >= 0 ? value.slice(contextEnd + projectContextEnd.length) : value}
-        </Markdown>
-      </>
-    ),
-    [value, hasArtifacts, contextEnd, artifacts, code],
   );
 });
 function ResponseResults({
@@ -795,6 +744,10 @@ export function GptWorkspace({
     .filter((job) => !job.dismissed)
     .filter((job) => (selected ? job.nativeId === selected : job.id === createdJob))
     .sort((a, b) => a.createdAt - b.createdAt);
+  const liveRequestResults = useMemo(
+    () => gptLiveResults(selected, messages, jobs),
+    [selected, messages, jobs],
+  );
   const active = currentJobs.find(isActive);
   const awaitingReply = currentJobs.find((job) => job.status === "unknown" && !job.error);
   const progressJob = currentGptProgress(currentJobs);
@@ -1358,6 +1311,7 @@ export function GptWorkspace({
                 <div className="message-body">
                   <Text
                     value={job.answer}
+                    rich
                     issueSource={issueSource}
                     onArtifact={(source) => openArtifact(source, job.assets, job.id)}
                   />
@@ -1747,26 +1701,29 @@ export function GptWorkspace({
   const selectedItem = items.find((item) => item.id === selected);
   const selectedProject = projects.find((project) => project.id === selectedItem?.projectId);
   const selectedTitle = selectedItem?.title || (selected ? "Разговор GPT" : "Новый чат");
-  const resultExtras: ResultItem[] = currentJobs
-    .filter((job) =>
-      showGptJob(
-        job,
-        messages,
-        Date.now(),
-        currentJobs,
-        !historyReady || historyStale || !!historyNotice,
+  const resultExtras: ResultItem[] = [
+    ...liveRequestResults,
+    ...currentJobs
+      .filter((job) =>
+        showGptJob(
+          job,
+          messages,
+          Date.now(),
+          currentJobs,
+          !historyReady || historyStale || !!historyNotice,
+        ),
+      )
+      .flatMap((job) =>
+        job.assets.map((file) => ({
+          id: file.id,
+          turnId: null,
+          type: file.image ? "image" : "file",
+          title: file.name,
+          createdAt: new Date(job.updatedAt).toISOString(),
+          payload: { url: file.url, mime: file.mime },
+        })),
       ),
-    )
-    .flatMap((job) =>
-      job.assets.map((file) => ({
-        id: file.id,
-        turnId: null,
-        type: file.image ? "image" : "file",
-        title: file.name,
-        createdAt: new Date(job.updatedAt).toISOString(),
-        payload: { url: file.url, mime: file.mime },
-      })),
-    );
+  ];
   return (
     <div
       className={
@@ -2089,6 +2046,7 @@ export function GptWorkspace({
                     <div className="message-body">
                       <Text
                         value={message.text}
+                        rich={message.role === "assistant"}
                         issueSource={
                           !roomEndpoint &&
                           message.role === "assistant" &&

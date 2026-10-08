@@ -1,5 +1,30 @@
 # Текущий статус — 8 октября 2026
 
+### Immediate GPT request cards and rich public content - October 8
+
+Results now displays the request using its native user-message identity as soon
+as existing delivery receipts confirm acceptance, or canonical history contains
+the request. Public steps fill in as received; canonical Results replace the
+same card. No new polling, native request, automatic restart or input replay.
+
+GPT answers and public progress render the observed layout vocabulary with
+themed rows, grids, lists, typography and icons while preserving Markdown,
+literal code, original copy text and code-source offsets. Known inline entities
+and supplied links render normally. Missing citation/image destinations remain
+explicitly unavailable; no destinations or native actions are invented.
+See [the content coverage inventory](GPT_CONTENT_SUPPORT.md) for supported
+formats, official references and remaining math/media/widget metadata work.
+This is not full native ChatGPT feature parity.
+
+Linux typecheck/build and 22 focused parser, receipt, incremental-history,
+public-progress and link tests passed. Chromium and WebKit passed at phone,
+tablet and desktop widths, including seven private public-answer samples from
+the affected conversation, pending Results reads, immediate confirmed cards,
+canonical identity, draft continuity, safe markup and retained literal code.
+Private evidence is in `/tmp/abyssdeck-gpt-rich` on the host and
+`.tmp/gpt-rich-evidence` locally; private samples are excluded from Git.
+Source verified; compatible web-only publication is pending.
+
 ### Contextual quick settings and explicit client recovery - October 8
 
 Settings home now follows the current GPT/Codex mode, with common theme/text-size
