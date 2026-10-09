@@ -13,7 +13,9 @@ The reproduction now uses the actual header inside the real GPT message classes.
 Fifteen parser tests, web typecheck and production build pass. Chromium/WebKit
 pass at 390/820/1366 widths with icon/title geometry and zero paragraph margins
 verified; phone captures also cover Organizer, Classic Dark and Hi-Tech 2000.
-Activation pending.
+Published web-only revision `c520cd82`, public version
+`148c4bf883232d9fc045f87918b3e43e12d6e11ea23b52ff4e3bb56a207ca7ad`.
+Public readback matches. GPT, Hub and engine identities/start times are unchanged.
 
 ### GPT local layout declarations — October 9 follow-up
 
