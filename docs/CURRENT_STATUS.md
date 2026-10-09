@@ -1,6 +1,6 @@
 # Текущий статус — 9 октября 2026
 
-### Document navigation and interactive layouts — October 9 (verification in progress)
+### Document navigation and interactive layouts — October 9 (installed)
 
 Owner screenshots exposed two shared gaps: Markdown readers removed all links and
 images, and native interactive layouts lost local state/setter callbacks. The
@@ -15,9 +15,32 @@ The shared GPT renderer now supports local state and setter-based controls/prese
 The actual four-channel mixer passes Chromium/WebKit at 390 and 1024 widths,
 including independent messages, input focus, three presets and no action requests.
 Source support/limits are in GPT_CONTENT_SUPPORT.md. The systemic-fix rule is
-recorded in AGENTS.md and the owner-requested persistent memory note. Installation
-of this follow-up is not yet claimed; normal guarded engine/web delivery follows
-focused tests, without another native GPT update.
+recorded in AGENTS.md and the owner-requested persistent memory note.
+
+Guarded delivery installed engine/gateway `29d44ea6` on October 9 at 20:14 UTC,
+public web `4c409d88c1e278bc25650c5ea79a1b57ef39b4afb43f538aa9084758ab9226fb`.
+Both services are healthy. Both native GPT clients retained their existing images,
+process start times and zero restarts; no native update or input replay occurred.
+Checkpoint preparation took 208 seconds while the old Hub remained available;
+the verified cold checkpoint and activation took 241 seconds of Hub downtime.
+Normal checkpoint retention completed, retaining the latest three complete copies.
+
+The clean release build/typecheck and 103 focused tests passed. Browser coverage
+passed in Chromium/WebKit: document links and the actual interactive mixer at
+390/1024 widths (four runs each), complete book reading in both engines, and rich
+content at phone/tablet/desktop widths (six runs). Mixer screenshots wait for
+all eight actual SVG icons. These are automated/browser checks, not a physical
+iPhone acceptance claim.
+
+Authenticated readback through the installed public Hub resolved the exact original
+Codex message's README and all three linked PNGs: `event-attendance-wide.png`
+(427777 bytes), `event-attendance-narrow.png` (262872), and
+`event-attendance-history.png` (30949). All three SHA-256 values match the owner's
+original files in the referenced checkout. The original link still correctly
+opens its README image index; that reader now displays and opens the images.
+The README's focused-render provenance is preserved, not relabeled as installed
+application screenshots. Private verification output is retained with the server
+release evidence in `/tmp/abyssdeck-document-20261009/`.
 
 Compact Markdown previews share the same source resolver/nested viewer without
 starting full-book pagination. The large-book Chromium/WebKit regression passes

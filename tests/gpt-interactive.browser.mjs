@@ -62,6 +62,7 @@ try {
       await expect(ranges).toHaveCount(4);
       const vals = () => ranges.evaluateAll((es) => es.map((e) => e.value));
       assert.deepEqual(await vals(), ["90", "35", "75", "65"]);
+      await expect(mixer.locator(".gpt-rich-icon svg")).toHaveCount(8);
       if (evidence) await mixer.screenshot({ path: join(evidence, `${name}-${width}-mixer.png`) });
       await expect(mixer).not.toContainText("{@body");
       await expect(mixer).not.toContainText("{#each");
