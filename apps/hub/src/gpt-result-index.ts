@@ -28,6 +28,7 @@ const hash = (value: string) => createHash("sha256").update(value).digest("hex")
 export class GptResultIndex {
   private itemHashes = new WeakMap<ResultItem, { hash: string; bytes: number }>();
   private messages: GptMessage[] = [];
+  private fileRevision = "";
   private parts = new Map<GptMessage, ResultItem[]>();
   private groups = new Map<string, { messages: GptMessage[]; item: ResultItem }>();
   private fingerprints = new Map<string, string>();
@@ -46,6 +47,10 @@ export class GptResultIndex {
 
   update(messages: GptMessage[]) {
     if (this.messages === messages && this.revision) return;
+    const files = messages.flatMap((m) => m.files ?? []);
+    const fileRevision = JSON.stringify(files);
+    const filesChanged = fileRevision !== this.fileRevision;
+    this.fileRevision = fileRevision;
     const grouped = new Map<string, GptMessage[]>();
     let group: GptMessage[] | undefined;
     for (const message of messages) {
@@ -59,7 +64,10 @@ export class GptResultIndex {
       const old = this.groups.get(id),
         first = rows[0]!;
       const item: ResultItem =
-        old && old.messages.length === rows.length && rows.every((m, i) => m === old.messages[i])
+        !filesChanged &&
+        old &&
+        old.messages.length === rows.length &&
+        rows.every((m, i) => m === old.messages[i])
           ? old.item
           : {
               id: "reasoning-" + id,
@@ -72,8 +80,11 @@ export class GptResultIndex {
                 steps: rows.slice(1).map((m) => ({
                   id: m.id,
                   text: m.text,
+                  richReferences: m.richReferences,
+                  files: files.filter((file) => m.text.includes(file.id)),
                   activity: m.activity,
-                  state: m.complete === false ? "active" : "completed",
+                  state: m.complete === false && !m.incomplete ? "active" : "completed",
+                  ...(m.incomplete ? { incomplete: true } : {}),
                 })),
               },
             };

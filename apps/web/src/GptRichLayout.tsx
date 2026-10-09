@@ -1,6 +1,9 @@
+import { GptSvg } from "./GptSvg";
+import { richReference, richUrl } from "./gptRichReferences";
+import { GptRichImage } from "./GptRichImage";
 import type { CSSProperties, ReactNode } from "react";
 import type { Components } from "react-markdown";
-import type { GptFile } from "@codex-web/shared";
+import type { GptFile, GptRichReference } from "@codex-web/shared";
 import { CopyButton } from "./CopyButton";
 import { Icon } from "./icons";
 import { layoutData } from "./gptLayoutData";
@@ -50,7 +53,11 @@ const icons: Record<string, string> = {
 };
 const values = (value: string | undefined, choices: string[]) =>
   choices.includes(value ?? "") ? value : undefined;
-type FileSources = { files?: GptFile[]; onOpen?: (source: string) => void };
+type FileSources = {
+  richReferences?: GptRichReference[];
+  files?: GptFile[];
+  onOpen?: (source: string) => void;
+};
 function layout(
   tag: string,
   raw: unknown,
@@ -59,6 +66,13 @@ function layout(
   sources?: FileSources,
 ) {
   const a: Record<string, string> = typeof raw === "string" ? JSON.parse(raw) : {};
+  if (tag === "unsupported")
+    return (
+      <details className="gpt-rich-unsupported">
+        <summary>Элемент {a.tag}: исходный текст</summary>
+        <pre>{typeof text === "string" ? text : ""}</pre>
+      </details>
+    );
   if (tag === "FileCite") {
     const file = sources?.files?.find((file) => file.id === a.ref);
     const start = /^\d+$/.test(a.line_range_start ?? "") ? Number(a.line_range_start) : 0;
@@ -110,52 +124,60 @@ function layout(
         <div className="gpt-writing-block-body">{children}</div>
       </section>
     );
-  if (tag === "Entity") return <span title={a.disambig}>{a.value}</span>;
+  const reference = richReference(tag, a, sources?.richReferences);
+  if (tag === "Entity")
+    return reference?.status === "resolved" && richUrl(reference.url) ? (
+      <a href={reference.url} title={a.disambig} target="_blank" rel="noopener noreferrer">
+        {a.value}
+      </a>
+    ) : (
+      <span title={a.disambig}>{a.value}</span>
+    );
   if (tag === "MemoryCite")
     return (
       <span className="muted" title="GPT использовал сохранённую память">
         Память
       </span>
     );
-  if (tag === "Link")
-    return /^https?:\/\//i.test(a.url ?? "") ? (
-      <a href={a.url} target="_blank" rel="noopener noreferrer">
-        {a.title || a.url}
+  if (tag === "Link") {
+    const href =
+      richUrl(a.url) || (reference?.status === "resolved" ? richUrl(reference.url) : undefined);
+    return href ? (
+      <a href={href} target="_blank" rel="noopener noreferrer">
+        {a.title || href}
       </a>
     ) : (
       <span>{a.title || "Ссылка недоступна"}</span>
     );
-  if (tag === "Cite")
-    return (
-      <span
-        className="muted gpt-rich-unavailable"
-        title="Адрес источника не передан в тексте ответа"
-      >
-        [Источник недоступен]
-      </span>
-    );
-  if (tag === "AsyncImage") {
-    const width = /^\d+(?:\.\d+)?(?:px|rem|em|%)$/.test(a.maxWidth ?? "") ? a.maxWidth : "155px";
-    const ratio = /^(\d+(?:\.\d+)?)[/:](\d+(?:\.\d+)?)$/.exec(a.aspectRatio ?? "");
-    const aspectRatio =
-      ratio && Number(ratio[1]) > 0 && Number(ratio[2]) > 0
-        ? `${ratio[1]} / ${ratio[2]}`
+  }
+  if (tag === "Cite") {
+    const items =
+      reference?.status === "resolved"
+        ? reference.sources?.filter((item) => richUrl(item.url))
         : undefined;
-    return (
-      <span
-        className="gpt-rich-image-unavailable muted"
-        style={{ width, maxWidth: "100%", aspectRatio }}
-        title={
-          a.query
-            ? `Адрес иллюстрации не передан. Запрос: ${a.query}`
-            : "Адрес иллюстрации не передан"
-        }
-      >
-        <Icon name="image" size={18} />
-        <span>Иллюстрация недоступна</span>
+    return items?.length ? (
+      <span className="gpt-rich-citations">
+        {items.map((item) => (
+          <a
+            key={item.url}
+            className="gpt-file-citation"
+            href={item.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={item.snippet || item.title}
+          >
+            {item.label || item.title || new URL(item.url).hostname}
+          </a>
+        ))}
+      </span>
+    ) : (
+      <span className="muted gpt-rich-unavailable" title="GPT не передал адрес источника">
+        {reference?.status === "pending" ? "[Источник загружается…]" : "[Источник недоступен]"}
       </span>
     );
   }
+  if (tag === "AsyncImage")
+    return <GptRichImage key={JSON.stringify(a)} attrs={a} reference={reference} />;
   const style: CSSProperties = {};
   const length = (value: unknown): string | number | undefined => {
     if (typeof value === "number" && Number.isFinite(value) && value >= 0) return value * 4;
@@ -267,6 +289,7 @@ export function gptLayoutComponents(base: Components = {}, sources?: FileSources
   const Div = base.div;
   return {
     ...base,
+    svg: GptSvg,
     div: (props) =>
       typeof props.node?.properties.dataGptLayout === "string" ? (
         layout(

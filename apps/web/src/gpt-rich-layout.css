@@ -225,3 +225,31 @@ button.gpt-file-citation:focus-visible {
 .gpt-step-body > :last-child {
   margin-bottom: 0;
 }
+.gpt-rich-images {
+  display: inline-flex;
+  flex-direction: column;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.gpt-rich-images img {
+  display: block;
+  border-radius: 0.75rem;
+  max-width: 100%;
+}
+.gpt-rich-citations {
+  display: inline;
+}
+.gpt-rich-unsupported {
+  min-width: 0;
+  max-width: 100%;
+  margin-block: 0.5em;
+}
+.gpt-rich-unsupported pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.gpt-rich > svg {
+  max-width: 100%;
+  height: auto;
+  flex-shrink: 1;
+}

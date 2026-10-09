@@ -98,6 +98,7 @@ export function gptTurnProgress(messages: GptMessage[], job?: GptJob, receipts: 
     items: answers.map((message) => ({
       id: message.id,
       text: message.text,
+      richReferences: message.richReferences,
       activity: message.activity,
       state: message.complete || message.incomplete ? ("completed" as const) : ("active" as const),
       ...(message.incomplete ? { incomplete: true } : {}),

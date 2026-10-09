@@ -124,10 +124,69 @@ export function layoutData(source: string, scope: LayoutScope): LayoutValue | un
     if (found) at += found.length;
     return found;
   };
+  const unary = (): LayoutValue => {
+    if (operator(["!"])) return !unary();
+    if (operator(["-"])) {
+      const v = unary();
+      if (typeof v !== "number") throw Error("number");
+      return -v;
+    }
+    if (operator(["+"])) {
+      const v = unary();
+      if (typeof v !== "number") throw Error("number");
+      return v;
+    }
+    return primary();
+  };
+  const multiply = (): LayoutValue => {
+    let result = unary();
+    for (let op = operator(["*", "/", "%"]); op; op = operator(["*", "/", "%"])) {
+      const right = unary();
+      if (typeof result !== "number" || typeof right !== "number") throw Error("number");
+      result = op === "*" ? result * right : op === "/" ? result / right : result % right;
+      if (!Number.isFinite(result)) throw Error("number");
+    }
+    return result;
+  };
+  const addition = (): LayoutValue => {
+    let result = multiply();
+    for (let op = operator(["+", "-"]); op; op = operator(["+", "-"])) {
+      const right = multiply();
+      if (
+        op === "+" &&
+        (typeof result === "string" || typeof right === "string") &&
+        (typeof result === "string" || typeof result === "number") &&
+        (typeof right === "string" || typeof right === "number")
+      )
+        result = String(result) + String(right);
+      else {
+        if (typeof result !== "number" || typeof right !== "number") throw Error("number");
+        result = op === "+" ? result + right : result - right;
+        if (!Number.isFinite(result)) throw Error("number");
+      }
+    }
+    return result;
+  };
+  const comparison = (): LayoutValue => {
+    let result = addition();
+    for (let op = operator(["<=", ">=", "<", ">"]); op; op = operator(["<=", ">=", "<", ">"])) {
+      const right = addition();
+      if (typeof result !== "number" || typeof right !== "number") throw Error("number");
+      result =
+        op === "<"
+          ? result < right
+          : op === ">"
+            ? result > right
+            : op === "<="
+              ? result <= right
+              : result >= right;
+    }
+    return result;
+  };
   const equality = (): LayoutValue => {
-    let result = primary();
+    let result = comparison();
     for (let op = operator(["===", "!=="]); op; op = operator(["===", "!=="])) {
-      const right = primary();
+      const right = comparison();
       result = op === "===" ? result === right : result !== right;
     }
     return result;
@@ -185,7 +244,7 @@ export function layoutTagEnd(source: string, start: number): number {
 
 export function layoutAttributes(source: string): Record<string, string> {
   const attrs: Record<string, string> = {};
-  const token = /([A-Za-z][\w-]*)\s*(=\s*)?/gy;
+  const token = /([A-Za-z_][\w-]*)\s*(=\s*)?/gy;
   let at = 0;
   while (at < source.length) {
     while (/\s/.test(source[at] ?? "") && at < source.length) at++;

@@ -1,3 +1,4 @@
+import { gptRichReferences } from "./gpt-rich.js";
 import { createHash } from "node:crypto";
 import type { GptConversation, GptFile, GptMessage, GptProject } from "@codex-web/shared";
 import { gptLinkedText } from "./gpt-links.js";
@@ -122,7 +123,7 @@ export function gptHistory(
         : gptLinkedText(
             parts.filter((part: unknown) => typeof part === "string").join("\n"),
             metadata,
-          ).slice(0, 500000);
+          );
       const files = new Map<string, GptFile>();
       const add = (file: Json) => {
         if (!gptId(file.id)) return;
@@ -187,6 +188,9 @@ export function gptHistory(
                   }
                 : {}),
               files: [...files.values()],
+              ...(author.role === "assistant" && Array.isArray(metadata.codex_rich)
+                ? { richReferences: gptRichReferences(metadata.codex_rich) }
+                : {}),
               ...(unsupported.size ? { unsupported: [...unsupported] } : {}),
             },
           ]

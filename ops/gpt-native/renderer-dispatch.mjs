@@ -1,3 +1,4 @@
+import {nativeRichContent} from './public-rich.mjs';
 import {nativeFailure} from './failure.mjs';
 import {nativeModule} from './compatibility.mjs';
 import {nativePublicContent} from './public-content.mjs';
@@ -116,7 +117,7 @@ export async function nativeDispatch(request, read, control,
       .replace(/\ue200[^\ue201]*\ue201/g,'').replace(/\ue200[^\ue201]*$/g,'').replace(/[\ue200-\ue203]/g,'');
     if(!text.trim())return;
     live.conversationId=update.conversationId;live.at=Date.now();
-    const item={id:message.id,text,state:message.status==='finished_successfully'?'completed':'active'};
+    const item={id:message.id,text,richReferences:nativeRichContent(message.metadata),state:message.status==='finished_successfully'?'completed':'active'};
     const index=live.items.findIndex(x=>x.id===item.id);
     if(index<0)live.items.push(item);else live.items[index]=item;
     while(live.items.length>48||live.items.reduce((n,x)=>n+x.text.length,0)>196608)live.items.shift();

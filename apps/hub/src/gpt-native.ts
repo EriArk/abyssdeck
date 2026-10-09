@@ -1,3 +1,4 @@
+import { richReferenceSchema } from "./gpt-rich.js";
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { lstat, open } from "node:fs/promises";
@@ -72,6 +73,7 @@ const historySchema = z
             channel: z.enum(["commentary", "final"]),
             text: z.string().max(16 * 1024 * 1024),
             hasAttachments: z.boolean(),
+            richReferences: z.array(richReferenceSchema).optional(),
             createdAt: z.number().finite().nonnegative(),
             model: z.string().max(128).nullable(),
             effort: z.string().max(128).nullable(),
@@ -384,6 +386,7 @@ export class NativeGptReadClient {
               .object({
                 id: uuid,
                 text: z.string().max(32768),
+                richReferences: z.array(richReferenceSchema).optional(),
                 state: z.enum(["active", "completed"]),
                 activity: z.enum(["search", "review", "code", "image", "tool"]).optional(),
               })
@@ -914,6 +917,7 @@ export class NativeGptReadClient {
         id: m.id,
         role: m.role,
         text: rewrite(links.text),
+        richReferences: m.richReferences,
         createdAt: m.createdAt,
         phase: m.channel,
         complete: m.complete,

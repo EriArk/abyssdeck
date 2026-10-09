@@ -35,6 +35,10 @@ export function gptResults(
       request.payload.steps!.push({
         id: message.id,
         text: message.text,
+        richReferences: message.richReferences,
+        files: messages
+          .flatMap((m) => m.files ?? [])
+          .filter((file) => message.text.includes(file.id)),
         activity: message.activity,
         state: message.complete === false && !message.incomplete ? "active" : "completed",
         ...(message.incomplete ? { incomplete: true } : {}),

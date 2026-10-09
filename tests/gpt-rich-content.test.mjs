@@ -246,7 +246,6 @@ test("literal code, malformed and unknown markup are never executed or discarded
     "```html\n<box><text>literal</text></box>\n```",
     "`<box>literal</box>`",
     "Use <box>inline example</box>.",
-    '<box><iframe src="x">Keep me</iframe></box>',
     "<box><row>partial",
     "<box><row>bad</box>",
   ]) {
@@ -343,4 +342,61 @@ test("memory citation is a display marker while quoted code remains literal", ()
   const nodes = flatten(parse(value));
   assert.equal(nodes.filter((n) => n.type === "gptReference").length, 1);
   assert.equal(nodes.find((n) => n.type === "inlineCode").value, "<MemoryCite />");
+});
+
+test("unknown children are contained without disabling supported siblings", () => {
+  const tree = parse(
+    '<box><text>Before</text><iframe src="x">Keep me</iframe><row><text>After</text></row></box>',
+  );
+  assert.equal(rich(tree).length, 4);
+  const fallback = flatten(tree).find((n) => n.type === "gptUnsupported");
+  assert.equal(fallback.data.hProperties.dataGptText, '<iframe src="x">Keep me</iframe>');
+  assert.ok(!flatten(tree).some((n) => n.data?.hName === "iframe"));
+});
+test("SVG diagrams, conditions and arithmetic share template scopes without HTML execution", () => {
+  const source =
+    '<box><svg viewBox="0 0 340 165" width="100%">{#each [24,48,72] as y,i}<line x1={8+i*2} y1={y} x2="332" y2={y} stroke="#525866"/>{/each}{#if 2>1}<text x="12" y="20">Score {3*4}</text>{:else}<text>No</text>{/if}<path d="M12 107 L34 107"/><script>alert(1)</script><use href="https://bad.test/x" onload="bad()"/><rect width="20" fill="url(https://bad.test/x)"/></svg><text>After</text></box>';
+  const tree = parse(source),
+    nodes = flatten(tree);
+  assert.equal(nodes.filter((n) => n.data?.hName === "line").length, 3);
+  assert.deepEqual(
+    nodes.filter((n) => n.data?.hName === "line").map((n) => n.data.hProperties.x1),
+    ["8", "10", "12"],
+  );
+  assert.equal(nodes.find((n) => n.data?.hName === "svg").data.hProperties.viewBox, "0 0 340 165");
+  assert.ok(nodes.some((n) => n.value?.includes("Score 12")));
+  assert.ok(!nodes.some((n) => n.data?.hName === "script"));
+  assert.ok(
+    nodes.some(
+      (n) => n.type === "gptUnsupported" && n.data.hProperties.dataGptText.includes("alert(1)"),
+    ),
+  );
+  assert.deepEqual(nodes.find((n) => n.data?.hName === "use").data.hProperties, {});
+  assert.equal(nodes.find((n) => n.data?.hName === "rect").data.hProperties.fill, undefined);
+  assert.ok(!nodes.some((n) => n.value === "No"));
+  assert.equal(layoutData("2+3*4", {}), 14);
+  assert.equal(layoutData("1/0", {}), undefined);
+});
+test("nested expansion cannot freeze the reader or discard the original block", () => {
+  const list = JSON.stringify(Array.from({ length: 110 }, (_, i) => i));
+  const source =
+    "<box>{#each " +
+    list +
+    " as a}{#each " +
+    list +
+    " as b}<text>{a}:{b}</text>{/each}{/each}</box>";
+  const tree = parse(source),
+    fallback = flatten(tree).find((n) => n.type === "gptUnsupported");
+  assert.equal(fallback.data.hProperties.dataGptText, source);
+});
+
+test("large repeated template text falls back without truncating source", () => {
+  const source =
+    "<box>{@body const text=" +
+    JSON.stringify("x".repeat(12000)) +
+    "}{#each " +
+    JSON.stringify(Array.from({ length: 800 }, (_, i) => i)) +
+    " as i}<text>{text}</text>{/each}</box>";
+  const fallback = flatten(parse(source)).find((n) => n.type === "gptUnsupported");
+  assert.equal(fallback.data.hProperties.dataGptText, source);
 });

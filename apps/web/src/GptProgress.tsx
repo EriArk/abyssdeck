@@ -1,12 +1,7 @@
-import type { GptProgress as Progress } from "@codex-web/shared";
+import type { GptProgress as Progress, GptFile } from "@codex-web/shared";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Icon } from "./icons";
-import Markdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { remarkGptLayout } from "./gptRichMarkdown";
-import { gptLayoutComponents } from "./GptRichLayout";
-import { MarkdownTable } from "./MarkdownTable";
-import { CollapsibleCode } from "./CollapsibleCode";
+import { GptMessageText } from "./GptMessageText";
 
 const actionIcons = {
   search: "search",
@@ -15,19 +10,36 @@ const actionIcons = {
   image: "image",
   tool: "activity",
 };
-export function GptSteps({ items }: { items: Progress[] }) {
+export function GptSteps({
+  items,
+  files,
+  onFile,
+}: {
+  items: Progress[];
+  files?: GptFile[];
+  onFile?: (file: GptFile, stepId: string) => void;
+}) {
   return items.length ? (
     <ol className="gpt-public-steps">
       {items.map((item) => (
         <li key={item.id}>
           <Icon name={item.activity ? actionIcons[item.activity] : "chat"} size={17} />
           <div className="gpt-step-body">
-            <Markdown
-              remarkPlugins={[remarkGfm, remarkGptLayout]}
-              components={gptLayoutComponents({ table: MarkdownTable, pre: CollapsibleCode })}
-            >
-              {item.text}
-            </Markdown>
+            <GptMessageText
+              value={item.text}
+              rich
+              richReferences={item.richReferences}
+              citationFiles={files ?? item.files}
+              onArtifact={
+                onFile
+                  ? (source) => {
+                      const file = (files ?? item.files)?.find((f) => f.url === source);
+                      if (file) onFile(file, item.id);
+                    }
+                  : undefined
+              }
+              complete={item.state === "completed"}
+            />
             {item.incomplete && <small className="muted"> · Ответ не завершён</small>}
           </div>
         </li>
@@ -44,7 +56,11 @@ export function GptProgress({
   label,
   onStop,
   live,
+  files,
+  onFile,
 }: {
+  files?: GptFile[];
+  onFile?: (file: GptFile, stepId: string) => void;
   items: Progress[];
   running?: boolean;
   label?: string;
@@ -106,7 +122,11 @@ export function GptProgress({
             following.current = node.scrollHeight - node.scrollTop - node.clientHeight < 24;
           }}
         >
-          {visible.length ? <GptSteps items={visible} /> : <p>{label ?? "GPT работает"}</p>}
+          {visible.length ? (
+            <GptSteps items={visible} files={files} onFile={onFile} />
+          ) : (
+            <p>{label ?? "GPT работает"}</p>
+          )}
         </section>
       )}
     </section>

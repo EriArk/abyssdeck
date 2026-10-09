@@ -1120,8 +1120,12 @@ export function GptWorkspace({
   };
   const openArtifact = (source: string, files: GptFile[], messageId: string) => {
     const scope = selected || createdJob;
-    const sourceMessage = messages.find((message) => message.files.some((file) => file.url === source));
-    const file = files.find((item) => item.url === source) ?? sourceMessage?.files.find((file) => file.url === source);
+    const sourceMessage = messages.find((message) =>
+      message.files.some((file) => file.url === source),
+    );
+    const file =
+      files.find((item) => item.url === source) ??
+      sourceMessage?.files.find((file) => file.url === source);
     openResults();
     setArtifactRequest(
       file
@@ -1318,13 +1322,17 @@ export function GptWorkspace({
                   </span>
                 </div>
                 <div className="message-body">
-                  <Text
-                    value={job.answer}
-                    rich
-                    citationFiles={citationFiles}
-                    issueSource={issueSource}
-                    onArtifact={(source) => openArtifact(source, job.assets, job.id)}
-                  />
+                  {(job.answerMessages ?? [{ id: job.id, text: job.answer }]).map((part) => (
+                    <Text
+                      key={part.id}
+                      richReferences={part.richReferences}
+                      value={part.text}
+                      rich
+                      citationFiles={citationFiles}
+                      issueSource={issueSource}
+                      onArtifact={(source) => openArtifact(source, job.assets, job.id)}
+                    />
+                  ))}
                   <ResponseResults
                     text={job.answer}
                     files={job.assets}
@@ -2056,6 +2064,7 @@ export function GptWorkspace({
                     <div className="message-body">
                       <Text
                         value={message.text}
+                        richReferences={message.richReferences}
                         rich={message.role === "assistant"}
                         issueSource={
                           !roomEndpoint &&
@@ -2192,6 +2201,8 @@ export function GptWorkspace({
             <div className="chat-status-row gpt-status-row">
               {(active || awaitingReply || busy || externalReply || cachedProgress.length > 0) && (
                 <GptProgress
+                  files={citationFiles}
+                  onFile={(file, stepId) => openArtifact(file.url, [file], stepId)}
                   key={externalReply ? turnProgress.userId : (progressJob?.id ?? "sending")}
                   items={
                     externalReply || cachedProgress.length

@@ -1,6 +1,6 @@
 # GPT chat content support
 
-Reviewed October 8, 2026 against the current source, the owner's reported
+Reviewed October 9, 2026 against the current source, the owner's reported
 screenshots and seven locally retained public answers from the affected chat.
 Private chat samples and screenshots stay outside Git. This is a coverage
 inventory, not a claim of full ChatGPT interface parity.
@@ -10,7 +10,7 @@ inventory, not a claim of full ChatGPT interface parity.
 The native adapter reads the canonical conversation; `gpt-history.ts` projects
 public messages and supported asset references. `gpt-links.ts` resolves known
 native references. `GptMessageText` renders answers with the shared artifact,
-table, image and code handlers. `GptSteps` renders public progress with Markdown.
+table, image and code handlers. `GptSteps` uses the same `GptMessageText` renderer for public progress.
 
 The Results index and the history viewer load independently. Previously this
 made the request card wait for a separate history/results round trip. The web
@@ -43,8 +43,8 @@ memory-use marker, with no invented reference destination.
 | Native layout in text | `box`, `row`, `col`/`column`, `grid`/`grid-item`, `list`/`list-item`, `text`, `caption`, `heading`/`title`, `badge`, `icon`, `divider`, `spacer`, `markdown`. Numeric spacing, flex/alignment, wrap, columns and common themed sizes/surfaces. This is the observed markup dialect, not a JSX runtime or every ChatKit property. |
 | Layout data lists | `{#each [...] as item}` inside a layout repeats its children; optional index and nested local lists are supported. Literal objects/arrays, strings, numbers and booleans supply text and attributes such as `{item.label}` and `name={item.icon}`. No JavaScript execution or action callbacks. Incomplete/unsupported templates remain readable, code examples and original copy/export text remain literal. |
 | Layout declarations and conditions | `{@body const name=...}` declares data for following siblings and their children inside the same layout. Strict equality/inequality, Boolean AND/OR, parentheses and ternary choices are interpreted as data expressions. Quoted/bare attributes, numeric or explicit-unit spacing, `{x,y}` padding/margin, numeric RGBA/hex backgrounds, minimum height, text alignment and small text sizes are supported. Explicit grid columns are retained on phones. Function calls, arbitrary JavaScript and unresolved data remain unsupported; original source is preserved. |
-| Native inline references | `Entity` retains its visible label/disambiguation; `Link` renders its supplied HTTP(S) destination. Unresolved `Cite`/`AsyncImage` show an unavailable-content label. Search IDs and image queries are not URLs and are never guessed. |
-| Source citations | Existing `content_references` URL/webpage/grouped-webpage markers resolve to links. Bare JSX-like `Cite` IDs without a resolved URL still need a native metadata adapter. |
+| Native inline references (legacy fallback) | `Entity` retains its visible label/disambiguation; `Link` renders its supplied HTTP(S) destination. Unresolved `Cite`/`AsyncImage` show an unavailable-content label. Search IDs and image queries are not URLs and are never guessed. |
+| Source citations | Existing `content_references` URL/webpage/grouped-webpage markers resolve to links. The public component adapter also transports resolved `Cite` URLs with exact message/component identity. |
 | Images / files / HTML demos | Existing public images, native image assets, attachments, sandbox file links, Results and common preview/download flows retained. An `AsyncImage` search query without returned asset metadata cannot display the original image. |
 | Partial / failed answers | Existing public text and files survive incomplete output. Layout fragments stay readable as ordinary Markdown until a complete structural block is received. |
 | Chat operations | Existing send, edit, regenerate, branches, library operations, models/effort, project context and schedules are unchanged by this display release. |
@@ -66,11 +66,60 @@ separates response lifecycle from output items and public reasoning-summary
 events. AbyssDeck's native integration uses its own confirmed receipts and public
 history; it does not switch to API billing or fabricate Responses events.
 
-Remaining format work should start with exact public native metadata for
-citations/images and rich widgets, then dedicated math/diagram rendering and
-native media. Preserve unsupported visible content and exact source identity
+Remaining format work includes dedicated TeX/Mermaid rendering, additional native media and interactive component contracts. Preserve unsupported visible content and exact source identity
 until each adapter is implemented. Do not treat public API documentation as proof
 that every native-client feature has an available integration contract.
+
+## Systemic correction — October 9
+
+The audit found failures at three separate boundaries, not independent defects
+in individual screenshots:
+
+1. A lowercase unknown child invalidated its entire structural parent. The
+   parser now contains an unsupported child's exact source in its own disclosure
+   while rendering supported siblings. SVG geometry, text, groups, gradients,
+   masks and local references use a declarative attribute projection. Paint IDs
+   are scoped per mounted drawing. Scripts, event handlers, external SVG
+   resources and foreignObject are not executed; their source stays available.
+2. Native public component results were discarded before reaching history.
+   public-rich.mjs projects only image URLs/labels/dimensions and source
+   URLs/labels/snippets from public messages. Canonical graph deltas, receipt
+   reads, live events, Hub normalization, saved history and Results all retain
+   richReferences. Metadata-only changes update revisions without waiting for
+   new text or adding polls. Matching uses the exact component props key or
+   explicit resolution ID inside the containing message. No query search,
+   cross-message matching, executable DIL or arbitrary appData is exported.
+3. Answer steps had a separate renderer and saved receipt commentary was reduced
+   to six 500-character snippets. Steps now use the common message renderer;
+   receipt commentary keeps full public text. The history normalizer also no
+   longer silently cuts a public message at 500,000 characters. Receipt answers
+   retain their separate message identities so identical component keys in
+   adjacent messages cannot borrow one another's assets. Canonical completed or
+   incomplete output wins over stale live snapshots. File citations in Results
+   and answer steps open known files through the shared viewer.
+
+The data interpreter now handles arithmetic, numeric comparisons and scoped
+{#if}/{:else}, alongside declarations, nested lists and ternary expressions.
+Repeated template bodies reuse parsed Markdown rather than reparsing it for
+every iteration. Combinatorial expansion beyond the body-evaluation or generated-text budget
+falls back to the complete source disclosure for that block; this is a reader
+allocation bound, not a message, file transfer or storage limit. Original
+copy/export bytes remain unchanged. Partial blocks stay readable until closed.
+
+Image loading, failure and unavailable metadata have distinct labels. The
+original resolved image is displayed; a new image is never searched for as a
+replacement. Network failure preserves its dimensions and surrounding content.
+Malformed optional reference data is discarded without breaking chat history.
+
+The shared regression corpus exercises layouts, SVG/list/condition scopes,
+WritingBlock, FileCite, Markdown, literal code, unknown children, delayed image
+and citation metadata, duplicate SVG IDs, reopening and both chat/step surfaces.
+Native tests check public-only projection, hidden-content exclusion, metadata
+updates without text changes, exact receipts, and no extra dispatch.
+
+This coverage does not claim support for every undocumented native component,
+TeX/Mermaid, arbitrary Canvas applications, action callbacks or native audio/video
+payloads. Unsupported content is preserved rather than silently deleted.
 
 ## Verification
 
@@ -92,7 +141,7 @@ public component contract that the native adapter currently drops:
   `fallback` excluded. An explicit resolution ID takes precedence over this key.
 - `AsyncImage` reads `state.images` plus frame dimensions. `Cite` reads
   `state.items`. A query/search ID alone does not identify the returned asset.
-- A future projection must export only public, validated display fields, bound
+- The implemented projection exports only public, validated display fields, bound
   to the exact message/component; never copy executable DIL code or arbitrary
   appData. Preserve original message text and literal code. Verify against an
   isolated native fixture before production activation; do not use a live

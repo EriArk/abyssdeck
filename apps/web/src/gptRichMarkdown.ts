@@ -1,3 +1,4 @@
+import { svgTags, svgProps } from "./gptSvgData.ts";
 import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
@@ -28,8 +29,11 @@ type Rich = {
   end: number;
   close: number;
   children: Rich[];
+  condition?: { expression: string; otherwise?: Rich };
   each?: { expression: string; name: string; index?: string };
   binding?: { expression: string; name: string };
+  svg?: boolean;
+  unsupported?: boolean;
 };
 const tags = new Set([
   "WritingBlock",
@@ -52,6 +56,7 @@ const tags = new Set([
   "list-item",
 ]);
 const roots = new Set([
+  "svg",
   "WritingBlock",
   "box",
   "row",
@@ -112,7 +117,7 @@ export function remarkGptLayout() {
   return (tree: Node, file: { value: unknown }) => {
     const source = String(file.value);
     if (
-      !/<(?:WritingBlock|box|row|col|column|grid|list|caption|title|heading|text|badge)\b/.test(
+      !/<(?:WritingBlock|svg|box|row|col|column|grid|list|caption|title|heading|text|badge)\b/.test(
         source,
       )
     ) {
@@ -153,7 +158,8 @@ export function remarkGptLayout() {
     const blocks: Rich[] = [],
       stack: Rich[] = [];
     // Balanced data expressions can contain nested objects and quoted > signs.
-    const tokens = /\{@body\b|\{#each\b|\{\/each\}|<\/?(WritingBlock|[a-z][a-z0-9-]*)\b/g;
+    const tokens =
+      /\{@body\b|\{#each\b|\{#if\b|\{:else\}|\{\/(?:each|if)\}|<\/?([A-Za-z][A-Za-z0-9-]*)\b/g;
     let invalid = false;
     for (let match = tokens.exec(source); match; match = tokens.exec(source)) {
       const start = match.index!,
@@ -178,18 +184,78 @@ export function remarkGptLayout() {
           invalid = true;
           continue;
         }
-        stack
-          .at(-1)!
-          .children.push({
-            tag: "binding",
-            attrs: {},
-            start,
-            body: stop,
-            end: stop,
-            close: stop,
-            children: [],
-            binding: { name: header[1]!, expression: header[2]! },
-          });
+        stack.at(-1)!.children.push({
+          tag: "binding",
+          attrs: {},
+          start,
+          body: stop,
+          end: stop,
+          close: stop,
+          children: [],
+          svg: stack.some((parent) => parent.svg),
+          binding: { name: header[1]!, expression: header[2]! },
+        });
+        continue;
+      }
+      if (match[0] === "{#if") {
+        const stop = templateEnd(source, start);
+        if (stop < 0) {
+          invalid = true;
+          break;
+        }
+        tokens.lastIndex = stop;
+        if (!stack.length) continue;
+        const node: Rich = {
+          tag: "if",
+          attrs: {},
+          start,
+          body: stop,
+          end: stop,
+          close: stop,
+          children: [],
+          svg: stack.some((p) => p.svg),
+          condition: { expression: source.slice(start + 4, stop - 1).trim() },
+        };
+        stack.at(-1)!.children.push(node);
+        stack.push(node);
+        continue;
+      }
+      if (match[0] === "{:else}") {
+        const node = stack.at(-1);
+        if (!node?.condition) {
+          if (node) invalid = true;
+          continue;
+        }
+        node.end = start;
+        const branch: Rich = {
+          tag: "else",
+          attrs: {},
+          start,
+          body: end,
+          end,
+          close: end,
+          children: [],
+          svg: node.svg,
+        };
+        node.condition.otherwise = branch;
+        stack.push(branch);
+        continue;
+      }
+      if (match[0] === "{/if}") {
+        let node = stack.at(-1);
+        if (node?.tag === "else") {
+          node.end = start;
+          node.close = end;
+          stack.pop();
+          node = stack.at(-1);
+        }
+        if (!node?.condition) {
+          if (node) invalid = true;
+          continue;
+        }
+        if (!node.condition.otherwise) node.end = start;
+        node.close = end;
+        stack.pop();
         continue;
       }
       if (match[0] === "{#each") {
@@ -216,6 +282,7 @@ export function remarkGptLayout() {
           end: stop,
           close: stop,
           children: [],
+          svg: stack.some((parent) => parent.svg),
           each: { expression: header[1]!, name: header[2]!, index: header[3] },
         };
         stack.at(-1)!.children.push(node);
@@ -249,10 +316,7 @@ export function remarkGptLayout() {
           continue;
         invalid = false;
       }
-      if (!tags.has(tag)) {
-        invalid = true;
-        continue;
-      }
+
       if (match[0][1] === "/") {
         const node = stack.at(-1);
         if (!node || node.tag !== tag) {
@@ -266,7 +330,21 @@ export function remarkGptLayout() {
         continue;
       }
       const attrs = attributes(source.slice(start + match[0].length, end - 1));
-      const node: Rich = { tag, attrs, start, body: end, end, close: end, children: [] };
+      const svg = tag === "svg" || stack.some((parent) => parent.svg);
+      const node: Rich = {
+        tag,
+        attrs,
+        start,
+        body: end,
+        end,
+        close: end,
+        children: [],
+        svg,
+        unsupported: svg
+          ? !svgTags.has(tag)
+          : !tags.has(tag) &&
+            !["Entity", "Link", "Cite", "FileCite", "AsyncImage", "MemoryCite"].includes(tag),
+      };
       stack.at(-1)?.children.push(node);
       if (!leaves.has(tag) && !/\/\s*>$/.test(tagText)) stack.push(node);
       else if (!stack.length && !invalid) blocks.push(node);
@@ -289,7 +367,11 @@ export function remarkGptLayout() {
       }
       return { offset, line: low + 1, column: offset - lines[low]! + 1 };
     };
+    const markdownCache = new Map<string, Node[]>();
     const markdown = (start: number, end: number, inside = false): Node[] => {
+      const cacheKey = `${start}:${end}:${inside}`;
+      const cached = markdownCache.get(cacheKey);
+      if (cached) return structuredClone(cached);
       const raw = source.slice(start, end);
       const map: number[] = [];
       let value = "",
@@ -319,17 +401,31 @@ export function remarkGptLayout() {
         for (const child of node.children ?? []) positions(child);
       };
       positions(parsed);
-      return parsed.children ?? [];
+      const nodes = parsed.children ?? [];
+      markdownCache.set(cacheKey, structuredClone(nodes));
+      return nodes;
     };
     const close = (node: Rich) => node.close;
+    let expandedText = 0;
+    const textBudget = Math.max(source.length * 2, 4 * 1024 * 1024);
     const interpolate = (nodes: Node[], scope: LayoutScope) => {
       const visit = (node: Node) => {
         if (node.type === "text" && node.value) {
           const previous = node.value;
-          node.value = node.value.replace(
-            /\{([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\}/g,
-            (original, path: string) => layoutScalar(layoutPath(path, scope)) ?? original,
-          );
+          let cursor = 0,
+            value = "";
+          for (let at = previous.indexOf("{"); at >= 0; at = previous.indexOf("{", cursor)) {
+            const end = templateEnd(previous, at);
+            if (end < 0) break;
+            value +=
+              previous.slice(cursor, at) +
+              (layoutScalar(layoutData(previous.slice(at + 1, end - 1), scope)) ??
+                previous.slice(at, end));
+            cursor = end;
+          }
+          node.value = value + previous.slice(cursor);
+          expandedText += node.value.length;
+          if (expandedText > textBudget) throw Error("LAYOUT_EXPANSION");
           if (node.value !== previous) node.templateLiteral = true;
         }
         for (const child of node.children ?? []) visit(child);
@@ -337,12 +433,18 @@ export function remarkGptLayout() {
       for (const node of nodes) visit(node);
       return nodes;
     };
+    let expanded = 0;
     const body = (node: Rich, scope: LayoutScope): Node[] => {
+      if (++expanded > 10000) throw Error("LAYOUT_EXPANSION");
+      const content = (start: number, end: number, scope: LayoutScope) =>
+        node.svg
+          ? interpolate([{ type: "text", value: source.slice(start, end) }], scope)
+          : interpolate(markdown(start, end, true), scope);
       const children: Node[] = [];
       const local = { ...scope };
       let cursor = node.body;
       for (const child of node.children) {
-        children.push(...interpolate(markdown(cursor, child.start, true), local));
+        children.push(...content(cursor, child.start, local));
         const bound = child.binding && layoutData(child.binding.expression, local);
         if (child.binding && bound !== undefined) {
           Object.defineProperty(local, child.binding.name, {
@@ -353,10 +455,43 @@ export function remarkGptLayout() {
         } else children.push(...render(child, local));
         cursor = close(child);
       }
-      children.push(...interpolate(markdown(cursor, node.end, true), local));
+      children.push(...content(cursor, node.end, local));
       return children;
     };
     const render = (node: Rich, scope: LayoutScope = {}): Node[] => {
+      if (node.unsupported && node.svg) return [];
+      if (node.unsupported)
+        return [
+          {
+            type: "gptUnsupported",
+            children: [],
+            data: {
+              hName: "div",
+              hProperties: {
+                dataGptLayout: "unsupported",
+                dataGptAttrs: JSON.stringify({ tag: node.tag }),
+                dataGptText: source.slice(node.start, node.close),
+              },
+            },
+          },
+        ];
+      if (node.condition) {
+        const result = layoutData(node.condition.expression, scope);
+        if (result !== undefined)
+          return result
+            ? body(node, scope)
+            : node.condition.otherwise
+              ? body(node.condition.otherwise, scope)
+              : [];
+        return [
+          {
+            type: "paragraph",
+            children: [
+              { type: "text", value: source.slice(node.start, node.close), templateLiteral: true },
+            ],
+          },
+        ];
+      }
       if (node.binding)
         return [
           {
@@ -398,28 +533,68 @@ export function remarkGptLayout() {
           ];
         }),
       );
+      const unsupportedSvg = (item: Rich): Rich[] =>
+        item.unsupported ? [item] : item.children.flatMap(unsupportedSvg);
       return [
         {
           type: "gptLayout",
           children: body(node, node.tag === "WritingBlock" ? {} : scope),
           data: {
-            hName: leaves.has(node.tag) ? "span" : "div",
-            hProperties: {
-              dataGptLayout: node.tag,
-              dataGptAttrs: JSON.stringify(attrs),
-              ...(node.tag === "WritingBlock"
-                ? { dataGptText: source.slice(node.body, node.end) }
-                : {}),
-            },
+            hName: node.svg
+              ? node.tag
+              : leaves.has(node.tag) || (/^[A-Z]/.test(node.tag) && node.tag !== "WritingBlock")
+                ? "span"
+                : "div",
+            hProperties: node.svg
+              ? svgProps(attrs)
+              : {
+                  dataGptLayout: node.tag,
+                  dataGptAttrs: JSON.stringify(attrs),
+                  ...(node.tag === "WritingBlock"
+                    ? { dataGptText: source.slice(node.body, node.end) }
+                    : {}),
+                },
           },
           position: { start: point(node.start), end: point(close(node)) },
         },
+        ...(node.tag === "svg"
+          ? unsupportedSvg(node).map((item) => ({
+              type: "gptUnsupported",
+              children: [],
+              data: {
+                hName: "div",
+                hProperties: {
+                  dataGptLayout: "unsupported",
+                  dataGptAttrs: JSON.stringify({ tag: item.tag }),
+                  dataGptText: source.slice(item.start, item.close),
+                },
+              },
+            }))
+          : []),
       ];
     };
     const children: Node[] = [];
     let cursor = 0;
     for (const block of blocks) {
-      children.push(...markdown(cursor, block.start), ...render(block));
+      children.push(...markdown(cursor, block.start));
+      expanded = 0;
+      expandedText = 0;
+      try {
+        children.push(...render(block));
+      } catch {
+        children.push({
+          type: "gptUnsupported",
+          children: [],
+          data: {
+            hName: "div",
+            hProperties: {
+              dataGptLayout: "unsupported",
+              dataGptAttrs: JSON.stringify({ tag: "сложная схема" }),
+              dataGptText: source.slice(block.start, block.close),
+            },
+          },
+        });
+      }
       cursor = close(block);
     }
     children.push(...markdown(cursor, source.length));

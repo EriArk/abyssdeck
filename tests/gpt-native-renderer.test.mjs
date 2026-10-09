@@ -1184,3 +1184,25 @@ test("persisted receipt reconciles native replacement of a vanished transient pa
     ["finished answer"],
   );
 });
+
+test("component metadata survives canonical and receipt reads and invalidates incremental history", async () => {
+  const f=fixture(), accountFingerprint=await f.binding();
+  const key=JSON.stringify(['AsyncImage',{query:'Test'}]);
+  const meta={model_dil_v2:{code:'PRIVATE',appData:{opGenui:{componentResults:{[key]:{status:'pending'}}}}}};
+  f.node(1,'Parent');
+  f.node(2,'Question',{author:{role:'user'},id:id(2)});
+  f.node(3,'<AsyncImage query="Test"/>',{metadata:meta,end_turn:true});
+  f.node(4,'PRIVATE',{channel:'analysis',metadata:meta});
+  const request={operation:'readHistoryUpdate',conversationId,accountFingerprint};
+  const first=await f.read(request,true);
+  assert.equal(first.graph.mapping[id(3)].message.metadata.codex_rich[0].status,'pending');
+  assert.equal(first.graph.mapping[id(4)].message,null);
+  assert.doesNotMatch(JSON.stringify(first),/PRIVATE|model_dil|appData/);
+  meta.model_dil_v2.appData.opGenui.componentResults[key]={status:'resolved',state:{images:[{content_url:'https://image.test/photo.png'}]}};
+  [...f.runtime[Symbol.for('codex-web.native-history')].values()][0].at-=16000;
+  const next=await f.read({...request,revision:first.revision},true);
+  assert.equal(next.kind,'delta');
+  assert.deepEqual(Object.keys(next.graph.mapping),[id(3)]);
+  const receipt=await f.read({operation:'readSubmission',conversationId,accountFingerprint,userMessageId:id(2),parentId:id(1),text:'Question',intentPersisted:true});
+  assert.equal(receipt.messages[0].richReferences[0].images[0].src,'https://image.test/photo.png');
+});

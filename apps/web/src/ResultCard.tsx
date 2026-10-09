@@ -312,7 +312,19 @@ export function ResultCard({
                 setDisclosure={setDisclosure}
               />
             ) : (
-              <GptSteps items={r.payload.steps ?? []} />
+              <GptSteps
+                items={r.payload.steps ?? []}
+                onFile={(file, stepId) =>
+                  inspect({
+                    id: "gpt-citation-" + file.id,
+                    turnId: stepId,
+                    type: file.image ? "image" : "file",
+                    title: file.name,
+                    createdAt: r.createdAt,
+                    payload: { url: file.url, mime: file.mime, bytes: file.bytes },
+                  })
+                }
+              />
             )
           ) : work ? (
             <ResultWork result={r} onFile={onFile} />

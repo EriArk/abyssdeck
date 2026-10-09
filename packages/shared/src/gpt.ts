@@ -6,12 +6,24 @@ export interface GptFile {
   url: string;
   image: boolean;
 }
+/** Display-only native component data, scoped to the containing message. */
+export interface GptRichReference {
+  key: string;
+  component?: "Cite" | "AsyncImage" | "Entity" | "Link";
+  status: "pending" | "resolved" | "failed";
+  sources?: { url: string; title?: string; label?: string; snippet?: string }[];
+  images?: { src: string; sourceUrl?: string; alt?: string }[];
+  url?: string;
+  maxWidth?: string;
+  aspectRatio?: string;
+}
 export interface GptMessage {
   id: string;
   role: "user" | "assistant";
   text: string;
   createdAt: number;
   files: GptFile[];
+  richReferences?: GptRichReference[];
   phase?: "commentary" | "final";
   activity?: GptProgress["activity"];
   complete?: boolean;
@@ -76,6 +88,7 @@ export interface GptJob {
     | "unknown"
     | "cancelled";
   answer: string;
+  answerMessages?: Pick<GptMessage, "id" | "text" | "richReferences">[];
   progress?: GptProgress[];
   summaryOnly?: boolean;
   assets: GptFile[];
@@ -85,8 +98,10 @@ export interface GptJob {
 }
 
 export interface GptProgress {
+  files?: GptFile[];
   id: string;
   text: string;
+  richReferences?: GptRichReference[];
   state: "active" | "completed";
   incomplete?: boolean;
   activity?: "search" | "review" | "code" | "image" | "tool";

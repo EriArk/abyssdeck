@@ -1110,3 +1110,13 @@ test("public summaries stream while history is pending, without private thought 
   assert.equal(f.state.send, 1);
   assert.equal(f.state.post, 1);
 });
+
+test("public live component data can resolve without a text delta or another dispatch", async () => {
+  const f=fixture();await f.run();const id=randomUUID(), key=JSON.stringify(['Cite',{ref:'source'}]);
+  const emit=state=>f.state.emit({type:'message',conversationId,message:{id,author:{role:'assistant'},recipient:'all',channel:'final',status:'in_progress',content:{content_type:'text',parts:['Text <Cite ref="source"/>']},metadata:{model_dil_v2:{appData:{opGenui:{componentResults:{[key]:state}}}}}}});
+  emit({status:'pending'});
+  assert.equal((await nativeLive(f.input,f.read,f.runtime)).items[0].richReferences[0].status,'pending');
+  emit({status:'resolved',state:{items:[{url:'https://source.test/article',title:'Source'}]}});
+  assert.equal((await nativeLive(f.input,f.read,f.runtime)).items[0].richReferences[0].sources[0].title,'Source');
+  assert.equal(f.state.post,1);
+});

@@ -338,6 +338,7 @@ export type {
   GptHistoryPage,
   GptJob,
   GptMessage,
+  GptRichReference,
   GptModels,
   GptProgress,
   GptProject,

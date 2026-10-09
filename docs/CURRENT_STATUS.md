@@ -1,5 +1,25 @@
 # Текущий статус — 9 октября 2026
 
+### Systemic GPT content pipeline repair — October 9 (activation pending)
+
+Replaced screenshot-specific handling with a shared parser/renderer and a typed
+public component projection across native graph, live events, receipts, Hub
+history and Results. Covers original AsyncImage/Cite metadata, per-message
+resolution, metadata-only updates, SVG, template conditions/arithmetic, isolated
+unsupported children, WritingBlock/FileCite and full public commentary. Results
+and steps now use the same message renderer and known file viewer entry. Original
+copy/export text and hidden-content filtering are preserved. See
+[content coverage](GPT_CONTENT_SUPPORT.md#systemic-correction--october-9).
+
+Source checks and an isolated Linux build passed: 126 pipeline tests, followed
+by 64 parser/metadata and previous-defect/deployment regression checks (overlapping
+suites). Chromium/WebKit passed phone, tablet and desktop coverage; final
+parser-bound verification is recorded with the release proof. No production
+service has been restarted for this change. Full asset
+restoration needs native adapter + engine + web activation; web-only publication
+would be incomplete. Native inspector probes remain prohibited after the earlier
+incident. Installation and actual readback will be recorded separately.
+
 ### GPT missing image layout and unresolved native assets — October 9
 
 The G2 comparison screenshot exposes an `AsyncImage` placeholder ignoring the

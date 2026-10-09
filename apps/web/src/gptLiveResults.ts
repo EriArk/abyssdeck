@@ -6,8 +6,7 @@ export function mergeGptSteps(canonical: GptProgress[], incoming: GptProgress[])
   const items = new Map(canonical.map((item) => [item.id, item]));
   for (const item of incoming) {
     const old = items.get(item.id);
-    if (!old || (!old.incomplete && (old.state !== "completed" || item.state === "completed")))
-      items.set(item.id, item);
+    if (!old || (!old.incomplete && old.state !== "completed")) items.set(item.id, item);
   }
   return [...items.values()];
 }
@@ -38,6 +37,10 @@ export function gptLiveResults(
       current.payload.steps!.push({
         id: message.id,
         text: message.text,
+        richReferences: message.richReferences,
+        files: messages
+          .flatMap((m) => m.files ?? [])
+          .filter((file) => message.text.includes(file.id)),
         activity: message.activity,
         state: message.complete === false && !message.incomplete ? "active" : "completed",
         ...(message.incomplete ? { incomplete: true } : {}),

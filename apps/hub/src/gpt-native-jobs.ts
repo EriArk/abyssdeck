@@ -584,10 +584,10 @@ export class NativeGptJobs {
         ) {
           const progress = result.messages
             .filter((m) => m.channel === "commentary" && m.text.trim())
-            .slice(-6)
             .map((m) => ({
               id: m.id,
-              text: m.text.slice(0, 500),
+              text: m.text,
+              richReferences: m.richReferences,
               state: result.state === "running" && !m.complete ? "active" : "completed",
             }));
           this.store.db

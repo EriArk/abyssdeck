@@ -1,3 +1,4 @@
+import {nativeRichContent} from './public-rich.mjs';
 import {nativeModule} from './compatibility.mjs';
 // Version-specific, private research adapter. No sends, navigation or generic RPC.
 // Keep this function self-contained: it also runs inside the native renderer.
@@ -302,7 +303,7 @@ export async function nativeRead(request, load = () => nativeModule(), runtime =
     const attachments=Array.isArray(meta.attachments)?meta.attachments.slice(0,100).flatMap(f=>/^file[-_][a-zA-Z0-9_-]{1,150}$/.test(f?.id??'')?[{id:f.id,name:scalar(f.name,500)??'File',mime_type:scalar(f.mime_type,150)??'application/octet-stream',size:Number.isSafeInteger(f.size)&&f.size>=0?f.size:0}]:[]):[];
     n.message={id:m.id,author:{role:generated?'assistant':role},channel:visible.channel,recipient:'all',content:{content_type:scalar(content?.content_type,100)??'other',parts},
      create_time:Number.isFinite(m.create_time)&&m.create_time>=0?m.create_time:0,status:m.status==='finished_successfully'?'finished_successfully':'in_progress',end_turn:m.end_turn===true,
-     metadata:{attachments,content_references:refs(meta.content_references),model_slug:scalar(meta.model_slug,128),thinking_effort:scalar(meta.thinking_effort,128),is_complete:!incomplete.has(m.id)&&(meta.is_complete===true||(m.status==='finished_successfully'&&(m.end_turn===true||visible.channel==='commentary'))),...(incomplete.has(m.id)?{codex_incomplete:true}:{})}};
+     metadata:{codex_rich:m.author?.role==='assistant'?nativeRichContent(meta):[],attachments,content_references:refs(meta.content_references),model_slug:scalar(meta.model_slug,128),thinking_effort:scalar(meta.thinking_effort,128),is_complete:!incomplete.has(m.id)&&(meta.is_complete===true||(m.status==='finished_successfully'&&(m.end_turn===true||visible.channel==='commentary'))),...(incomplete.has(m.id)?{codex_incomplete:true}:{})}};
    }
     if(action&&!publicMessage&&identity(m?.id))n.message={id:m.id,author:{role:'assistant'},channel:'commentary',recipient:'all',
     content:{content_type:'text',parts:[action.text]},create_time:Number.isFinite(m.create_time)?m.create_time:0,
@@ -475,6 +476,7 @@ function gptLinkedText(body, metadata) {
   bytes += new TextEncoder().encode(text).length;
   if (bytes > 16 * 1024 * 1024) fail('HISTORY_TOO_LARGE');
   messages.push({nodeId:node.id, id:message.id, role, channel:visible.channel, text, hasAttachments,
+   ...(role==='assistant'?{richReferences:nativeRichContent(message.metadata)}:{}),
    createdAt:typeof message.create_time==='number'&&Number.isFinite(message.create_time)&&message.create_time>=0 ? message.create_time : 0,
    model:typeof message.metadata?.model_slug === 'string' && message.metadata.model_slug.length <= 128 ? message.metadata.model_slug : null,
    effort:typeof message.metadata?.thinking_effort === 'string' && message.metadata.thinking_effort.length <= 128 ? message.metadata.thinking_effort : null,

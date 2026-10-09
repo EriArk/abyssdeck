@@ -1,4 +1,4 @@
-import type { GptFile, IssueSource } from "@codex-web/shared";
+import type { GptFile, GptRichReference, IssueSource } from "@codex-web/shared";
 import { projectContextEnd, projectContextStart } from "@codex-web/shared";
 import { memo, useCallback, useMemo, useRef } from "react";
 import Markdown, { defaultUrlTransform } from "react-markdown";
@@ -18,6 +18,7 @@ export const GptMessageText = memo(function GptMessageText({
   issueSource,
   rich = false,
   citationFiles,
+  richReferences,
 }: {
   value: string;
   onArtifact?: (source: string) => void;
@@ -26,6 +27,7 @@ export const GptMessageText = memo(function GptMessageText({
   issueSource?: IssueSource;
   rich?: boolean;
   citationFiles?: GptFile[];
+  richReferences?: GptRichReference[];
 }) {
   const hasArtifacts = !!onArtifact;
   const artifactHandler = useRef(onArtifact);
@@ -59,13 +61,27 @@ export const GptMessageText = memo(function GptMessageText({
               table: MarkdownTable,
               ...artifacts,
             },
-            { files: citationFiles, onOpen: hasArtifacts ? openCitation : undefined },
+            {
+              richReferences,
+              files: citationFiles,
+              onOpen: hasArtifacts ? openCitation : undefined,
+            },
           )}
         >
           {contextEnd >= 0 ? value.slice(contextEnd + projectContextEnd.length) : value}
         </Markdown>
       </>
     ),
-    [value, hasArtifacts, contextEnd, artifacts, code, rich, citationFiles, openCitation],
+    [
+      value,
+      hasArtifacts,
+      contextEnd,
+      artifacts,
+      code,
+      rich,
+      citationFiles,
+      richReferences,
+      openCitation,
+    ],
   );
 });

@@ -75,6 +75,11 @@ try {
               contentType: "text/html",
               body: '<!doctype html><meta charset="utf-8"><div id="root"></div><link rel="stylesheet" href="/fixture.css"><script src="/fixture.js"></script>',
             });
+          if (path === "/rendered.svg")
+            return route.fulfill({
+              contentType: "image/svg+xml",
+              body: '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="150"><rect width="200" height="150" fill="teal"/></svg>',
+            });
           if (path === "/fixture.js")
             return route.fulfill({ contentType: "application/javascript", body: js });
           if (path === "/fixture.css") return route.fulfill({ contentType: "text/css", body: css });
@@ -126,6 +131,40 @@ try {
           "description stays beside image",
         );
         await imageLayout.screenshot({ path: join(evidence, `${name}-image-${width}.png`) });
+        const corpus = page.getByTestId("corpus");
+        await expect(corpus.getByText("Загрузка иллюстрации…", { exact: true })).toHaveCount(2);
+        for (const entry of [page.getByTestId("corpus-chat"), page.getByTestId("corpus-steps")]) {
+          const svg = entry.locator('svg[aria-label="Vocal game"]');
+          await expect(svg.locator("line")).toHaveCount(6);
+          await expect(svg.locator("text")).toHaveText("Score 400");
+          assert.equal(await svg.evaluate((n) => n.namespaceURI), "http://www.w3.org/2000/svg");
+          await expect(svg.locator("linearGradient")).toHaveCount(1);
+          const paint = await svg.locator("linearGradient").getAttribute("id");
+          await expect(svg.locator("rect")).toHaveAttribute("fill", "url(#" + paint + ")");
+          await expect(entry).toContainText("Supported sibling after unknown widget");
+          await expect(entry.locator(".gpt-rich-unsupported pre")).toHaveText(
+            "<unknown-widget>Keep unsupported content</unknown-widget>",
+          );
+          await entry.getByRole("button", { name: /Context.txt/ }).click();
+          await expect(corpus.locator("output")).toHaveText("/api/gpt/files/corpus");
+        }
+        const ids = await corpus
+          .locator("linearGradient")
+          .evaluateAll((nodes) => nodes.map((n) => n.id));
+        assert.equal(new Set(ids).size, 2, "SVG references belong to the exact drawing");
+        await corpus.getByRole("button", { name: "Resolve metadata" }).click();
+        await expect(corpus.getByRole("img", { name: "Original photo" })).toHaveCount(2);
+        await expect(corpus.getByRole("link", { name: "Original source" })).toHaveCount(2);
+        assert.ok(
+          await corpus
+            .getByRole("img", { name: "Original photo" })
+            .first()
+            .evaluate((n) => n.complete && n.naturalWidth > 0),
+        );
+        await corpus.getByRole("button", { name: "Toggle corpus" }).click();
+        await corpus.getByRole("button", { name: "Toggle corpus" }).click();
+        await expect(corpus.getByRole("img", { name: "Original photo" })).toHaveCount(2);
+        await corpus.screenshot({ path: join(evidence, name + "-corpus-" + width + ".png") });
         const bodyTemplate = page.getByTestId("body-template");
         await expect(bodyTemplate.locator('[data-layout="grid"]')).toHaveCount(3);
         await expect(bodyTemplate.locator('[data-layout="grid-item"]')).toHaveCount(15);

@@ -1,3 +1,4 @@
+import { GptRichCorpus } from "./gpt-rich-corpus";
 import type { GptJob, GptMessage } from "@codex-web/shared";
 import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -96,6 +97,7 @@ function Fixture() {
   const [running, setRunning] = useState(true);
   return (
     <main style={{ maxWidth: 900, margin: "auto", padding: 16 }}>
+      <GptRichCorpus />
       <section className="gpt-chat" data-testid="image-layout">
         <article className="message assistant">
           <div className="message-body">

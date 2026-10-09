@@ -1,3 +1,4 @@
+import { gptRichAnswers } from "./gpt-rich.js";
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { copyFile, stat, unlink, writeFile } from "node:fs/promises";
@@ -1090,6 +1091,18 @@ export class GptService {
       status: row.status,
       deliveryConfirmed: delivered,
       answer: row.answer,
+      ...(this.nativeJobs
+        ? {
+            answerMessages: gptRichAnswers(
+              String(
+                this.store.db
+                  .prepare("SELECT messages FROM gpt_native_receipts WHERE jobId=?")
+                  .get(row.id)?.messages ?? "[]",
+              ),
+              row.answer,
+            ),
+          }
+        : {}),
       progress: JSON.parse(
         String(
           this.store.db.prepare("SELECT value FROM gpt_job_progress WHERE jobId=?").get(row.id)
