@@ -11,7 +11,11 @@ through the same themed layout. No JavaScript execution or chat operations.
 The complete three-game/fifteen-tab reproduction is retained as a public fixture.
 Fifteen focused tests, web typecheck and production build pass. Chromium/WebKit
 pass at 390/820/1366 widths, including all fifteen cells, six highlighted tabs,
-axis padding and preserved five-column rows. Activation pending.
+axis padding and preserved five-column rows. Published web-only revision
+`1819145c`, public version
+`7b7312457e4ec171e867680ee9875ed18feb109fddcc2f4f58896c9b1a64c6a6`.
+Public readback matches; GPT, Hub and engine container identities/start times
+are unchanged. Physical iPhone behavior remains subject to ordinary use feedback.
 
 ### GPT layout list templates — October 9
 
