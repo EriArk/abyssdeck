@@ -1,5 +1,17 @@
 # Текущий статус — 9 октября 2026
 
+### Project activity and unread outcomes — October 9 (verification in progress)
+
+The reported TrainerOS project has one running chat and one unseen failed outcome
+in a different chat. Concurrent activity/unread indicators are valid, but the
+shared badge incorrectly defaulted an untyped aggregate count to successful.
+It now uses an inbox symbol and "Непросмотренные итоги" unless the caller provides
+an explicit outcome: known success retains a check, known failure its attention
+marker. This covers project rows, section totals, project overview and GPT's
+untyped unread counts without changing status, read receipts or polling.
+Focused browser cases cover mixed activity, success, failure, waiting and zero
+counts. Delivery is web-only; no engine/native restart is needed.
+
 ### Document navigation and interactive layouts — October 9 (installed)
 
 Owner screenshots exposed two shared gaps: Markdown readers removed all links and

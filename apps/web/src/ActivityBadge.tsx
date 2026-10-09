@@ -4,7 +4,7 @@ export function ActivityBadge({
   active = 0,
   unread = 0,
   waiting = 0,
-  failed = false,
+  failed,
   counts = false,
 }: {
   active?: number;
@@ -13,6 +13,13 @@ export function ActivityBadge({
   failed?: boolean;
   counts?: boolean;
 }) {
+  // Aggregated/untyped unread counts do not establish a successful outcome.
+  const unreadLabel =
+    failed === true
+      ? "Требует проверки"
+      : failed === false
+        ? "Завершено, не просмотрено"
+        : "Непросмотренные итоги";
   return (
     <span className="activity-badges">
       {(active > 0 || counts) && (
@@ -36,10 +43,10 @@ export function ActivityBadge({
         <span
           className={`activity-badge ${unread ? "is-unread" : "is-empty"} ${failed ? "needs-attention" : ""}`}
           role="img"
-          aria-label={`${failed ? "Требует проверки" : "Завершено, не просмотрено"}: ${unread}`}
-          title={`${failed ? "Требует проверки" : "Завершено, не просмотрено"}: ${unread}`}
+          aria-label={`${unreadLabel}: ${unread}`}
+          title={`${unreadLabel}: ${unread}`}
         >
-          <Icon name={failed ? "help" : "check"} size={16} />
+          <Icon name={failed === true ? "help" : failed === false ? "check" : "inbox"} size={16} />
           {counts && <b>{unread}</b>}
         </span>
       )}
