@@ -6,8 +6,11 @@ The G2 comparison screenshot exposes an `AsyncImage` placeholder ignoring the
 authored `maxWidth="155px"` and `aspectRatio="4:3"`, squeezing its sibling text.
 The fallback now respects those dimensions, shrinks within its parent and wraps
 its explanation. A reproduction in actual GPT message containers passes all six
-Chromium/WebKit width combinations; fifteen parser tests and web typecheck pass.
-Web publication is pending.
+Chromium/WebKit width combinations; fifteen parser tests, web typecheck and
+production build pass. Published web-only revision `8754450c`, public version
+`79260a25154788e6f4f37e3efabdc0a5b4a4b4a792c4282cd75b5ebf4c87ea39`.
+Public readback matches. This publication did not restart native GPT, Hub or
+engine; the earlier diagnostic restart is recorded separately below.
 
 The image and citations themselves are **not restored**. An exact public native
 graph read returns no attachments or content references for this answer. Offline
