@@ -112,7 +112,10 @@ export async function publishWeb(options: {
       maxSchema: contract.maxSchema,
       files: {},
     };
-    const runtime = await engineInfo(socketPath);
+    // A newly started engine may still be hydrating its histories after health
+    // succeeds. Await one read; do not treat the interactive 3s budget as a
+    // failed deployment or poll/restart a healthy execution owner.
+    const runtime = await engineInfo(socketPath, 30000);
     compatible(manifest, runtime);
     const directory = join(root, "releases", manifest.id);
     if (existsSync(join(root, "current.json"))) previous = currentRelease(root);
@@ -145,7 +148,7 @@ export async function publishWeb(options: {
     if (!manifest.files["index.html"] || !manifest.files["sw.js"])
       throw new Error("INCOMPLETE_WEB_RELEASE");
     atomicJson(join(directory, "release.json"), manifest);
-    const latest = await engineInfo(socketPath);
+    const latest = await engineInfo(socketPath, 30000);
     compatible(manifest, latest);
     if (runtime.instance !== latest.instance) throw new Error("ENGINE_CHANGED_DURING_PUBLICATION");
     atomicJson(join(root, "current.json"), { id: manifest.id });

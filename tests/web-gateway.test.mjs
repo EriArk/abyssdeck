@@ -41,6 +41,38 @@ test("built web contract accepts the current engine schema", () => {
   }
 });
 
+test("publication awaits slow engine startup without polling or moving the pointer early", async () => {
+  const root = mkdtempSync(join(tmpdir(), "cw-publish-startup-"));
+  const source = join(root, "source"), releaseRoot = join(root, "web");
+  const socketPath = process.platform === "win32" ? `\\\\.\\pipe\\cw-${randomUUID()}` : join(root, "engine.sock");
+  mkdirSync(source);
+  writeFileSync(join(source, "version.json"), JSON.stringify({ id: "c".repeat(64) }));
+  writeFileSync(join(source, "engine-compat.json"), JSON.stringify({ protocol: 1, minSchema: 31, maxSchema: 31 }));
+  writeFileSync(join(source, "index.html"), "<html>Ready</html>");
+  writeFileSync(join(source, "sw.js"), "// worker");
+  let reads = 0;
+  const server = createServer((req, res) => {
+    assert.equal(req.method, "GET");
+    assert.equal(req.url, "/internal/runtime");
+    const delay = ++reads === 1 ? 3500 : 0;
+    setTimeout(() => res.end(JSON.stringify({ protocol: 1, schema: 31, instance: "same-engine", revision: "ccccccc" })), delay);
+  });
+  server.listen(socketPath);
+  await once(server, "listening");
+  try {
+    const pending = publishWeb({ source, root: releaseRoot, socketPath, revision: "ccccccc" });
+    await new Promise(resolve => setTimeout(resolve, 200));
+    assert.throws(() => currentRelease(releaseRoot));
+    assert.equal(reads, 1);
+    await pending;
+    assert.equal(reads, 2, "one startup read and one final identity check, no polling");
+    assert.equal(currentRelease(releaseRoot).id, "c".repeat(64));
+  } finally {
+    await new Promise(resolve => server.close(resolve));
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("GPT reply and queued Codex message survive gateway updates without replay", async () => {
   const streams = [],
     calls = [];

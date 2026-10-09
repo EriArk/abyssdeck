@@ -51,7 +51,7 @@ export interface EngineInfo {
   revision: string;
   instance: string;
 }
-export function engineInfo(socketPath: string): Promise<EngineInfo> {
+export function engineInfo(socketPath: string, timeoutMs = 3000): Promise<EngineInfo> {
   return new Promise((resolve, reject) => {
     const req = request({ socketPath, path: "/internal/runtime", method: "GET" }, (res) => {
       let text = "";
@@ -77,7 +77,7 @@ export function engineInfo(socketPath: string): Promise<EngineInfo> {
         }
       });
     });
-    req.setTimeout(3000, () => req.destroy(new Error("ENGINE_TIMEOUT")));
+    req.setTimeout(timeoutMs, () => req.destroy(new Error("ENGINE_TIMEOUT")));
     req.on("error", reject);
     req.end();
   });

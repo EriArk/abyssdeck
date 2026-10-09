@@ -20,6 +20,15 @@ restoration needs native adapter + engine + web activation; web-only publication
 would be incomplete. Native inspector probes remain prohibited after the earlier
 incident. Installation and actual readback will be recorded separately.
 
+The first engine activation (`9bebda5b`) reached a healthy process but failed the
+web publisher's three-second `/internal/runtime` read during cold startup,
+before exposing the candidate. The standard updater entered checkpoint rollback;
+native GPT was not replaced. The publisher now waits up to 30 seconds for each
+of its two existing identity reads, without polling, changing schema admission
+or restarting the engine. A delayed-startup regression and nine gateway,
+maintenance and Team rollback checks pass in Linux. Final installation remains
+pending the completed rollback and guarded retry.
+
 ### GPT missing image layout and unresolved native assets — October 9
 
 The G2 comparison screenshot exposes an `AsyncImage` placeholder ignoring the
