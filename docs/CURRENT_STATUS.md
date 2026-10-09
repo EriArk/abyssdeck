@@ -1,5 +1,12 @@
 # Текущий статус — 10 октября 2026
 
+### Full-width message file cards — October 10 (source)
+
+File attachment cards fill the available message width in the shared Codex
+attachment list (including Intake) and GPT messages. Filenames use the remaining
+row width instead of the old 135px cap. Image galleries and composer attachments
+retain their existing layout. Web-only publication and browser checks pending.
+
 ### Project activity: deleted-chat counts — October 10 (installed)
 
 Correction to the previous diagnosis and web release `765bd08c`: TrainerOS has

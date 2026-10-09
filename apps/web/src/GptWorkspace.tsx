@@ -91,7 +91,12 @@ const Files = memo(function Files({ files }: { files: GptFile[] }) {
   return (
     <div className="gpt-files">
       {files.map((file) => (
-        <DownloadLink key={file.id} href={file.url} name={file.name} className="gpt-file-download">
+        <DownloadLink
+          key={file.id}
+          href={file.url}
+          name={file.name}
+          className={`gpt-file-download${file.image ? "" : " is-file"}`}
+        >
           {file.image ? (
             <GptImage src={file.url} alt={file.name} />
           ) : (

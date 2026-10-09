@@ -2,6 +2,21 @@
   flex-wrap: wrap;
   overflow: visible;
 }
+.message-attachments > .attachment:not(.has-image) {
+  width: 100%;
+  max-width: 100%;
+}
+.message-attachments > .attachment:not(.has-image) .attachment-open {
+  width: 100%;
+}
+.message-attachments > .attachment:not(.has-image) .attachment-open span {
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+}
+.message-attachments > .attachment:not(.has-image) .attachment-open > svg {
+  flex-shrink: 0;
+}
 .message-attachments .attachment.has-image {
   width: min(100%, 300px);
   max-width: 100%;

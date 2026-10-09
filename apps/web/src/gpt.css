@@ -167,6 +167,18 @@
 .gpt-files > .gpt-file-download:has(img) {
   padding: 0;
 }
+.gpt-files > .gpt-file-download.is-file {
+  width: 100%;
+  min-width: 0;
+}
+.gpt-file-download.is-file > span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.gpt-file-download.is-file > svg {
+  flex-shrink: 0;
+}
 .gpt-files img {
   display: block;
   width: auto;
