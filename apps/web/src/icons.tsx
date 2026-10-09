@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 
 const paths: Record<string, string[]> = {
   circle: ["M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z"],
+  minimize: ["M4 4l6 6M10 4v6H4M20 20l-6-6M14 20v-6h6"],
   library: ["M3 3h4v18H3zM9 3h4v18H9zM15 4l4-1 4 17-4 1-4-17Z"],
   package: ["m3 7 9-5 9 5v10l-9 5-9-5V7Zm0 0 9 5 9-5M12 12v10M7 4.8l10 5.6"],
   compass: ["M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm5 5-3 7-7 3 3-7 7-3Z"],

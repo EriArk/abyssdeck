@@ -55,6 +55,12 @@ Literal example: \`<box gap={3}>\`
 
 [Read more](https://example.com/docs)
 `;
+const eachContent = `<box border radius="lg" padding={3} gap={3}>
+<title size="lg">Current Game</title>
+{#each [{icon:"play",label:"Continue game"},{icon:"minimize-2",label:"Minimize game"},{icon:"users",label:"Play together"},{icon:"sliders-horizontal",label:"Game settings"},{icon:"log-out",label:"Exit game"}] as item}
+<row background="surface-secondary" radius="lg" padding={3} gap={3}><icon name={item.icon}/><text weight="bold">{item.label}</text></row>
+{/each}
+</box>`;
 const job = {
   id: "job",
   nativeId: "chat",
@@ -89,6 +95,9 @@ function Fixture() {
   const [running, setRunning] = useState(true);
   return (
     <main style={{ maxWidth: 900, margin: "auto", padding: 16 }}>
+      <section data-testid="each">
+        <GptMessageText value={eachContent} rich />
+      </section>
       <textarea aria-label="Draft" defaultValue="Keep my draft" />
       <button type="button" onClick={() => setJobs([{ ...job, deliveryConfirmed: false }])}>
         Queue request

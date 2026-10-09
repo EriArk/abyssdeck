@@ -113,6 +113,15 @@ try {
           return route.fulfill({ status: 404, body: "Missing fixture route" });
         });
         await page.goto("https://rich.test/");
+        const each = page.getByTestId("each");
+        await expect(each.locator('[data-layout="row"]')).toHaveCount(5);
+        await expect(each).toContainText("Continue game");
+        await expect(each).toContainText("Exit game");
+        await expect(each).not.toContainText("{#each");
+        await expect(each).not.toContainText("{item.");
+        await expect(each.locator('[data-icon="users"]')).toHaveCount(1);
+        await expect(each.locator('[data-icon="minimize-2"]')).toHaveCount(1);
+        await each.screenshot({ path: join(evidence, `${name}-each-${width}.png`) });
         await expect(page.getByTestId("rich").locator("strong").first()).toHaveText(
           "1. Arcade / AbyssTail Arcade",
         );

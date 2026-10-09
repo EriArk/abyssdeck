@@ -1,5 +1,15 @@
 # Текущий статус — 9 октября 2026
 
+### GPT layout list templates — October 9
+
+The reported game-menu cards displayed `{#each ...}` and `{item.name}` as raw
+text. The shared public layout renderer now expands literal list templates,
+including nested local lists and optional indices, and binds scalar text/icon
+attributes. Added the observed play, minimize, settings, chat and logout icons.
+Original message/copy bytes, code offsets and literal code remain unchanged;
+unsupported expressions remain visible and no model-supplied JavaScript runs.
+This is a web-only display correction; activation is pending.
+
 ### GPT large-history recovery — October 9
 
 The owner reported two chats remaining at a loading indicator. Live diagnosis

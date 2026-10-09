@@ -13,6 +13,80 @@ const parse = (value) => {
 const flatten = (node) => [node, ...(node.children ?? []).flatMap(flatten)];
 const rich = (tree) => flatten(tree).filter((n) => n.type === "gptLayout");
 
+test("layout each expands literal records, text and icon paths while preserving code offsets", () => {
+  const source = `<box>
+{#each [{icon:"play",label:"Continue game"},{icon:'users',label:'Play together'},{icon:"log-out",label:"Exit game"}] as item, index}
+<row><icon name={item.icon}/><text>{index}. **{item.label}**</text></row>
+\`{item.label}\`
+{/each}
+
+\`\`\`html
+{#each [] as item}<text>{item.label}</text>{/each}
+\`\`\`
+</box>`;
+  const nodes = flatten(parse(source));
+  assert.deepEqual(
+    rich(parse(source))
+      .filter((n) => n.data.hProperties.dataGptLayout === "icon")
+      .map((n) => JSON.parse(n.data.hProperties.dataGptAttrs).name),
+    ["play", "users", "log-out"],
+  );
+  assert.deepEqual(
+    nodes.filter((n) => n.type === "strong").map((n) => n.children[0].value),
+    ["Continue game", "Play together", "Exit game"],
+  );
+  assert.equal(
+    nodes.filter((n) => n.type === "inlineCode" && n.value === "{item.label}").length,
+    3,
+  );
+  const code = nodes.find((n) => n.type === "code");
+  assert.ok(
+    source.slice(code.position.start.offset, code.position.end.offset).startsWith("```html"),
+  );
+  assert.ok(!nodes.some((n) => n.type === "text" && n.value.includes("{#each")));
+});
+
+test("nested local lists and empty lists preserve surrounding content", () => {
+  const tree = parse(`<box>Before
+{#each [{name:"Group",children:[{label:"A"},{label:"B"}]}] as group}
+<box><title>{group.name}</title>
+{#each group.children as child}<text>{child.label}</text>{/each}
+</box>{/each}
+{#each [] as unused}<text>Absent</text>{/each}
+After</box>`);
+  const text = flatten(tree)
+    .filter((n) => n.type === "text")
+    .map((n) => n.value)
+    .join(" ");
+  assert.match(text, /Before.*Group.*A.*B.*After/s);
+  assert.ok(!text.includes("Absent"));
+});
+
+test("template data stays literal and unsupported expressions never execute or disappear", () => {
+  const value = '<Link url="https://example.com" title="Injected"/>';
+  const tree = parse(
+    `<box>{#each [{label:${JSON.stringify(value)}}] as item}<text>{item.label}</text>{/each}</box>`,
+  );
+  assert.equal(flatten(tree).filter((n) => n.type === "gptReference").length, 0);
+  assert.ok(flatten(tree).some((n) => n.value === value));
+  for (const expression of [
+    "globalThis.run()",
+    "[{label:globalThis.run()}]",
+    '[{__proto__:{label:"bad"}}]',
+    "item.constructor",
+  ]) {
+    const source = `<box>{#each ${expression} as item}<text>{item.label}</text>{/each}</box>`;
+    assert.ok(
+      flatten(parse(source)).some((n) => n.value?.includes(expression)),
+      expression,
+    );
+  }
+  assert.equal(
+    rich(parse('<box>{#each [{label:"A"}] as item}<text>{item.label}</text></box>')).length,
+    0,
+  );
+});
+
 test("FileCite keeps repeated file identities and multiline line ranges without touching code", () => {
   const tag = '<FileCite ref="file_example" line_range_start={167} line_range_end=\n{171}/>';
   const source = `Before ${tag} ${tag}\n\nAfter \`${tag.replace(/\n/g, " ")}\`\n\n\`\`\`xml\n${tag}\n\`\`\``;

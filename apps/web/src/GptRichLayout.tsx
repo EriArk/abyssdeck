@@ -6,6 +6,11 @@ import { Icon } from "./icons";
 import "./gpt-rich-layout.css";
 
 const icons: Record<string, string> = {
+  play: "play",
+  "minimize-2": "minimize",
+  "sliders-horizontal": "settings",
+  "message-circle": "chat",
+  "log-out": "logout",
   "gamepad-2": "gamepad",
   sparkles: "sparkles",
   heart: "heart",

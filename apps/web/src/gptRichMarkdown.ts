@@ -1,6 +1,13 @@
 import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
+import {
+  layoutData,
+  layoutPath,
+  layoutScalar,
+  templateEnd,
+  type LayoutScope,
+} from "./gptLayoutData.ts";
 
 type Point = { offset?: number; line: number; column: number };
 type Node = {
@@ -9,6 +16,7 @@ type Node = {
   children?: Node[];
   position?: { start: Point; end: Point };
   data?: object;
+  templateLiteral?: boolean;
 };
 type Rich = {
   tag: string;
@@ -18,6 +26,7 @@ type Rich = {
   end: number;
   close: number;
   children: Rich[];
+  each?: { expression: string; name: string; index?: string };
 };
 const tags = new Set([
   "WritingBlock",
@@ -59,16 +68,21 @@ const parser = unified().use(remarkParse).use(remarkGfm);
 function attributes(source: string) {
   const attrs: Record<string, string> = {};
   for (const a of source.matchAll(
-    /([a-zA-Z][\w-]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|\{\s*(-?\d+(?:\.\d+)?|true|false)\s*\}))?/g,
+    /([a-zA-Z][\w-]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|\{\s*([^{}]*)\s*\}))?/g,
   ))
     if (!["__proto__", "constructor", "prototype"].includes(a[1]!))
-      attrs[a[1]!] = a[2] ?? a[3] ?? a[4] ?? "true";
+      attrs[a[1]!] = a[2] ?? a[3] ?? (a[4] === undefined ? "true" : `{${a[4].trim()}}`);
+  for (const key of Object.keys(attrs)) {
+    const match = /^\{(-?\d+(?:\.\d+)?|true|false)\}$/.exec(attrs[key]!);
+    if (match) attrs[key] = match[1]!;
+  }
   return attrs;
 }
 
 function references(tree: Node) {
   if (!tree.children) return;
   tree.children = tree.children.flatMap((node) => {
+    if (node.templateLiteral) return [node];
     if (!["html", "text"].includes(node.type) || !node.value) {
       references(node);
       return [node];
@@ -149,9 +163,10 @@ export function remarkGptLayout() {
       stack: Rich[] = [];
     // Quoted values may include >; expressions are accepted only as primitive
     // numbers/strings below. No evaluation, event handlers or raw style objects.
-    const tokens = /<\/?(WritingBlock|[a-z][a-z0-9-]*)\b((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
+    const tokens =
+      /\{#each\b|\{\/each\}|<\/?(WritingBlock|[a-z][a-z0-9-]*)\b((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
     let invalid = false;
-    for (const match of source.matchAll(tokens)) {
+    for (let match = tokens.exec(source); match; match = tokens.exec(source)) {
       const start = match.index!,
         end = start + match[0].length,
         tag = match[1]!;
@@ -159,6 +174,47 @@ export function remarkGptLayout() {
       // A writing block contains a document, not layout children. Preserve any
       // HTML examples in its body as literal Markdown, without interpreting them.
       if (stack.at(-1)?.tag === "WritingBlock" && tag !== "WritingBlock") continue;
+      if (match[0] === "{#each") {
+        const stop = templateEnd(source, start);
+        if (stop < 0) {
+          invalid = true;
+          break;
+        }
+        tokens.lastIndex = stop;
+        if (!stack.length) continue;
+        const header =
+          /^\{#each\s+([\s\S]+)\s+as\s+([A-Za-z_$][\w$]*)(?:\s*,\s*([A-Za-z_$][\w$]*))?\s*\}$/.exec(
+            source.slice(start, stop),
+          );
+        if (!header) {
+          invalid = true;
+          continue;
+        }
+        const node: Rich = {
+          tag: "each",
+          attrs: {},
+          start,
+          body: stop,
+          end: stop,
+          close: stop,
+          children: [],
+          each: { expression: header[1]!, name: header[2]!, index: header[3] },
+        };
+        stack.at(-1)!.children.push(node);
+        stack.push(node);
+        continue;
+      }
+      if (match[0] === "{/each}") {
+        const node = stack.at(-1);
+        if (node?.tag !== "each") {
+          if (node) invalid = true;
+          continue;
+        }
+        node.end = start;
+        node.close = end;
+        stack.pop();
+        continue;
+      }
       if (!stack.length) {
         if (
           match[0][1] === "/" ||
@@ -241,34 +297,89 @@ export function remarkGptLayout() {
       return parsed.children ?? [];
     };
     const close = (node: Rich) => node.close;
-    const render = (node: Rich): Node => {
+    const interpolate = (nodes: Node[], scope: LayoutScope) => {
+      const visit = (node: Node) => {
+        if (node.type === "text" && node.value) {
+          const previous = node.value;
+          node.value = node.value.replace(
+            /\{([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\}/g,
+            (original, path: string) => layoutScalar(layoutPath(path, scope)) ?? original,
+          );
+          if (node.value !== previous) node.templateLiteral = true;
+        }
+        for (const child of node.children ?? []) visit(child);
+      };
+      for (const node of nodes) visit(node);
+      return nodes;
+    };
+    const body = (node: Rich, scope: LayoutScope): Node[] => {
       const children: Node[] = [];
       let cursor = node.body;
       for (const child of node.children) {
-        children.push(...markdown(cursor, child.start, true), render(child));
+        children.push(
+          ...interpolate(markdown(cursor, child.start, true), scope),
+          ...render(child, scope),
+        );
         cursor = close(child);
       }
-      children.push(...markdown(cursor, node.end, true));
-      return {
-        type: "gptLayout",
-        children,
-        data: {
-          hName: leaves.has(node.tag) ? "span" : "div",
-          hProperties: {
-            dataGptLayout: node.tag,
-            dataGptAttrs: JSON.stringify(node.attrs),
-            ...(node.tag === "WritingBlock"
-              ? { dataGptText: source.slice(node.body, node.end) }
-              : {}),
+      children.push(...interpolate(markdown(cursor, node.end, true), scope));
+      return children;
+    };
+    const render = (node: Rich, scope: LayoutScope = {}): Node[] => {
+      if (node.each) {
+        const items = layoutData(node.each.expression, scope);
+        if (!Array.isArray(items))
+          return [
+            {
+              type: "paragraph",
+              children: [
+                {
+                  type: "text",
+                  value: source.slice(node.start, node.close),
+                  templateLiteral: true,
+                },
+              ],
+            },
+          ];
+        return items.flatMap((item, index) =>
+          body(node, {
+            ...scope,
+            [node.each!.name]: item,
+            ...(node.each!.index ? { [node.each!.index]: index } : {}),
+          }),
+        );
+      }
+      const attrs = Object.fromEntries(
+        Object.entries(node.attrs).map(([key, value]) => {
+          const expression = /^\{([^{}]+)\}$/.exec(value);
+          return [
+            key,
+            expression ? (layoutScalar(layoutData(expression[1]!, scope)) ?? value) : value,
+          ];
+        }),
+      );
+      return [
+        {
+          type: "gptLayout",
+          children: body(node, node.tag === "WritingBlock" ? {} : scope),
+          data: {
+            hName: leaves.has(node.tag) ? "span" : "div",
+            hProperties: {
+              dataGptLayout: node.tag,
+              dataGptAttrs: JSON.stringify(attrs),
+              ...(node.tag === "WritingBlock"
+                ? { dataGptText: source.slice(node.body, node.end) }
+                : {}),
+            },
           },
+          position: { start: point(node.start), end: point(close(node)) },
         },
-        position: { start: point(node.start), end: point(close(node)) },
-      };
+      ];
     };
     const children: Node[] = [];
     let cursor = 0;
     for (const block of blocks) {
-      children.push(...markdown(cursor, block.start), render(block));
+      children.push(...markdown(cursor, block.start), ...render(block));
       cursor = close(block);
     }
     children.push(...markdown(cursor, source.length));
