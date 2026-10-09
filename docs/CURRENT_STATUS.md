@@ -1,11 +1,19 @@
 # Текущий статус — 10 октября 2026
 
-### Full-width message file cards — October 10 (source)
+### Full-width message file cards — October 10 (installed)
 
 File attachment cards fill the available message width in the shared Codex
 attachment list (including Intake) and GPT messages. Filenames use the remaining
 row width instead of the old 135px cap. Image galleries and composer attachments
-retain their existing layout. Web-only publication and browser checks pending.
+retain their existing layout. TypeScript and the clean Vite build passed.
+Chromium/WebKit layout checks at 390/1024 show cards matching their container
+width, filenames using the available space, and no page overflow; composer cards
+retain their compact width. Web-only publication installed `4be37881`, public
+version `644c0000488a50241155104c8ee5a89c960ea298633b46e7833cfecfbc9752e6`.
+The publisher verified the served version. Engine, gateway and both native GPT
+clients retained identical images, start times, health and restart counts.
+Browser screenshots are in `/tmp/abyssdeck-attachments-20261010/proof/`;
+these checks are not a physical-device acceptance claim.
 
 ### Project activity: deleted-chat counts — October 10 (installed)
 
