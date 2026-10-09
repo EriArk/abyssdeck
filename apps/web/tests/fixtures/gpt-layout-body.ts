@@ -1,7 +1,10 @@
 // Reproduces the complete public template structure reported in IMG_0934/0935.
 export const layoutBodySample = `<box border radius="lg" padding={3} gap={3}>
-<title>One shell — different game interfaces</title>
-<caption>Illustrative names and content.</caption>
+  <row align=center gap={2}>
+    <icon name="layers" color="secondary"/>
+    **Одна оболочка — разные игровые интерфейсы**
+  </row>
+  <text color="secondary" size="xs">Пример предполагаемых названий и наполнения, не обещание уже реализованных адаптеров.</text>
 {@body const tabs=[{game:"Pokémon",cols:["Home","Collections","Companions","Trainer","Social"],items:"Pokédex · Party · Boxes · Center / Journey · Hall"},{game:"Diablo",cols:["Home","Collections","Hero","Chronicle","Social"],items:"Character · Equipment · Skills · Stash / Quests · Milestones"},{game:"Need for Speed",cols:["Home","Collections","Garage","Career","Social"],items:"Cars · Upgrades · Collection / Events · Records"}]}
 {#each tabs as t}
 <box gap={1} key={t.game}>

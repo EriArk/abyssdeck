@@ -97,18 +97,26 @@ button.gpt-file-citation:focus-visible {
   display: flex;
   flex-direction: row;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.5rem;
 }
 .gpt-rich[data-layout="row"] > .gpt-rich {
   flex-shrink: 1;
 }
-.gpt-rich > p {
+.gpt-rich[data-layout="row"] > p {
+  min-width: 0;
+  flex: 1 1 0;
+}
+.gpt-rich > p,
+.message-body .gpt-rich > p,
+.gpt-chat .message-body .gpt-rich > p {
   margin: 0;
 }
 .gpt-rich[data-background="surface-secondary"],
 .gpt-rich[data-background="surface-tertiary"] {
-  background: color-mix(in srgb, currentColor 7%, transparent);
+  /* Neutral native surfaces must stay distinct from supplied translucent accents,
+     even when the surrounding theme uses the same accent as its text color. */
+  background: color-mix(in srgb, #808080 24%, transparent);
 }
 .gpt-rich[data-border="true"],
 .gpt-rich[data-layout="badge"] {
@@ -171,6 +179,10 @@ button.gpt-file-citation:focus-visible {
   display: inline-flex;
   flex: 0 0 auto;
   vertical-align: middle;
+}
+.gpt-rich-icon[data-color="secondary"],
+.gpt-rich-icon[data-color="tertiary"] {
+  color: var(--muted);
 }
 .gpt-rich-divider {
   display: block;

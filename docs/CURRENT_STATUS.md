@@ -1,5 +1,20 @@
 # Текущий статус — 9 октября 2026
 
+### GPT layout fidelity — October 9 comparison
+
+The owner compared the same native answer and AbyssDeck rendering. Read the exact
+cached public answer without refreshing or restarting GPT: its header is a row
+with `layers` and Markdown, not the simplified title used in the initial fixture.
+Rows now keep icon/text together unless wrapping is explicitly requested; layout
+paragraph spacing overrides ordinary chat paragraph margins. Added the layers
+icon and its secondary color. Neutral layout surfaces no longer inherit CRT green
+text color, keeping supplied translucent green highlights visibly distinct.
+The reproduction now uses the actual header inside the real GPT message classes.
+Fifteen parser tests, web typecheck and production build pass. Chromium/WebKit
+pass at 390/820/1366 widths with icon/title geometry and zero paragraph margins
+verified; phone captures also cover Organizer, Classic Dark and Hi-Tech 2000.
+Activation pending.
+
 ### GPT local layout declarations — October 9 follow-up
 
 The owner's next screenshots use `{@body const tabs=...}` before nested loops,

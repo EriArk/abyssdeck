@@ -7,6 +7,7 @@ import { layoutData } from "./gptLayoutData";
 import "./gpt-rich-layout.css";
 
 const icons: Record<string, string> = {
+  layers: "layers",
   play: "play",
   "minimize-2": "minimize",
   "sliders-horizontal": "settings",
@@ -200,7 +201,12 @@ function layout(
   if (tag === "list-item") return <li className="gpt-rich-list-item">{children}</li>;
   if (tag === "icon")
     return (
-      <span className="gpt-rich-icon" data-icon={a.name} title={a.name}>
+      <span
+        className="gpt-rich-icon"
+        data-icon={a.name}
+        data-color={values(a.color, ["secondary", "tertiary"])}
+        title={a.name}
+      >
         <Icon
           name={icons[a.name ?? ""] ?? "circle"}
           size={

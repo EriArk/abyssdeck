@@ -96,8 +96,12 @@ function Fixture() {
   const [running, setRunning] = useState(true);
   return (
     <main style={{ maxWidth: 900, margin: "auto", padding: 16 }}>
-      <section data-testid="body-template">
-        <GptMessageText value={layoutBodySample} rich />
+      <section className="gpt-chat" data-testid="body-template">
+        <article className="message assistant">
+          <div className="message-body">
+            <GptMessageText value={layoutBodySample} rich />
+          </div>
+        </article>
       </section>
       <section data-testid="each">
         <GptMessageText value={eachContent} rich />

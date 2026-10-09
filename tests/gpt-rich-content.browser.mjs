@@ -118,6 +118,22 @@ try {
         await expect(bodyTemplate.locator('[data-layout="grid-item"]')).toHaveCount(15);
         await expect(bodyTemplate).not.toContainText(/\{@body|\{#each|\{t\.|\{c\}/);
         await expect(bodyTemplate).toContainText("Need for Speed");
+        const diagramHeader = bodyTemplate.locator('[data-layout="row"]').first();
+        const headerIcon = diagramHeader.locator('[data-icon="layers"]');
+        await expect(headerIcon).toHaveCount(1);
+        await expect(headerIcon.locator("svg path")).toHaveAttribute("d", /m12 3 10 6/);
+        await expect(diagramHeader).toHaveCSS("flex-wrap", "nowrap");
+        await expect(diagramHeader.locator("p")).toHaveCSS("margin-top", "0px");
+        const iconBounds = await headerIcon.boundingBox(),
+          textBounds = await diagramHeader.locator("p").boundingBox();
+        assert.ok(
+          iconBounds.x + iconBounds.width <= textBounds.x,
+          "icon stays beside wrapped title",
+        );
+        assert.ok(
+          iconBounds.y >= textBounds.y && iconBounds.y < textBounds.y + textBounds.height,
+          "icon does not occupy a separate line",
+        );
         const cells = bodyTemplate.locator('[data-layout="grid-item"] > [data-layout="box"]');
         await expect(cells.nth(2)).toHaveCSS("background-color", "rgba(74, 144, 113, 0.13)");
         await expect(cells.nth(2)).toHaveCSS("padding-left", "4px");
@@ -131,6 +147,19 @@ try {
           "five explicit tabs stay in one row",
         );
         await bodyTemplate.screenshot({ path: join(evidence, `${name}-body-${width}.png`) });
+        if (width === 390) {
+          for (const theme of ["organizer", "classic-dark", "hitech-2000s"]) {
+            await page.evaluate((value) => (document.documentElement.dataset.theme = value), theme);
+            assert.notEqual(
+              await cells.nth(0).evaluate((n) => getComputedStyle(n).backgroundColor),
+              await cells.nth(2).evaluate((n) => getComputedStyle(n).backgroundColor),
+            );
+            await bodyTemplate.screenshot({
+              path: join(evidence, `${name}-body-${theme}-${width}.png`),
+            });
+          }
+          await page.evaluate(() => (document.documentElement.dataset.theme = "crt-green"));
+        }
         const each = page.getByTestId("each");
         await expect(each.locator('[data-layout="row"]')).toHaveCount(5);
         await expect(each).toContainText("Continue game");

@@ -74,6 +74,12 @@ that every native-client feature has an available integration contract.
 
 ## Verification
 
+The October 9 visual comparison fixture includes the actual `layers`/Markdown
+header within GPT message containers. Rows stay on one line unless `wrap` is
+supplied; wrapped title text remains beside its icon. Neutral surfaces remain
+distinct from explicit accent backgrounds in CRT Green, Organizer, Classic Dark
+and Hi-Tech 2000. Layout paragraph margins do not inherit ordinary chat spacing.
+
 Focused parser/projection tests cover nested layouts, source offsets, literal
 code inside/outside layouts, malformed markup, receipt confirmation, canonical
 deduplication and conversation/branch scope. Browser checks exercise the actual
