@@ -157,7 +157,8 @@ public component contract that the native adapter currently drops:
   `state.items`. A query/search ID alone does not identify the returned asset.
 - The implemented projection exports only public, validated display fields, bound
   to the exact message/component. Literal compiled component bindings can add an
-  exact original-props alias for an opaque resolution ID; ambiguous aliases are
+  exact original-props alias for an opaque resolution ID, including the native
+  compiler's `__dilConstants["key"]` table; ambiguous aliases are
   rejected. The compiled program is parsed as data, never executed or exported.
   Never copy executable DIL code or arbitrary
   appData. Preserve original message text and literal code. Verify against an

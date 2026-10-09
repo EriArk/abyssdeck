@@ -255,3 +255,36 @@ test("literal compiled bindings resolve opaque native IDs without executing code
     '__dil.jsx(AsyncImage,{query:"Device",__resolutionId:"image-id"}); __dil.jsx(AsyncImage,{query:"Device",__resolutionId:"other"});';
   assert.equal(nativeRichContent(metadata).length, 2);
 });
+
+test("native hoisted constants retain exact component-to-resolution associations", () => {
+  const metadata = {
+    model_dil_v2: {
+      code: '__dilSafe(()=>(__dil.jsx(Cite,{"refs":__dilConstants["0"],"__resolutionId":__dilConstants["1"]})),null)',
+      constants: { 0: ["native-a", "native-b"], 1: "opaque" },
+      appData: {
+        opGenui: {
+          componentResults: {
+            opaque: {
+              componentName: "Cite",
+              status: "resolved",
+              state: { items: [{ url: "https://original.test" }] },
+            },
+          },
+        },
+      },
+    },
+  };
+  assert.equal(
+    richReference(
+      "Cite",
+      layoutAttributes(' refs={["native-a","native-b"]}'),
+      nativeRichContent(metadata),
+    )?.sources[0].url,
+    "https://original.test/",
+  );
+  delete metadata.model_dil_v2.constants["1"];
+  assert.equal(nativeRichContent(metadata).length, 1);
+  metadata.model_dil_v2.code =
+    '__dil.jsx(Cite,{"refs":__dilConstants.constructor("bad"),"__resolutionId":"opaque"})';
+  assert.equal(nativeRichContent(metadata).length, 1);
+});

@@ -15,6 +15,12 @@ export function nativeRichContent(metadata) {
     if(depth>32)throw Error('depth');
     const t=tokens[cursor.i++];
     if(t?.startsWith('"'))return JSON.parse(t);
+    if(t==='__dilConstants'){
+      if(tokens[cursor.i++]!=='[')throw Error('constant');
+      const key=literal(cursor,depth+1),constants=record(metadata?.model_dil_v2?.constants);
+      if(tokens[cursor.i++]!==']'||typeof key!=='string'||!Object.hasOwn(constants,key))throw Error('constant');
+      return constants[key];
+    }
     // Native compilation uses JSON literals. Single quotes and expressions are
     // deliberately not interpreted as data without a verified contract.
     if(t==='null')return null;if(t==='true')return true;if(t==='false')return false;
