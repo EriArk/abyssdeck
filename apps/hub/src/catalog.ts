@@ -19,6 +19,7 @@ import { type EntityAction, Library } from "./library.js";
 import { displayUserText, NativeImages } from "./nativeImages.js";
 import { Previews } from "./previews.js";
 import type { MessageRecord, Store, ThreadRecord } from "./store.js";
+import { visibleCodexThreadSql } from "./thread-visibility.js";
 
 const obj = (v: unknown): Record<string, unknown> =>
   v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
@@ -415,7 +416,9 @@ export class Catalog {
         source: p.discovered ? "codex" : "configured",
         threadCount: Number(
           this.store.db
-            .prepare("SELECT COUNT(*) AS n FROM threads WHERE projectId=? AND archived=0")
+            .prepare(
+              `SELECT COUNT(*) AS n FROM threads t WHERE t.projectId=? AND t.diagnostic=0 AND ${visibleCodexThreadSql}`,
+            )
             .get(p.id)?.n ?? 0,
         ),
       };

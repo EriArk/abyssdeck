@@ -506,7 +506,7 @@ export async function createApp(
     }
     return {
       threads: store
-        .threads(project.id)
+        .visibleThreads(project.id)
         .filter((t) => !t.diagnostic)
         .filter((t) =>
           projectPathAllowed(

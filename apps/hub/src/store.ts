@@ -24,6 +24,7 @@ import {
 
 import { codexRequestCount, codexRequests } from "./codex-results.js";
 import { migrateDatabase } from "./migrations.js";
+import { visibleCodexThreadSql } from "./thread-visibility.js";
 
 export interface ThreadRecord {
   id: string;
@@ -117,10 +118,16 @@ export class Store {
       | undefined;
   }
   threads(projectId: string): ThreadRecord[] {
+    return this.threadList(projectId, "t.archived=0");
+  }
+  visibleThreads(projectId: string): ThreadRecord[] {
+    return this.threadList(projectId, `${visibleCodexThreadSql} AND t.diagnostic=0`);
+  }
+  private threadList(projectId: string, where: string): ThreadRecord[] {
     return (
       this.db
         .prepare(
-          "SELECT * FROM threads WHERE projectId=? AND archived=0 ORDER BY CASE WHEN status IN ('starting','running','waiting_approval') THEN 0 ELSE 1 END, CASE WHEN status IN ('starting','running','waiting_approval') THEN activityAt ELSE updatedAt END DESC, id LIMIT 200",
+          `SELECT t.* FROM threads t WHERE t.projectId=? AND ${where} ORDER BY CASE WHEN status IN ('starting','running','waiting_approval') THEN 0 ELSE 1 END, CASE WHEN status IN ('starting','running','waiting_approval') THEN activityAt ELSE updatedAt END DESC, t.id LIMIT 200`,
         )
         .all(projectId) as unknown as ThreadRecord[]
     ).map((t) => ({ ...t, settings: this.threadSettings(t.id) }));
@@ -229,18 +236,19 @@ export class Store {
     );
     const rows = this.db
       .prepare(
-        "SELECT id,projectId,title,status,activeTurnId,updatedAt,activityAt,completedSeq,seenSeq,completedTurnId,completedStatus,activitySource FROM threads WHERE archived=0",
+        `SELECT t.id,t.projectId,t.title,t.status,t.activeTurnId,t.updatedAt,t.activityAt,t.completedSeq,t.seenSeq,t.completedTurnId,t.completedStatus,t.activitySource,t.diagnostic FROM threads t WHERE ${visibleCodexThreadSql}`,
       )
-      .all() as unknown as ThreadActivity[];
+      .all() as unknown as (ThreadActivity & { diagnostic: number })[];
     const groups = new Map<string, ThreadActivity[]>();
     const serviceThreads: ThreadActivity[] = [];
-    for (const thread of rows) {
+    for (const { diagnostic, ...thread } of rows) {
       const project = projects.get(thread.projectId);
       if (!project) continue;
       if (doctor?.threadId === thread.id && doctor.projectId === thread.projectId) {
         serviceThreads.push({ ...thread, bridgeDoctor: true });
         continue;
       }
+      if (diagnostic) continue;
       const active = isActiveThread(thread.status);
       project.active += Number(active);
       project.unread += Number(hasUnreadCompletion(thread));

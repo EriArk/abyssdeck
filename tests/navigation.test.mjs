@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { createApp } from "../apps/hub/dist/app.js";
+import { Library } from "../apps/hub/dist/library.js";
 import { Store } from "../apps/hub/dist/store.js";
 import {
   compareActivity,
@@ -20,6 +21,54 @@ const complete = (store, id, turnId = randomUUID(), status = "completed") => {
   store.setStatus(id, status);
   return store.append(id, "turn.completed", { status }, turnId).seq;
 };
+
+test("project lists and activity exclude library tombstones before counting and bounding, retaining receipts", () => {
+  const store = new Store(":memory:");
+  try {
+    const library = new Library(store, "codex");
+    const live = store.createThread("p", "live", "Visible running chat");
+    complete(store, live.id, "previous");
+    store.setStatus(live.id, "running", "current");
+    for (let i = 0; i < 210; i++) {
+      const old = store.createThread("p", "deleted-" + i, "Deleted");
+      complete(store, old.id, "done-" + i, "failed");
+      library.save("thread", old.codexThreadId, { deleted: true, localId: old.id });
+    }
+    const archived = store.createThread("p", "archived", "Locally archived");
+    store.setStatus(archived.id, "waiting_approval", "pending");
+    library.save("thread", "local-alias", { archived: true, localId: archived.id });
+    const otherClient = new Library(store, "gpt");
+    otherClient.save("thread", live.codexThreadId, { deleted: true });
+    const nav = store.navigation(["p"]);
+    assert.deepEqual(
+      nav.threads.map((t) => t.id),
+      [live.id],
+    );
+    assert.deepEqual(
+      [nav.projects[0].active, nav.projects[0].unread, nav.projects[0].waiting],
+      [1, 0, 0],
+    );
+    assert.deepEqual(
+      store.visibleThreads("p").map((t) => t.id),
+      [live.id],
+    );
+    assert(
+      store.threads("p").some((t) => t.id === archived.id),
+      "runtime admission still sees hidden work",
+    );
+    const saved = store.threadByCodex("deleted-0");
+    assert.equal(saved.completedStatus, "failed");
+    assert(saved.completedSeq > saved.seenSeq, "unseen receipt was not cleared");
+    library.save("thread", "deleted-0", { deleted: false });
+    assert.equal(
+      store.navigation(["p"]).projects[0].unread,
+      1,
+      "restoring a chat restores its unread outcome",
+    );
+  } finally {
+    store.close();
+  }
+});
 
 test("navigation has exact counts beyond the list bound, stable active order and no conversation contents", () => {
   const store = new Store(":memory:");
@@ -122,6 +171,14 @@ test("global navigation stream updates unopened chats and read receipts across c
       csrf = enrolled.json().csrf;
     const headers = { origin, cookie, "x-csrf-token": csrf };
     const t = store.createThread("p", "native", "Unopened");
+    const hidden = store.createThread("p", "old-native", "Deleted predecessor");
+    complete(store, hidden.id, "old", "failed");
+    new Library(store, "codex").save("thread", hidden.codexThreadId, {
+      deleted: true,
+      localId: hidden.id,
+    });
+    const catalog = await app.inject({ url: "/api/projects", headers });
+    assert.equal(catalog.json().projects.find((p) => p.id === "p").threadCount, 1);
     assert.equal(
       (
         await app.inject({
@@ -151,9 +208,17 @@ test("global navigation stream updates unopened chats and read receipts across c
       throw Error("No navigation frame");
     };
     await waitFor(() => frames.every((f) => f.at(-1)?.threads.some((item) => item.id === t.id)));
+    assert(frames.every((f) => !f.at(-1).threads.some((item) => item.id === hidden.id)));
     store.setStatus(t.id, "running", "turn");
     await waitFor(() => frames.every((f) => f.at(-1)?.projects[0]?.active === 1));
     const seq = complete(store, t.id, "turn");
+    await waitFor(() => frames.every((f) => f.at(-1)?.projects[0]?.unread === 1));
+    const library = new Library(store, "codex");
+    library.save("thread", t.codexThreadId, { archived: true });
+    await waitFor(() => frames.every((f) => f.at(-1)?.projects[0]?.unread === 0));
+    const snapshot = (await app.inject({ url: "/api/navigation", headers })).json();
+    assert.equal(snapshot.threads.length, 0);
+    library.save("thread", t.codexThreadId, { archived: false });
     await waitFor(() => frames.every((f) => f.at(-1)?.projects[0]?.unread === 1));
     assert.equal(
       (

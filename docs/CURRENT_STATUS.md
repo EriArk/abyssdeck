@@ -1,22 +1,21 @@
 # Текущий статус — 9 октября 2026
 
-### Project activity and unread outcomes — October 9 (installed)
+### Project activity: deleted-chat counts — October 9 (correction in progress)
 
-The reported TrainerOS project has one running chat and one unseen failed outcome
-in a different chat. Concurrent activity/unread indicators are valid, but the
-shared badge incorrectly defaulted an untyped aggregate count to successful.
-It now uses an inbox symbol and "Непросмотренные итоги" unless the caller provides
-an explicit outcome: known success retains a check, known failure its attention
-marker. This covers project rows, section totals, project overview and GPT's
-untyped unread counts without changing status, read receipts or polling.
-Build/typecheck passed. Focused browser cases passed in Chromium/WebKit at 390
-and 1024 widths: mixed activity, success, failure, waiting and zero counts. Existing
-queue/read-receipt checks passed in both engines. Web-only publication installed
-revision `765bd08c`, public version
-`fddba260fbcf35a1295885a5a7b8852cc06de0c57f043ef40a54af327288cc70`.
-Authenticated public readback confirmed that version; engine/gateway and both
-GPT clients retained their previous images, start times and zero restarts.
-No physical-device acceptance is inferred from browser automation.
+Correction to the previous diagnosis and web release `765bd08c`: TrainerOS has
+one visible chat. The other two stored rows are explicitly deleted in the Codex
+library. The navigation aggregator and project thread count ignored these
+tombstones while the UI hid their rows; a deleted chat's unseen failed outcome
+produced the extra indicator. Replacing checkmarks with inbox icons did not fix
+this defect and is reverted.
+
+Presentation queries now share one library-aware visibility rule before counting,
+sorting and pagination: navigation snapshots/streams, project counts, chat lists,
+overview and automatic current-chat selection exclude archived/deleted entries
+using exact native/local identities. Storage/history/receipts and runtime safety
+queries remain intact. A single active chat suppresses its previous unread badge;
+only aggregate project/section badges may represent different visible chats.
+Installation and verification of this correction are still pending.
 
 ### Document navigation and interactive layouts — October 9 (installed)
 

@@ -15,6 +15,7 @@ import { ProjectCores } from "./project-core.js";
 import { ProjectPlans } from "./project-plans.js";
 import type { Sessions } from "./sessions.js";
 import { WorkspaceTasks } from "./tasks.js";
+import { visibleCodexThreadSql } from "./thread-visibility.js";
 
 const live = "('starting','running','waiting_approval')";
 export class ProjectHome {
@@ -70,8 +71,7 @@ export class ProjectHome {
       updatedAt: core.updatedAt,
     };
     if (!project) return value;
-    const where =
-      "t.projectId=? AND t.archived=0 AND t.diagnostic=0 AND NOT EXISTS(SELECT 1 FROM library_entities e WHERE e.client='codex' AND e.kind='thread' AND e.id=t.codexThreadId AND (json_extract(e.value,'$.deleted')=1 OR json_extract(e.value,'$.archived')=1))";
+    const where = `t.projectId=? AND t.diagnostic=0 AND ${visibleCodexThreadSql}`;
     const rows = db
       .prepare(
         `SELECT t.id,t.title,t.status,t.updatedAt,t.status IN ${live} AS active,(t.status NOT IN ${live} AND t.completedSeq>t.seenSeq) AS unread FROM threads t WHERE ${where} ORDER BY active DESC,COALESCE(t.activityAt,t.updatedAt) DESC,t.id LIMIT 4`,

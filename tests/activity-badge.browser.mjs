@@ -55,10 +55,13 @@ try {
           row("mixed").getByRole("img", { name: "Активно: 1", exact: true }),
         ).toBeVisible();
         await expect(
-          row("mixed").getByRole("img", { name: "Непросмотренные итоги: 1", exact: true }),
+          row("mixed").getByRole("img", { name: "Завершено, не просмотрено: 1", exact: true }),
         ).toBeVisible();
         await expect(row("mixed").locator(".spinner")).toHaveCount(1);
-        await expect(row("mixed").locator('path[d="m5 12 4 4L19 6"]')).toHaveCount(0);
+        await expect(row("mixed").locator('path[d="m5 12 4 4L19 6"]')).toHaveCount(1);
+        await expect(row("single").locator(".spinner")).toHaveCount(1);
+        await expect(row("single").locator(".is-unread")).toHaveCount(0);
+        await expect(row("waiting").locator(".is-unread")).toHaveCount(0);
         await expect(
           row("success").getByRole("img", { name: "Завершено, не просмотрено: 1", exact: true }),
         ).toBeVisible();

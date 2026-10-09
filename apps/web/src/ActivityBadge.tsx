@@ -4,22 +4,21 @@ export function ActivityBadge({
   active = 0,
   unread = 0,
   waiting = 0,
-  failed,
+  failed = false,
+  aggregate = false,
   counts = false,
 }: {
   active?: number;
   unread?: number;
   waiting?: number;
   failed?: boolean;
+  aggregate?: boolean;
   counts?: boolean;
 }) {
-  // Aggregated/untyped unread counts do not establish a successful outcome.
-  const unreadLabel =
-    failed === true
-      ? "Требует проверки"
-      : failed === false
-        ? "Завершено, не просмотрено"
-        : "Непросмотренные итоги";
+  // One active chat cannot simultaneously advertise its previous completion.
+  // Project/section totals may represent different visible chats.
+  if (active > 0 && !aggregate) unread = 0;
+  const unreadLabel = failed ? "Требует проверки" : "Завершено, не просмотрено";
   return (
     <span className="activity-badges">
       {(active > 0 || counts) && (
@@ -46,7 +45,7 @@ export function ActivityBadge({
           aria-label={`${unreadLabel}: ${unread}`}
           title={`${unreadLabel}: ${unread}`}
         >
-          <Icon name={failed === true ? "help" : failed === false ? "check" : "inbox"} size={16} />
+          <Icon name={failed ? "help" : "check"} size={16} />
           {counts && <b>{unread}</b>}
         </span>
       )}

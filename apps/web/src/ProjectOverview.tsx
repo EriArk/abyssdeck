@@ -228,7 +228,11 @@ export function ProjectOverview({
                   <header>
                     <h2>Сейчас</h2>
                     {data.activity && (
-                      <ActivityBadge active={data.activity.active} unread={data.activity.unread} />
+                      <ActivityBadge
+                        aggregate
+                        active={data.activity.active}
+                        unread={data.activity.unread}
+                      />
                     )}
                   </header>
                   {currentRow ? (

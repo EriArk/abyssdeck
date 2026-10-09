@@ -309,6 +309,7 @@ export function ProjectNavigation({
                 Проекты <small>{folders.length}</small>
               </span>
               <ActivityBadge
+                aggregate
                 counts
                 active={folders.filter((p) => summary(p).active > 0).length}
                 waiting={
@@ -338,6 +339,7 @@ export function ProjectNavigation({
                 </small>
               </span>
               <ActivityBadge
+                aggregate
                 counts
                 active={standalone.reduce(
                   (sum, p) => sum + summary(p).active,
@@ -447,6 +449,7 @@ export function ProjectNavigation({
                           <small>{p.machineName}</small>
                         </span>
                         <ActivityBadge
+                          aggregate
                           active={summary(p).active}
                           unread={summary(p).unread}
                           waiting={summary(p).waiting}

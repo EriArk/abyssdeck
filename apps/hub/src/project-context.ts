@@ -11,6 +11,7 @@ import { ProjectCores, projectKey } from "./project-core.js";
 import { ProjectPlans } from "./project-plans.js";
 import type { Sessions } from "./sessions.js";
 import { WorkspaceTasks } from "./tasks.js";
+import { visibleCodexThreadSql } from "./thread-visibility.js";
 
 const active = ["starting", "running", "waiting_approval", "unknown"];
 export class ProjectContext {
@@ -101,7 +102,7 @@ export class ProjectContext {
       scope.client === "codex"
         ? this.db
             .prepare(
-              "SELECT t.id FROM threads t WHERE t.projectId=? AND t.archived=0 AND t.diagnostic=0 AND NOT EXISTS(SELECT 1 FROM library_entities e WHERE e.client='codex' AND e.kind='thread' AND e.id=t.codexThreadId AND (json_extract(e.value,'$.deleted')=1 OR json_extract(e.value,'$.archived')=1)) ORDER BY CASE WHEN t.status IN ('starting','running','waiting_approval','unknown') THEN 0 ELSE 1 END,COALESCE(t.activityAt,t.updatedAt) DESC,t.id LIMIT 1",
+              `SELECT t.id FROM threads t WHERE t.projectId=? AND t.diagnostic=0 AND ${visibleCodexThreadSql} ORDER BY CASE WHEN t.status IN ('starting','running','waiting_approval','unknown') THEN 0 ELSE 1 END,COALESCE(t.activityAt,t.updatedAt) DESC,t.id LIMIT 1`,
             )
             .all(scope.projectId)
         : this.db

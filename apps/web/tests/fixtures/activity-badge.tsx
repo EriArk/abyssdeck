@@ -6,6 +6,9 @@ import "../../src/workspace.css";
 createRoot(document.getElementById("root")!).render(
   <main>
     <div data-case="mixed">
+      <ActivityBadge aggregate active={1} unread={1} />
+    </div>
+    <div data-case="single">
       <ActivityBadge active={1} unread={1} />
     </div>
     <div data-case="success">
