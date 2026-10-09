@@ -35,6 +35,14 @@ The exact G2 answer now returns its original image and five sources, but readbac
 exposed opaque resolution IDs absent from the raw markup. The binding follow-up
 is under verification; asset restoration is not yet accepted.
 
+The karaoke follow-up is published as web revision `1d60af86`, version
+`c620aba10da026fc69af84e97b696ebd49988b02dfe8927cb6679d53584ee6d5`.
+All six Chromium/WebKit viewport checks include the complete native diagram,
+68 waveform bars, eight grid lines, color markers and catalogue icons. Original
+Hub/engine processes were retained for this web publication. The owner adapter
+binding reader is also at `26.928.31416-1d60af86`; fresh G2 readback still finds
+unmatched opaque IDs, so image/citation restoration remains open.
+
 ### GPT missing image layout and unresolved native assets — October 9
 
 The G2 comparison screenshot exposes an `AsyncImage` placeholder ignoring the

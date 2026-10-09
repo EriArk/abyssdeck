@@ -8,7 +8,7 @@ export async function nativeRead(request, load = () => nativeModule(), runtime =
  const fail = code => { throw Error(`NATIVE_${code}`); };
  const projectId = value => typeof value==='string'&&/^g-p-[a-zA-Z0-9-]{1,80}$/.test(value);
  const uuid = value => typeof value === 'string' && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(value);
- if (!request || !['inspectAccount', 'readConversation', 'readModels', 'readPins', 'readSubmission','readCatalog','findCreation','readProjects','readProject','readProjectConversations','readConversationGraph','readHistoryUpdate'].includes(request.operation)) fail('READ_ONLY');
+ if (!request || !['readPublicPresentation','inspectAccount', 'readConversation', 'readModels', 'readPins', 'readSubmission','readCatalog','findCreation','readProjects','readProject','readProjectConversations','readConversationGraph','readHistoryUpdate'].includes(request.operation)) fail('READ_ONLY');
  if(request.archived!=null&&typeof request.archived!=='boolean')fail('INVALID_REQUEST');
  if(request.operation==='readCatalog'&&(!/^[a-f0-9]{64}$/.test(request.accountFingerprint??'')||!Number.isSafeInteger(request.offset??0)||(request.offset??0)<0||(request.offset??0)>10000))fail('INVALID_REQUEST');
  if(request.operation==='findCreation'&&(!uuid(request.userMessageId)||!uuid(request.parentId)||typeof request.text!=='string'||
@@ -16,10 +16,11 @@ export async function nativeRead(request, load = () => nativeModule(), runtime =
  if(request.operation==='readSubmission'&&(!uuid(request.conversationId)||!uuid(request.userMessageId)||!uuid(request.parentId)||
     typeof request.text!=='string'||request.text.length>100000||!/^[a-f0-9]{64}$/.test(request.accountFingerprint??'')))fail('INVALID_REQUEST');
  if (request.operation === 'readModels' && !/^[a-f0-9]{64}$/.test(request.accountFingerprint ?? '')) fail('INVALID_REQUEST');
- if (['readConversation','readConversationGraph','readHistoryUpdate'].includes(request.operation) && (!uuid(request.conversationId) ||
+ if (['readPublicPresentation','readConversation','readConversationGraph','readHistoryUpdate'].includes(request.operation) && (!uuid(request.conversationId) ||
      !/^[a-f0-9]{64}$/.test(request.accountFingerprint ?? '') ||
      (request.before != null && !uuid(request.before)) ||
      (request.messageId != null && (typeof request.messageId !== 'string' || !/^[a-zA-Z0-9_-]{1,128}$/.test(request.messageId) || request.before != null)))) fail('INVALID_REQUEST');
+ if(request.operation==='readPublicPresentation'&&!uuid(request.messageId))fail('INVALID_REQUEST');
  const build = runtime.electronBridge?.getSentryInitOptions?.().appVersion;
  if (!['26.915.31945','26.928.31416'].includes(build)) fail('UNSUPPORTED_BUILD');
  if(['readProject','readProjectConversations'].includes(request.operation)&&!projectId(request.projectId))fail('INVALID_PROJECT');
@@ -257,6 +258,17 @@ export async function nativeRead(request, load = () => nativeModule(), runtime =
  // Match the pinned client's public summary presentation, never raw analysis.
  // Keep this shared by history and exact-message artifact authorization.
  const publicContent = nativePublicContent;
+ // Explicit local audit of one public presentation. No tool/analysis metadata,
+ // generic execution, navigation or mutation; ordinary history never exports it.
+ if(request.operation==='readPublicPresentation'){
+  const message=Object.values(mapping).find(n=>n?.message?.id===request.messageId)?.message;
+  if(message?.author?.role!=='assistant'||!publicContent(message)||message.channel==='analysis')fail('PUBLIC_MESSAGE_REQUIRED');
+  const view=message.metadata?.model_dil_v2;
+  if(!view||typeof view.code!=='string')fail('PRESENTATION_UNAVAILABLE');
+  const result={conversationId:request.conversationId,messageId:message.id,code:view.code,constants:view.constants??{},componentKeys:Object.fromEntries(Object.entries(view.appData?.opGenui?.componentResults??{}).map(([k,v])=>[k,{componentName:v?.componentName,fields:Object.keys(v??{})}]))};
+  if(new TextEncoder().encode(JSON.stringify(result)).length>1024**2)fail('RESPONSE_TOO_LARGE');
+  return result;
+ }
  const stopped = m => m && (m.metadata?.finish_details?.type==='interrupted'||m.metadata?.is_error===true||
   (m.status==='finished_partial_completion'&&m.end_turn===true)||['error','system_error'].includes(m.content?.content_type));
  // A failed turn can end on a hidden error node. Retain its preceding public

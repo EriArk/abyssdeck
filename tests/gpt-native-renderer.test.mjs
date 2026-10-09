@@ -713,9 +713,11 @@ test("exact-message lookup can resolve older artifacts without exporting other h
 });
 
 test("large native history is consumed before applying the public projection budget", async () => {
-  const f = fixture(), accountFingerprint = await f.binding();
+  const f = fixture(),
+    accountFingerprint = await f.binding();
   f.node(2, "private native payload ".repeat(900000), {
-    author: { role: "tool" }, channel: "analysis",
+    author: { role: "tool" },
+    channel: "analysis",
   });
   f.node(3, "Latest public answer", { end_turn: true });
   assert.ok(Buffer.byteLength(JSON.stringify(f.conversation)) > 16 * 1024 ** 2);
@@ -742,7 +744,10 @@ test("wrong conversation, cycles, missing parents and oversized public projectio
   f.conversation.mapping[id(1)].parent = id(99);
   await assert.rejects(f.read(request), /INVALID_HISTORY/);
   f.node(1, "a".repeat(16 * 1024 * 1024 + 1));
-  await assert.rejects(f.read({ ...request, operation: "readConversationGraph" }), /HISTORY_TOO_LARGE/);
+  await assert.rejects(
+    f.read({ ...request, operation: "readConversationGraph" }),
+    /HISTORY_TOO_LARGE/,
+  );
 });
 
 test("credentials, signed media and unknown structures are not serialized", async () => {
@@ -1186,23 +1191,75 @@ test("persisted receipt reconciles native replacement of a vanished transient pa
 });
 
 test("component metadata survives canonical and receipt reads and invalidates incremental history", async () => {
-  const f=fixture(), accountFingerprint=await f.binding();
-  const key=JSON.stringify(['AsyncImage',{query:'Test'}]);
-  const meta={model_dil_v2:{code:'PRIVATE',appData:{opGenui:{componentResults:{[key]:{status:'pending'}}}}}};
-  f.node(1,'Parent');
-  f.node(2,'Question',{author:{role:'user'},id:id(2)});
-  f.node(3,'<AsyncImage query="Test"/>',{metadata:meta,end_turn:true});
-  f.node(4,'PRIVATE',{channel:'analysis',metadata:meta});
-  const request={operation:'readHistoryUpdate',conversationId,accountFingerprint};
-  const first=await f.read(request,true);
-  assert.equal(first.graph.mapping[id(3)].message.metadata.codex_rich[0].status,'pending');
-  assert.equal(first.graph.mapping[id(4)].message,null);
-  assert.doesNotMatch(JSON.stringify(first),/PRIVATE|model_dil|appData/);
-  meta.model_dil_v2.appData.opGenui.componentResults[key]={status:'resolved',state:{images:[{content_url:'https://image.test/photo.png'}]}};
-  [...f.runtime[Symbol.for('codex-web.native-history')].values()][0].at-=16000;
-  const next=await f.read({...request,revision:first.revision},true);
-  assert.equal(next.kind,'delta');
-  assert.deepEqual(Object.keys(next.graph.mapping),[id(3)]);
-  const receipt=await f.read({operation:'readSubmission',conversationId,accountFingerprint,userMessageId:id(2),parentId:id(1),text:'Question',intentPersisted:true});
-  assert.equal(receipt.messages[0].richReferences[0].images[0].src,'https://image.test/photo.png');
+  const f = fixture(),
+    accountFingerprint = await f.binding();
+  const key = JSON.stringify(["AsyncImage", { query: "Test" }]);
+  const meta = {
+    model_dil_v2: {
+      code: "PRIVATE",
+      appData: { opGenui: { componentResults: { [key]: { status: "pending" } } } },
+    },
+  };
+  f.node(1, "Parent");
+  f.node(2, "Question", { author: { role: "user" }, id: id(2) });
+  f.node(3, '<AsyncImage query="Test"/>', { metadata: meta, end_turn: true });
+  f.node(4, "PRIVATE", { channel: "analysis", metadata: meta });
+  const request = { operation: "readHistoryUpdate", conversationId, accountFingerprint };
+  const first = await f.read(request, true);
+  assert.equal(first.graph.mapping[id(3)].message.metadata.codex_rich[0].status, "pending");
+  assert.equal(first.graph.mapping[id(4)].message, null);
+  assert.doesNotMatch(JSON.stringify(first), /PRIVATE|model_dil|appData/);
+  meta.model_dil_v2.appData.opGenui.componentResults[key] = {
+    status: "resolved",
+    state: { images: [{ content_url: "https://image.test/photo.png" }] },
+  };
+  [...f.runtime[Symbol.for("codex-web.native-history")].values()][0].at -= 16000;
+  const next = await f.read({ ...request, revision: first.revision }, true);
+  assert.equal(next.kind, "delta");
+  assert.deepEqual(Object.keys(next.graph.mapping), [id(3)]);
+  const receipt = await f.read({
+    operation: "readSubmission",
+    conversationId,
+    accountFingerprint,
+    userMessageId: id(2),
+    parentId: id(1),
+    text: "Question",
+    intentPersisted: true,
+  });
+  assert.equal(receipt.messages[0].richReferences[0].images[0].src, "https://image.test/photo.png");
+});
+
+test("explicit presentation audit is exact-message public-only and never executes compiled code", async () => {
+  const f = fixture(),
+    accountFingerprint = await f.binding();
+  const view = {
+    code: 'throw Error("MUST_NOT_EXECUTE")',
+    constants: { a: "Public" },
+    appData: {
+      private: "NOT_EXPORTED",
+      opGenui: {
+        componentResults: {
+          id: { componentName: "Cite", status: "resolved", state: { private: "NOT_EXPORTED" } },
+        },
+      },
+    },
+  };
+  f.node(2, "Public", { id: id(2), metadata: { model_dil_v2: view } });
+  f.node(3, "Private", { id: id(3), channel: "analysis", metadata: { model_dil_v2: view } });
+  const input = {
+    operation: "readPublicPresentation",
+    conversationId,
+    messageId: id(2),
+    accountFingerprint,
+  };
+  const result = await f.read(input);
+  assert.equal(result.code, view.code);
+  assert.equal(result.messageId, id(2));
+  assert.doesNotMatch(JSON.stringify(result), /NOT_EXPORTED/);
+  await assert.rejects(f.read({ ...input, messageId: id(3) }), /PUBLIC_MESSAGE_REQUIRED/);
+  await assert.rejects(
+    f.read({ ...input, accountFingerprint: "f".repeat(64) }),
+    /ACCOUNT_MISMATCH/,
+  );
+  await assert.rejects(f.read({ ...input, messageId: undefined }), /INVALID_REQUEST/);
 });

@@ -180,3 +180,9 @@ The optional private sample input adds the affected chat's actual public output
 to the same test without embedding private content in fixtures.
 
 Installation status is recorded separately in [CURRENT_STATUS](CURRENT_STATUS.md).
+
+Local compatibility audits can explicitly read one public presentation through
+`readPublicPresentation` on the existing bound native socket. It returns the
+native view program as inert text, constants and component field names; never
+executes that program, returns hidden messages or adds a Hub/browser endpoint.
+Ordinary chat projections continue to exclude executable view programs.

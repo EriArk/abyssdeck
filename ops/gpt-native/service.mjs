@@ -71,7 +71,7 @@ export class NativeReadService {
       openMedia:['transferId','conversationId','messageId','fileId','projectId'], readMedia:['transferId','offset'], closeMedia:['transferId'],
       workspace:['action','id','conversationId','version','cursor'],
       status: ['capabilities','historyUpdates'], beginManual: ['leaseId'], endManual: ['leaseId'], resumeManual: [],
-      inspectProject: ['projectId'], readModels: [], readPins: [], readHistoryUpdate:['conversationId','revision'], readConversationGraph:['conversationId'], readProjects:['cursor'], readProject:['projectId'], readProjectConversations:['projectId','cursor'], readCatalog:['offset','archived'], readConversation: ['conversationId', 'before'],
+      inspectProject: ['projectId'], readModels: [], readPins: [], readHistoryUpdate:['conversationId','revision'], readConversationGraph:['conversationId'], readPublicPresentation:['conversationId','messageId'], readProjects:['cursor'], readProject:['projectId'], readProjectConversations:['projectId','cursor'], readCatalog:['offset','archived'], readConversation: ['conversationId', 'before'],
       listArtifacts: ['conversationId', 'before'], readArtifact: ['conversationId', 'messageId', 'artifactId'],
     }[input.operation];
     if (!Array.isArray(fields) || Object.keys(input).some(k => !['userId', 'operation', ...fields].includes(k))) fail('INVALID_REQUEST');
@@ -102,7 +102,7 @@ export class NativeReadService {
       return { manual: this.leases.size > 0, writesEnabled: false };
     }
     if (this.leases.size) fail('MANUAL_RECOVERY');
-    const readOnly = ['readHistoryUpdate','readConversationGraph','readConversation','readModels','readCatalog',
+    const readOnly = ['readPublicPresentation','readHistoryUpdate','readConversationGraph','readConversation','readModels','readCatalog',
       'readPins','readProjects','readProject','readProjectConversations','inspectProject','listArtifacts'].includes(input.operation) || (input.operation==='workspace' && ['scheduledList','scheduledRead','activity'].includes(input.action));
     const media = ['openMedia','readMedia','closeMedia','readArtifact'].includes(input.operation);
     if (readOnly || media) {
