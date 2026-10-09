@@ -105,7 +105,8 @@ longer rebuild or scan the complete attachment list for every answer step. The
 regression fixture contains 10,000 attachments and checks lookup/enumeration
 counts, not a machine-dependent timing threshold.
 
-The data interpreter now handles arithmetic, numeric comparisons and scoped
+The data interpreter now handles arithmetic, finite pure Math operations, generated
+Array.from ranges with lexical data mappers, numeric comparisons and scoped
 {#if}/{:else}, alongside declarations, nested lists and ternary expressions.
 Repeated template bodies reuse parsed Markdown rather than reparsing it for
 every iteration. Combinatorial expansion beyond the body-evaluation or generated-text budget
@@ -128,6 +129,12 @@ This coverage does not claim support for every undocumented native component,
 TeX/Mermaid, arbitrary Canvas applications, action callbacks or native audio/video
 payloads. Unsupported content is preserved rather than silently deleted.
 
+Native content icon names use the pinned Lucide catalogue in a separately loaded
+chunk, replacing the partial application-icon alias table. Unknown names remain
+identified. Explicit box dimensions and square size retain small color legends.
+The karaoke regression checks 68 mathematically positioned waveform bars, eight
+pitch-grid lines, distinct color markers and all four transport icons.
+
 ## Verification
 
 ### October 9 image/citation follow-up
@@ -149,7 +156,10 @@ public component contract that the native adapter currently drops:
 - `AsyncImage` reads `state.images` plus frame dimensions. `Cite` reads
   `state.items`. A query/search ID alone does not identify the returned asset.
 - The implemented projection exports only public, validated display fields, bound
-  to the exact message/component; never copy executable DIL code or arbitrary
+  to the exact message/component. Literal compiled component bindings can add an
+  exact original-props alias for an opaque resolution ID; ambiguous aliases are
+  rejected. The compiled program is parsed as data, never executed or exported.
+  Never copy executable DIL code or arbitrary
   appData. Preserve original message text and literal code. Verify against an
   isolated native fixture before production activation; do not use a live
   supervisor inspector probe, which caused an unexpected native restart here.

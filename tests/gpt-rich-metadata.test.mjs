@@ -11,13 +11,35 @@ import { mergeGptSteps } from "../apps/web/src/gptLiveResults.ts";
 import { gptFileIndex, gptCitedFiles } from "../packages/shared/dist/gpt.js";
 
 test("citation lookup indexes large attachment histories once and keeps templated exact IDs", () => {
-  const files = Array.from({ length: 10000 }, (_, i) => ({ id: `file_${i}`, name: `${i}.txt`, url: `/file/${i}` }));
+  const files = Array.from({ length: 10000 }, (_, i) => ({
+    id: `file_${i}`,
+    name: `${i}.txt`,
+    url: `/file/${i}`,
+  }));
   let enumerations = 0;
-  const index = gptFileIndex([{ get files() { enumerations++; return files; } }]);
+  const index = gptFileIndex([
+    {
+      get files() {
+        enumerations++;
+        return files;
+      },
+    },
+  ]);
   let lookups = 0;
-  const lookup = { size: index.size, get(id) { lookups++; return index.get(id); } };
-  const source = '<FileCite ref="file_1"/> <box>{@body const refs=["file_9999"]}{#each refs as r}<FileCite ref={r}/>{/each}</box>';
-  for (let i = 0; i < 100; i++) assert.deepEqual(gptCitedFiles(source, lookup).map(f => f.id), ["file_1", "file_9999"]);
+  const lookup = {
+    size: index.size,
+    get(id) {
+      lookups++;
+      return index.get(id);
+    },
+  };
+  const source =
+    '<FileCite ref="file_1"/> <box>{@body const refs=["file_9999"]}{#each refs as r}<FileCite ref={r}/>{/each}</box>';
+  for (let i = 0; i < 100; i++)
+    assert.deepEqual(
+      gptCitedFiles(source, lookup).map((f) => f.id),
+      ["file_1", "file_9999"],
+    );
   assert.equal(enumerations, 1);
   assert(lookups < 5000, "work scales with cited text, not all 10,000 attachments per step");
   assert.deepEqual(gptCitedFiles('<FileCite ref="file_10_extra"/>', index), []);
@@ -191,4 +213,45 @@ test("history, Results, receipts and metadata-only updates retain the same refer
     mergeGptSteps([canonical], [{ ...canonical, text: "Stale", richReferences: [] }]),
     [canonical],
   );
+});
+
+test("literal compiled bindings resolve opaque native IDs without executing code or using order", () => {
+  const metadata = {
+    model_dil_v2: {
+      code: 'DIL.render(__dil.jsx(AsyncImage,{query:"Device",maxWidth:"155px",__resolutionId:"image-id"})); __dil.jsx(Cite,{refs:["r2","r1"],__resolutionId:"cite-id"});',
+      appData: {
+        opGenui: {
+          componentResults: {
+            "cite-id": {
+              componentName: "Cite",
+              status: "resolved",
+              state: { items: [{ url: "https://source.test" }] },
+            },
+            "image-id": {
+              componentName: "AsyncImage",
+              status: "resolved",
+              state: { images: [{ content_url: "https://image.test/x" }] },
+            },
+          },
+        },
+      },
+    },
+  };
+  const refs = nativeRichContent(metadata);
+  assert.equal(
+    richReference("AsyncImage", layoutAttributes(' query="Device" maxWidth="155px"'), refs)
+      ?.images[0].src,
+    "https://image.test/x",
+  );
+  assert.equal(
+    richReference("Cite", layoutAttributes(' refs={["r2","r1"]}'), refs)?.sources.length,
+    1,
+  );
+  assert.equal(richReference("Cite", layoutAttributes(' refs={["r1","r2"]}'), refs), undefined);
+  metadata.model_dil_v2.code =
+    '__dil.jsx(AsyncImage,{query:fetch("x"),__resolutionId:"image-id"});';
+  assert.equal(nativeRichContent(metadata).length, 2);
+  metadata.model_dil_v2.code =
+    '__dil.jsx(AsyncImage,{query:"Device",__resolutionId:"image-id"}); __dil.jsx(AsyncImage,{query:"Device",__resolutionId:"other"});';
+  assert.equal(nativeRichContent(metadata).length, 2);
 });

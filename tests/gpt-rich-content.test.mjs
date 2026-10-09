@@ -400,3 +400,32 @@ test("large repeated template text falls back without truncating source", () => 
   const fallback = flatten(parse(source)).find((n) => n.type === "gptUnsupported");
   assert.equal(fallback.data.hProperties.dataGptText, source);
 });
+
+test("generated SVG ranges and pure mathematics preserve native waveform geometry", () => {
+  const source =
+    '<box><svg viewBox="0 0 340 60">{#each Array.from({length:68},(_,i)=>i) as i}<line x1={i*5+2} x2={i*5+2} y1={30-(6+Math.abs(Math.sin(i*1.91)*15)+Math.abs(Math.sin(i*.32)*9))} y2={30+(6+Math.abs(Math.sin(i*1.91)*15)+Math.abs(Math.sin(i*.32)*9))}/>{/each}</svg></box>';
+  const lines = flatten(parse(source)).filter((n) => n.data?.hName === "line");
+  assert.equal(lines.length, 68);
+  for (let i = 0; i < 68; i++) {
+    const p = lines[i].data.hProperties,
+      amplitude = 6 + Math.abs(Math.sin(i * 1.91) * 15) + Math.abs(Math.sin(i * 0.32) * 9);
+    assert.equal(Number(p.x1), i * 5 + 2);
+    assert.equal(Number(p.y1), 30 - amplitude);
+    assert.equal(Number(p.y2), 30 + amplitude);
+  }
+  assert.deepEqual(
+    layoutData("Array.from({length:3},(_,i)=>({x:i,y:Math.max(1,i)}))", {}),
+    [
+      { x: 0, y: 1 },
+      { x: 1, y: 1 },
+      { x: 2, y: 2 },
+    ].map((x) => Object.assign(Object.create(null), x)),
+  );
+  assert.equal(layoutData("Math.random()", {}), undefined);
+  assert.equal(layoutData('Math.constructor("return globalThis")()', {}), undefined);
+  assert.equal(layoutData('Array.from({length:3},(_,i)=>fetch("x"))', {}), undefined);
+  assert.equal(
+    layoutData("Array.from({length:10000},(_,i)=>Array.from({length:10000},(_,j)=>j))", {}),
+    undefined,
+  );
+});

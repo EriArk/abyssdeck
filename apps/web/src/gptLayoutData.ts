@@ -20,7 +20,11 @@ export function layoutPath(path: string, scope: LayoutScope): LayoutValue | unde
   return value;
 }
 
-export function layoutData(source: string, scope: LayoutScope): LayoutValue | undefined {
+export function layoutData(
+  source: string,
+  scope: LayoutScope,
+  budget = { remaining: 50000 },
+): LayoutValue | undefined {
   let at = 0;
   const space = () => {
     while (/\s/.test(source[at] ?? "") && at < source.length) at++;
@@ -65,6 +69,7 @@ export function layoutData(source: string, scope: LayoutScope): LayoutValue | un
     throw Error("string");
   };
   const primary = (): LayoutValue => {
+    if (--budget.remaining < 0) throw Error("complexity");
     space();
     const char = source[at];
     if (char === "(") {
@@ -105,7 +110,7 @@ export function layoutData(source: string, scope: LayoutScope): LayoutValue | un
       return result;
     }
     const token =
-      /^(?:-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)/.exec(
+      /^(?:-?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+-]?\d+)?|[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)/.exec(
         source.slice(at),
       )?.[0];
     if (!token) throw Error("value");
@@ -113,7 +118,103 @@ export function layoutData(source: string, scope: LayoutScope): LayoutValue | un
     if (token === "true") return true;
     if (token === "false") return false;
     if (token === "null") return null;
-    if (/^-?\d/.test(token) && Number.isFinite(Number(token))) return Number(token);
+    if (/^-?[\d.]/.test(token) && Number.isFinite(Number(token))) return Number(token);
+    // Pure mathematical data operations used by native diagrams. No member calls
+    // from a supplied object, random values, globals or arbitrary JavaScript.
+    const math: Record<string, (...args: number[]) => number> = {
+      abs: Math.abs,
+      sin: Math.sin,
+      cos: Math.cos,
+      tan: Math.tan,
+      asin: Math.asin,
+      acos: Math.acos,
+      atan: Math.atan,
+      atan2: Math.atan2,
+      floor: Math.floor,
+      ceil: Math.ceil,
+      round: Math.round,
+      trunc: Math.trunc,
+      min: Math.min,
+      max: Math.max,
+      pow: Math.pow,
+      sqrt: Math.sqrt,
+      cbrt: Math.cbrt,
+      hypot: Math.hypot,
+      sign: Math.sign,
+      exp: Math.exp,
+      log: Math.log,
+      log2: Math.log2,
+      log10: Math.log10,
+    };
+    if (token === "Math.PI") return Math.PI;
+    if (token === "Math.E") return Math.E;
+    const name = token.startsWith("Math.") ? token.slice(5) : "";
+    if (Object.hasOwn(math, name)) {
+      take("(");
+      const args: number[] = [];
+      space();
+      while (source[at] !== ")") {
+        const arg = value();
+        if (typeof arg !== "number") throw Error("number");
+        args.push(arg);
+        space();
+        if (source[at] !== ",") break;
+        at++;
+      }
+      take(")");
+      const result = math[name]!(...args);
+      if (!Number.isFinite(result)) throw Error("number");
+      return result;
+    }
+    if (token === "Array.from") {
+      take("(");
+      const input = value();
+      take(",");
+      space();
+      const mapper =
+        /^(?:\(\s*([A-Za-z_$][\w$]*)\s*,\s*([A-Za-z_$][\w$]*)\s*\)|([A-Za-z_$][\w$]*))\s*=>\s*/.exec(
+          source.slice(at),
+        );
+      if (!mapper || !input || typeof input !== "object" || Array.isArray(input))
+        throw Error("range");
+      const count = input.length;
+      if (typeof count !== "number" || !Number.isSafeInteger(count) || count < 0 || count > 10000)
+        throw Error("range");
+      const item = mapper[1] ?? mapper[3]!,
+        index = mapper[2];
+      if (forbidden.has(item) || (index && (forbidden.has(index) || index === item)))
+        throw Error("binding");
+      at += mapper[0].length;
+      const start = at;
+      let nesting = 0,
+        quote = "";
+      while (at < source.length) {
+        const ch = source[at]!;
+        if (quote) {
+          if (ch === "\\") at++;
+          else if (ch === quote) quote = "";
+        } else if (ch === '"' || ch === "'") quote = ch;
+        else if ("([{".includes(ch)) nesting++;
+        else if (")]}".includes(ch)) {
+          if (nesting === 0) break;
+          nesting--;
+        }
+        at++;
+      }
+      const expression = source.slice(start, at);
+      take(")");
+      // A mapper parameter is lexical data, never a callable value.
+      const result: LayoutValue[] = [];
+      for (let i = 0; i < count; i++) {
+        if (--budget.remaining < 0) throw Error("complexity");
+        const local = Object.assign(Object.create(null), scope, index ? { [index]: i } : {});
+        delete local[item];
+        const next = layoutData(expression, local, budget);
+        if (next === undefined) throw Error("mapper");
+        result.push(next);
+      }
+      return result;
+    }
     const resolved = layoutPath(token, scope);
     if (resolved === undefined) throw Error("path");
     return resolved;

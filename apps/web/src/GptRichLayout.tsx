@@ -6,51 +6,11 @@ import type { Components } from "react-markdown";
 import type { GptFile, GptRichReference } from "@codex-web/shared";
 import { CopyButton } from "./CopyButton";
 import { Icon } from "./icons";
+import { lazy, Suspense } from "react";
 import { layoutData } from "./gptLayoutData";
 import "./gpt-rich-layout.css";
 
-const icons: Record<string, string> = {
-  layers: "layers",
-  play: "play",
-  "minimize-2": "minimize",
-  "sliders-horizontal": "settings",
-  "message-circle": "chat",
-  "log-out": "logout",
-  "gamepad-2": "gamepad",
-  sparkles: "sparkles",
-  heart: "heart",
-  star: "star",
-  "chevron-right": "chevron",
-  "lock-keyhole": "lock",
-  "external-link": "external",
-  "circle-check": "check",
-  "check-circle": "check",
-  "file-text": "file",
-  download: "arrow",
-  search: "search",
-  users: "people",
-  globe: "external",
-  code: "terminal",
-  folder: "folder",
-  link: "link",
-  info: "help",
-  image: "image",
-  archive: "archive",
-  "arrow-down": "arrow",
-  clock: "history",
-  "clock-3": "history",
-  "file-lock": "lock",
-  "gallery-horizontal": "image",
-  library: "library",
-  lock: "lock",
-  "package-open": "package",
-  compass: "compass",
-  gem: "gem",
-  gift: "gift",
-  shapes: "shapes",
-  ship: "ship",
-  trophy: "trophy",
-};
+const ContentIcon = lazy(() => import("./GptContentIcon"));
 const values = (value: string | undefined, choices: string[]) =>
   choices.includes(value ?? "") ? value : undefined;
 type FileSources = {
@@ -179,6 +139,7 @@ function layout(
   if (tag === "AsyncImage")
     return <GptRichImage key={JSON.stringify(a)} attrs={a} reference={reference} />;
   const style: CSSProperties = {};
+  if (tag === "badge") style.flexShrink = 0;
   const length = (value: unknown): string | number | undefined => {
     if (typeof value === "number" && Number.isFinite(value) && value >= 0) return value * 4;
     if (typeof value !== "string") return;
@@ -196,7 +157,13 @@ function layout(
         }
       }
     }
-  style.minHeight = length(a.minHeight);
+  for (const key of ["width", "height", "minWidth", "minHeight", "maxWidth", "maxHeight"] as const)
+    style[key] = length(a[key]);
+  if (tag === "box" && length(a.size) !== undefined) {
+    style.width = style.height = length(a.size);
+    style.flexShrink = 0;
+  }
+  if (a.tabularNums === "true") style.fontVariantNumeric = "tabular-nums";
   style.textAlign = values(a.textAlign, [
     "left",
     "center",
@@ -245,14 +212,20 @@ function layout(
         data-color={values(a.color, ["secondary", "tertiary"])}
         title={a.name}
       >
-        <Icon
-          name={icons[a.name ?? ""] ?? "circle"}
-          size={
-            ({ xs: 12, sm: 16, md: 20, lg: 28, xl: 36, "2xl": 44 } as Record<string, number>)[
-              a.size ?? ""
-            ] ?? 20
+        <Suspense
+          fallback={
+            <span aria-hidden="true" style={{ display: "inline-block", width: 20, height: 20 }} />
           }
-        />
+        >
+          <ContentIcon
+            name={a.name ?? ""}
+            size={
+              ({ xs: 12, sm: 16, md: 20, lg: 28, xl: 36, "2xl": 44 } as Record<string, number>)[
+                a.size ?? ""
+              ] ?? 20
+            }
+          />
+        </Suspense>
       </span>
     );
   if (tag === "divider") return <hr className="gpt-rich-divider" />;

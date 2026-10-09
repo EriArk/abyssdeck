@@ -21,6 +21,7 @@ try {
     logLevel: "error",
     build: {
       outDir: dir,
+      rolldownOptions: { output: { inlineDynamicImports: true } },
       emptyOutDir: true,
       lib: {
         entry: resolve("apps/web/tests/fixtures/gpt-rich-content.tsx"),
@@ -173,7 +174,7 @@ try {
         const diagramHeader = bodyTemplate.locator('[data-layout="row"]').first();
         const headerIcon = diagramHeader.locator('[data-icon="layers"]');
         await expect(headerIcon).toHaveCount(1);
-        await expect(headerIcon.locator("svg path")).toHaveAttribute("d", /m12 3 10 6/);
+        await expect(headerIcon.locator("svg")).toHaveClass(/lucide-layers/);
         await expect(diagramHeader).toHaveCSS("flex-wrap", "nowrap");
         await expect(diagramHeader.locator("p")).toHaveCSS("margin-top", "0px");
         const iconBounds = await headerIcon.boundingBox(),
@@ -212,6 +213,39 @@ try {
           }
           await page.evaluate(() => (document.documentElement.dataset.theme = "crt-green"));
         }
+        const karaoke = page.getByTestId("karaoke");
+        const wave = karaoke.locator('svg[viewBox="0 0 340 60"]');
+        const pitch = karaoke.locator('svg[viewBox="0 0 340 153"]');
+        await expect(wave.locator("line")).toHaveCount(69);
+        await expect(pitch.locator("line")).toHaveCount(9);
+        await expect(karaoke.locator(".gpt-rich-unknown-icon")).toHaveCount(0);
+        for (const icon of ["play", "pause", "skip-back", "repeat"])
+          await expect(karaoke.locator('[data-icon="' + icon + '"] svg')).toHaveCount(1);
+        const dots = await karaoke.locator('[data-layout="box"]').evaluateAll((nodes) =>
+          nodes
+            .filter((n) => n.style.width === "7px")
+            .map((n) => ({
+              w: n.getBoundingClientRect().width,
+              h: n.getBoundingClientRect().height,
+              color: getComputedStyle(n).backgroundColor,
+            })),
+        );
+        assert.equal(dots.length, 2);
+        assert.ok(dots.every((d) => d.w === 7 && d.h === 7));
+        assert.notEqual(dots[0].color, dots[1].color);
+        const geometry = await wave.locator("line").evaluateAll((nodes) =>
+          nodes.slice(0, 68).map((n) => ({
+            x: Number(n.getAttribute("x1")),
+            y1: Number(n.getAttribute("y1")),
+            y2: Number(n.getAttribute("y2")),
+          })),
+        );
+        assert.ok(
+          geometry.every(
+            (p, i) => p.x === i * 5 + 2 && p.y2 > p.y1 && Math.abs(p.y1 + p.y2 - 60) < 0.001,
+          ),
+        );
+        await karaoke.screenshot({ path: join(evidence, name + "-karaoke-" + width + ".png") });
         const each = page.getByTestId("each");
         await expect(each.locator('[data-layout="row"]')).toHaveCount(5);
         await expect(each).toContainText("Continue game");

@@ -14,11 +14,8 @@ copy/export text and hidden-content filtering are preserved. See
 Source checks and an isolated Linux build passed: 126 pipeline tests, followed
 by 64 parser/metadata and previous-defect/deployment regression checks (overlapping
 suites). Chromium/WebKit passed phone, tablet and desktop coverage; final
-parser-bound verification is recorded with the release proof. No production
-service has been restarted for this change. Full asset
-restoration needs native adapter + engine + web activation; web-only publication
-would be incomplete. Native inspector probes remain prohibited after the earlier
-incident. Installation and actual readback will be recorded separately.
+parser-bound verification is recorded with the release proof. Native inspector
+probes remain prohibited after the earlier incident.
 
 The first engine activation (`9bebda5b`) reached a healthy process but failed the
 web publisher's three-second `/internal/runtime` read during cold startup,
@@ -30,7 +27,13 @@ publisher and owner migration startup, without polling or weakening admission.
 A delayed-startup regression covers both publisher and gateway; previous gateway,
 maintenance and Team rollback checks pass in Linux. The final pass also shares
 one citation-file index across server/browser Results, with a 10,000-file
-regression. Final installation remains pending guarded retry.
+regression. Guarded retry installed engine/gateway `b9487e6e` at 19:00 UTC,
+public web `c387a84b98efd41abe6f70aa64df300bf565471cdc39d95c0949be66ca07cc5d`,
+and the owner adapter `26.928.31416-b9487e6e` after verified native idle. Account,
+profile, receipts and the other member client were retained; no input replay.
+The exact G2 answer now returns its original image and five sources, but readback
+exposed opaque resolution IDs absent from the raw markup. The binding follow-up
+is under verification; asset restoration is not yet accepted.
 
 ### GPT missing image layout and unresolved native assets — October 9
 

@@ -153,6 +153,9 @@ importers:
       fflate:
         specifier: 0.8.3
         version: 0.8.3
+      lucide-react:
+        specifier: 1.53.0
+        version: 1.53.0(@types/react@19.2.18)(react@19.2.8)
       monaco-editor:
         specifier: 0.57.0
         version: 0.57.0
@@ -1489,6 +1492,15 @@ packages:
   lru-cache@11.5.2:
     resolution: {integrity: sha512-4pfM1Ff0x50o0tQwb5ucw/RzNyD0/YJME6IVcStalZuMWxdt3sR3huStTtxz4PUmvZfRguvDejasvQ2kifR11g==}
     engines: {node: 20 || >=22}
+
+  lucide-react@1.53.0:
+    resolution: {integrity: sha512-OxJ7elNku+iqVzOolk5caxq2LM8Mck6lhA6uZx3g2PlZ53+FvBnT6PlJxGCukCa6oF5wQwgSatn9cH1b4olWmQ==}
+    peerDependencies:
+      '@types/react': '*'
+      react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
 
   lucide@1.17.0:
     resolution: {integrity: sha512-icbHK+hG15rWoacjNi3aw+UXHRmZ9Ee1fJ6ZSu7lbC4GOig7evVEXYCfK77FvjQHusPgi0D/QN7zTO+5wZ8PwQ==}
@@ -3274,6 +3286,12 @@ snapshots:
   longest-streak@3.1.0: {}
 
   lru-cache@11.5.2: {}
+
+  lucide-react@1.53.0(@types/react@19.2.18)(react@19.2.8):
+    dependencies:
+      react: 19.2.8
+    optionalDependencies:
+      '@types/react': 19.2.18
 
   lucide@1.17.0: {}
 

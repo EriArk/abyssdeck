@@ -1,4 +1,5 @@
-﻿import type { GptRichReference } from "@codex-web/shared";
+﻿import { karaoke } from "./gpt-karaoke";
+import type { GptRichReference } from "@codex-web/shared";
 import { useState } from "react";
 import { GptMessageText } from "../../src/GptMessageText";
 import { GptSteps } from "../../src/GptProgress";
@@ -45,6 +46,11 @@ export function GptRichCorpus() {
     [clicked, setClicked] = useState("");
   return (
     <section data-testid="corpus" className="gpt-chat">
+      <article className="message assistant" data-testid="karaoke">
+        <div className="message-body">
+          <GptMessageText rich complete value={karaoke} />
+        </div>
+      </article>
       <button
         onClick={() =>
           setReferences(
