@@ -253,3 +253,13 @@ button.gpt-file-citation:focus-visible {
   height: auto;
   flex-shrink: 1;
 }
+
+.gpt-rich-control {
+  max-width: 100%;
+  min-width: 0;
+}
+input.gpt-rich-control[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+  cursor: pointer;
+}

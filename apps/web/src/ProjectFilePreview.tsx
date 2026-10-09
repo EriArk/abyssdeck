@@ -88,7 +88,13 @@ export function ProjectFilePreview({
       ) : size === undefined || size > limit || explicit ? (
         <p>Для этого файла используй «Открыть файл» рядом с его именем.</p>
       ) : file ? (
-        <FilePreview key={url} file={file} objectUrl={url} toolbarTarget={toolbarTarget} />
+        <FilePreview
+          key={url}
+          file={file}
+          objectUrl={url}
+          source={`/api/projects/${encodeURIComponent(projectId)}/files/content?path=${encodeURIComponent(path)}`}
+          toolbarTarget={toolbarTarget}
+        />
       ) : (
         <p role="status">
           <span className="spinner" /> Читаю файл…

@@ -1,8 +1,9 @@
-import { renderToStaticMarkup } from "react-dom/server";
+﻿import { renderToStaticMarkup } from "react-dom/server";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
+import { documentImage, externalDocumentLink } from "../documentReferences";
 import { archiveIndex, readArchiveEntry } from "../packageArchive";
 
 export type ReadingDocument = {
@@ -151,16 +152,42 @@ export async function readingDocument(file: File): Promise<ReadingDocument> {
       titles: sections.map(
         (part, i) => part.match(/^#{1,6}\s+(.+)/m)?.[1]?.slice(0, 120) || `Раздел ${i + 1}`,
       ),
-      chapter: async (index) =>
-        renderToStaticMarkup(
+      chapter: async (index) => {
+        const source = sections[index] + "\n" + definitions;
+        const image = (href: string, alt: string) => (
+          <img
+            className="reader-document-image"
+            data-document-image={href}
+            alt={alt || "???????????"}
+            referrerPolicy="no-referrer"
+          />
+        );
+        return renderToStaticMarkup(
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
-            disallowedElements={["img"]}
-            components={{ a: ({ children }) => <span>{children}</span> }}
+            components={{
+              a: ({ href = "", children }) =>
+                externalDocumentLink(href) && !documentImage(href) ? (
+                  <a href={href} target="_blank" rel="noopener noreferrer">
+                    {children}
+                  </a>
+                ) : (
+                  <a href="#document-file" data-document-link={href}>
+                    {documentImage(href) && image(href, "")}
+                    <span>{children}</span>
+                  </a>
+                ),
+              img: ({ src = "", alt = "" }) => (
+                <a href="#document-file" data-document-link={String(src)}>
+                  {image(String(src), alt)}
+                </a>
+              ),
+            }}
           >
-            {sections[index] + "\n" + definitions}
+            {source}
           </ReactMarkdown>,
-        ),
+        );
+      },
     };
   }
   return htmlDocument(

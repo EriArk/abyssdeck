@@ -1,16 +1,23 @@
-import { svgTags, svgProps } from "./gptSvgData.ts";
 import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
 import {
-  layoutData,
+  type LayoutScope,
   layoutAttributes,
-  layoutTagEnd,
+  layoutData,
   layoutPath,
   layoutScalar,
+  layoutTagEnd,
   templateEnd,
-  type LayoutScope,
 } from "./gptLayoutData.ts";
+import {
+  bindState,
+  type LayoutStates,
+  layoutAction,
+  type StateBinding,
+  stateBinding,
+} from "./gptLayoutState.ts";
+import { svgProps, svgTags } from "./gptSvgData.ts";
 
 type Point = { offset?: number; line: number; column: number };
 type Node = {
@@ -32,11 +39,20 @@ type Rich = {
   condition?: { expression: string; otherwise?: Rich };
   each?: { expression: string; name: string; index?: string };
   binding?: { expression: string; name: string };
+  state?: StateBinding;
   svg?: boolean;
   unsupported?: boolean;
 };
 const tags = new Set([
   "WritingBlock",
+  "button",
+  "slider",
+  "input",
+  "checkbox",
+  "switch",
+  "select",
+  "option",
+  "textarea",
   "box",
   "row",
   "col",
@@ -56,6 +72,13 @@ const tags = new Set([
   "list-item",
 ]);
 const roots = new Set([
+  "button",
+  "slider",
+  "input",
+  "checkbox",
+  "switch",
+  "select",
+  "textarea",
   "svg",
   "WritingBlock",
   "box",
@@ -70,7 +93,7 @@ const roots = new Set([
   "text",
   "badge",
 ]);
-const leaves = new Set(["icon", "divider", "spacer"]);
+const leaves = new Set(["icon", "divider", "spacer", "slider", "input", "checkbox", "switch"]);
 const parser = unified().use(remarkParse).use(remarkGfm);
 
 const attributes = layoutAttributes;
@@ -113,11 +136,11 @@ function references(tree: Node) {
  * structural blocks at line starts; ordinary HTML and quoted code stay literal.
  * Unknown or malformed structures retain their original source text.
  */
-export function remarkGptLayout() {
+export function remarkGptLayout(options: { states?: LayoutStates } = {}) {
   return (tree: Node, file: { value: unknown }) => {
     const source = String(file.value);
     if (
-      !/<(?:WritingBlock|svg|box|row|col|column|grid|list|caption|title|heading|text|badge)\b/.test(
+      !/<(?:WritingBlock|svg|box|row|col|column|grid|list|caption|title|heading|text|badge|button|slider|input|checkbox|switch|select|textarea)\b/.test(
         source,
       )
     ) {
@@ -176,15 +199,15 @@ export function remarkGptLayout() {
           break;
         }
         tokens.lastIndex = stop;
-        if (!stack.length) continue;
         const header = /^\{@body\s+const\s+([A-Za-z_$][\w$]*)\s*=\s*([\s\S]*?)\s*;?\s*\}$/.exec(
           source.slice(start, stop),
         );
-        if (!header) {
-          invalid = true;
+        const state = stateBinding(source.slice(start, stop), start);
+        if (!header && !state) {
+          if (stack.length) invalid = true;
           continue;
         }
-        stack.at(-1)!.children.push({
+        const declaration: Rich = {
           tag: "binding",
           attrs: {},
           start,
@@ -193,8 +216,10 @@ export function remarkGptLayout() {
           close: stop,
           children: [],
           svg: stack.some((parent) => parent.svg),
-          binding: { name: header[1]!, expression: header[2]! },
-        });
+          ...(header ? { binding: { name: header[1]!, expression: header[2]! } } : { state }),
+        };
+        if (stack.length) stack.at(-1)!.children.push(declaration);
+        else blocks.push(declaration);
         continue;
       }
       if (match[0] === "{#if") {
@@ -446,7 +471,9 @@ export function remarkGptLayout() {
       for (const child of node.children) {
         children.push(...content(cursor, child.start, local));
         const bound = child.binding && layoutData(child.binding.expression, local);
-        if (child.binding && bound !== undefined) {
+        if (child.state && bindState(child.state, local, options.states ?? {})) {
+          // State values and setters are local declarative data.
+        } else if (child.binding && bound !== undefined) {
           Object.defineProperty(local, child.binding.name, {
             value: bound,
             enumerable: true,
@@ -492,7 +519,7 @@ export function remarkGptLayout() {
           },
         ];
       }
-      if (node.binding)
+      if (node.binding || node.state)
         return [
           {
             type: "paragraph",
@@ -533,6 +560,14 @@ export function remarkGptLayout() {
           ];
         }),
       );
+      for (const key of ["onClick", "onChange", "onInput"]) {
+        if (node.attrs[key]) {
+          const actions = layoutAction(node.attrs[key]!, scope);
+          delete attrs[key];
+          if (actions) attrs[key] = JSON.stringify(actions);
+          else attrs.unavailableAction = "true";
+        }
+      }
       const unsupportedSvg = (item: Rich): Rich[] =>
         item.unsupported ? [item] : item.children.flatMap(unsupportedSvg);
       return [
@@ -575,12 +610,23 @@ export function remarkGptLayout() {
     };
     const children: Node[] = [];
     let cursor = 0;
+    const global: LayoutScope = {};
     for (const block of blocks) {
       children.push(...markdown(cursor, block.start));
       expanded = 0;
       expandedText = 0;
       try {
-        children.push(...render(block));
+        const bound = block.binding && layoutData(block.binding.expression, global);
+        if (block.state && bindState(block.state, global, options.states ?? {})) {
+          // The declaration has no visual output.
+        } else if (block.binding && bound !== undefined)
+          Object.defineProperty(global, block.binding.name, {
+            value: bound,
+            enumerable: true,
+            configurable: true,
+            writable: true,
+          });
+        else children.push(...render(block, global));
       } catch {
         children.push({
           type: "gptUnsupported",

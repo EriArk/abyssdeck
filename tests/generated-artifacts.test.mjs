@@ -595,3 +595,93 @@ test("explicit hidden and external exports preserve exact bytes; user text and i
     await f.close();
   }
 });
+
+test("Markdown links retain exact parent snapshots, adjacent paths and child identity", async () => {
+  const f = await fixture();
+  try {
+    const dir = join(f.source, "reports");
+    await mkdir(dir);
+    const parent = join(dir, "README.md");
+    const content =
+      "# Gallery\n\n[Wide](wide.png)\n![Inline][shot]\n\n[shot]: ../same.png\n\n```md\n[Not a link](secret.png)\n```\n";
+    await writeFile(parent, content);
+    await writeFile(join(dir, "wide.png"), "exact image");
+    await writeFile(join(f.source, "same.png"), "parent sibling");
+    f.generated.observe(f.thread, "turn", {
+      id: "gallery",
+      type: "agentMessage",
+      text: `[Screenshots](${parent})`,
+    });
+    await f.generated.close();
+    const row = f.store.db
+      .prepare("SELECT artifactId FROM artifact_captures WHERE path=?")
+      .get(parent);
+    const [one, two] = await Promise.all([
+      f.generated.linkedFile(row.artifactId, "wide.png"),
+      f.generated.linkedFile(row.artifactId, "wide.png"),
+    ]);
+    assert.equal(one.url, two.url);
+    assert.equal(one.name, "wide.png");
+    assert.equal(f.artifacts.get(one.url.split("/").at(-1)).data.toString(), "exact image");
+    await writeFile(join(dir, "wide.png"), "changed after first open");
+    await writeFile(parent, "[Changed](other.png)");
+    assert.deepEqual(await f.generated.linkedFile(row.artifactId, "wide.png"), one);
+    const sibling = await f.generated.linkedFile(row.artifactId, "../same.png");
+    assert.equal(f.artifacts.get(sibling.url.split("/").at(-1)).data.toString(), "parent sibling");
+    await assert.rejects(f.generated.linkedFile(row.artifactId, "secret.png"), /ссылки нет/);
+    await assert.rejects(f.generated.linkedFile(row.artifactId, "other.png"), /ссылки нет/);
+    f.store.db
+      .prepare("UPDATE artifact_source_bindings SET root=? WHERE id=?")
+      .run("wrong root", row.artifactId);
+    await assert.rejects(f.generated.linkedFile(row.artifactId, "wide.png"), /изменилось/);
+  } finally {
+    await f.close();
+  }
+});
+
+test("document-link endpoint authenticates the exact parent and rejects invented links", async () => {
+  const f = await handoffFixture();
+  try {
+    const captures = f.sessions.catalog.artifacts;
+    captures.read = async (_m, _root, path) =>
+      Buffer.from(path.endsWith("README.md") ? "[Image](shot.png)" : "image bytes");
+    captures.observe(f.thread, "doc-turn", {
+      id: "doc-answer",
+      type: "agentMessage",
+      text: "[Screenshots](C:/Project/docs/README.md)",
+    });
+    await captures.close();
+    const parent = f.store.db.prepare("SELECT artifactId FROM artifact_captures").get();
+    const url = `/api/artifacts/${parent.artifactId}/links`;
+    assert.equal(
+      (await f.app.inject({ method: "POST", url, payload: { href: "shot.png" } })).statusCode,
+      401,
+    );
+    assert.equal(
+      (
+        await f.app.inject({
+          method: "POST",
+          url,
+          headers: f.headers,
+          payload: { href: "other.png" },
+        })
+      ).statusCode,
+      404,
+    );
+    const result = await f.app.inject({
+      method: "POST",
+      url,
+      headers: f.headers,
+      payload: { href: "shot.png" },
+    });
+    assert.equal(result.statusCode, 200, result.body);
+    assert.equal(result.json().name, "shot.png");
+    assert.equal((await f.app.inject({ url: result.json().url })).statusCode, 401);
+    assert.equal(
+      (await f.app.inject({ url: result.json().url, headers: f.headers })).body,
+      "image bytes",
+    );
+  } finally {
+    await f.close();
+  }
+});

@@ -1,4 +1,5 @@
 ﻿import { createHash } from "node:crypto";
+import { posix, win32 } from "node:path";
 import { codexArtifactPath, copyCodexArtifact, type readProjectFile } from "@codex-web/machines";
 import {
   CHAT_BLOCK_LINES,
@@ -8,6 +9,7 @@ import {
   visualizationReferences,
 } from "@codex-web/shared";
 import type { Artifacts } from "./artifacts.js";
+import { documentLinks, documentRelativePath } from "./document-references.js";
 import { gptResultContent } from "./gpt-result-content.js";
 import type { Store, ThreadRecord } from "./store.js";
 
@@ -222,6 +224,70 @@ export class GeneratedArtifacts {
     if (!row) throw new HubError(404, "ARTIFACT_NOT_FOUND", "Файл не найден.");
     return row as unknown as Capture;
   }
+  async linkedFile(parentId: string, href: string) {
+    const parent = this.store.db
+      .prepare(
+        "SELECT a.threadId,a.bytes,f.name,f.sourcePath,f.turnId FROM artifacts a JOIN artifact_files f ON a.id=f.id WHERE a.id=?",
+      )
+      .get(parentId);
+    if (
+      !parent ||
+      !/\.(md|markdown)$/i.test(String(parent.name)) ||
+      Number(parent.bytes) > 32 * 1024 ** 2
+    )
+      throw new HubError(404, "DOCUMENT_SOURCE_UNAVAILABLE", "Исходный документ недоступен.");
+    const target = this.target(String(parent.threadId));
+    const binding = this.store.db
+      .prepare("SELECT * FROM artifact_source_bindings WHERE id=?")
+      .get(parentId);
+    const verify = () => {
+      const current = this.target(String(parent.threadId));
+      if (
+        !binding ||
+        binding.root !== current.root ||
+        binding.machineBinding !==
+          createHash("sha256").update(JSON.stringify(current.machine)).digest("hex")
+      )
+        throw new HubError(
+          409,
+          "DOCUMENT_SOURCE_CHANGED",
+          "Подключение исходного документа изменилось.",
+        );
+    };
+    verify();
+    if (!documentLinks(this.artifacts.get(parentId).data.toString("utf8")).includes(href))
+      throw new HubError(
+        404,
+        "DOCUMENT_LINK_NOT_FOUND",
+        "Этой ссылки нет в сохранённом документе.",
+      );
+    const paths = target.machine.type === "ssh-windows" ? win32 : posix;
+    const path = documentRelativePath(paths, target.root, String(parent.sourcePath), href);
+    const id = createHash("sha256")
+      .update(JSON.stringify(["document-link", parentId, href]))
+      .digest("hex");
+    this.store.db
+      .prepare("INSERT OR IGNORE INTO artifact_captures VALUES(?,?,?,?,?,?,NULL)")
+      .run(
+        id,
+        String(parent.threadId),
+        parent.turnId == null ? null : String(parent.turnId),
+        path,
+        paths.basename(path),
+        "failed",
+      );
+    await this.capture(id, verify);
+    verify();
+    const saved = this.get(id);
+    if (!saved.artifactId)
+      throw new HubError(
+        503,
+        "DOCUMENT_FILE_UNAVAILABLE",
+        "Не удалось получить файл по ссылке. Проверь подключение к исходному компьютеру.",
+      );
+    const result = this.artifacts.describe(saved.artifactId);
+    return { url: "/api/artifacts/" + saved.artifactId, name: result.name, mime: result.mime };
+  }
   async preview(id: string) {
     await this.capture(id);
     const capture = this.get(id);
@@ -244,7 +310,7 @@ export class GeneratedArtifacts {
       throw new HubError(413, "PREVIEW_TOO_LARGE", "Демо больше 2 МБ.");
     return this.artifacts.get(capture.artifactId).data;
   }
-  capture(id: string): Promise<void> {
+  capture(id: string, verify?: () => void): Promise<void> {
     const c = this.get(id);
     if (c.status === "captured") return Promise.resolve();
     const pending = this.pending.get(id);
@@ -259,6 +325,7 @@ export class GeneratedArtifacts {
       .then(async () => {
         try {
           const target = this.target(c.threadId);
+          verify?.();
           const mime =
             mimeTypes[c.name.split(".").at(-1)?.toLowerCase() || ""] || "application/octet-stream";
           const file = this.read
@@ -279,6 +346,7 @@ export class GeneratedArtifacts {
                 (destination, limit) =>
                   copyCodexArtifact(target.machine, target.root, c.path, destination, limit),
               );
+          verify?.();
           this.store.db.exec("SAVEPOINT artifact_capture_commit");
           try {
             this.store.db

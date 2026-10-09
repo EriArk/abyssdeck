@@ -1,19 +1,21 @@
-import { GptSvg } from "./GptSvg";
-import { richReference, richUrl } from "./gptRichReferences";
-import { GptRichImage } from "./GptRichImage";
-import type { CSSProperties, ReactNode } from "react";
-import type { Components } from "react-markdown";
 import type { GptFile, GptRichReference } from "@codex-web/shared";
-import { CopyButton } from "./CopyButton";
-import { Icon } from "./icons";
+import type { CSSProperties, ReactNode } from "react";
 import { lazy, Suspense } from "react";
+import type { Components } from "react-markdown";
+import { CopyButton } from "./CopyButton";
+import { GptRichImage } from "./GptRichImage";
+import { GptSvg } from "./GptSvg";
 import { layoutData } from "./gptLayoutData";
+import type { LayoutAction } from "./gptLayoutState";
+import { richReference, richUrl } from "./gptRichReferences";
+import { Icon } from "./icons";
 import "./gpt-rich-layout.css";
 
 const ContentIcon = lazy(() => import("./GptContentIcon"));
 const values = (value: string | undefined, choices: string[]) =>
   choices.includes(value ?? "") ? value : undefined;
 type FileSources = {
+  onAction?: (actions: LayoutAction[], input?: string | number | boolean) => void;
   richReferences?: GptRichReference[];
   files?: GptFile[];
   onOpen?: (source: string) => void;
@@ -138,6 +140,86 @@ function layout(
   }
   if (tag === "AsyncImage")
     return <GptRichImage key={JSON.stringify(a)} attrs={a} reference={reference} />;
+  const action = (key: string, input?: string | number | boolean) => {
+    if (a[key]) sources?.onAction?.(JSON.parse(a[key]) as LayoutAction[], input);
+  };
+  if (tag === "button")
+    return (
+      <button
+        type="button"
+        className="secondary gpt-rich-control"
+        title={
+          a.unavailableAction === "true"
+            ? "Действие этого элемента пока не поддерживается"
+            : a.title
+        }
+        aria-label={a["aria-label"] || (a.uniform === "true" ? "Изменить значение" : undefined)}
+        disabled={a.disabled === "true" || a.unavailableAction === "true" || !a.onClick}
+        onClick={() => action("onClick")}
+      >
+        {children}
+      </button>
+    );
+  if (["slider", "input", "checkbox", "switch", "textarea", "select"].includes(tag)) {
+    const disabled =
+      a.disabled === "true" || a.unavailableAction === "true" || (!a.onChange && !a.onInput);
+    const label = a["aria-label"] || a.label || (tag === "slider" ? "Значение" : "Поле");
+    const change = (value: string | number | boolean) =>
+      action(a.onChange ? "onChange" : "onInput", value);
+    if (tag === "textarea")
+      return (
+        <textarea
+          className="gpt-rich-control"
+          aria-label={label}
+          disabled={disabled}
+          value={a.value || ""}
+          onChange={(e) => change(e.target.value)}
+        />
+      );
+    if (tag === "select")
+      return (
+        <select
+          className="gpt-rich-control"
+          aria-label={label}
+          disabled={disabled}
+          value={a.value}
+          onChange={(e) => change(e.target.value)}
+        >
+          {children}
+        </select>
+      );
+    const type =
+      tag === "slider"
+        ? "range"
+        : ["checkbox", "switch"].includes(tag)
+          ? "checkbox"
+          : values(a.type, ["text", "number", "range", "checkbox", "color", "date"]) || "text";
+    return (
+      <input
+        className="gpt-rich-control"
+        aria-label={label}
+        type={type}
+        disabled={disabled}
+        min={a.min}
+        max={a.max}
+        step={a.step}
+        value={a.value ?? (type === "range" ? "0" : "")}
+        checked={type === "checkbox" ? (a.checked ?? a.value) === "true" : undefined}
+        onChange={(e) =>
+          change(
+            type === "checkbox"
+              ? e.target.checked
+              : ["range", "number"].includes(type)
+                ? Number.isFinite(e.target.valueAsNumber)
+                  ? e.target.valueAsNumber
+                  : 0
+                : e.target.value,
+          )
+        }
+      />
+    );
+  }
+  if (tag === "option") return <option value={a.value}>{children}</option>;
   const style: CSSProperties = {};
   if (tag === "badge") style.flexShrink = 0;
   const length = (value: unknown): string | number | undefined => {

@@ -179,7 +179,11 @@ export function FilePreview({
               </p>
             }
           >
-            <ReaderPreview file={file} />
+            <ReaderPreview file={file} source={source} />
+          </Suspense>
+        ) : kind === "text" && /\.(md|markdown)$/i.test(file.name) ? (
+          <Suspense fallback={<p role="status">Открываю документ…</p>}>
+            <ReaderPreview file={file} source={source} />
           </Suspense>
         ) : kind === "text" ? (
           <ReadableFilePreview file={file} toolbarTarget={toolbarTarget} />

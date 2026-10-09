@@ -902,6 +902,15 @@ export async function createApp(
     sessions.thread(sessions.catalog.previews.thread(id));
     return sessions.catalog.previews.image(id, key);
   });
+  app.post("/api/artifacts/:id/links", async (req) => {
+    const id = z.string().uuid().parse(paramId(req));
+    const { href } = z
+      .object({ href: z.string().min(1).max(8192) })
+      .strict()
+      .parse(req.body);
+    sessions.thread(artifacts.describe(id).threadId);
+    return sessions.catalog.artifacts.linkedFile(id, href);
+  });
   app.get("/api/artifacts/:id", async (req, reply) => {
     const id = z.string().uuid().parse(paramId(req)),
       artifact = artifacts.describe(id);

@@ -1,6 +1,6 @@
 /* biome-ignore-all lint/suspicious/noArrayIndexKey: Chapter ordinals belong to immutable document bytes. */
 import { useEffect, useRef, useState } from "react";
-import { accountLocalStorage as storage } from "./accountStorage";
+import { accountLocalStorage as storage, workspaceMediaUrl } from "./accountStorage";
 import { api } from "./api";
 import type { ReadingDocument } from "./bookReader/document";
 import { type ReaderLocation, type ReaderMatch, validLocation } from "./bookReader/navigation";
@@ -15,6 +15,7 @@ import {
 } from "./bookReader/pages";
 import { PrivatePageVoice, speechTransport } from "./bookReader/speech";
 import { BrowserSpeech, chunks, VoiceController } from "./bookReader/voice-reader";
+import type { DocumentResolver } from "./documentReferences";
 import { Icon } from "./icons";
 import { claimSpeech } from "./MessageSpeech";
 import { ReaderNavigation } from "./ReaderNavigation";
@@ -43,7 +44,15 @@ type Controls = {
   position(): ReaderLocation & { excerpt: string };
   jump(location: ReaderLocation, hit?: ReaderMatch): Promise<boolean>;
 };
-export function BookReader({ document: book }: { document: ReadingDocument }) {
+export function BookReader({
+  document: book,
+  onOpenLink,
+  resolveImage,
+}: {
+  document: ReadingDocument;
+  onOpenLink?: (href: string) => void;
+  resolveImage?: DocumentResolver;
+}) {
   const root = useRef<HTMLDivElement>(null),
     viewport = useRef<HTMLDivElement>(null),
     article = useRef<HTMLElement>(null),
@@ -61,6 +70,8 @@ export function BookReader({ document: book }: { document: ReadingDocument }) {
     error: "",
   });
   const [navigation, setNavigation] = useState<"search" | "bookmarks" | null>(null);
+  const imageResolver = useRef(resolveImage);
+  imageResolver.current = resolveImage;
   const initialPrefs = useRef(prefs);
   initialPrefs.current = prefs;
   useEffect(() => {
@@ -222,6 +233,27 @@ export function BookReader({ document: book }: { document: ReadingDocument }) {
         if (disposed || serial !== ticket || !current()) return false;
         chapter = target;
         text.innerHTML = value;
+        // Fetch only the displayed chapter, after text/pagination are ready. Fixed
+        // thumbnail geometry keeps late images from shifting the reading position.
+        const pendingImages = Array.from(
+          text.querySelectorAll<HTMLImageElement>("img[data-document-image]"),
+        );
+        const resolve = imageResolver.current;
+        if (resolve)
+          void Promise.all(
+            Array.from({ length: Math.min(3, pendingImages.length) }, async () => {
+              while (pendingImages.length && !disposed && serial === ticket) {
+                const image = pendingImages.shift()!;
+                try {
+                  const linked = await resolve(image.dataset.documentImage!);
+                  const url = workspaceMediaUrl(linked.url);
+                  if (!disposed && serial === ticket && url) image.src = url;
+                } catch {
+                  /* Keep the clickable source for an explicit retry. */
+                }
+              }
+            }),
+          );
         blocks = readerTextBlocks(text);
         pages = createReaderPages(pane, text, blocks, (pos) =>
           anchorRange(pos, pos.char + 1, blocks),
@@ -654,7 +686,19 @@ export function BookReader({ document: book }: { document: ReadingDocument }) {
           ))}
       </small>
       <div ref={viewport} className="reader-scroll" aria-busy={state.busy}>
-        <article ref={article} />
+        {/* biome-ignore lint/a11y/useKeyWithClickEvents: Delegated native anchor clicks already include keyboard Enter activation. */}
+        <article
+          ref={article}
+          onClick={(event) => {
+            const link = (event.target as Element).closest<HTMLAnchorElement>(
+              "a[data-document-link]",
+            );
+            if (link) {
+              event.preventDefault();
+              onOpenLink?.(link.dataset.documentLink || "");
+            }
+          }}
+        />
         <div ref={highlight} className="reader-search-highlight" aria-hidden="true" />
       </div>
       <ReaderNavigation

@@ -1,5 +1,15 @@
 # AGENTS.md
 
+## Owner-requested systemic defect repair (2026-10-09)
+
+- Diagnose reported defects at their shared source, transport, model and rendering
+  boundaries. Check all affected entry points and source types before choosing a fix;
+  do not special-case a screenshot, chat, filename or project to hide the symptom.
+- Add focused regression coverage for the failure class, including adjacent cases
+  and exact source identity. Preserve working behavior, drafts and operation receipts.
+- Verify the actual installed path separately from source tests. Report remaining
+  unsupported cases honestly; a repaired example is not proof of complete coverage.
+
 ## Owner-requested immediate GPT requests and rich chat output (2026-10-08)
 
 - Show a request in Results / Reasoning as soon as its native delivery is proved,

@@ -1,6 +1,25 @@
 # Текущий статус — 9 октября 2026
 
-### Systemic GPT content pipeline repair — October 9 (activation pending)
+### Document navigation and interactive layouts — October 9 (verification in progress)
+
+Owner screenshots exposed two shared gaps: Markdown readers removed all links and
+images, and native interactive layouts lost local state/setter callbacks. The
+Screenshots link in the reported Codex answer really targets README.md, an image
+index; no artifact substitution was found. Shared reading now preserves linked
+images/files, opens the common nested viewer, and keeps document position/draft.
+Image transfers do not delay text. Captured Markdown authorizes only its actual
+links, bound to the exact source machine/root and immutable parent; no filename
+matching or current-project fallback. Existing storage/transfer checks remain.
+
+The shared GPT renderer now supports local state and setter-based controls/presets.
+The actual four-channel mixer passes Chromium/WebKit at 390 and 1024 widths,
+including independent messages, input focus, three presets and no action requests.
+Source support/limits are in GPT_CONTENT_SUPPORT.md. The systemic-fix rule is
+recorded in AGENTS.md and the owner-requested persistent memory note. Installation
+of this follow-up is not yet claimed; normal guarded engine/web delivery follows
+focused tests, without another native GPT update.
+
+### Systemic GPT content pipeline repair — October 9 (installed)
 
 Replaced screenshot-specific handling with a shared parser/renderer and a typed
 public component projection across native graph, live events, receipts, Hub
@@ -31,17 +50,36 @@ regression. Guarded retry installed engine/gateway `b9487e6e` at 19:00 UTC,
 public web `c387a84b98efd41abe6f70aa64df300bf565471cdc39d95c0949be66ca07cc5d`,
 and the owner adapter `26.928.31416-b9487e6e` after verified native idle. Account,
 profile, receipts and the other member client were retained; no input replay.
-The exact G2 answer now returns its original image and five sources, but readback
-exposed opaque resolution IDs absent from the raw markup. The binding follow-up
-is under verification; asset restoration is not yet accepted.
+The exact G2 answer initially exposed opaque resolution IDs absent from raw
+markup. The completed binding correction and real readback are recorded below.
 
 The karaoke follow-up is published as web revision `1d60af86`, version
-`c620aba10da026fc69af84e97b696ebd49988b02dfe8927cb6679d53584ee6d5`.
+`c620aba1`.
 All six Chromium/WebKit viewport checks include the complete native diagram,
 68 waveform bars, eight grid lines, color markers and catalogue icons. Original
 Hub/engine processes were retained for this web publication. The owner adapter
-binding reader is also at `26.928.31416-1d60af86`; fresh G2 readback still finds
-unmatched opaque IDs, so image/citation restoration remains open.
+binding reader was initially at `26.928.31416-1d60af86`; fresh G2 readback exposed
+compiler-hoisted constants that the first literal reader did not resolve.
+
+Final owner adapter `26.928.31416-be390707` resolves the actual
+`__dilConstants["key"]` bindings. A scoped local presentation read established
+that contract without inspector probes or executable-program evaluation.
+Authenticated production readback now matches all three Cite nodes (five original
+sources) and the AsyncImage; the original image URL returns HTTP 200 image/jpeg.
+Chromium and WebKit render that real returned answer with one loaded image, five
+source links and no horizontal overflow. Opaque IDs and exact-props aliases are
+both retained, so raw reference counts include aliases, not duplicate rendered
+assets. All native activations used verified-idle admission; the other member
+client, profile/account bindings and uncertain receipts were preserved.
+The engine/gateway remain healthy `b9487e6e` with no further restart for these
+web/native follow-ups. Public authenticated version read matches `c620aba1`.
+
+Evidence is in `/tmp/abyssdeck-rich-systemic-20261009` on the owner host:
+`audit-tests.log` (52 native tests), `browsers-final.log` (six viewport checks),
+`readback-check.json`, `real-browser.log` and `evidence/*-karaoke-*.png`,
+`evidence/*-real-g2.png`. The exact-answer metadata stays in private local files,
+not committed fixtures. Physical iPhone behavior is assessed through ordinary
+owner use; desktop WebKit checks are not claimed as iPhone verification.
 
 ### GPT missing image layout and unresolved native assets — October 9
 

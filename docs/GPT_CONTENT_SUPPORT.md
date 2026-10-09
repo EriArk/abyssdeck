@@ -126,7 +126,7 @@ Native tests check public-only projection, hidden-content exclusion, metadata
 updates without text changes, exact receipts, and no extra dispatch.
 
 This coverage does not claim support for every undocumented native component,
-TeX/Mermaid, arbitrary Canvas applications, action callbacks or native audio/video
+TeX/Mermaid, arbitrary Canvas applications, arbitrary JavaScript callbacks or native audio/video
 payloads. Unsupported content is preserved rather than silently deleted.
 
 Native content icon names use the pinned Lucide catalogue in a separately loaded
@@ -187,3 +187,19 @@ Local compatibility audits can explicitly read one public presentation through
 native view program as inert text, constants and component field names; never
 executes that program, returns hidden messages or adds a Hub/browser endpoint.
 Ordinary chat projections continue to exclude executable view programs.
+
+## Local interactive layout state — October 9
+
+The shared message/steps renderer interprets DIL.useState declarations as local data,
+recomputes dependent records/lists/labels/icons, and renders sliders, text/number
+inputs, checkbox/switch, select, textarea and buttons. Direct setter references
+and callbacks consisting only of local setter calls support input values,
+arithmetic and multi-value presets. No eval, native dispatch, provider polling or
+network actions are introduced. Unsupported callbacks disable their control; the
+original complete text remains available through ordinary copy/export. State
+belongs to the mounted message and is not synchronized with native ChatGPT.
+
+The actual public four-channel mixer sample is a regression fixture. Chromium
+and WebKit check keyboard adjustment/focus, mute, reset, three presets, independent
+messages, other input types and no requests caused by interactions. This is an
+interactive UI example, not control of actual audio hardware.
