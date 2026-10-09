@@ -1,23 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import ReactMarkdown, { type Components } from "react-markdown";
+import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CopyButton } from "./CopyButton";
+import { externalDocumentLink } from "./documentReferences";
 import { visibleFileSpeech } from "./fileSpeechPosition";
 import { Icon } from "./icons";
 import { SpeechButton, useSpeechScope } from "./MessageSpeech";
-
-const markdownComponents: Components = { a: ({ children }) => <span>{children}</span> };
+import { useDocumentLinks } from "./useDocumentLinks";
 
 export function ReadableFilePreview({
   file,
   initialRaw = false,
   toolbarTarget,
+  source,
 }: {
   file: File;
   initialRaw?: boolean;
   toolbarTarget?: HTMLElement | null;
+  source?: string;
 }) {
+  const links = useDocumentLinks(file, source);
   const [loaded, setLoaded] = useState<{ file: File; text: string; readable: boolean }>(),
     [wrap, setWrap] = useState(true),
     [raw, setRaw] = useState(initialRaw);
@@ -103,8 +106,27 @@ export function ReadableFilePreview({
         <div ref={content} className="file-document">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
-            disallowedElements={["img"]}
-            components={markdownComponents}
+            components={{
+              a: ({ href = "", children }) =>
+                externalDocumentLink(href) ? (
+                  <a href={href} target="_blank" rel="noopener noreferrer">
+                    {children}
+                  </a>
+                ) : (
+                  <button type="button" className="download-text" onClick={() => links.open(href)}>
+                    {children}
+                  </button>
+                ),
+              img: ({ src = "", alt = "" }) => (
+                <button
+                  type="button"
+                  className="download-text"
+                  onClick={() => links.open(String(src))}
+                >
+                  {alt || "Открыть изображение"}
+                </button>
+              ),
+            }}
           >
             {text}
           </ReactMarkdown>
@@ -114,6 +136,7 @@ export function ReadableFilePreview({
           {text}
         </pre>
       )}
+      {links.viewer}
     </div>
   );
 }

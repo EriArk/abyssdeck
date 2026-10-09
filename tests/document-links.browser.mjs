@@ -125,6 +125,25 @@ try {
       }
       assert.equal(refs.filter((x) => x === "wide.png").length, 1);
       assert.equal(refs.filter((x) => x === "narrow.png").length, 1);
+      await page.getByRole("button", { name: "Compact", exact: true }).click();
+      await expect(page.locator(".book-reader")).toHaveCount(0);
+      await page.getByRole("button", { name: "Wide Home", exact: true }).click();
+      await expect(page.locator("dialog")).toHaveCount(2);
+      await expect(page.locator("dialog").last().locator(".file-viewer-heading strong")).toHaveText(
+        "wide.png",
+      );
+      await page
+        .locator("dialog")
+        .last()
+        .getByRole("button", { name: "Закрыть просмотр", exact: true })
+        .click();
+      await expect(page.locator("dialog")).toHaveCount(1);
+      await expect(page.locator(".file-document")).toContainText("Gallery");
+      await page
+        .locator("dialog")
+        .getByRole("button", { name: "Закрыть просмотр", exact: true })
+        .click();
+      await expect(page.locator("dialog")).toHaveCount(0);
       assert.deepEqual(errors, []);
       console.log(JSON.stringify({ name, width, passed: true }));
       await browser.close();

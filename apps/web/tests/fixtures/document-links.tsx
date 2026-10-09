@@ -1,6 +1,7 @@
 ﻿import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { FileViewerDialog } from "../../src/FileViewerDialog";
+import { ReadableFilePreview } from "../../src/ReadableFilePreview";
 import ReaderFilePreview from "../../src/ReaderFilePreview";
 import "../../src/styles.css";
 
@@ -13,6 +14,7 @@ const file = new File(
 );
 function Fixture() {
   const [open, setOpen] = useState(false);
+  const [compact, setCompact] = useState(false);
   const [source, setSource] = useState("/api/artifacts/11111111-1111-4111-8111-111111111111");
   return (
     <>
@@ -21,8 +23,23 @@ function Fixture() {
         <option value="/api/artifacts/11111111-1111-4111-8111-111111111111">Saved</option>
         <option value="/api/projects/p/files/content?path=docs%2FREADME.md">Working</option>
       </select>
-      <button type="button" onClick={() => setOpen(true)}>
+      <button
+        type="button"
+        onClick={() => {
+          setCompact(false);
+          setOpen(true);
+        }}
+      >
         Screenshots
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setCompact(true);
+          setOpen(true);
+        }}
+      >
+        Compact
       </button>
       {open && (
         <FileViewerDialog
@@ -31,7 +48,11 @@ function Fixture() {
           source={source}
           onClose={() => setOpen(false)}
         >
-          <ReaderFilePreview file={file} source={source} />
+          {compact ? (
+            <ReadableFilePreview file={file} source={source} />
+          ) : (
+            <ReaderFilePreview file={file} source={source} />
+          )}
         </FileViewerDialog>
       )}
     </>

@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { BookReader } from "./BookReader";
 import { type ReadingDocument, readingDocument } from "./bookReader/document";
-import { type DocumentFile, documentResolver, externalDocumentLink } from "./documentReferences";
 import { ReadableFilePreview } from "./ReadableFilePreview";
-import { ResultFilePreview } from "./ResultFilePreview";
+import { useDocumentLinks } from "./useDocumentLinks";
 
 export default function ReaderFilePreview({
   file,
@@ -12,26 +11,17 @@ export default function ReaderFilePreview({
   file: File;
   source?: string;
 }) {
-  const generation = useRef(0);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: Cached linked files belong to these exact document bytes.
-  const resolve = useMemo(() => documentResolver(origin), [origin, file]);
-  const [opened, setOpened] = useState<DocumentFile | null>(null);
-  const [linkError, setLinkError] = useState("");
-  const [linkBusy, setLinkBusy] = useState(false);
+  const links = useDocumentLinks(file, origin);
   const [loaded, setLoaded] = useState<{
     file: File;
     document?: ReadingDocument;
     error?: string;
   }>();
   const [source, setSource] = useState(false);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: Changing the exact source invalidates pending links even when document bytes are unchanged.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Rebuild thumbnail bindings when the same bytes are opened from another source.
   useEffect(() => {
     let live = true;
-    generation.current++;
-    setLinkBusy(false);
     setSource(false);
-    setOpened(null);
-    setLinkError("");
     void readingDocument(file)
       .then((document) => {
         if (live) setLoaded({ file, document });
@@ -41,9 +31,8 @@ export default function ReaderFilePreview({
       });
     return () => {
       live = false;
-      generation.current++;
     };
-  }, [file, resolve]);
+  }, [file, links.resolve]);
   const current = loaded?.file === file ? loaded : undefined;
   return (
     <div className="reader-file-preview">
@@ -74,53 +63,15 @@ export default function ReaderFilePreview({
       ) : current?.document ? (
         <BookReader
           document={current.document}
-          resolveImage={resolve}
-          onOpenLink={(href) => {
-            if (externalDocumentLink(href)) {
-              window.open(href, "_blank", "noopener,noreferrer");
-              return;
-            }
-            if (linkBusy) return;
-            setLinkBusy(true);
-            setLinkError("");
-            const ticket = generation.current;
-            void resolve(href)
-              .then((value) => {
-                if (ticket === generation.current) setOpened(value);
-              })
-              .catch((e) => {
-                if (ticket === generation.current) setLinkError(e.message);
-              })
-              .finally(() => {
-                if (ticket === generation.current) setLinkBusy(false);
-              });
-          }}
+          resolveImage={links.resolve}
+          onOpenLink={links.open}
         />
       ) : (
         <p role="status">
           <span className="spinner" /> Загружаю полный текст…
         </p>
       )}
-      {linkBusy && (
-        <p role="status">
-          <span className="spinner" /> Открываю файл по ссылке…
-        </p>
-      )}
-      {linkError && <p role="alert">{linkError}</p>}
-      {opened && (
-        <ResultFilePreview
-          result={{
-            id: opened.url,
-            threadId: "",
-            turnId: null,
-            type: "artifact",
-            title: opened.name,
-            payload: { url: opened.url, mime: opened.mime },
-            createdAt: "",
-          }}
-          onClose={() => setOpened(null)}
-        />
-      )}
+      {links.viewer}
     </div>
   );
 }

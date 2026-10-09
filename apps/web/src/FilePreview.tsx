@@ -181,12 +181,8 @@ export function FilePreview({
           >
             <ReaderPreview file={file} source={source} />
           </Suspense>
-        ) : kind === "text" && /\.(md|markdown)$/i.test(file.name) ? (
-          <Suspense fallback={<p role="status">Открываю документ…</p>}>
-            <ReaderPreview file={file} source={source} />
-          </Suspense>
         ) : kind === "text" ? (
-          <ReadableFilePreview file={file} toolbarTarget={toolbarTarget} />
+          <ReadableFilePreview file={file} source={source} toolbarTarget={toolbarTarget} />
         ) : kind === "html" ? (
           <TextOrHtml file={file} html={kind === "html"} />
         ) : (

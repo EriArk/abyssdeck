@@ -154,7 +154,11 @@ try {
       await page.getByRole("button", { name: "Открыть файл" }).click();
       const viewer = page.getByRole("dialog", { name: "Просмотр файла", exact: true });
       const reader = viewer.locator(".book-reader");
-      await expect(reader.locator(".reader-bottom")).toContainText(/Стр\. 1 \/ \d+/);
+      // Complete-book indexing is asynchronous; WebKit on a shared build host
+      // can exceed the default five-second assertion window.
+      await expect(reader.locator(".reader-bottom")).toContainText(/Стр\. 1 \/ \d+/, {
+        timeout: 30000,
+      });
       assert.ok(
         Number((await reader.locator(".reader-bottom").innerText()).match(/\/ (\d+)/)[1]) > 30,
       );

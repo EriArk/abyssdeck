@@ -19,6 +19,13 @@ recorded in AGENTS.md and the owner-requested persistent memory note. Installati
 of this follow-up is not yet claimed; normal guarded engine/web delivery follows
 focused tests, without another native GPT update.
 
+Compact Markdown previews share the same source resolver/nested viewer without
+starting full-book pagination. The large-book Chromium/WebKit regression passes
+with a 30-second initial full-index assertion window; the shared-host WebKit run
+exceeded its old five-second assertion. Current-chapter text remains readable
+while the complete page total is calculated. No timeout/restart behavior was
+added to the application.
+
 ### Systemic GPT content pipeline repair — October 9 (installed)
 
 Replaced screenshot-specific handling with a shared parser/renderer and a typed
