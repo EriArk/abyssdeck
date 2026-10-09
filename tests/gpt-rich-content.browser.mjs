@@ -113,6 +113,19 @@ try {
           return route.fulfill({ status: 404, body: "Missing fixture route" });
         });
         await page.goto("https://rich.test/");
+        const imageLayout = page.getByTestId("image-layout");
+        const imagePlaceholder = imageLayout.locator(".gpt-rich-image-unavailable");
+        await expect(imagePlaceholder).toContainText("Иллюстрация недоступна");
+        const imageBox = await imagePlaceholder.boundingBox();
+        const descriptionBox = await imageLayout.locator('[data-layout="box"]').boundingBox();
+        assert.ok(imageBox.width <= 155.1, "missing image respects native maxWidth");
+        assert.ok(Math.abs(imageBox.width / imageBox.height - 4 / 3) < 0.02, "native aspect ratio");
+        assert.ok(descriptionBox.width >= 140, "missing image does not squeeze the description");
+        assert.ok(
+          descriptionBox.x >= imageBox.x + imageBox.width,
+          "description stays beside image",
+        );
+        await imageLayout.screenshot({ path: join(evidence, `${name}-image-${width}.png`) });
         const bodyTemplate = page.getByTestId("body-template");
         await expect(bodyTemplate.locator('[data-layout="grid"]')).toHaveCount(3);
         await expect(bodyTemplate.locator('[data-layout="grid-item"]')).toHaveCount(15);

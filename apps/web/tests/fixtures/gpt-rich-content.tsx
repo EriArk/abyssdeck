@@ -96,6 +96,23 @@ function Fixture() {
   const [running, setRunning] = useState(true);
   return (
     <main style={{ maxWidth: 900, margin: "auto", padding: 16 }}>
+      <section className="gpt-chat" data-testid="image-layout">
+        <article className="message assistant">
+          <div className="message-body">
+            <GptMessageText
+              rich
+              value={`<row align="start" gap={3}>
+  <AsyncImage query="handheld console front view" aspectRatio="4:3" maxWidth="155px"/>
+  <box flex="1" gap={1}>
+    **<Entity category="product" value="Handheld console"/>**
+
+    Одна из портативок с этим процессором: AMOLED, 8 ГБ RAM и Android. <Cite ref="turn1search0"/>
+  </box>
+</row>`}
+            />
+          </div>
+        </article>
+      </section>
       <section className="gpt-chat" data-testid="body-template">
         <article className="message assistant">
           <div className="message-body">

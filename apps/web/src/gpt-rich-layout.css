@@ -180,6 +180,25 @@ button.gpt-file-citation:focus-visible {
   flex: 0 0 auto;
   vertical-align: middle;
 }
+.gpt-rich-image-unavailable {
+  display: inline-flex;
+  box-sizing: border-box;
+  flex: 0 1 auto;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0.4em;
+  padding: 0.5em;
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-radius: 0.75rem;
+  font-size: 0.75em;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.gpt-rich-image-unavailable > svg {
+  flex-shrink: 0;
+}
 .gpt-rich-icon[data-color="secondary"],
 .gpt-rich-icon[data-color="tertiary"] {
   color: var(--muted);

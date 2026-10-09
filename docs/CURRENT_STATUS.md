@@ -1,5 +1,28 @@
 # Текущий статус — 9 октября 2026
 
+### GPT missing image layout and unresolved native assets — October 9
+
+The G2 comparison screenshot exposes an `AsyncImage` placeholder ignoring the
+authored `maxWidth="155px"` and `aspectRatio="4:3"`, squeezing its sibling text.
+The fallback now respects those dimensions, shrinks within its parent and wraps
+its explanation. A reproduction in actual GPT message containers passes all six
+Chromium/WebKit width combinations; fifteen parser tests and web typecheck pass.
+Web publication is pending.
+
+The image and citations themselves are **not restored**. An exact public native
+graph read returns no attachments or content references for this answer. Offline
+inspection of installed build 26.928.31416 locates the missing public data in
+`metadata.model_dil_v2.appData.opGenui.componentResults` (legacy `componentData`).
+Native `AsyncImage` consumes resolved `state.images`; `Cite` consumes `state.items`.
+The current adapter projects neither. See the content-support document for the
+mapping contract; do not substitute newly searched images or guessed source URLs.
+
+Diagnostic incident: a live inspector probe at 16:52:34 UTC was immediately
+followed by native GPT exit code 1 and automatic restart at 16:52:35 UTC. Exact
+failure cause was not established; the probe is not safe to repeat on the active
+client. Owner informed. No input was replayed; ordinary adapter status and the
+exact public graph read subsequently succeeded. Hub/engine were not restarted.
+
 ### GPT layout fidelity — October 9 comparison
 
 The owner compared the same native answer and AbyssDeck rendering. Read the exact

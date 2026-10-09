@@ -134,12 +134,28 @@ function layout(
         [Источник недоступен]
       </span>
     );
-  if (tag === "AsyncImage")
+  if (tag === "AsyncImage") {
+    const width = /^\d+(?:\.\d+)?(?:px|rem|em|%)$/.test(a.maxWidth ?? "") ? a.maxWidth : "155px";
+    const ratio = /^(\d+(?:\.\d+)?)[/:](\d+(?:\.\d+)?)$/.exec(a.aspectRatio ?? "");
+    const aspectRatio =
+      ratio && Number(ratio[1]) > 0 && Number(ratio[2]) > 0
+        ? `${ratio[1]} / ${ratio[2]}`
+        : undefined;
     return (
-      <span className="gpt-rich-unavailable muted">
-        <Icon name="image" size={18} /> Иллюстрация недоступна
+      <span
+        className="gpt-rich-image-unavailable muted"
+        style={{ width, maxWidth: "100%", aspectRatio }}
+        title={
+          a.query
+            ? `Адрес иллюстрации не передан. Запрос: ${a.query}`
+            : "Адрес иллюстрации не передан"
+        }
+      >
+        <Icon name="image" size={18} />
+        <span>Иллюстрация недоступна</span>
       </span>
     );
+  }
   const style: CSSProperties = {};
   const length = (value: unknown): string | number | undefined => {
     if (typeof value === "number" && Number.isFinite(value) && value >= 0) return value * 4;

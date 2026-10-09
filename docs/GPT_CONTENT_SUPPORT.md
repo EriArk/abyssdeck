@@ -74,6 +74,30 @@ that every native-client feature has an available integration contract.
 
 ## Verification
 
+### October 9 image/citation follow-up
+
+The native G2 example includes `AsyncImage` with `maxWidth="155px"` and
+`aspectRatio="4:3"`. Its unavailable placeholder now honors these dimensions
+without taking the text column's intrinsic width. Browser verification checks
+the placeholder geometry and remaining text width in actual chat containers.
+This fixes fallback layout only, not asset or citation availability.
+
+Read-only inspection of the installed 26.928.31416 package found a separate
+public component contract that the native adapter currently drops:
+
+- `metadata.model_dil_v2.appData.opGenui.componentResults`: envelopes with
+  `status` and resolved `state`; old data may use `componentData` instead.
+- Component keys are `JSON.stringify([componentName, normalizedProps])`, with
+  recursively sorted object keys and `__resolutionId`, `__state`, `children`,
+  `fallback` excluded. An explicit resolution ID takes precedence over this key.
+- `AsyncImage` reads `state.images` plus frame dimensions. `Cite` reads
+  `state.items`. A query/search ID alone does not identify the returned asset.
+- A future projection must export only public, validated display fields, bound
+  to the exact message/component; never copy executable DIL code or arbitrary
+  appData. Preserve original message text and literal code. Verify against an
+  isolated native fixture before production activation; do not use a live
+  supervisor inspector probe, which caused an unexpected native restart here.
+
 The October 9 visual comparison fixture includes the actual `layers`/Markdown
 header within GPT message containers. Rows stay on one line unless `wrap` is
 supplied; wrapped title text remains beside its icon. Neutral surfaces remain
