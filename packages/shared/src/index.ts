@@ -451,3 +451,4 @@ export * from "./result-search.js";
 export * from "./visualization-reference.js";
 export * from "./workspace-commands.js";
 export * from "./workspace-notices.js";
+export { gptFileIndex, gptCitedFiles } from "./gpt.js";

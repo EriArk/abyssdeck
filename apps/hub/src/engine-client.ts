@@ -51,7 +51,9 @@ export interface EngineInfo {
   revision: string;
   instance: string;
 }
-export function engineInfo(socketPath: string, timeoutMs = 3000): Promise<EngineInfo> {
+// Startup/admission callers (gateway, publisher and owner migration) must allow
+// cold history hydration after health succeeds. One bounded read, no polling.
+export function engineInfo(socketPath: string): Promise<EngineInfo> {
   return new Promise((resolve, reject) => {
     const req = request({ socketPath, path: "/internal/runtime", method: "GET" }, (res) => {
       let text = "";
@@ -77,7 +79,7 @@ export function engineInfo(socketPath: string, timeoutMs = 3000): Promise<Engine
         }
       });
     });
-    req.setTimeout(timeoutMs, () => req.destroy(new Error("ENGINE_TIMEOUT")));
+    req.setTimeout(30000, () => req.destroy(new Error("ENGINE_TIMEOUT")));
     req.on("error", reject);
     req.end();
   });

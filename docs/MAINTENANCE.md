@@ -174,11 +174,12 @@ SQLite integrity/foreign-key results also reuse only in-memory evidence in the s
 
 The receipt's `stages` records service stop, checkpoint, candidate start, admission and web start times. Checkpoint detail separates source validation, file sync, SQLite copy, manifest, saved database validation and restore rehearsal. These are measured phases, not a promise of a fixed update duration.
 
-Web publication allows 30 seconds for each of its two existing engine identity
-reads. A healthy cold engine can still be loading history after the health route
-answers; the ordinary interactive three-second timeout is not its startup
-admission budget. Publication still checks schema/protocol and the same engine
-instance before moving the pointer. This adds no polling or automatic restart.
+The common engine identity read allows 30 seconds for gateway startup, web
+publication and owner migration admission. A healthy cold engine can still be
+loading history after the health route answers; the former three-second timeout
+was too short for these startup callers. Publication still checks schema/protocol
+and the same engine instance before moving the pointer. This adds no polling or
+automatic restart.
 
 
 Diagnostic database opens must not reset execution state: `Store` construction opens/migrates storage, while `Sessions` explicitly calls `recoverRuntimeState()` when starting the execution owner. Inspecting the live database must not construct another `Sessions` instance. Prefer read-only SQLite for direct observations. Verify automatic recovery after deployment without calling the thread's manual Check action first.

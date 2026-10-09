@@ -1,4 +1,5 @@
 import type { GptJob, GptMessage, GptProgress, ResultItem } from "@codex-web/shared";
+import { gptFileIndex, gptCitedFiles } from "@codex-web/shared";
 
 /** Fresh stream steps extend canonical history; completed canonical steps win
  * over retained stream snapshots after completion or branch navigation. */
@@ -21,6 +22,7 @@ export function gptLiveResults(
   live?: { jobId: string; items: GptProgress[] } | null,
 ): ResultItem[] {
   const requests = new Map<string, ResultItem>();
+  const files = gptFileIndex(messages);
   let current: ResultItem | undefined;
   for (const message of messages) {
     if (message.role === "user") {
@@ -38,9 +40,7 @@ export function gptLiveResults(
         id: message.id,
         text: message.text,
         richReferences: message.richReferences,
-        files: messages
-          .flatMap((m) => m.files ?? [])
-          .filter((file) => message.text.includes(file.id)),
+        files: gptCitedFiles(message.text, files),
         activity: message.activity,
         state: message.complete === false && !message.incomplete ? "active" : "completed",
         ...(message.incomplete ? { incomplete: true } : {}),

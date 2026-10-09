@@ -8,6 +8,20 @@ import { gptResults } from "../apps/hub/dist/gpt-results.js";
 import { GptResultIndex } from "../apps/hub/dist/gpt-result-index.js";
 import { gptRichAnswers, gptRichReferences } from "../apps/hub/dist/gpt-rich.js";
 import { mergeGptSteps } from "../apps/web/src/gptLiveResults.ts";
+import { gptFileIndex, gptCitedFiles } from "../packages/shared/dist/gpt.js";
+
+test("citation lookup indexes large attachment histories once and keeps templated exact IDs", () => {
+  const files = Array.from({ length: 10000 }, (_, i) => ({ id: `file_${i}`, name: `${i}.txt`, url: `/file/${i}` }));
+  let enumerations = 0;
+  const index = gptFileIndex([{ get files() { enumerations++; return files; } }]);
+  let lookups = 0;
+  const lookup = { size: index.size, get(id) { lookups++; return index.get(id); } };
+  const source = '<FileCite ref="file_1"/> <box>{@body const refs=["file_9999"]}{#each refs as r}<FileCite ref={r}/>{/each}</box>';
+  for (let i = 0; i < 100; i++) assert.deepEqual(gptCitedFiles(source, lookup).map(f => f.id), ["file_1", "file_9999"]);
+  assert.equal(enumerations, 1);
+  assert(lookups < 5000, "work scales with cited text, not all 10,000 attachments per step");
+  assert.deepEqual(gptCitedFiles('<FileCite ref="file_10_extra"/>', index), []);
+});
 
 const key = JSON.stringify(["Cite", { ref: ["r1", "r2"] }]);
 const imageKey = JSON.stringify([

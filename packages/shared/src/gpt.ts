@@ -6,6 +6,24 @@ export interface GptFile {
   url: string;
   image: boolean;
 }
+/** Build once per snapshot, rather than scan every attachment for every step. */
+export function gptFileIndex(messages: Pick<GptMessage, "files">[]): Map<string, GptFile> {
+  const files = new Map<string, GptFile>();
+  for (const message of messages)
+    for (const file of message.files ?? []) if (!files.has(file.id)) files.set(file.id, file);
+  return files;
+}
+export function gptCitedFiles(text: string, files: ReadonlyMap<string, GptFile>): GptFile[] {
+  if (!files.size || !text.includes("<FileCite")) return [];
+  const cited = new Map<string, GptFile>();
+  // IDs can also occur in data declarations used by a templated FileCite.
+  // Token lookup preserves those sources without scanning the attachment list.
+  for (const match of text.matchAll(/[A-Za-z0-9_-]+/g)) {
+    const file = files.get(match[0]);
+    if (file) cited.set(file.id, file);
+  }
+  return [...cited.values()];
+}
 /** Display-only native component data, scoped to the containing message. */
 export interface GptRichReference {
   key: string;

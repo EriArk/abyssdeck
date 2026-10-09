@@ -41,7 +41,7 @@ test("built web contract accepts the current engine schema", () => {
   }
 });
 
-test("publication awaits slow engine startup without polling or moving the pointer early", async () => {
+test("publication and gateway await slow engine startup without polling or moving the pointer early", async () => {
   const root = mkdtempSync(join(tmpdir(), "cw-publish-startup-"));
   const source = join(root, "source"), releaseRoot = join(root, "web");
   const socketPath = process.platform === "win32" ? `\\\\.\\pipe\\cw-${randomUUID()}` : join(root, "engine.sock");
@@ -54,7 +54,7 @@ test("publication awaits slow engine startup without polling or moving the point
   const server = createServer((req, res) => {
     assert.equal(req.method, "GET");
     assert.equal(req.url, "/internal/runtime");
-    const delay = ++reads === 1 ? 3500 : 0;
+    const delay = [1, 3].includes(++reads) ? 3500 : 0;
     setTimeout(() => res.end(JSON.stringify({ protocol: 1, schema: 31, instance: "same-engine", revision: "ccccccc" })), delay);
   });
   server.listen(socketPath);
@@ -67,6 +67,10 @@ test("publication awaits slow engine startup without polling or moving the point
     await pending;
     assert.equal(reads, 2, "one startup read and one final identity check, no polling");
     assert.equal(currentRelease(releaseRoot).id, "c".repeat(64));
+    const gateway = await createWebGateway({ hub: { publicBaseUrl: "http://localhost", secureCookies: false } }, { socketPath, releaseRoot });
+    await gateway.ready();
+    await gateway.close();
+    assert.equal(reads, 3, "gateway startup uses the same patient identity read");
   } finally {
     await new Promise(resolve => server.close(resolve));
     rmSync(root, { recursive: true, force: true });

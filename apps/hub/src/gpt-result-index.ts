@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { GptMessage, ResultCategory, ResultItem, ResultPage } from "@codex-web/shared";
-import { resultCategory } from "@codex-web/shared";
+import { resultCategory, gptFileIndex, gptCitedFiles } from "@codex-web/shared";
 import { gptResults, resultPage } from "./gpt-results.js";
 import type { GptTextArtifacts } from "./gpt-text-artifacts.js";
 import type { Previews } from "./previews.js";
@@ -47,8 +47,8 @@ export class GptResultIndex {
 
   update(messages: GptMessage[]) {
     if (this.messages === messages && this.revision) return;
-    const files = messages.flatMap((m) => m.files ?? []);
-    const fileRevision = JSON.stringify(files);
+    const files = gptFileIndex(messages);
+    const fileRevision = JSON.stringify([...files.values()]);
     const filesChanged = fileRevision !== this.fileRevision;
     this.fileRevision = fileRevision;
     const grouped = new Map<string, GptMessage[]>();
@@ -81,7 +81,7 @@ export class GptResultIndex {
                   id: m.id,
                   text: m.text,
                   richReferences: m.richReferences,
-                  files: files.filter((file) => m.text.includes(file.id)),
+                  files: gptCitedFiles(m.text, files),
                   activity: m.activity,
                   state: m.complete === false && !m.incomplete ? "active" : "completed",
                   ...(m.incomplete ? { incomplete: true } : {}),

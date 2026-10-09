@@ -98,6 +98,13 @@ in individual screenshots:
    incomplete output wins over stale live snapshots. File citations in Results
    and answer steps open known files through the shared viewer.
 
+Citation files are indexed once per history snapshot in the shared package.
+Hub Results, the incremental index and live browser Results look up exact IDs
+from text against that index, including IDs in template declarations. They no
+longer rebuild or scan the complete attachment list for every answer step. The
+regression fixture contains 10,000 attachments and checks lookup/enumeration
+counts, not a machine-dependent timing threshold.
+
 The data interpreter now handles arithmetic, numeric comparisons and scoped
 {#if}/{:else}, alongside declarations, nested lists and ternary expressions.
 Repeated template bodies reuse parsed Markdown rather than reparsing it for

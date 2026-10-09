@@ -23,11 +23,14 @@ incident. Installation and actual readback will be recorded separately.
 The first engine activation (`9bebda5b`) reached a healthy process but failed the
 web publisher's three-second `/internal/runtime` read during cold startup,
 before exposing the candidate. The standard updater entered checkpoint rollback;
-native GPT was not replaced. The publisher now waits up to 30 seconds for each
-of its two existing identity reads, without polling, changing schema admission
-or restarting the engine. A delayed-startup regression and nine gateway,
-maintenance and Team rollback checks pass in Linux. Final installation remains
-pending the completed rollback and guarded retry.
+native GPT was not replaced. The same timeout affected the old gateway's first
+startup during rollback; its existing service recovery then restored the old
+healthy pair. The common identity read now waits up to 30 seconds for gateway,
+publisher and owner migration startup, without polling or weakening admission.
+A delayed-startup regression covers both publisher and gateway; previous gateway,
+maintenance and Team rollback checks pass in Linux. The final pass also shares
+one citation-file index across server/browser Results, with a 10,000-file
+regression. Final installation remains pending guarded retry.
 
 ### GPT missing image layout and unresolved native assets — October 9
 

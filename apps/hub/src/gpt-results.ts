@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import type { GptMessage, ResultCategory, ResultItem, ResultPage } from "@codex-web/shared";
 import {
   CHAT_BLOCK_LINES,
+  gptFileIndex,
+  gptCitedFiles,
   emptyResultCounts,
   HubError,
   resultCategory,
@@ -19,6 +21,7 @@ export function gptResults(
   textArtifacts?: GptTextArtifacts,
 ): ResultItem[] {
   const results = new Map<string, ResultItem>();
+  const files = gptFileIndex(messages);
   let request: ResultItem | undefined;
   for (const message of messages) {
     if (message.role === "user") {
@@ -36,9 +39,7 @@ export function gptResults(
         id: message.id,
         text: message.text,
         richReferences: message.richReferences,
-        files: messages
-          .flatMap((m) => m.files ?? [])
-          .filter((file) => message.text.includes(file.id)),
+        files: gptCitedFiles(message.text, files),
         activity: message.activity,
         state: message.complete === false && !message.incomplete ? "active" : "completed",
         ...(message.incomplete ? { incomplete: true } : {}),
