@@ -1,6 +1,6 @@
-# Текущий статус — 9 октября 2026
+# Текущий статус — 10 октября 2026
 
-### Project activity: deleted-chat counts — October 9 (correction in progress)
+### Project activity: deleted-chat counts — October 10 (installed)
 
 Correction to the previous diagnosis and web release `765bd08c`: TrainerOS has
 one visible chat. The other two stored rows are explicitly deleted in the Codex
@@ -15,7 +15,22 @@ overview and automatic current-chat selection exclude archived/deleted entries
 using exact native/local identities. Storage/history/receipts and runtime safety
 queries remain intact. A single active chat suppresses its previous unread badge;
 only aggregate project/section badges may represent different visible chats.
-Installation and verification of this correction are still pending.
+The clean build/typecheck and 62 focused tests passed, including 210 deleted
+predecessors, native/local library identity, cross-client isolation, catalog
+counts, HTTP/WebSocket snapshots, archive/unarchive and preserved receipts.
+Chromium/WebKit passed activity states at 390/1024 and queue/read-receipt checks.
+Guarded engine/web activation installed `62bc546e` at 21:02 UTC October 9
+(October 10 locally), public version
+`ba993d600daf505a6df35ec624ecdb4753193d822078cbf29b65b0c2ec6a66c3`.
+Engine/gateway are healthy. Both GPT containers retained their prior images,
+start times and zero restarts. Checkpoint retention completed normally.
+
+Authenticated live readback confirms TrainerOS has exactly one visible chat;
+the hidden predecessor and its receipt still exist. At verification the current
+chat had already ended with native `CODEX_ERROR` / `Bad Request`, so its correct
+aggregate was active=0, unread=1. No chat was resumed or message replayed during
+this check. Evidence is in `/tmp/abyssdeck-visibility-20261009/`; browser checks
+are not a physical-device acceptance claim.
 
 ### Document navigation and interactive layouts — October 9 (installed)
 
