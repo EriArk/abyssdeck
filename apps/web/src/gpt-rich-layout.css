@@ -141,6 +141,12 @@ button.gpt-file-citation:focus-visible {
 .gpt-rich[data-size="xs"] {
   font-size: 0.75em;
 }
+.gpt-rich[data-size="2xs"] {
+  font-size: 0.6875em;
+}
+.gpt-rich[data-size="3xs"] {
+  font-size: 0.625em;
+}
 .gpt-rich[data-size="lg"] {
   font-size: 1.15em;
 }

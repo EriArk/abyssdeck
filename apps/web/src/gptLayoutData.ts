@@ -64,9 +64,15 @@ export function layoutData(source: string, scope: LayoutScope): LayoutValue | un
     }
     throw Error("string");
   };
-  const value = (): LayoutValue => {
+  const primary = (): LayoutValue => {
     space();
     const char = source[at];
+    if (char === "(") {
+      at++;
+      const result = value();
+      take(")");
+      return result;
+    }
     if (char === '"' || char === "'") return string();
     if (char === "[" || char === "{") {
       at++;
@@ -112,6 +118,44 @@ export function layoutData(source: string, scope: LayoutScope): LayoutValue | un
     if (resolved === undefined) throw Error("path");
     return resolved;
   };
+  const operator = (options: string[]) => {
+    space();
+    const found = options.find((op) => source.startsWith(op, at));
+    if (found) at += found.length;
+    return found;
+  };
+  const equality = (): LayoutValue => {
+    let result = primary();
+    for (let op = operator(["===", "!=="]); op; op = operator(["===", "!=="])) {
+      const right = primary();
+      result = op === "===" ? result === right : result !== right;
+    }
+    return result;
+  };
+  const conjunction = (): LayoutValue => {
+    let result = equality();
+    while (operator(["&&"])) {
+      const right = equality();
+      result = result && right;
+    }
+    return result;
+  };
+  const disjunction = (): LayoutValue => {
+    let result = conjunction();
+    while (operator(["||"])) {
+      const right = conjunction();
+      result = result || right;
+    }
+    return result;
+  };
+  const value = (): LayoutValue => {
+    const result = disjunction();
+    if (!operator(["?"])) return result;
+    const yes = value();
+    take(":");
+    const no = value();
+    return result ? yes : no;
+  };
   try {
     const result = value();
     space();
@@ -119,6 +163,64 @@ export function layoutData(source: string, scope: LayoutScope): LayoutValue | un
   } catch {
     return undefined;
   }
+}
+
+/** Consume tags without mistaking > or quotes inside a data expression for a close. */
+export function layoutTagEnd(source: string, start: number): number {
+  let quote = "";
+  for (let i = start + 1; i < source.length; i++) {
+    const char = source[i];
+    if (quote) {
+      if (char === "\\") i++;
+      else if (char === quote) quote = "";
+    } else if (char === '"' || char === "'") quote = char;
+    else if (char === "{") {
+      const end = templateEnd(source, i);
+      if (end < 0) return -1;
+      i = end - 1;
+    } else if (char === ">") return i + 1;
+  }
+  return -1;
+}
+
+export function layoutAttributes(source: string): Record<string, string> {
+  const attrs: Record<string, string> = {};
+  const token = /([A-Za-z][\w-]*)\s*(=\s*)?/gy;
+  let at = 0;
+  while (at < source.length) {
+    while (/\s/.test(source[at] ?? "") && at < source.length) at++;
+    if (source[at] === "/" || at === source.length) break;
+    token.lastIndex = at;
+    const match = token.exec(source);
+    if (!match) break;
+    at = token.lastIndex;
+    let value = "true";
+    if (match[2]) {
+      const start = at,
+        quote = source[at];
+      if (quote === "{") {
+        const end = templateEnd(source, at);
+        if (end < 0) break;
+        value = source.slice(at, end);
+        at = end;
+        const literal = layoutScalar(layoutData(value.slice(1, -1), {}));
+        if (literal !== undefined) value = literal;
+      } else if (quote === '"' || quote === "'") {
+        at++;
+        while (at < source.length && source[at] !== quote) {
+          if (source[at] === "\\") at++;
+          at++;
+        }
+        if (at === source.length) break;
+        value = source.slice(start + 1, at++);
+      } else {
+        while (at < source.length && !/[\s/>]/.test(source[at]!)) at++;
+        value = source.slice(start, at);
+      }
+    }
+    if (!forbidden.has(match[1]!)) attrs[match[1]!] = value;
+  }
+  return attrs;
 }
 
 export function layoutScalar(value: LayoutValue | undefined): string | undefined {

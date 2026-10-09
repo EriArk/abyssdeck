@@ -4,6 +4,8 @@ import remarkParse from "../apps/web/node_modules/remark-parse/index.js";
 import { unified } from "../apps/web/node_modules/unified/index.js";
 import { gptLiveResults, mergeResultItems } from "../apps/web/src/gptLiveResults.ts";
 import { remarkGptLayout } from "../apps/web/src/gptRichMarkdown.ts";
+import { layoutBodySample } from "../apps/web/tests/fixtures/gpt-layout-body.ts";
+import { layoutData } from "../apps/web/src/gptLayoutData.ts";
 
 const parse = (value) => {
   const tree = unified().use(remarkParse).parse(value);
@@ -12,6 +14,75 @@ const parse = (value) => {
 };
 const flatten = (node) => [node, ...(node.children ?? []).flatMap(flatten)];
 const rich = (tree) => flatten(tree).filter((n) => n.type === "gptLayout");
+
+test("complete body declaration diagram expands three games and fifteen conditional tabs", () => {
+  const tree = parse(layoutBodySample),
+    nodes = rich(tree);
+  const of = (tag) => nodes.filter((n) => n.data.hProperties.dataGptLayout === tag);
+  assert.equal(of("grid").length, 3);
+  assert.equal(of("grid-item").length, 15);
+  const attrs = of("box").map((n) => JSON.parse(n.data.hProperties.dataGptAttrs));
+  assert.equal(attrs.filter((a) => a.background === "rgba(74,144,113,0.13)").length, 6);
+  assert.equal(attrs.filter((a) => a.background === "surface-secondary").length, 9);
+  assert.equal(
+    attrs.filter(
+      (a) => a.padding === "{{x:1,y:2}}" && a.align === "center" && a.minHeight === "42px",
+    ).length,
+    15,
+  );
+  const text = flatten(tree)
+    .filter((n) => n.type === "text")
+    .map((n) => n.value)
+    .join(" ");
+  for (const expected of [
+    "Pokémon",
+    "Diablo",
+    "Need for Speed",
+    "Companions",
+    "Chronicle",
+    "Garage",
+    "Events · Records",
+  ])
+    assert.ok(text.includes(expected));
+  assert.ok(!/\{@body|\{#each|\{t\.|\{c\}/.test(text));
+});
+
+test("body bindings stay local; invalid declarations and expressions remain visible", () => {
+  const source = `<box>{@body const rows=["A"];}{#each rows as item}<text>{item}</text>{/each}</box>\n\n<box>{#each rows as item}<text>{item}</text>{/each}</box>`;
+  const text = flatten(parse(source))
+    .filter((n) => n.type === "text")
+    .map((n) => n.value)
+    .join(" ");
+  assert.ok(text.startsWith("A"));
+  assert.ok(text.includes("{#each rows"));
+  for (const declaration of [
+    "const x=globalThis.run()",
+    "const x=[];globalThis.run()",
+    "let x=[]",
+  ]) {
+    assert.ok(
+      flatten(parse(`<box>{@body ${declaration}}</box>`)).some((n) =>
+        n.value?.includes(declaration),
+      ),
+    );
+  }
+  const literal = "<box>\n`{@body const x=[1]}`\n</box>";
+  assert.ok(
+    flatten(parse(literal)).some(
+      (n) => n.type === "inlineCode" && n.value === "{@body const x=[1]}",
+    ),
+  );
+  assert.equal(rich(parse('<box>{@body const rows=["A"]')).length, 0);
+  assert.equal(layoutData('(i===2 || i===3) ? "yes > no" : "no"', { i: 3 }), "yes > no");
+  for (const expression of [
+    "window.alert(1)",
+    "i=3",
+    "i.constructor",
+    "new Date()",
+    "true ? (()=>1)() : 0",
+  ])
+    assert.equal(layoutData(expression, { i: 3 }), undefined);
+});
 
 test("layout each expands literal records, text and icon paths while preserving code offsets", () => {
   const source = `<box>

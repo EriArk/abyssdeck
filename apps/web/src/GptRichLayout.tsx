@@ -3,6 +3,7 @@ import type { Components } from "react-markdown";
 import type { GptFile } from "@codex-web/shared";
 import { CopyButton } from "./CopyButton";
 import { Icon } from "./icons";
+import { layoutData } from "./gptLayoutData";
 import "./gpt-rich-layout.css";
 
 const icons: Record<string, string> = {
@@ -139,8 +140,37 @@ function layout(
       </span>
     );
   const style: CSSProperties = {};
+  const length = (value: unknown): string | number | undefined => {
+    if (typeof value === "number" && Number.isFinite(value) && value >= 0) return value * 4;
+    if (typeof value !== "string") return;
+    if (/^\d+(?:\.\d+)?$/.test(value)) return Number(value) * 4;
+    if (/^\d+(?:\.\d+)?(?:px|rem|em|%)$/.test(value)) return value;
+  };
   for (const key of ["gap", "padding", "margin"] as const)
-    if (a[key] && /^\d+(?:\.\d+)?$/.test(a[key]!)) style[key] = Number(a[key]) * 4;
+    if (a[key]) {
+      style[key] = length(a[key]);
+      if (key !== "gap" && a[key]!.startsWith("{")) {
+        const pair = layoutData(a[key]!.slice(1, -1), {});
+        if (pair && typeof pair === "object" && !Array.isArray(pair)) {
+          style[key === "padding" ? "paddingInline" : "marginInline"] = length(pair.x);
+          style[key === "padding" ? "paddingBlock" : "marginBlock"] = length(pair.y);
+        }
+      }
+    }
+  style.minHeight = length(a.minHeight);
+  style.textAlign = values(a.textAlign, [
+    "left",
+    "center",
+    "right",
+    "start",
+    "end",
+  ]) as CSSProperties["textAlign"];
+  if (
+    /^(?:#[\da-f]{3,8}|rgba?\(\s*[\d.]+\s*,\s*[\d.]+\s*,\s*[\d.]+(?:\s*,\s*[\d.]+)?\s*\))$/i.test(
+      a.background ?? "",
+    )
+  )
+    style.backgroundColor = a.background;
   style.flex = a.flex && /^\d+$/.test(a.flex) ? Number(a.flex) : undefined;
   style.alignItems = values(a.align, ["start", "center", "end", "stretch", "baseline"]);
   style.justifyContent =
@@ -152,8 +182,11 @@ function layout(
     )[a.justify ?? ""] ?? values(a.justify, ["start", "end", "center", "stretch"]);
   style.flexWrap = values(a.wrap, ["wrap", "nowrap", "wrap-reverse"]) as CSSProperties["flexWrap"];
   style.flexDirection = values(a.direction, ["row", "column"]) as CSSProperties["flexDirection"];
-  if (tag === "grid" && a.columns && /^\d+$/.test(a.columns) && Number(a.columns) > 0)
+  if (tag === "grid" && a.columns && /^\d+$/.test(a.columns) && Number(a.columns) > 0) {
     (style as CSSProperties & { "--gpt-columns": number })["--gpt-columns"] = Number(a.columns);
+    // An explicit column count is part of the supplied diagram, including on phones.
+    style.gridTemplateColumns = `repeat(${Number(a.columns)}, minmax(0, 1fr))`;
+  }
   if (tag === "list")
     return a.marker === "number" ? (
       <ol className="gpt-rich-list" style={style}>
@@ -192,7 +225,7 @@ function layout(
       ])}
       data-border={a.border !== undefined && a.border !== "false" ? "true" : undefined}
       data-radius={values(a.radius, ["none", "sm", "md", "lg", "xl", "full"])}
-      data-size={values(a.size, ["xs", "sm", "md", "lg", "xl"])}
+      data-size={values(a.size, ["3xs", "2xs", "xs", "sm", "md", "lg", "xl"])}
       data-color={values(a.color, [
         "secondary",
         "tertiary",

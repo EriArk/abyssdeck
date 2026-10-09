@@ -1,5 +1,18 @@
 # Текущий статус — 9 октября 2026
 
+### GPT local layout declarations — October 9 follow-up
+
+The owner's next screenshots use `{@body const tabs=...}` before nested loops,
+conditional backgrounds and object padding. The earlier inline-list release did
+not cover this structure. Added scoped data declarations, comparison/Boolean/
+ternary data expressions and balanced attribute parsing; supplied units, axis
+padding, RGBA backgrounds, text alignment/sizes and explicit grid columns render
+through the same themed layout. No JavaScript execution or chat operations.
+The complete three-game/fifteen-tab reproduction is retained as a public fixture.
+Fifteen focused tests, web typecheck and production build pass. Chromium/WebKit
+pass at 390/820/1366 widths, including all fifteen cells, six highlighted tabs,
+axis padding and preserved five-column rows. Activation pending.
+
 ### GPT layout list templates — October 9
 
 The reported game-menu cards displayed `{#each ...}` and `{item.name}` as raw

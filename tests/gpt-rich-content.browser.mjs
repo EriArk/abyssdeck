@@ -113,6 +113,24 @@ try {
           return route.fulfill({ status: 404, body: "Missing fixture route" });
         });
         await page.goto("https://rich.test/");
+        const bodyTemplate = page.getByTestId("body-template");
+        await expect(bodyTemplate.locator('[data-layout="grid"]')).toHaveCount(3);
+        await expect(bodyTemplate.locator('[data-layout="grid-item"]')).toHaveCount(15);
+        await expect(bodyTemplate).not.toContainText(/\{@body|\{#each|\{t\.|\{c\}/);
+        await expect(bodyTemplate).toContainText("Need for Speed");
+        const cells = bodyTemplate.locator('[data-layout="grid-item"] > [data-layout="box"]');
+        await expect(cells.nth(2)).toHaveCSS("background-color", "rgba(74, 144, 113, 0.13)");
+        await expect(cells.nth(2)).toHaveCSS("padding-left", "4px");
+        await expect(cells.nth(2)).toHaveCSS("padding-top", "8px");
+        await expect(cells.nth(2)).toHaveCSS("min-height", "42px");
+        const firstRow = await cells.evaluateAll((nodes) =>
+          nodes.slice(0, 5).map((n) => n.getBoundingClientRect().top),
+        );
+        assert.ok(
+          firstRow.every((y) => y === firstRow[0]),
+          "five explicit tabs stay in one row",
+        );
+        await bodyTemplate.screenshot({ path: join(evidence, `${name}-body-${width}.png`) });
         const each = page.getByTestId("each");
         await expect(each.locator('[data-layout="row"]')).toHaveCount(5);
         await expect(each).toContainText("Continue game");

@@ -5,6 +5,7 @@ import { GptMessageText } from "../../src/GptMessageText";
 import { GptProgress, GptSteps } from "../../src/GptProgress";
 import { gptLiveResults } from "../../src/gptLiveResults";
 import { ResultFeed } from "../../src/ResultFeed";
+import { layoutBodySample } from "./gpt-layout-body";
 import "../../src/styles.css";
 import "../../src/workspace.css";
 import "../../src/themes.css";
@@ -95,6 +96,9 @@ function Fixture() {
   const [running, setRunning] = useState(true);
   return (
     <main style={{ maxWidth: 900, margin: "auto", padding: 16 }}>
+      <section data-testid="body-template">
+        <GptMessageText value={layoutBodySample} rich />
+      </section>
       <section data-testid="each">
         <GptMessageText value={eachContent} rich />
       </section>

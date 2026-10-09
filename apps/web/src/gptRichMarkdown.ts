@@ -3,6 +3,8 @@ import remarkParse from "remark-parse";
 import { unified } from "unified";
 import {
   layoutData,
+  layoutAttributes,
+  layoutTagEnd,
   layoutPath,
   layoutScalar,
   templateEnd,
@@ -27,6 +29,7 @@ type Rich = {
   close: number;
   children: Rich[];
   each?: { expression: string; name: string; index?: string };
+  binding?: { expression: string; name: string };
 };
 const tags = new Set([
   "WritingBlock",
@@ -65,19 +68,7 @@ const roots = new Set([
 const leaves = new Set(["icon", "divider", "spacer"]);
 const parser = unified().use(remarkParse).use(remarkGfm);
 
-function attributes(source: string) {
-  const attrs: Record<string, string> = {};
-  for (const a of source.matchAll(
-    /([a-zA-Z][\w-]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|\{\s*([^{}]*)\s*\}))?/g,
-  ))
-    if (!["__proto__", "constructor", "prototype"].includes(a[1]!))
-      attrs[a[1]!] = a[2] ?? a[3] ?? (a[4] === undefined ? "true" : `{${a[4].trim()}}`);
-  for (const key of Object.keys(attrs)) {
-    const match = /^\{(-?\d+(?:\.\d+)?|true|false)\}$/.exec(attrs[key]!);
-    if (match) attrs[key] = match[1]!;
-  }
-  return attrs;
-}
+const attributes = layoutAttributes;
 
 function references(tree: Node) {
   if (!tree.children) return;
@@ -161,19 +152,46 @@ export function remarkGptLayout() {
       protectedRanges.push([match.index!, match.index! + match[0].length]);
     const blocks: Rich[] = [],
       stack: Rich[] = [];
-    // Quoted values may include >; expressions are accepted only as primitive
-    // numbers/strings below. No evaluation, event handlers or raw style objects.
-    const tokens =
-      /\{#each\b|\{\/each\}|<\/?(WritingBlock|[a-z][a-z0-9-]*)\b((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
+    // Balanced data expressions can contain nested objects and quoted > signs.
+    const tokens = /\{@body\b|\{#each\b|\{\/each\}|<\/?(WritingBlock|[a-z][a-z0-9-]*)\b/g;
     let invalid = false;
     for (let match = tokens.exec(source); match; match = tokens.exec(source)) {
       const start = match.index!,
-        end = start + match[0].length,
         tag = match[1]!;
+      let end = start + match[0].length;
       if (protectedRanges.some(([a, b]) => start >= a && start < b)) continue;
       // A writing block contains a document, not layout children. Preserve any
       // HTML examples in its body as literal Markdown, without interpreting them.
       if (stack.at(-1)?.tag === "WritingBlock" && tag !== "WritingBlock") continue;
+      if (match[0] === "{@body") {
+        const stop = templateEnd(source, start);
+        if (stop < 0) {
+          invalid = true;
+          break;
+        }
+        tokens.lastIndex = stop;
+        if (!stack.length) continue;
+        const header = /^\{@body\s+const\s+([A-Za-z_$][\w$]*)\s*=\s*([\s\S]*?)\s*;?\s*\}$/.exec(
+          source.slice(start, stop),
+        );
+        if (!header) {
+          invalid = true;
+          continue;
+        }
+        stack
+          .at(-1)!
+          .children.push({
+            tag: "binding",
+            attrs: {},
+            start,
+            body: stop,
+            end: stop,
+            close: stop,
+            children: [],
+            binding: { name: header[1]!, expression: header[2]! },
+          });
+        continue;
+      }
       if (match[0] === "{#each") {
         const stop = templateEnd(source, start);
         if (stop < 0) {
@@ -215,6 +233,13 @@ export function remarkGptLayout() {
         stack.pop();
         continue;
       }
+      end = layoutTagEnd(source, start);
+      if (end < 0) {
+        invalid = true;
+        break;
+      }
+      tokens.lastIndex = end;
+      const tagText = source.slice(start, end);
       if (!stack.length) {
         if (
           match[0][1] === "/" ||
@@ -240,10 +265,10 @@ export function remarkGptLayout() {
         if (!stack.length && !invalid) blocks.push(node);
         continue;
       }
-      const attrs = attributes(match[2]!);
+      const attrs = attributes(source.slice(start + match[0].length, end - 1));
       const node: Rich = { tag, attrs, start, body: end, end, close: end, children: [] };
       stack.at(-1)?.children.push(node);
-      if (!leaves.has(tag) && !/\/\s*>$/.test(match[0])) stack.push(node);
+      if (!leaves.has(tag) && !/\/\s*>$/.test(tagText)) stack.push(node);
       else if (!stack.length && !invalid) blocks.push(node);
     }
     // During streaming, keep the unfinished block as ordinary Markdown until
@@ -314,18 +339,33 @@ export function remarkGptLayout() {
     };
     const body = (node: Rich, scope: LayoutScope): Node[] => {
       const children: Node[] = [];
+      const local = { ...scope };
       let cursor = node.body;
       for (const child of node.children) {
-        children.push(
-          ...interpolate(markdown(cursor, child.start, true), scope),
-          ...render(child, scope),
-        );
+        children.push(...interpolate(markdown(cursor, child.start, true), local));
+        const bound = child.binding && layoutData(child.binding.expression, local);
+        if (child.binding && bound !== undefined) {
+          Object.defineProperty(local, child.binding.name, {
+            value: bound,
+            enumerable: true,
+            configurable: true,
+          });
+        } else children.push(...render(child, local));
         cursor = close(child);
       }
-      children.push(...interpolate(markdown(cursor, node.end, true), scope));
+      children.push(...interpolate(markdown(cursor, node.end, true), local));
       return children;
     };
     const render = (node: Rich, scope: LayoutScope = {}): Node[] => {
+      if (node.binding)
+        return [
+          {
+            type: "paragraph",
+            children: [
+              { type: "text", value: source.slice(node.start, node.close), templateLiteral: true },
+            ],
+          },
+        ];
       if (node.each) {
         const items = layoutData(node.each.expression, scope);
         if (!Array.isArray(items))
