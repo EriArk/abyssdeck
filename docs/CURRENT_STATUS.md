@@ -1,4 +1,24 @@
-# Текущий статус — 8 октября 2026
+# Текущий статус — 9 октября 2026
+
+### GPT large-history recovery — October 9
+
+The owner reported two chats remaining at a loading indicator. Live diagnosis
+found a native renderer using one CPU core for about 20 hours and one recorded
+container OOM kill. An explicit, receipt-backed recovery restarted only the
+owner's native GPT client; account/catalog reads recovered. Profile/binding and
+dispatch receipts were preserved, with private evidence and a receipt backup in
+`/tmp/abyssdeck-chat-loading-20261009`. No prompt was replayed.
+
+Further reads distinguished two failures: the Yuri conversation hit the adapter's
+16 MiB **raw upstream history** cutoff, while the TrainerOS evaluation conversation
+returned upstream HTTP 500. Remove that raw cutoff: native/tool payload size must
+not prevent extracting a much smaller public conversation. Public projection and
+IPC budgets, exact account/branch checks and existing read coalescing remain.
+This adds no timer, automatic restart or new history polling.
+
+All 43 native renderer tests pass, including a raw response over 16 MiB with hidden
+tool content that projects to under 4 KiB and reuses its unchanged revision.
+Source verification is complete; activation and live chat readback are pending.
 
 ### GPT file citation display - October 8
 

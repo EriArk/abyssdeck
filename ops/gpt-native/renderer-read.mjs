@@ -213,7 +213,9 @@ export async function nativeRead(request, load = () => nativeModule(), runtime =
      while(true){
       let chunk;try{chunk=await bounded(reader.read());}catch(e){if(signal.aborted)fail('HISTORY_BODY_TIMEOUT');throw e;}
       if(chunk.done)break;
-      bytes+=chunk.value.length;if(bytes>16*1024**2)fail('HISTORY_TOO_LARGE');text+=decoder.decode(chunk.value,{stream:true});
+      // Raw history includes native/tool data which is not exported to the Hub.
+      // A public IPC budget must not truncate that response before projection.
+      bytes+=chunk.value.length;text+=decoder.decode(chunk.value,{stream:true});
      }
     }catch(e){void reader.cancel().catch(()=>{});throw e;}
     finally{reader.releaseLock();}

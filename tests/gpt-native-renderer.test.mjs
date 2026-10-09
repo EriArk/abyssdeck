@@ -712,7 +712,25 @@ test("exact-message lookup can resolve older artifacts without exporting other h
   await assert.rejects(f.read({ ...request, messageId: "message-46" }), /MESSAGE_NOT_ON_BRANCH/);
 });
 
-test("wrong conversation, cycles, missing parents and oversized text fail closed", async () => {
+test("large native history is consumed before applying the public projection budget", async () => {
+  const f = fixture(), accountFingerprint = await f.binding();
+  f.node(2, "private native payload ".repeat(900000), {
+    author: { role: "tool" }, channel: "analysis",
+  });
+  f.node(3, "Latest public answer", { end_turn: true });
+  assert.ok(Buffer.byteLength(JSON.stringify(f.conversation)) > 16 * 1024 ** 2);
+  const request = { operation: "readHistoryUpdate", conversationId, accountFingerprint };
+  const first = await f.read(request, true);
+  assert.equal(first.kind, "full");
+  assert.equal(first.graph.mapping[id(2)].message, null);
+  assert.equal(first.graph.mapping[id(3)].message.content.parts[0], "Latest public answer");
+  assert.ok(Buffer.byteLength(JSON.stringify(first)) < 4096);
+  const second = await f.read({ ...request, revision: first.revision }, true);
+  assert.equal(second.kind, "unchanged");
+  assert.equal(f.calls.length, 1);
+});
+
+test("wrong conversation, cycles, missing parents and oversized public projection fail closed", async () => {
   const f = fixture(),
     accountFingerprint = await f.binding();
   const request = { operation: "readConversation", conversationId, accountFingerprint };
@@ -724,7 +742,7 @@ test("wrong conversation, cycles, missing parents and oversized text fail closed
   f.conversation.mapping[id(1)].parent = id(99);
   await assert.rejects(f.read(request), /INVALID_HISTORY/);
   f.node(1, "a".repeat(16 * 1024 * 1024 + 1));
-  await assert.rejects(f.read(request), /HISTORY_TOO_LARGE/);
+  await assert.rejects(f.read({ ...request, operation: "readConversationGraph" }), /HISTORY_TOO_LARGE/);
 });
 
 test("credentials, signed media and unknown structures are not serialized", async () => {
