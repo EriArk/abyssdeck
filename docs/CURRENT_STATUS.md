@@ -8,7 +8,13 @@ including nested local lists and optional indices, and binds scalar text/icon
 attributes. Added the observed play, minimize, settings, chat and logout icons.
 Original message/copy bytes, code offsets and literal code remain unchanged;
 unsupported expressions remain visible and no model-supplied JavaScript runs.
-This is a web-only display correction; activation is pending.
+Thirteen focused parser/projection tests, web typecheck and production build pass.
+Chromium/WebKit checks pass at 390/820/1366 widths; the five observed game actions
+render as individual rows with resolved icons and no raw each/path placeholders.
+Published web-only revision `8484ba37`, public version
+`32648ed79545c05ede1ee74027494f4d430850a52a79a3acf990c2019b33de7b`.
+Public readback matches; native GPT, Hub and engine containers/start times are
+unchanged. Browser evidence is not a claim of physical iPhone acceptance.
 
 ### GPT large-history recovery — October 9
 
