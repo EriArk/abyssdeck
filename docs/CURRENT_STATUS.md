@@ -1,6 +1,6 @@
 # Текущий статус — 9 октября 2026
 
-### Project activity and unread outcomes — October 9 (verification in progress)
+### Project activity and unread outcomes — October 9 (installed)
 
 The reported TrainerOS project has one running chat and one unseen failed outcome
 in a different chat. Concurrent activity/unread indicators are valid, but the
@@ -9,8 +9,14 @@ It now uses an inbox symbol and "Непросмотренные итоги" unle
 an explicit outcome: known success retains a check, known failure its attention
 marker. This covers project rows, section totals, project overview and GPT's
 untyped unread counts without changing status, read receipts or polling.
-Focused browser cases cover mixed activity, success, failure, waiting and zero
-counts. Delivery is web-only; no engine/native restart is needed.
+Build/typecheck passed. Focused browser cases passed in Chromium/WebKit at 390
+and 1024 widths: mixed activity, success, failure, waiting and zero counts. Existing
+queue/read-receipt checks passed in both engines. Web-only publication installed
+revision `765bd08c`, public version
+`fddba260fbcf35a1295885a5a7b8852cc06de0c57f043ef40a54af327288cc70`.
+Authenticated public readback confirmed that version; engine/gateway and both
+GPT clients retained their previous images, start times and zero restarts.
+No physical-device acceptance is inferred from browser automation.
 
 ### Document navigation and interactive layouts — October 9 (installed)
 
