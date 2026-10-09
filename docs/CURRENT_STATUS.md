@@ -18,7 +18,14 @@ This adds no timer, automatic restart or new history polling.
 
 All 43 native renderer tests pass, including a raw response over 16 MiB with hidden
 tool content that projects to under 4 KiB and reuses its unchanged revision.
-Source verification is complete; activation and live chat readback are pending.
+Installed native adapter image `codex-web-gpt-native:26.928.31416-d47d92b7`
+through the ordinary idle/manual-lease updater, retaining the previous container.
+Live Yuri history now returns HTTP 200 through the public Hub route, with a fresh
+completed final answer (3,204 characters); GPT status is healthy and readable.
+TrainerOS evaluation still returns upstream HTTP 500 on an exact native read.
+The Hub preserves its cached history and returns it as explicitly stale; this
+upstream failure remains unresolved. No second send, automatic restart, Hub,
+engine, Companion or web release was introduced by this fix.
 
 ### GPT file citation display - October 8
 
