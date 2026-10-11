@@ -1,11 +1,21 @@
 # Текущий статус — 11 октября 2026
 
-### Mobile panel on mode switching — October 11 (source)
+### Mobile panel on mode switching — October 11 (installed)
 
 The shared mode transition opens the destination's navigation drawer in compact
 layouts. Top-level Codex/GPT share drawer state; embedded GPT retains its local
-drawer. Desktop retains ordinary non-modal navigation. TypeScript passed;
-browser checks and compatible web-only publication are pending.
+drawer. The Codex drawer reattaches on returning from GPT, and entering wide
+layout releases compact modality. Desktop retains ordinary non-modal navigation.
+TypeScript and Vite passed. Chromium/WebKit checks at 390/1024/1366 verify the
+destination panel directly after every mode click, without manually opening it;
+chats, Results and drafts survive, with no Codex turn dispatch. The Chromium
+keyboard/two-mode navigation suite also passed. Screenshots were inspected.
+Web-only publication installed `2d2d85d3`, public version
+`0c1a2a3b2183143fec32109bf0996839273e7e1a716060b814802cb702a81d7c`.
+The publisher verified the served version. Engine, gateway and both native GPT
+clients retained identical images, start times, health and restart counts.
+Evidence: `/tmp/abyssdeck-mode-panel-20261011/`. This is browser verification,
+not a claim of physical iPhone testing.
 
 ### Three-mode navigation — October 11 (installed)
 
