@@ -4,7 +4,7 @@ export const workspaceActions = [
   { id: "palette", label: "Поиск и команды", binding: "Primary+KeyK", inputs: true },
   {
     id: "switch-client",
-    label: "Переключить Codex / GPT",
+    label: "Переключить режим",
     binding: "Primary+Alt+KeyG",
     inputs: true,
   },

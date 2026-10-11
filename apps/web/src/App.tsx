@@ -21,6 +21,7 @@ import {
 } from "./accountStorage.ts";
 import { ApiError, api, configureApi, messageOf } from "./api";
 import { Chat } from "./Chat";
+import { nextWorkspaceMode, type WorkspaceMode } from "./ClientPicker";
 import { CodexScheduleButton, CodexScheduleWindow } from "./CodexSchedules";
 import { CollaborationWindow, SpaceChatButton } from "./CollaborationSpaces";
 import type { RecoveryOutcome } from "./ConnectionRecovery";
@@ -282,7 +283,11 @@ function Workspace({
     const previous = modeLocations.current[mode];
     // Invalidate an outstanding project load before it can overwrite the restored chat.
     ++threadRequest.current;
-    if (previous && projects.some((p) => p.id === previous.projectId)) {
+    if (
+      previous &&
+      (!previous.projectId ||
+        projects.some((p) => p.id === previous.projectId && !p.archived && !p.deleted))
+    ) {
       selectionRef.current = { projectId: previous.projectId, threadId: previous.threadId };
       setProjectId(previous.projectId);
       setThreadId(previous.threadId);
@@ -308,6 +313,12 @@ function Workspace({
       }
     }
     spaceState.setMode(mode);
+  }
+  function switchWorkspaceMode(mode: WorkspaceMode) {
+    setDrawer(false);
+    ++threadRequest.current;
+    if (mode !== "gpt") switchSpaceMode(mode === "spaces" ? "spaces" : "personal");
+    setClient(mode === "gpt" ? "gpt" : "codex");
   }
   const selectedSpace = spaces.catalog.spaces.find((s) => s.id === spaces.selectedId);
   const spaceHome =
@@ -1202,8 +1213,12 @@ function Workspace({
     client,
     actions: {
       "switch-client": () => {
-        setDrawer(false);
-        setClient(client === "codex" ? "gpt" : "codex");
+        switchWorkspaceMode(
+          nextWorkspaceMode(
+            client === "gpt" ? "gpt" : spaces.mode === "spaces" ? "spaces" : "codex",
+            spaces.enabled,
+          ),
+        );
       },
       settings: () => {
         setDrawer(false);
@@ -1341,11 +1356,7 @@ function Workspace({
   const navigation = (
     <ProjectNavigation
       spaces={spaces}
-      onClient={(value) => {
-        setDrawer(false);
-        setOverviewId("");
-        setClient(value);
-      }}
+      onClient={switchWorkspaceMode}
       projects={projects}
       activity={navigationState.state}
       threadGroups={threadGroups}
@@ -1402,7 +1413,7 @@ function Workspace({
             onTarget={openNotebookTarget}
           />
         )}
-        <GptLoadBoundary onCodex={() => setClient("codex")}>
+        <GptLoadBoundary onCodex={() => switchWorkspaceMode("codex")}>
           <Suspense
             fallback={
               <div className="boot-screen">
@@ -1413,7 +1424,8 @@ function Workspace({
             <GptWorkspace
               notificationTarget={notificationTarget}
               onNotificationHandled={notificationHandled}
-              onCodex={() => setClient("codex")}
+              onCodex={() => switchWorkspaceMode("codex")}
+              onSpaces={spaces.enabled ? () => switchWorkspaceMode("spaces") : undefined}
               onCodexProject={openMachineProject}
               onWorkspaceTarget={openNotebookTarget}
               onNotebook={setNotebook}

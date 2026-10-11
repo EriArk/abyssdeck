@@ -1,5 +1,5 @@
 import type { NotebookScope } from "@codex-web/shared";
-import { ClientPicker } from "./ClientPicker";
+import { ClientPicker, type WorkspaceMode } from "./ClientPicker";
 import { openDevices } from "./DeviceWorkspaceHost";
 import { Icon } from "./icons";
 import { QuickCaptureButton } from "./QuickCaptureHost";
@@ -9,9 +9,11 @@ export function NavigationFooter({
   onSettings,
   onRemote,
   captureScope,
+  shared = false,
 }: {
-  client: "codex" | "gpt";
-  onClient?: (value: "codex" | "gpt") => void;
+  client: WorkspaceMode;
+  onClient?: (value: WorkspaceMode) => void;
+  shared?: boolean;
   onSettings: () => void;
   onRemote?: () => void;
   captureScope: NotebookScope;
@@ -50,7 +52,7 @@ export function NavigationFooter({
             <Icon name="remote" />
           </button>
         )}
-        {onClient && <ClientPicker value={client} onChange={onClient} />}
+        {onClient && <ClientPicker value={client} onChange={onClient} shared={shared} />}
       </div>
     </div>
   );

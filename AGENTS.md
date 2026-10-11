@@ -1,5 +1,14 @@
 # AGENTS.md
 
+## Owner-requested three-mode navigation (2026-10-11)
+
+- The existing round client button cycles Codex, GPT and shared projects when
+  shared spaces are available. Do not add a separate shared-mode button.
+- Returning to a mode restores its last project/chat and view. Preserve drafts,
+  exact account/source identity and ordinary read-only navigation; switching modes
+  must not send, resume work or replay an operation. The keyboard switch uses the
+  same cycle. Accounts without shared spaces retain the two-client cycle.
+
 ## Owner-requested systemic defect repair (2026-10-09)
 
 - Diagnose reported defects at their shared source, transport, model and rendering

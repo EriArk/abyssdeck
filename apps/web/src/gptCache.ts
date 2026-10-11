@@ -63,6 +63,7 @@ type Cache = {
   effort: string;
   offset: number | null;
   catalogDepth: number;
+  location: { view: "chat" | "results" | "overview"; overviewId: string };
 };
 const empty = (): Cache => ({
   chats: {},
@@ -76,6 +77,7 @@ const empty = (): Cache => ({
   effort: "",
   offset: null,
   catalogDepth: 0,
+  location: { view: "chat", overviewId: "" },
 });
 function restore(): Cache {
   try {
@@ -105,6 +107,11 @@ function restore(): Cache {
     ) {
       cache.items = value.items;
       cache.projects = value.projects;
+      if (
+        ["chat", "results", "overview"].includes(value.location?.view) &&
+        typeof value.location?.overviewId === "string"
+      )
+        cache.location = value.location;
       cache.offset = Number.isSafeInteger(value.offset) && value.offset >= 0 ? value.offset : null;
       cache.catalogDepth =
         Number.isSafeInteger(value.catalogDepth) &&
@@ -157,6 +164,7 @@ export function flushGptCache() {
       projects: gptCache.projects,
       offset: gptCache.offset,
       catalogDepth: gptCache.catalogDepth,
+      location: gptCache.location,
     });
     if (data.length < 500000) localStorage.setItem(navigationKey, data);
   } catch {}

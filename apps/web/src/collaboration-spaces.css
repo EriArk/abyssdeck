@@ -1,24 +1,3 @@
-/* Same matte cap as the Codex/GPT selector, before the tabs. */
-:root .navigation-header button.client-picker.space-mode-toggle {
-  position: relative;
-  z-index: 1;
-  flex: 0 0 58px;
-  width: 58px;
-  height: 58px;
-  min-width: 58px;
-  min-height: 58px;
-  margin-inline: 0;
-  padding: 0;
-  align-self: center;
-  border-radius: 50%;
-}
-:root .space-mode-toggle > svg {
-  width: 30px;
-  height: 30px;
-}
-:root .space-mode-toggle[aria-pressed="true"] > svg {
-  color: var(--accent);
-}
 .space-bell {
   position: relative;
 }

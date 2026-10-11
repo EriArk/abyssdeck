@@ -6,7 +6,7 @@ import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { expect, webkit } from "@playwright/test";
+import { chromium, expect, webkit } from "@playwright/test";
 import { createApp } from "../apps/hub/dist/app.js";
 import { Sessions } from "../apps/hub/dist/sessions.js";
 import { Store } from "../apps/hub/dist/store.js";
@@ -124,7 +124,7 @@ const friend = hub.registry.accept(
 hub.registry.db
   .prepare("INSERT INTO team_meta(key,value) VALUES(?,?)")
   .run(`onboarding:${friend.id}`, "deferred");
-const browser = await webkit.launch();
+const browser = await (process.env.BROWSER === "chromium" ? chromium : webkit).launch();
 const ownerContext = await browser.newContext({
   viewport: { width: 390, height: 844 },
   hasTouch: true,
@@ -141,6 +141,49 @@ const page = await ownerContext.newPage(),
 page.setDefaultTimeout(20000);
 other.setDefaultTimeout(20000);
 for (const p of [page, other]) p.on("pageerror", (e) => errors.push(e.message));
+for (const p of [page, other]) {
+  await p.route("**/gpt/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (route.request().method() !== "GET") return route.continue();
+    if (path.endsWith("/status"))
+      return route.fulfill({ json: { configured: true, canSend: true, state: "healthy" } });
+    if (path.endsWith("/models"))
+      return route.fulfill({
+        json: {
+          models: [{ id: "test", label: "Test" }],
+          efforts: [{ id: "high", label: "High" }],
+          currentModel: "test",
+          currentEffort: "high",
+        },
+      });
+    if (path.endsWith("/conversations"))
+      return route.fulfill({
+        json: {
+          items: [{ id: "gpt-last", title: "Remembered GPT chat", updatedAt: 1 }],
+          nextOffset: null,
+        },
+      });
+    if (path.endsWith("/messages"))
+      return route.fulfill({
+        json: {
+          items: [
+            {
+              id: "gpt-reply",
+              role: "assistant",
+              text: "GPT saved location",
+              createdAt: 1,
+              files: [],
+            },
+          ],
+          nextBefore: null,
+          revision: "one",
+        },
+      });
+    return route.fulfill({
+      json: { items: [], projects: [], conversations: [], nextOffset: null },
+    });
+  });
+}
 async function login(p, user) {
   await p.goto(base);
   await p.getByLabel("Логин", { exact: true }).fill(user);
@@ -154,9 +197,22 @@ async function drawer(p) {
   if (await p.locator('.project-sheet[open][data-closing="true"]').count())
     await expect(p.locator('.project-sheet[open][data-closing="true"]')).toHaveCount(0);
   if (p.viewportSize().width < 1100 && !(await p.locator(".project-sheet[open]").count()))
-    await p.getByRole("button", { name: "Открыть проекты", exact: true }).click();
+    await p.locator(".workspace-header .menu-button").click();
   if (p.viewportSize().width < 1100) await expect(p.locator(".project-sheet[open]")).toBeVisible();
   return p.locator(".navigation-inner:visible").last();
+}
+async function switchMode(p, mode) {
+  for (let i = 0; i < 3; i++) {
+    const nav = await drawer(p);
+    const picker = nav.locator(".navigation-system-row .client-picker");
+    await expect(picker).toHaveCount(1);
+    await expect(nav.locator(".navigation-header .client-picker")).toHaveCount(0);
+    if ((await picker.getAttribute("data-client")) === mode) return nav;
+    await picker.click();
+  }
+  const nav = await drawer(p);
+  await expect(nav.locator(".client-picker")).toHaveAttribute("data-client", mode);
+  return nav;
 }
 async function openSpaceChat(p) {
   if (await p.locator(".project-sheet[open]").count()) await p.keyboard.press("Escape");
@@ -172,13 +228,10 @@ try {
   await login(other, "friend");
   await page.bringToFront();
   const nav = await drawer(page);
-  assert.equal(
-    await nav.locator(".navigation-header > button").first().getAttribute("class"),
-    "icon-button client-picker space-mode-toggle",
-  );
+  await expect(nav.locator(".navigation-header .client-picker")).toHaveCount(0);
   await expect(nav.locator(".workspace-shortcuts .space-bell")).toHaveText("Уведомления");
   await expect(nav.locator(".navigation-header .space-bell")).toHaveCount(0);
-  await nav.getByRole("button", { name: "Общие пространства", exact: true }).click();
+  await switchMode(page, "spaces");
   await expect(page.locator(".space-home")).toContainText("Выберите пространство и проект");
   await expect(page.locator(".workspace-content")).toBeHidden();
   await nav.getByRole("button", { name: "Создать пространство", exact: true }).click();
@@ -238,7 +291,7 @@ try {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.evaluate(() => (document.documentElement.dataset.theme = "organizer"));
   await nav.locator(".space-entry").click();
-  await nav.getByRole("button", { name: "Личные проекты", exact: true }).click();
+  await switchMode(page, "codex");
   await expect(nav.locator('[data-project-id="owner-project"]')).toHaveCount(0);
   await other.reload();
   const otherNav = await drawer(other);
@@ -278,7 +331,7 @@ try {
     runtimes.get("friend").nativeId,
   );
   await drawer(other);
-  await otherNav.getByRole("button", { name: "Личные проекты", exact: true }).click();
+  await switchMode(other, "codex");
   await expect(other.locator(".workspace-content")).toBeVisible();
   await otherNav.locator('[data-project-id="friend-extra"]').click();
   await expect(
@@ -291,7 +344,14 @@ try {
     other.getByRole("button", { name: "Обзор текущего проекта", exact: true }),
   ).toContainText("Altar copy");
   await drawer(other);
-  await otherNav.getByRole("button", { name: "Общие пространства", exact: true }).click();
+  await switchMode(other, "gpt");
+  await otherNav.getByRole("button", { name: "Remembered GPT chat", exact: true }).click();
+  await other.locator(".gpt-composer textarea").fill("GPT draft survives modes");
+  await other
+    .locator(".workspace-tabs")
+    .getByRole("button", { name: /Результаты/ })
+    .click();
+  await switchMode(other, "spaces");
   await expect(other.locator(".space-home")).toHaveCount(0);
   await expect(
     other.getByRole("button", { name: "Обзор текущего проекта", exact: true }),
@@ -299,14 +359,17 @@ try {
   for (const width of [390, 1024]) {
     await other.setViewportSize({ width, height: 844 });
     await drawer(other);
-    await otherNav.getByRole("button", { name: "Личные проекты", exact: true }).click();
+    await switchMode(other, "codex");
     await expect(
       other.getByRole("button", { name: "Обзор текущего проекта", exact: true }),
     ).toContainText("Altar copy");
     await expect(other.getByRole("textbox", { name: "Сообщение Codex" })).toHaveValue(
       "Personal draft",
     );
-    await otherNav.getByRole("button", { name: "Общие пространства", exact: true }).click();
+    await switchMode(other, "gpt");
+    await expect(other.locator(".gpt-workspace")).toHaveAttribute("data-view", "results");
+    await expect(other.locator(".gpt-composer textarea")).toHaveValue("GPT draft survives modes");
+    await switchMode(other, "spaces");
     await expect(
       other.getByRole("button", { name: "Обзор текущего проекта", exact: true }),
     ).toContainText("Existing friend chat");
@@ -314,7 +377,7 @@ try {
   }
   if (process.env.SPACE_NAVIGATION_ONLY) {
     console.log(
-      "WebKit phone/tablet: separate personal/shared project and chat restoration, repeated toggles and draft preservation passed.",
+      "Three modes phone/tablet: separate Codex/GPT/shared locations, results and drafts restored without sends.",
     );
   } else {
     await otherNav.locator('[data-project-id="friend-project"]').click();
@@ -524,7 +587,7 @@ try {
     // Human chat is a separate popup: files, live replies, exact-send retry and unread badges.
     await ownerSettings.getByLabel("Закрыть пространство", { exact: true }).click();
     await settings.getByLabel("Закрыть пространство", { exact: true }).click();
-    await nav.getByRole("button", { name: "Общие пространства", exact: true }).click();
+    await switchMode(page, "spaces");
     await expect(nav.locator(".nav-mobile-switch > button").nth(0)).toHaveText("Пространства");
     await expect(nav.locator(".nav-mobile-switch > button").nth(1)).toHaveText("Брейншторм");
     await nav.getByRole("button", { name: "Брейншторм", exact: true }).click();
@@ -538,23 +601,16 @@ try {
           document.documentElement.dataset.theme = t;
         }, theme);
         const layout = await visibleNav.locator(".navigation-header").evaluate((el) => {
-          const buttons = [...el.querySelector(".nav-mobile-switch").children],
-            cap = el.querySelector(".space-mode-toggle").getBoundingClientRect();
+          const buttons = [...el.querySelector(".nav-mobile-switch").children];
           const left = buttons[0].querySelector(".nav-tab-title").getBoundingClientRect();
           const right = buttons[1].querySelector(".nav-tab-title").getBoundingClientRect();
           return {
-            width: cap.width,
-            height: cap.height,
-            overlap: left.left < cap.right || right.left < left.right,
+            overlap: right.left < left.right,
             overflows: el.scrollWidth > el.clientWidth + 1,
             left: left.right,
             right: right.left,
-            capLeft: cap.left,
-            capRight: cap.right,
           };
         });
-        assert.equal(layout.width, 58);
-        assert.equal(layout.height, 58);
         assert.ok(!layout.overlap && !layout.overflows, JSON.stringify({ width, theme, layout }));
         if (width === 390 || width === 1024)
           await page.screenshot({ path: `.local/spaces-qa/navigation-${width}-${theme}.png` });
@@ -667,7 +723,7 @@ try {
       .getByRole("button", { name: "Выйти", exact: true })
       .click();
     await expect(other.locator(".space-dialog")).toHaveCount(0);
-    await otherNav.getByRole("button", { name: "Личные проекты", exact: true }).click();
+    await switchMode(other, "codex");
     await expect(otherNav.locator('[data-project-id="friend-project"]')).toBeVisible();
     assert.equal(
       runtimes.get("friend").store.thread(runtimes.get("friend").thread.id).codexThreadId,

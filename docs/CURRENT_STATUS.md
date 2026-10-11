@@ -1,4 +1,13 @@
-# Текущий статус — 10 октября 2026
+# Текущий статус — 11 октября 2026
+
+### Three-mode navigation — October 11 (source)
+
+The existing footer client button cycles Codex → GPT → shared projects → Codex.
+The separate shared-spaces header button is removed. Keyboard switching uses the
+same cycle; accounts without shared spaces retain two modes. Codex/shared project
+locations remain separate, including empty shared home and project overviews;
+GPT remembers its results/chat view and overview across client switches.
+Focused navigation checks and compatible web-only activation are pending.
 
 ### Full-width message file cards — October 10 (installed)
 

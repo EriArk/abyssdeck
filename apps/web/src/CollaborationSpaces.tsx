@@ -36,21 +36,6 @@ const accessLabels = {
   collaborate: "Совместная работа",
   direct: "Полный доступ",
 };
-export function SpaceModeControl({ spaces }: { spaces: SpacesController }) {
-  if (!spaces.enabled) return null;
-  return (
-    <button
-      type="button"
-      className="icon-button client-picker space-mode-toggle"
-      aria-label={spaces.mode === "spaces" ? "Личные проекты" : "Общие пространства"}
-      aria-pressed={spaces.mode === "spaces"}
-      title={spaces.mode === "spaces" ? "Личные проекты" : "Общие пространства"}
-      onClick={() => spaces.setMode(spaces.mode === "spaces" ? "personal" : "spaces")}
-    >
-      <Icon name="people" size={30} />
-    </button>
-  );
-}
 export function SpaceBell({ spaces }: { spaces: SpacesController }) {
   const conversations = useHumanConversations();
   const workNotices = useWorkNotices();

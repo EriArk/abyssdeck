@@ -9,7 +9,8 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { ActivityBadge } from "./ActivityBadge";
 import { BrainstormCards } from "./Brainstorm";
-import { SpaceBell, SpaceCards, SpaceModeControl } from "./CollaborationSpaces";
+import { SpaceBell, SpaceCards } from "./CollaborationSpaces";
+import type { WorkspaceMode } from "./ClientPicker";
 import { EntityMenu } from "./EntityMenu";
 import { Icon } from "./icons";
 import { NavigationFooter } from "./NavigationFooter";
@@ -61,7 +62,7 @@ export function ProjectNavigation({
   onPlans?: () => void;
   onPlan?: () => void;
   onOverview?: (id: string) => void;
-  onClient?: (value: "codex" | "gpt") => void;
+  onClient?: (value: WorkspaceMode) => void;
   onRemote?: () => void;
 }) {
   const openRequest = useRef(0);
@@ -69,6 +70,9 @@ export function ProjectNavigation({
   useEffect(() => {
     // A delayed project expansion must not select its chat in the other mode.
     ++openRequest.current;
+    return () => {
+      ++openRequest.current;
+    };
   }, [spaces.mode]);
   const [section, setSection] = useState<"projects" | "threads">("projects");
   const [sharedSection, setSharedSection] = useState<"spaces" | "brainstorm">("spaces");
@@ -277,7 +281,7 @@ export function ProjectNavigation({
   };
   return (
     <div className="navigation-inner" data-section={spaceMode ? "projects" : section}>
-      <NavigationHeader leading={<SpaceModeControl spaces={spaces} />} onClose={onClose}>
+      <NavigationHeader onClose={onClose}>
         {spaceMode ? (
           <nav className="nav-mobile-switch" aria-label="Общая работа">
             <button
@@ -575,7 +579,8 @@ export function ProjectNavigation({
           <SpaceBell spaces={spaces} />
         </WorkspaceLinks>
         <NavigationFooter
-          client="codex"
+          client={spaceMode ? "spaces" : "codex"}
+          shared={spaces.enabled}
           captureScope={
             selected && !selected.unassigned
               ? { client: "codex", projectId: selected.id, name: selected.name }

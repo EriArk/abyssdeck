@@ -182,6 +182,7 @@ export function GptWorkspace({
   notificationTarget,
   onNotificationHandled,
   onCodex,
+  onSpaces,
   onCodexProject,
   onWorkspaceTarget,
   onNotebook,
@@ -199,6 +200,7 @@ export function GptWorkspace({
   onPublishToRoom?: (text: string) => void;
   onProjectChatChange?: (value: ProjectGpt) => void;
   onCodex: () => void;
+  onSpaces?: () => void;
   onCodexProject?: (id: string, remote: boolean) => void;
   onWorkspaceTarget?: (target: NotebookLink) => void;
   onNotebook?: (request: NotebookRequest) => void;
@@ -211,7 +213,11 @@ export function GptWorkspace({
   notificationTarget?: NotificationTarget;
   onNotificationHandled: (id: string) => void;
 }) {
-  const [overviewProject, setOverviewProject] = useState<GptProject | null>(null);
+  const [overviewProject, setOverviewProject] = useState<GptProject | null>(() =>
+    projectChat || roomEndpoint
+      ? null
+      : (gptCache.projects.find((p) => p.id === gptCache.location.overviewId) ?? null),
+  );
   const connectionRequest = useRef(0);
   const [connectionError, setConnectionError] = useState("");
   const connectionRead = useRef<Promise<GptConnection> | null>(null);
@@ -322,7 +328,14 @@ export function GptWorkspace({
   const [loadNotice, setLoadNotice] = useState("");
   const [notice, setNotice] = useState(""),
     [drawer, setDrawer] = useState(false),
-    [view, setView] = useState<"chat" | "results" | "overview">("chat");
+    [view, setView] = useState<"chat" | "results" | "overview">(() =>
+      projectChat || roomEndpoint ? "chat" : gptCache.location.view,
+    );
+  useEffect(() => {
+    if (projectChat || roomEndpoint) return;
+    gptCache.location = { view, overviewId: overviewProject?.id ?? "" };
+    saveGptCache();
+  }, [view, overviewProject, projectChat, roomEndpoint]);
   const [search] = useState(""),
     [ready, setReady] = useState(false),
     [rightHidden, setRightHidden] = useState(false);
@@ -1702,13 +1715,15 @@ export function GptWorkspace({
 
       <NavigationFooter
         client="gpt"
+        shared={!!onSpaces}
         captureScope={(() => {
           const p = projects.find((p) => p.id === items.find((t) => t.id === selected)?.projectId);
           return p ? { client: "gpt" as const, projectId: p.id, name: p.name } : null;
         })()}
-        onClient={() => {
+        onClient={(mode) => {
           setDrawer(false);
-          onCodex();
+          if (mode === "spaces" && onSpaces) onSpaces();
+          else onCodex();
         }}
         onSettings={() => {
           setDrawer(false);
