@@ -102,7 +102,9 @@ try {
   await search.fill("Настройки");
   await search.press("Enter");
   const settings = page.getByRole("dialog", { name: "Настройки", exact: true });
-  await settings.locator('[data-category="appearance"]').click();
+  await settings.locator('[data-category="interface"]').click();
+  await settings.getByRole("button", { name: /^Клавиши и поведение/ }).click();
+  await settings.getByRole("button", { name: /^Сочетания клавиш/ }).click();
   const shortcuts = settings.getByRole("region", { name: "Горячие клавиши" });
   const row = shortcuts.locator(".shortcut-row").filter({ hasText: "Поиск и команды" });
   await row.getByRole("button").first().click();
@@ -113,6 +115,7 @@ try {
   await page.keyboard.press("Control+Shift+k");
   await expect.poll(() => f.store.preferences().shortcuts?.palette).toBe("Primary+Shift+KeyK");
   await settings.getByRole("button", { name: "Закрыть настройки" }).click();
+  await expect(settings).toHaveCount(0);
   await composer.focus();
   assert.equal(await key("KeyK"), false);
   assert.equal(await key("KeyK", { shiftKey: true }), true);

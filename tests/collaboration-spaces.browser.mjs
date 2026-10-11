@@ -346,9 +346,23 @@ try {
   await drawer(other);
   await switchMode(other, "gpt");
   await otherNav.getByRole("button", { name: "Remembered GPT chat", exact: true }).click();
-  await other.locator(".gpt-composer textarea").fill("GPT draft survives modes");
+  await expect(other.locator(".project-sheet[open]")).toHaveCount(0);
+  await other.locator(".gpt-composer textarea").pressSequentially("GPT draft survives modes");
+  await expect
+    .poll(() =>
+      other.evaluate(
+        () =>
+          JSON.parse(
+            sessionStorage.getItem(
+              Object.keys(sessionStorage).find((k) => k.endsWith("gpt-draft-gpt-last")),
+            ) ?? "{}",
+          ).text,
+      ),
+    )
+    .toBe("GPT draft survives modes");
+  await other.setViewportSize({ width: 390, height: 844 });
   await other
-    .locator(".workspace-tabs")
+    .locator(".mobile-tabs")
     .getByRole("button", { name: /Результаты/ })
     .click();
   await switchMode(other, "spaces");
@@ -374,8 +388,12 @@ try {
       other.getByRole("button", { name: "Обзор текущего проекта", exact: true }),
     ).toContainText("Existing friend chat");
     await expect(other.locator(".workspace-content")).toBeVisible();
+    await other.screenshot({ path: `.local/spaces-qa/three-modes-${width}.png` });
   }
   if (process.env.SPACE_NAVIGATION_ONLY) {
+    assert.deepEqual(errors, []);
+    for (const runtime of runtimes.values())
+      assert.equal(runtime.nativeCalls.filter((c) => c.method === "turn/start").length, 0);
     console.log(
       "Three modes phone/tablet: separate Codex/GPT/shared locations, results and drafts restored without sends.",
     );
