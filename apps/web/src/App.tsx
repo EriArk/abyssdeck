@@ -315,7 +315,7 @@ function Workspace({
     spaceState.setMode(mode);
   }
   function switchWorkspaceMode(mode: WorkspaceMode) {
-    setDrawer(false);
+    setDrawer(!wide);
     ++threadRequest.current;
     if (mode !== "gpt") switchSpaceMode(mode === "spaces" ? "spaces" : "personal");
     setClient(mode === "gpt" ? "gpt" : "codex");
@@ -1422,6 +1422,7 @@ function Workspace({
             }
           >
             <GptWorkspace
+              navigation={{ open: drawer, onChange: setDrawer }}
               notificationTarget={notificationTarget}
               onNotificationHandled={notificationHandled}
               onCodex={() => switchWorkspaceMode("codex")}

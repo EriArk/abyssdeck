@@ -183,6 +183,7 @@ export function GptWorkspace({
   onNotificationHandled,
   onCodex,
   onSpaces,
+  navigation: navigationState,
   onCodexProject,
   onWorkspaceTarget,
   onNotebook,
@@ -201,6 +202,7 @@ export function GptWorkspace({
   onProjectChatChange?: (value: ProjectGpt) => void;
   onCodex: () => void;
   onSpaces?: () => void;
+  navigation?: { open: boolean; onChange: (open: boolean) => void };
   onCodexProject?: (id: string, remote: boolean) => void;
   onWorkspaceTarget?: (target: NotebookLink) => void;
   onNotebook?: (request: NotebookRequest) => void;
@@ -327,10 +329,12 @@ export function GptWorkspace({
     [uploadProgress, setUploadProgress] = useState("");
   const [loadNotice, setLoadNotice] = useState("");
   const [notice, setNotice] = useState(""),
-    [drawer, setDrawer] = useState(false),
+    [localDrawer, setLocalDrawer] = useState(false),
     [view, setView] = useState<"chat" | "results" | "overview">(() =>
       projectChat || roomEndpoint ? "chat" : gptCache.location.view,
     );
+  const drawer = navigationState?.open ?? localDrawer;
+  const setDrawer = navigationState?.onChange ?? setLocalDrawer;
   useEffect(() => {
     if (projectChat || roomEndpoint) return;
     gptCache.location = { view, overviewId: overviewProject?.id ?? "" };

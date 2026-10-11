@@ -8,6 +8,8 @@
   exact account/source identity and ordinary read-only navigation; switching modes
   must not send, resume work or replay an operation. The keyboard switch uses the
   same cycle. Accounts without shared spaces retain the two-client cycle.
+- In the compact/mobile layout, a mode switch opens the destination's left panel
+  automatically. Desktop keeps its ordinary non-modal navigation.
 
 ## Owner-requested systemic defect repair (2026-10-09)
 

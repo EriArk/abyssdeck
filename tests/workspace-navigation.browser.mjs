@@ -95,8 +95,14 @@ try {
   await composer.evaluate((el) => delete el.dataset.helpKeys);
   assert.equal(await key("KeyG", { altKey: true }), true);
   await expect(page.locator(".gpt-workspace")).toBeVisible();
+  await expect(page.locator(".project-sheet[open]")).toHaveAttribute("data-closing", "false");
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".project-sheet[open]")).toHaveCount(0);
   await page.locator("body").click({ position: { x: 2, y: 2 }, force: true });
   assert.equal(await key("KeyG", { altKey: true }), true);
+  await expect(page.locator(".project-sheet[open]")).toHaveAttribute("data-closing", "false");
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".project-sheet[open]")).toHaveCount(0);
   await expect(composer).toHaveValue("Исходный черновик вторая строка");
   await key("KeyK");
   await search.fill("Настройки");

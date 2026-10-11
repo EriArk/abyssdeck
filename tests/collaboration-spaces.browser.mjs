@@ -227,7 +227,19 @@ async function switchMode(p, mode) {
     await expect(picker).toHaveCount(1);
     await expect(nav.locator(".navigation-header .client-picker")).toHaveCount(0);
     if ((await picker.getAttribute("data-client")) === mode) return nav;
+    const next = await picker.getAttribute("aria-label");
     await picker.click();
+    // Inspect the destination without drawer(): that helper would hide a regression
+    // by manually opening a panel which should already be open after the switch.
+    const destination = p.locator(".navigation-inner:visible").last().locator(".client-picker");
+    await expect(destination).toHaveAttribute(
+      "data-client",
+      next.includes("Общие") ? "spaces" : next.includes("GPT") ? "gpt" : "codex",
+    );
+    if (p.viewportSize().width < 1100) {
+      await expect(p.locator(".project-sheet[open]")).toBeVisible();
+      await expect(p.locator(".project-sheet[open]")).toHaveAttribute("data-closing", "false");
+    } else await expect(p.locator(".project-sheet[open]")).toHaveCount(0);
   }
   const nav = await drawer(p);
   await expect(nav.locator(".client-picker")).toHaveAttribute("data-client", mode);
@@ -391,7 +403,7 @@ try {
   await expect(
     other.getByRole("button", { name: "Обзор текущего проекта", exact: true }),
   ).toContainText("World");
-  for (const width of [390, 1024]) {
+  for (const width of [390, 1024, 1366]) {
     await other.setViewportSize({ width, height: 844 });
     await drawer(other);
     await switchMode(other, "codex");

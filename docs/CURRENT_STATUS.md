@@ -1,5 +1,12 @@
 # Текущий статус — 11 октября 2026
 
+### Mobile panel on mode switching — October 11 (source)
+
+The shared mode transition opens the destination's navigation drawer in compact
+layouts. Top-level Codex/GPT share drawer state; embedded GPT retains its local
+drawer. Desktop retains ordinary non-modal navigation. TypeScript passed;
+browser checks and compatible web-only publication are pending.
+
 ### Three-mode navigation — October 11 (installed)
 
 The existing footer client button cycles Codex → GPT → shared projects → Codex.
