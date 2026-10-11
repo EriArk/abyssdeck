@@ -673,7 +673,10 @@ function Workspace({
   }, [theme, initialized]);
   useEffect(() => {
     const query = matchMedia("(min-width:1100px)");
-    const change = () => setWide(query.matches);
+    const change = () => {
+      setWide(query.matches);
+      if (query.matches) setDrawer(false);
+    };
     query.addEventListener("change", change);
     return () => query.removeEventListener("change", change);
   }, []);
