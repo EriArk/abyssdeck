@@ -140,7 +140,20 @@ const page = await ownerContext.newPage(),
   errors = [];
 page.setDefaultTimeout(20000);
 other.setDefaultTimeout(20000);
-for (const p of [page, other]) p.on("pageerror", (e) => errors.push(e.message));
+const replacingDocuments = new Set();
+for (const p of [page, other])
+  p.on("pageerror", (e) => {
+    // WebKit reports an aborted old-document heartbeat during explicit fixture reloads.
+    // Do not suppress this or any other error during ordinary mode navigation.
+    if (
+      process.env.BROWSER !== "chromium" &&
+      replacingDocuments.has(p) &&
+      e.message ===
+        `/127.0.0.1:${port}/api/team/communication/presence due to access control checks.`
+    )
+      return;
+    errors.push(e.message);
+  });
 for (const p of [page, other]) {
   await p.route("**/gpt/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
@@ -198,7 +211,13 @@ async function drawer(p) {
     await expect(p.locator('.project-sheet[open][data-closing="true"]')).toHaveCount(0);
   if (p.viewportSize().width < 1100 && !(await p.locator(".project-sheet[open]").count()))
     await p.locator(".workspace-header .menu-button").click();
-  if (p.viewportSize().width < 1100) await expect(p.locator(".project-sheet[open]")).toBeVisible();
+  if (p.viewportSize().width < 1100) {
+    const sheet = p.locator(".project-sheet[open]");
+    await expect(sheet).toBeVisible();
+    await sheet.evaluate((el) =>
+      Promise.all(el.getAnimations().map((a) => a.finished.catch(() => {}))),
+    );
+  }
   return p.locator(".navigation-inner:visible").last();
 }
 async function switchMode(p, mode) {
@@ -293,8 +312,10 @@ try {
   await nav.locator(".space-entry").click();
   await switchMode(page, "codex");
   await expect(nav.locator('[data-project-id="owner-project"]')).toHaveCount(0);
+  replacingDocuments.add(other);
   await other.reload();
   const otherNav = await drawer(other);
+  replacingDocuments.delete(other);
   await otherNav.getByRole("button", { name: "Уведомления: 1", exact: true }).click();
   await other
     .locator(".space-dialog")

@@ -1,13 +1,30 @@
 # Текущий статус — 11 октября 2026
 
-### Three-mode navigation — October 11 (source)
+### Three-mode navigation — October 11 (installed)
 
 The existing footer client button cycles Codex → GPT → shared projects → Codex.
 The separate shared-spaces header button is removed. Keyboard switching uses the
 same cycle; accounts without shared spaces retain two modes. Codex/shared project
 locations remain separate, including empty shared home and project overviews;
 GPT remembers its results/chat view and overview across client switches.
-Focused navigation checks and compatible web-only activation are pending.
+The shared/browser build and TypeScript checks passed. Focused Chromium/WebKit
+checks at 390/1024 verify separate personal/shared chats, GPT chat and Results
+restoration, retained drafts, one footer mode button and no Codex turn dispatch.
+The Chromium navigation suite also passed two-mode fallback, keyboard commands,
+shortcut persistence, private pins and 16 themed layouts. The test now waits for
+drawer closure before typing; its initial empty-draft result was input attempted
+while the document was still inert. WebKit's known aborted presence request is
+excluded only during the fixture's explicit account-document reload.
+
+Web-only publication installed `99fb2163`, public version
+`ecb63b32a5e4ddee331719909f1d232271680043e3de34bbbfe8dc808c78268e`.
+The publisher verified the served version. A fresh before/after Docker inspection
+confirms unchanged images, start times, health and restart counts for engine,
+gateway and both native GPT clients. Engine/gateway remain on `62bc546e`;
+no running chat was restarted. Browser screenshots and the publication/runtime
+receipts are in `/tmp/abyssdeck-modes-20261011/`. These checks are not a physical
+iPhone acceptance claim. Personal/shared mode locations are retained within the
+mounted workspace; this change does not add cross-reload persistence for them.
 
 ### Full-width message file cards — October 10 (installed)
 
