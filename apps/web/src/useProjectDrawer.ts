@@ -1,10 +1,10 @@
 import { useLayoutEffect, useRef } from "react";
 
-export function useProjectDrawer(open: boolean) {
+export function useProjectDrawer(open: boolean, active = true) {
   const ref = useRef<HTMLDialogElement>(null);
   useLayoutEffect(() => {
     const dialog = ref.current;
-    if (!dialog || (!open && !dialog.open)) return;
+    if (!active || !dialog || (!open && !dialog.open)) return;
     if (open && !dialog.open) {
       // Native dialog focus must not open the first select on iOS.
       dialog.tabIndex = -1;
@@ -33,6 +33,6 @@ export function useProjectDrawer(open: boolean) {
         // A new open/close state or unmount cancelled this transition.
       });
     return () => animation.cancel();
-  }, [open]);
+  }, [open, active]);
   return ref;
 }

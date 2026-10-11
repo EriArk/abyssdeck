@@ -487,7 +487,7 @@ function Workspace({
   const legacyLayout = useLegacyLayout();
   const [rightWidth, setRightWidth] = useState(Number(readPreference("right-width", "0")));
   const root = useRef<HTMLDivElement>(null),
-    drawerDialog = useProjectDrawer(drawer);
+    drawerDialog = useProjectDrawer(drawer, client === "codex");
   useWorkspacePanels(root, navCollapsed, rightHidden, client === "codex");
   useProjectSwipe(drawerDialog, drawer, () => setDrawer(false), "close");
   useProjectSwipe(
