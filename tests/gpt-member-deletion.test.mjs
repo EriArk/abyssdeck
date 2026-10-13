@@ -286,8 +286,10 @@ test("externally deleted chats finish before stale dispatch admission, including
   }
   exists = true;
   const r = { key: randomUUID(), kind: "thread", id, action: "delete", confirm: true };
-  await assert.rejects(library.run(r, reader, true), /RECEIPT_MISSING/);
+  await assert.rejects(library.run(r, reader, true), /PENDING_DISPATCH/);
   await assert.rejects(library.run(r, reader), /PENDING_DISPATCH/);
+  dispatch.assertDispatch = async () => {};
+  await assert.rejects(library.run(r, reader, true), /RECEIPT_MISSING/);
   assert.equal(writes, 0);
   assert.equal(dispatch.db.prepare("SELECT count(*) n FROM library_receipts").get().n, 2);
 });

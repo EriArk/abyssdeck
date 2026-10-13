@@ -29,7 +29,12 @@ export class NativeLibraryReceipts {
     this.db.prepare("INSERT INTO library_receipts VALUES(?,?,?,?,'completed')").run(r.key,hash,JSON.stringify(r),JSON.stringify(baseline));
     return {state:'completed',name:baseline.name,projectId:baseline.projectId};
    }
-   if(checkOnly)fail('RECEIPT_MISSING');
+   if(checkOnly){
+    // The conflict may have cleared in another client or in a project receipt,
+    // without changing this chat's Hub job. Recheck admission without writing.
+    if(deletion)await this.dispatch.assertDispatch({...r,conversationId:r.id},reader);
+    fail('RECEIPT_MISSING');
+   }
    if(r.kind==='project')await this.dispatch.assertProject({...r,projectId:r.id},reader);
    else await this.dispatch.assertDispatch({...r,conversationId:r.id},reader);
    baseline??=await reader.readLibrary(r);

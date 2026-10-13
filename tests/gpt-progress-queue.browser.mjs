@@ -202,14 +202,24 @@ try {
         );
         await page.reload();
         await expect(page.getByText(base.text, { exact: true }).first()).toBeVisible();
-        await expect(progress).toHaveCount(0);
+        // Saved public steps remain available after the turn settles. Their
+        // disclosure is not a running indicator and must not expose Stop.
+        await expect(
+          progress.getByRole("button", { name: "Этапы ответа", exact: true }),
+        ).toBeVisible();
+        await expect(progress.locator(".spinner")).toHaveCount(0);
+        await expect(
+          progress.getByRole("button", { name: "Остановить GPT", exact: true }),
+        ).toHaveCount(0);
         await expect(
           page.getByRole("button", { name: "Отправить GPT", exact: true }),
         ).toBeVisible();
       }
       history.push({ ...history[0], id: "new-user" }, { ...history[1], id: "new-tool" });
       await page.reload();
-      await expect(progress).toBeVisible();
+      await expect(
+        progress.getByRole("button", { name: "Ход ответа GPT", exact: true }),
+      ).toBeVisible();
       // Native mobile turns have no Hub receipt. A failed final must retain
       // public summaries/files and must not look like another live writer.
       jobs.splice(0);
@@ -242,7 +252,13 @@ try {
         await expect(partial).toContainText("The available chapter is saved.");
         await expect(partial).toContainText("Ответ не завершён");
         await expect(partial).toContainText("chapter.md");
-        await expect(progress).toHaveCount(0);
+        await expect(
+          progress.getByRole("button", { name: "Этапы ответа", exact: true }),
+        ).toBeVisible();
+        await expect(progress.locator(".spinner")).toHaveCount(0);
+        await expect(
+          progress.getByRole("button", { name: "Остановить GPT", exact: true }),
+        ).toHaveCount(0);
         await expect(
           page.getByRole("button", { name: "Отправить GPT", exact: true }),
         ).toBeVisible();

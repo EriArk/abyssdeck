@@ -111,6 +111,35 @@ test("blocked work permits only absence confirmation and never starts another ch
   );
 });
 
+test("a native conflict resolved outside Hub jobs releases the same FIFO head without replay", async (t) => {
+  const f = fixture(t);
+  let nativeBlocked = true;
+  f.client.libraryMutation = async (r, checkOnly) => {
+    f.calls.push({ ...r, checkOnly });
+    if (nativeBlocked) throw Error("NATIVE_PENDING_DISPATCH");
+    if (checkOnly) throw Error("NATIVE_RECEIPT_MISSING");
+    return { state: "completed" };
+  };
+  await f.tick();
+  f.advance(60000);
+  await f.tick();
+  assert.equal(f.calls.at(-1).checkOnly, true);
+  nativeBlocked = false;
+  f.restart();
+  f.advance(120000);
+  await f.tick();
+  assert.equal(f.calls.at(-1).checkOnly, true);
+  f.advance(240000);
+  await f.tick();
+  assert.equal(f.calls.at(-1).checkOnly, false);
+  assert.equal(f.calls.at(-1).key, f.calls[0].key);
+  assert.ok(f.calls.every((r) => r.id === f.ids[0]));
+  assert.equal(
+    f.store.db.prepare("SELECT done FROM gpt_deletions WHERE id=?").get(f.ids[0]).done,
+    1,
+  );
+});
+
 test("upstream Retry-After controls the entire deletion queue without extending it", async (t) => {
   for (const delay of [7000, 600000]) {
     const f = fixture(t);

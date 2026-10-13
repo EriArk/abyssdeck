@@ -146,6 +146,10 @@ export class GptDeletions {
         );
     } catch (error) {
       retryAt = nativeFailure(error).retryAt;
+      // A read-only native check proved both missing receipt and cleared native
+      // admission. Project/operation receipts can settle without a Hub job change.
+      if (error instanceof Error && error.message === "NATIVE_RECEIPT_MISSING")
+        db.prepare("DELETE FROM gpt_deletion_blocks WHERE id=?").run(String(row.id));
       if (error instanceof Error && error.message === "NATIVE_PENDING_DISPATCH")
         db.prepare(
           "INSERT INTO gpt_deletion_blocks VALUES(?,?) ON CONFLICT(id) DO UPDATE SET signature=excluded.signature",
