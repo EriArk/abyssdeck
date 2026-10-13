@@ -28,7 +28,22 @@ Fixed two shared failure classes:
 Focused source tests and type checks pass, including queue restart/order, external
 deletion with stale receipts, lost acknowledgements, short/long Retry-After, exact
 message identity, account/payload mismatch, history failure and idle-watch expiry.
-Production candidate/browser checks and guarded activation are tracked separately.
+Production Hub/web build passed with 116 focused Linux tests and nine native
+upgrade/rollback tests. Chromium and WebKit verified lost-acknowledgement deletion,
+reload reconciliation, queued-following work and settled public-progress display.
+The old browser expectation that settled progress must disappear was corrected:
+saved steps remain available, with no spinner or Stop action. Repository checks pass.
+
+Prepared exact-source candidates `codex-web-hub:a29727ae` and
+`codex-web-gpt-native:26.928.31416-a29727ae`. Schema-31 compatibility, module imports
+and the final native module/source equality were checked in the packaged images.
+The native image changes the adapter only, retaining the current native application.
+Host source and proof are under `codex-web-releases/a29727ae/` (`verification.json`).
+**Not activated:** the actual installed engine's final maintenance check still
+reports one active GPT job. The native client still returns HTTP 429 for its
+canonical history. No automatic activation worker was started and no completion
+was inferred from elapsed time or the sidebar badge. Source fixes are `04fdbb11`
+and `a29727ae`; installed engine/native images remain unchanged.
 No live chat operation was replayed, no saved receipt was manually rewritten and
 no native client was restarted to work around HTTP 429.
 
