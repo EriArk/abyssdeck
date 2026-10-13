@@ -1,5 +1,15 @@
 # AGENTS.md
 
+## Owner-requested sequential GPT deletion (2026-10-13)
+
+- Hide requested chats locally immediately. Keep one durable FIFO deletion head;
+  confirm its result before starting the next chat, including across restarts.
+- A lost acknowledgement is checked through the same receipt, never a replay.
+  Honor the native Retry-After deadline without extending it. An unchanged native
+  pending-work refusal must not cause endless identical deletion attempts.
+- Preserve ordinary chat work, exact account binding and uncertain send receipts.
+  Sequential scheduling is not permission to cancel work or forge completion.
+
 ## Owner-requested completed repairs without unsolicited status UI (2026-10-13)
 
 - Finish requested updates, resolve compatibility defects and verify the installed

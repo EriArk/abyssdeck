@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { HubError } from "@codex-web/shared";
+import { nativeFailure } from "./gpt-native-error.js";
 import type { NativeGptWorkspace } from "./gpt-native-provider.js";
 import type { Library } from "./library.js";
 import type { Store } from "./store.js";
@@ -20,6 +21,9 @@ export class GptDeletions {
     store.db.exec(`CREATE TABLE IF NOT EXISTS gpt_deletion_schedule(
       id INTEGER PRIMARY KEY CHECK(id=1), nextAt INTEGER NOT NULL, failures INTEGER NOT NULL);
       INSERT OR IGNORE INTO gpt_deletion_schedule VALUES(1,0,0)`);
+    store.db.exec(
+      "CREATE TABLE IF NOT EXISTS gpt_deletion_blocks(id TEXT PRIMARY KEY, signature TEXT NOT NULL)",
+    );
     this.adoptLegacyDeletes();
   }
   private adoptLegacyDeletes() {
@@ -67,6 +71,8 @@ export class GptDeletions {
         key,
         randomUUID(),
       );
+      // A new explicit owner request may recheck admission; opening a view may not.
+      if (!previous) db.prepare("DELETE FROM gpt_deletion_blocks WHERE id=?").run(id);
       this.library.save("thread", id, { deleted: true, archived: false, changedAt: Date.now() });
       // Unsent queued prompts must not execute after the user removed their chat.
       db.prepare(
@@ -90,17 +96,27 @@ export class GptDeletions {
       .prepare("SELECT nextAt,failures FROM gpt_deletion_schedule WHERE id=1")
       .get()!;
     if (Number(schedule.nextAt) > this.now()) return;
-    const row = db
-      .prepare("SELECT * FROM gpt_deletions WHERE done=0 AND nextAt<=? ORDER BY nextAt LIMIT 100")
-      .all(this.now())
-      .find((row) => canRun(String(row.id)));
-    if (!row) return;
+    // Finish the head receipt before starting another deletion, including while
+    // it is in cooldown or uncertain. New clicks only append local tombstones.
+    const row = db.prepare("SELECT * FROM gpt_deletions WHERE done=0 ORDER BY rowid LIMIT 1").get();
+    if (!row || Number(row.nextAt) > this.now()) return;
+    const signature = JSON.stringify(
+      db
+        .prepare(
+          "SELECT id,status,requestId,submitted,error FROM gpt_jobs WHERE nativeId=? ORDER BY id",
+        )
+        .all(String(row.id)),
+    );
+    const blocked = db
+      .prepare("SELECT signature FROM gpt_deletion_blocks WHERE id=?")
+      .get(String(row.id));
     this.busy = true;
     let attempted = false,
-      succeeded = false;
+      succeeded = false,
+      retryAt: number | undefined;
     try {
       authorize();
-      if (!idle() || !canRun(String(row.id))) return;
+      if (!idle()) return;
       // Reserve one account-wide slot durably. New tombstones do not bypass the
       // spacing/backoff of earlier deletions, including after a Hub restart.
       db.prepare("UPDATE gpt_deletion_schedule SET nextAt=? WHERE id=1").run(this.now() + 30000);
@@ -117,7 +133,7 @@ export class GptDeletions {
           action: "delete",
           confirm: true,
         },
-        !!row.attempted,
+        !!row.attempted || !canRun(String(row.id)) || blocked?.signature === signature,
       );
       authorize();
       succeeded = result.state === "completed";
@@ -129,6 +145,11 @@ export class GptDeletions {
           String(row.id),
         );
     } catch (error) {
+      retryAt = nativeFailure(error).retryAt;
+      if (error instanceof Error && error.message === "NATIVE_PENDING_DISPATCH")
+        db.prepare(
+          "INSERT INTO gpt_deletion_blocks VALUES(?,?) ON CONFLICT(id) DO UPDATE SET signature=excluded.signature",
+        ).run(String(row.id), signature);
       // Only a proven absent receipt permits first dispatch. Unknown effects are read back.
       if (
         error instanceof Error &&
@@ -145,7 +166,8 @@ export class GptDeletions {
     } finally {
       if (attempted) {
         const failures = succeeded ? 0 : Math.min(5, Number(schedule.failures) + 1);
-        const nextAt = this.now() + (succeeded ? 30000 : Math.min(300000, 30000 * 2 ** failures));
+        const nextAt =
+          retryAt ?? this.now() + (succeeded ? 30000 : Math.min(300000, 30000 * 2 ** failures));
         db.prepare("UPDATE gpt_deletion_schedule SET nextAt=?,failures=? WHERE id=1").run(
           nextAt,
           failures,

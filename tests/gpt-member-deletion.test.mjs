@@ -258,6 +258,81 @@ test("unknown deletion blocks only its own chat and absent native chats finish w
   );
 });
 
+test("externally deleted chats finish before stale dispatch admission, including read-only checks", async (t) => {
+  const root = temp(t),
+    id = randomUUID();
+  const dispatch = new NativeDispatchReceipts({
+    path: join(root, "dispatch.sqlite"),
+    userId: randomUUID(),
+    accountFingerprint: "a".repeat(64),
+    conversationIds: [id],
+  });
+  t.after(() => dispatch.close());
+  dispatch.assertDispatch = async () => {
+    throw Error("NATIVE_PENDING_DISPATCH");
+  };
+  const library = new NativeLibraryReceipts(dispatch);
+  let exists = false,
+    writes = 0;
+  const reader = {
+    readLibrary: async () => ({ exists, canWrite: exists, name: "", projectId: null }),
+    mutateLibrary: async () => {
+      writes++;
+    },
+  };
+  for (const check of [false, true]) {
+    const r = { key: randomUUID(), kind: "thread", id, action: "delete", confirm: true };
+    assert.equal((await library.run(r, reader, check)).state, "completed");
+  }
+  exists = true;
+  const r = { key: randomUUID(), kind: "thread", id, action: "delete", confirm: true };
+  await assert.rejects(library.run(r, reader, true), /RECEIPT_MISSING/);
+  await assert.rejects(library.run(r, reader), /PENDING_DISPATCH/);
+  assert.equal(writes, 0);
+  assert.equal(dispatch.db.prepare("SELECT count(*) n FROM library_receipts").get().n, 2);
+});
+
+test("native deletion 429 preserves cooldown and does not replay an uncertain effect", async (t) => {
+  const root = temp(t),
+    id = randomUUID();
+  const dispatch = new NativeDispatchReceipts({
+    path: join(root, "dispatch.sqlite"),
+    userId: randomUUID(),
+    accountFingerprint: "a".repeat(64),
+    conversationIds: [id],
+  });
+  t.after(() => dispatch.close());
+  const library = new NativeLibraryReceipts(dispatch),
+    r = { key: randomUUID(), kind: "thread", id, action: "delete", confirm: true };
+  const limited = Object.assign(Error("NATIVE_RATE_LIMITED"), { retryAt: 123456, httpStatus: 429 });
+  let writes = 0;
+  const reader = {
+    readLibrary: async () => ({ exists: true, canWrite: true, name: "test", projectId: null }),
+    mutateLibrary: async () => {
+      writes++;
+      throw limited;
+    },
+  };
+  await assert.rejects(library.run(r, reader), (e) => e === limited);
+  assert.equal((await library.run(r, reader, true)).state, "rejected");
+  assert.equal(writes, 1);
+  const unknown = { ...r, key: randomUUID() };
+  reader.mutateLibrary = async () => {
+    writes++;
+    throw Error("lost acknowledgement");
+  };
+  assert.equal((await library.run(unknown, reader)).state, "unknown");
+  reader.readLibrary = async () => {
+    throw limited;
+  };
+  await assert.rejects(library.run(unknown, reader, true), (e) => e === limited);
+  assert.equal(writes, 2);
+  assert.equal(
+    dispatch.db.prepare("SELECT state FROM library_receipts WHERE key=?").get(unknown.key).state,
+    "unknown",
+  );
+});
+
 test("batch tombstones stay instant while native deletions are spaced durably and yield to work", async (t) => {
   const store = new Store(join(temp(t), "app.db"));
   t.after(() => store.close());

@@ -1,5 +1,37 @@
 # Текущий статус — 13 октября 2026
 
+### GPT deletion and public-output recovery — October 13 (source verified, activation pending)
+
+Compared ten exact pinned/recent native conversation identities with the owner's
+Hub library and retained history. Titles and identities agree; chats not previously
+opened through the Hub do not necessarily have a local history copy. Native history
+reads themselves return HTTP 429, so this is not proof of a complete content audit.
+One retained job is still `running`; native sidebar `idle` is insufficient to mark
+its exact turn complete. The engine admission check currently retains that blocker.
+The engine, gateway and native supervisor are responsive; no resource-exhaustion
+cause or upstream rate-limit cause has been established.
+
+Fixed two shared failure classes:
+
+- Deletion keeps a durable FIFO head and hides all requested chats immediately.
+  Uncertain effects are reconciled through the same receipt. A stale send guard
+  now permits read-only proof that another client already deleted the exact chat;
+  it does not bypass write admission or modify the original send receipt. Repeated
+  unchanged admission refusals become spaced absence checks. Native Retry-After
+  controls the whole deletion queue without extension. High local attempt counts
+  were queue passes without native delete receipts, not evidence of repeated DELETEs.
+- Already delivered public output is retained by exact message ID and prefix,
+  including recent idle receipts. A stale partial history cannot truncate it.
+  Final canonical text wins; live output cannot establish delivery, branch membership
+  or completion, and cannot resume an expired idle watch. No additional history poll.
+
+Focused source tests and type checks pass, including queue restart/order, external
+deletion with stale receipts, lost acknowledgements, short/long Retry-After, exact
+message identity, account/payload mismatch, history failure and idle-watch expiry.
+Production candidate/browser checks and guarded activation are tracked separately.
+No live chat operation was replayed, no saved receipt was manually rewritten and
+no native client was restarted to work around HTTP 429.
+
 ### Quiet composer — October 13 (web publication verified)
 
 Removed the shared Codex compatibility disclosure from `ComposerOptions` for all

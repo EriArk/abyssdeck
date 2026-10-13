@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import type { GptFile } from "@codex-web/shared";
 import { gptFileLimit } from "@codex-web/shared";
 import { z } from "zod";
+import { extendPublicOutput } from "./gpt-live-output.js";
 import type { NativeGptReadClient, NativeUploadedFile } from "./gpt-native.js";
 import { type NativeFailure, nativeFailure } from "./gpt-native-error.js";
 import { nativeResponseIdle } from "./gpt-response-state.js";
@@ -467,7 +468,92 @@ export class NativeGptJobs {
     await this.client.stopDispatch(id, payload.conversationId);
     if (!this.busy) return this.reconcile(id);
   }
+  saveLiveOutput(id: string, live: { items: { id: string; text: string; activity?: string }[] }) {
+    const row = this.row(id);
+    const saved = this.store.db
+      .prepare("SELECT payload,messages,deliveredAt FROM gpt_native_receipts WHERE jobId=?")
+      .get(id);
+    if (!saved || saved.deliveredAt == null || row.status === "completed") return false;
+    const payload = JSON.parse(String(saved.payload));
+    const created = this.store.db
+      .prepare("SELECT conversationId FROM gpt_native_creations WHERE jobId=?")
+      .get(id);
+    if (
+      row.requestId !== payload.userMessageId ||
+      row.nativeId !== (payload.conversationId ?? created?.conversationId ?? null) ||
+      row.text !== payload.text ||
+      row.model !== payload.versionId ||
+      Number(row.effort) !== payload.presetId ||
+      this.project(id) !== payload.projectId ||
+      (payload.attachments?.length
+        ? this.store.db.prepare("SELECT files FROM gpt_native_files WHERE jobId=?").get(id)
+            ?.files !== row.files
+        : row.files !== "[]")
+    )
+      fail("SUBMISSION_MISMATCH");
+    const previous: Awaited<ReturnType<NativeJobsClient["reconcileDispatch"]>>["messages"] =
+      JSON.parse(String(saved.messages));
+    const messages = extendPublicOutput(previous, live.items);
+    const encoded = JSON.stringify(messages);
+    if (encoded === saved.messages) return false;
+    this.authorize();
+    this.store.db.exec("BEGIN IMMEDIATE");
+    try {
+      this.store.db
+        .prepare("UPDATE gpt_native_receipts SET messages=? WHERE jobId=?")
+        .run(encoded, id);
+      this.store.db.prepare("UPDATE gpt_jobs SET answer=?,updatedAt=? WHERE id=?").run(
+        messages
+          .filter((m) => m.channel !== "commentary")
+          .map((m) => m.text)
+          .join("\n\n"),
+        Date.now(),
+        id,
+      );
+      if (
+        this.store.db
+          .prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='gpt_job_progress'")
+          .get()
+      ) {
+        const progress = messages
+          .filter((m) => m.channel === "commentary" && m.text.trim())
+          .map((m) => ({
+            id: m.id,
+            text: m.text,
+            richReferences: m.richReferences,
+            state: row.status === "running" && !m.complete ? "active" : "completed",
+          }));
+        this.store.db
+          .prepare(
+            "INSERT INTO gpt_job_progress VALUES(?,?) ON CONFLICT(jobId) DO UPDATE SET value=excluded.value",
+          )
+          .run(id, JSON.stringify(progress));
+      }
+      this.store.db.exec("COMMIT");
+    } catch (error) {
+      this.store.db.exec("ROLLBACK");
+      throw error;
+    }
+    return true;
+  }
   private async readReceipt(id: string) {
+    // Local stream observation does not consume upstream history allowance. Save
+    // proven public growth before a canonical read can fail or enter cooldown.
+    if (this.client.liveDispatch) {
+      const receipt = this.store.db
+        .prepare("SELECT payload FROM gpt_native_receipts WHERE jobId=?")
+        .get(id);
+      if (receipt) {
+        let live: Awaited<ReturnType<NativeGptReadClient["liveDispatch"]>> | undefined;
+        try {
+          live = await this.client.liveDispatch(
+            id,
+            JSON.parse(String(receipt.payload)).conversationId,
+          );
+        } catch {}
+        if (live) this.saveLiveOutput(id, live);
+      }
+    }
     const row = this.row(id);
     const saved = this.store.db
       .prepare("SELECT payload,messages,deliveredAt FROM gpt_native_receipts WHERE jobId=?")
@@ -542,6 +628,10 @@ export class NativeGptJobs {
     if (result.failure) this.saveFailure(id, result.failure);
     else if (result.state !== "unknown")
       this.store.db.prepare("DELETE FROM gpt_native_failures WHERE jobId=?").run(id);
+    // A stale partial canonical snapshot must not truncate a longer, already
+    // observed public prefix from this same receipt. A final or changed text wins.
+    if (result.state === "running" || result.state === "idle")
+      result.messages = extendPublicOutput(result.messages, JSON.parse(String(saved.messages)));
     // A temporary missing page must not erase already observed public output.
     const changed =
       result.state !== "unknown" &&

@@ -443,7 +443,7 @@ test("Hub workers track separate chat/project/schedule work and do not mistake a
     });
 });
 
-test("background deletion skips a busy chat without dropping receipts or bypassing account spacing", async (t) => {
+test("background deletion retains a busy head and never starts a second uncertain deletion", async (t) => {
   const store = new Store(":memory:");
   t.after(() => store.close());
   const a = randomUUID(),
@@ -457,6 +457,7 @@ test("background deletion skips a busy chat without dropping receipts or bypassi
       client: {
         libraryMutation: async (r, check) => {
           calls.push({ r, check });
+          if (check && calls.length === 1) throw Error("NATIVE_RECEIPT_MISSING");
           return { state: "unknown" };
         },
       },
@@ -472,25 +473,30 @@ test("background deletion skips a busy chat without dropping receipts or bypassi
     (id) => id !== a,
   );
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].r.id, b);
-  assert.equal(calls[0].check, false);
-  assert.deepEqual(store.db.prepare("SELECT * FROM gpt_deletions WHERE id=?").get(a), saved);
-  now += 30000;
-  await queue.tick(
-    () => {},
-    () => true,
-    () => true,
+  assert.equal(calls[0].r.id, a);
+  assert.equal(calls[0].check, true, "busy chat can only check for external deletion");
+  assert.equal(
+    store.db.prepare("SELECT receipt FROM gpt_deletions WHERE id=?").get(a).receipt,
+    saved.receipt,
   );
-  assert.equal(calls.length, 1, "unknown result keeps account-wide backoff");
-  now += 30000;
+  now += 60000;
   await queue.tick(
     () => {},
     () => true,
-    (id) => id !== a,
+    () => true,
   );
   assert.equal(calls.length, 2);
-  assert.equal(calls[1].check, true);
-  assert.equal(calls[1].r.key, calls[0].r.key);
+  assert.equal(calls[1].r.id, a);
+  assert.equal(calls[1].check, false);
+  now += 120000;
+  await queue.tick(
+    () => {},
+    () => true,
+    () => true,
+  );
+  assert.equal(calls.length, 3);
+  assert.equal(calls[2].check, true);
+  assert.equal(calls[2].r.key, calls[0].r.key);
 });
 
 test("service preserves the single writer, manual account lease and owner binding with narrowed receipt admission", async (t) => {

@@ -1,4 +1,3 @@
-import { gptRichAnswers } from "./gpt-rich.js";
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { copyFile, stat, unlink, writeFile } from "node:fs/promises";
@@ -58,6 +57,7 @@ import { GptReadBackoff } from "./gpt-read-backoff.js";
 import { gptResultContent } from "./gpt-result-content.js";
 import { GptResultIndex } from "./gpt-result-index.js";
 import { gptResults, resultPage } from "./gpt-results.js";
+import { gptRichAnswers } from "./gpt-rich.js";
 import { gptSandboxFiles } from "./gpt-sandbox-files.js";
 import { GptTextArtifacts } from "./gpt-text-artifacts.js";
 import { GptWorkspaceWork, workspaceId, workspaceInput } from "./gpt-workspace.js";
@@ -988,9 +988,9 @@ export class GptService {
       this.native &&
       this.store.db
         .prepare(
-          "SELECT j.id,r.payload FROM gpt_jobs j JOIN gpt_native_receipts r ON r.jobId=j.id WHERE (j.nativeId=? OR j.id=?) AND j.status IN ('preparing','running','unknown') ORDER BY j.createdAt DESC LIMIT 1",
+          "SELECT j.id,r.payload FROM gpt_jobs j JOIN gpt_native_receipts r ON r.jobId=j.id LEFT JOIN gpt_native_idle_watch w ON w.jobId=j.id WHERE (j.nativeId=? OR j.id=?) AND (j.status IN ('preparing','running','unknown') OR (j.status='idle' AND MAX(COALESCE(w.changedAt,j.createdAt),COALESCE(w.openedAt,0))>?)) ORDER BY j.createdAt DESC LIMIT 1",
         )
-        .get(nativeId ?? null, watch ?? null);
+        .get(nativeId ?? null, watch ?? null, Date.now() - 300000);
     if (!row) return Promise.resolve(null);
     const jobId = String(row.id);
     if (this.liveRead?.id === jobId && Date.now() - this.liveRead.at < 1000)
@@ -1000,6 +1000,7 @@ export class GptService {
       JSON.parse(String(row.payload)).conversationId,
     )
       .then((result) => {
+        this.nativeJobs?.saveLiveOutput(jobId, result);
         if (result.failure) {
           this.nativeJobs?.saveFailure(jobId, result.failure);
           this.store.db

@@ -509,6 +509,71 @@ function queue(t) {
     );
   return { db, id, state, open, client };
 }
+
+test("exact delivered live output survives rate limited history, stale snapshots and worker restart without a send", async (t) => {
+  const f = queue(t),
+    worker = f.open();
+  f.state.public = [
+    { id: "answer", role: "assistant", channel: "final", complete: false, text: "Hello" },
+  ];
+  await worker.run(f.id);
+  const before = f.db.prepare("SELECT deliveredAt,uncertainSince FROM gpt_native_receipts").get();
+  const originalRead = f.client.reconcileDispatch;
+  f.client.liveDispatch = async () => ({
+    finished: true,
+    items: [{ id: "answer", text: "Hello world" }],
+  });
+  f.client.reconcileDispatch = async () => {
+    throw Error("NATIVE_RATE_LIMITED");
+  };
+  await assert.rejects(worker.reconcile(f.id), /NATIVE_RATE_LIMITED/);
+  assert.equal(f.db.prepare("SELECT answer FROM gpt_jobs").get().answer, "Hello world");
+  assert.deepEqual(
+    f.db.prepare("SELECT deliveredAt,uncertainSince FROM gpt_native_receipts").get(),
+    before,
+  );
+  assert.equal(
+    f.db.prepare("SELECT status FROM gpt_jobs").get().status,
+    "running",
+    "stream finish alone cannot claim completion",
+  );
+  f.client.liveDispatch = async () => ({ items: [] });
+  f.client.reconcileDispatch = originalRead;
+  f.state.readState = "idle";
+  await f.open().reconcile(f.id);
+  assert.equal(
+    f.db.prepare("SELECT answer FROM gpt_jobs").get().answer,
+    "Hello world",
+    "stale canonical prefix cannot truncate saved public growth",
+  );
+  f.state.readState = "completed";
+  f.state.public[0] = { ...f.state.public[0], text: "Hello corrected", complete: true };
+  await f.open().reconcile(f.id);
+  assert.equal(f.db.prepare("SELECT answer,status FROM gpt_jobs").get().answer, "Hello corrected");
+  assert.equal(f.state.sends, 1);
+});
+
+test("live persistence rejects unconfirmed or mismatched receipt and retains commentary separately", async (t) => {
+  const f = queue(t),
+    worker = f.open();
+  f.db.exec("CREATE TABLE gpt_job_progress(jobId TEXT PRIMARY KEY,value TEXT)");
+  f.state.public = [
+    { id: "progress", role: "assistant", channel: "commentary", complete: false, text: "Checking" },
+  ];
+  await worker.run(f.id);
+  const live = { items: [{ id: "progress", text: "Checking sources" }] };
+  assert.equal(worker.saveLiveOutput(f.id, live), true);
+  assert.equal(f.db.prepare("SELECT answer FROM gpt_jobs").get().answer, "");
+  assert.equal(
+    JSON.parse(f.db.prepare("SELECT value FROM gpt_job_progress").get().value)[0].text,
+    "Checking sources",
+  );
+  f.db.prepare("UPDATE gpt_jobs SET requestId='wrong'").run();
+  assert.throws(() => worker.saveLiveOutput(f.id, live), /SUBMISSION_MISMATCH/);
+  f.db.prepare("UPDATE gpt_native_receipts SET deliveredAt=NULL").run();
+  assert.equal(worker.saveLiveOutput(f.id, live), false);
+  assert.equal(f.state.sends, 1);
+});
 test("existing Hub queue commits intent before dispatch and reconciles after restart, preserving partial public output", async (t) => {
   const f = queue(t);
   let worker = f.open();
@@ -1112,11 +1177,38 @@ test("public summaries stream while history is pending, without private thought 
 });
 
 test("public live component data can resolve without a text delta or another dispatch", async () => {
-  const f=fixture();await f.run();const id=randomUUID(), key=JSON.stringify(['Cite',{ref:'source'}]);
-  const emit=state=>f.state.emit({type:'message',conversationId,message:{id,author:{role:'assistant'},recipient:'all',channel:'final',status:'in_progress',content:{content_type:'text',parts:['Text <Cite ref="source"/>']},metadata:{model_dil_v2:{appData:{opGenui:{componentResults:{[key]:state}}}}}}});
-  emit({status:'pending'});
-  assert.equal((await nativeLive(f.input,f.read,f.runtime)).items[0].richReferences[0].status,'pending');
-  emit({status:'resolved',state:{items:[{url:'https://source.test/article',title:'Source'}]}});
-  assert.equal((await nativeLive(f.input,f.read,f.runtime)).items[0].richReferences[0].sources[0].title,'Source');
-  assert.equal(f.state.post,1);
+  const f = fixture();
+  await f.run();
+  const id = randomUUID(),
+    key = JSON.stringify(["Cite", { ref: "source" }]);
+  const emit = (state) =>
+    f.state.emit({
+      type: "message",
+      conversationId,
+      message: {
+        id,
+        author: { role: "assistant" },
+        recipient: "all",
+        channel: "final",
+        status: "in_progress",
+        content: { content_type: "text", parts: ['Text <Cite ref="source"/>'] },
+        metadata: {
+          model_dil_v2: { appData: { opGenui: { componentResults: { [key]: state } } } },
+        },
+      },
+    });
+  emit({ status: "pending" });
+  assert.equal(
+    (await nativeLive(f.input, f.read, f.runtime)).items[0].richReferences[0].status,
+    "pending",
+  );
+  emit({
+    status: "resolved",
+    state: { items: [{ url: "https://source.test/article", title: "Source" }] },
+  });
+  assert.equal(
+    (await nativeLive(f.input, f.read, f.runtime)).items[0].richReferences[0].sources[0].title,
+    "Source",
+  );
+  assert.equal(f.state.post, 1);
 });

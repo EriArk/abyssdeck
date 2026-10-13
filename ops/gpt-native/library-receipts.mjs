@@ -21,14 +21,18 @@ export class NativeLibraryReceipts {
   let row=this.db.prepare('SELECT * FROM library_receipts WHERE key=?').get(r.key);
   if(row&&row.hash!==hash)fail('KEY_CONFLICT');
   if(!row){
-   if(checkOnly)fail('RECEIPT_MISSING');
-   if(r.kind==='project')await this.dispatch.assertProject({...r,projectId:r.id},reader);
-   else await this.dispatch.assertDispatch({...r,conversationId:r.id},reader);
-   const baseline=await reader.readLibrary(r);
-   if(!baseline.exists&&r.kind==='thread'&&r.action==='delete'){
+   // An externally deleted chat needs no write admission. A stale send receipt
+   // must not prevent proving its absence or keep its queue entry alive forever.
+   const deletion=r.kind==='thread'&&r.action==='delete';
+   let baseline=deletion?await reader.readLibrary(r):undefined;
+   if(deletion&&!baseline.exists){
     this.db.prepare("INSERT INTO library_receipts VALUES(?,?,?,?,'completed')").run(r.key,hash,JSON.stringify(r),JSON.stringify(baseline));
     return {state:'completed',name:baseline.name,projectId:baseline.projectId};
    }
+   if(checkOnly)fail('RECEIPT_MISSING');
+   if(r.kind==='project')await this.dispatch.assertProject({...r,projectId:r.id},reader);
+   else await this.dispatch.assertDispatch({...r,conversationId:r.id},reader);
+   baseline??=await reader.readLibrary(r);
    if(!baseline.exists||!baseline.canWrite)fail('LIBRARY_NOT_WRITABLE');
    this.db.prepare("INSERT INTO library_receipts VALUES(?,?,?,?,'unknown')").run(r.key,hash,JSON.stringify(r),JSON.stringify(baseline));
    // A crash after this commit is intentionally unknown, never an automatic retry.
@@ -38,7 +42,14 @@ export class NativeLibraryReceipts {
     // Deletion of a project may prevent any later authorized metadata read. Only a
     // confirmed native success can finish it; a lost acknowledgement stays unknown.
     else if(r.kind==='project'&&r.action==='delete'&&result?.accepted===true)this.db.prepare("UPDATE library_receipts SET state='completed' WHERE key=?").run(r.key);
-   }catch{}
+   }catch(error){
+    // This typed refusal is either admission cooldown or an explicit HTTP 429,
+    // never a lost acknowledgement. Preserve Retry-After for the Hub scheduler.
+    if(error?.message==='NATIVE_RATE_LIMITED'){
+     this.db.prepare("UPDATE library_receipts SET state='rejected' WHERE key=?").run(r.key);
+     throw error;
+    }
+   }
    row=this.db.prepare('SELECT * FROM library_receipts WHERE key=?').get(r.key);
   }
   if(row.state==='unknown'){
@@ -46,7 +57,7 @@ export class NativeLibraryReceipts {
     const current=await reader.readLibrary(r);
     const confirmed=r.action==='delete'?!current.exists:r.action==='rename'?current.exists&&current.name===r.name:r.action==='pin'?current.exists&&current.pinned===r.value:current.exists&&current.archived===r.value;
     if(confirmed){this.db.prepare("UPDATE library_receipts SET state='completed' WHERE key=?").run(r.key);row.state='completed';}
-   }catch{}
+   }catch(error){if(error?.message==='NATIVE_RATE_LIMITED')throw error;}
   }
   const baseline=JSON.parse(row.baseline);
   return {state:row.state,name:baseline.name,projectId:baseline.projectId};
