@@ -1,6 +1,26 @@
 # Текущий статус — 13 октября 2026
 
-### GPT new-chat readiness follow-up — October 13 (source check in progress)
+### GPT new-chat readiness follow-up — October 13 (installed verification)
+
+Installed engine/gateway `codex-web-hub:be49917a` and owner adapter
+`codex-web-gpt-native:26.1007.21434-be49917a`. The guarded update verified its
+checkpoint and restore rehearsal, retained the latest three completed checkpoints,
+and preserved the native profile, account and prior operation receipts. Web assets
+are unchanged. Build/type checks, 257 native GPT tests (including saturated-read
+readiness and recovery/account admission), and nine adapter-upgrade tests passed.
+
+Post-installation, the actual HTTP handlers, GptService queue and native transport
+created another new conversation and returned `ABYSSDECK_READY_OK`. Canonical
+readback verified exactly one matching user message and a completed assistant final.
+The diagnostic used its own database and durable operation identity; it did not
+replay any owner request. Owner queued/preparing/running job counts are zero, the
+recovered delivered request remains idle, and four old uncertain receipts remain.
+GPT, public HTTPS, SSH, Codex login and Companion checks passed; native task/memory
+refusal counters remained zero. Evidence is on the host in
+`codex-web-releases/be49917a/verification.json` and
+`services/codex-web/data/verification-new-chat-be49917a/operation.json`.
+Browser automation was unavailable in this session, so authenticated browser
+interaction is not claimed. This supersedes the earlier `bb8ab08e` installation.
 
 Owner ordinary use exposed a remaining renderer hang after the update: the native
 supervisor answered, but two history lanes and a dispatch were retained while one
