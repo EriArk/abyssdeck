@@ -1,4 +1,3 @@
-import { richReferenceSchema } from "./gpt-rich.js";
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { lstat, open } from "node:fs/promises";
@@ -14,6 +13,7 @@ import {
 } from "./gpt-native-error.js";
 import { NativeHistoryProjection } from "./gpt-native-history.js";
 import { NativeMetadataCache } from "./gpt-native-read-cache.js";
+import { richReferenceSchema } from "./gpt-rich.js";
 import { gptSandboxFiles } from "./gpt-sandbox-files.js";
 
 const uuid = z.string().uuid();
@@ -105,6 +105,7 @@ export class NativeGptReadClient {
     read: { active: 0, limit: 2, queue: [] as Array<() => Promise<void>> },
     media: { active: 0, limit: 1, queue: [] as Array<() => Promise<void>> },
     write: { active: 0, limit: 1, queue: [] as Array<() => Promise<void>> },
+    activity: { active: 0, limit: 1, queue: [] as Array<() => Promise<void>> },
   };
   private reads = new Map<string, Promise<unknown>>();
   private metadata = new NativeMetadataCache();
@@ -136,30 +137,32 @@ export class NativeGptReadClient {
     this.authorize();
     // Only typed operations proven not to navigate/change renderer selection.
     // Media has its own serial lane: chunk offsets and stream lifetime are mutable.
-    const laneName = ["openMedia", "readMedia", "closeMedia", "readArtifact"].includes(
-      String(input.operation),
-    )
-      ? "media"
-      : [
-            "readHistoryUpdate",
-            "readConversationGraph",
-            "readConversation",
-            "readModels",
-            "readCatalog",
-            "readPins",
-            "readProjects",
-            "readProject",
-            "readProjectConversations",
-            "inspectProject",
-            "listArtifacts",
-          ].includes(String(input.operation)) ||
-          (input.operation === "workspace" &&
-            ["scheduledList", "scheduledRead", "activity"].includes(String(input.action)))
-        ? "read"
-        : "write";
+    const localActivity = input.operation === "workspace" && input.action === "activity";
+    const laneName = localActivity
+      ? "activity"
+      : ["openMedia", "readMedia", "closeMedia", "readArtifact"].includes(String(input.operation))
+        ? "media"
+        : [
+              "readHistoryUpdate",
+              "readConversationGraph",
+              "readConversation",
+              "readModels",
+              "readCatalog",
+              "readPins",
+              "readProjects",
+              "readProject",
+              "readProjectConversations",
+              "inspectProject",
+              "listArtifacts",
+            ].includes(String(input.operation)) ||
+            (input.operation === "workspace" &&
+              ["scheduledList", "scheduledRead", "activity"].includes(String(input.action)))
+          ? "read"
+          : "write";
     const admittedLane = this.independentReads ? laneName : "legacy";
     const lane = this.lanes[admittedLane];
-    const key = laneName === "read" && !cancellation ? JSON.stringify(input) : undefined;
+    const key =
+      (laneName === "read" || localActivity) && !cancellation ? JSON.stringify(input) : undefined;
     // Preparation navigates locally; reconciliation observes an existing receipt.
     // Both retain serial admission but do not mutate upstream library metadata.
     const invalidatesMetadata =

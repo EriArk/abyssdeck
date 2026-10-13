@@ -1,6 +1,28 @@
 # Текущий статус — 13 октября 2026
 
-### GPT client update and recovery — October 13 (installed and verified)
+### GPT new-chat readiness follow-up — October 13 (source check in progress)
+
+Owner ordinary use exposed a remaining renderer hang after the update: the native
+supervisor answered, but two history lanes and a dispatch were retained while one
+renderer consumed a CPU core. Cgroup memory/task counters were zero. Explicit
+scoped recovery restored the renderer; exact canonical readback proved delivery of
+the retained request with no answer. Audited recovery preserved that receipt and
+marked the job idle, without replay or a claim of successful completion.
+
+Found an additional shared admission defect: local account/app-shell readiness was
+queued behind upstream history reads both in the Hub transport and native service.
+It now has one coalesced independent lane. Manual recovery and exact account checks
+still apply; network read and writer limits are unchanged. No upstream probe,
+arbitrary network deadline, automatic restart or extra status UI is added.
+
+A live diagnostic using the installed HTTP handlers, GptService queue and native
+transport created a new chat and saved `ABYSSDECK_HUB_OK`, with exact delivery proof.
+It used an isolated diagnostic database; this is not an authenticated production
+browser test. The low-level native test alone from the earlier snapshot did not
+cover these Hub boundaries. The CPU hang's underlying native cause is not yet
+established; readiness lane isolation does not claim to repair a frozen renderer.
+
+### GPT client update and recovery — October 13 (earlier installed verification)
 
 Installed official native ChatGPT `26.1007.21434` with the matching adapter image
 `codex-web-gpt-native:26.1007.21434-bb8ab08e`; engine and gateway now run

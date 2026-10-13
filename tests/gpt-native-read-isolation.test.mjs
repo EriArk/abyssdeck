@@ -12,6 +12,72 @@ const userId = "10000000-0000-4000-8000-000000000001";
 const accountFingerprint = "a".repeat(64);
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 
+test("new-chat readiness bypasses saturated history and write lanes without releasing them", async (t) => {
+  const f = await fixture(t);
+  const history = Promise.withResolvers();
+  const entered = Promise.withResolvers();
+  let histories = 0;
+  f.reader.readConversationGraph = async () => {
+    if (++histories === 2) entered.resolve();
+    return history.promise;
+  };
+  t.after(() => history.resolve({}));
+  const reads = ["one", "two"].map((conversationId) =>
+    f.client.call({ operation: "readConversationGraph", conversationId }),
+  );
+  const writing = f.client.call({ operation: "dispatchText" });
+  await Promise.all([entered.promise, f.entered.promise]);
+  const provider = new NativeGptProvider({ client: f.client });
+  try {
+    const connection = await Promise.race([
+      provider.connection(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(Error("LOCAL_READ_BLOCKED")), 1000).unref(),
+      ),
+    ]);
+    assert.equal(connection.canSend, true);
+    assert.equal(f.service.readActive, 2);
+    assert.equal(f.service.busy, true);
+    assert.equal(f.calls.filter((op) => op === "dispatchText").length, 1);
+  } finally {
+    history.resolve({});
+    f.writer.resolve({ state: "unknown" });
+    await Promise.all([...reads, writing]);
+  }
+});
+
+test("local readiness coalesces across clients and retains recovery/account admission", async (t) => {
+  const f = await fixture(t);
+  const pending = Promise.withResolvers();
+  let calls = 0;
+  f.reader.workspace = async (input) => {
+    assert.equal(input.accountFingerprint, accountFingerprint);
+    calls++;
+    return pending.promise;
+  };
+  const request = { userId, operation: "workspace", action: "activity" };
+  const a = f.service.request(request),
+    b = f.service.request(request);
+  await tick();
+  try {
+    assert.equal(calls, 1);
+    await assert.rejects(f.service.request({ ...request, userId: randomUUID() }), /WRONG_OWNER/);
+    await assert.rejects(
+      f.service.request({ userId, operation: "beginManual", leaseId: randomUUID() }),
+      /BUSY/,
+    );
+  } finally {
+    pending.resolve({ ready: true, generating: false });
+    assert.deepEqual(await a, await b);
+  }
+  const leaseId = randomUUID();
+  await f.service.request({ userId, operation: "beginManual", leaseId });
+  await assert.rejects(f.service.request(request), /MANUAL_RECOVERY/);
+  await f.service.request({ userId, operation: "endManual", leaseId });
+  assert.equal((await f.service.request(request)).ready, true);
+  assert.equal(calls, 2);
+});
+
 test("Hub waits for slow native preparation beyond the former 25-second deadline", async (t) => {
   const f = await fixture(t);
   const timeout = AbortSignal.timeout.bind(AbortSignal);

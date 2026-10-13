@@ -87,7 +87,7 @@ export class NativeReadService {
       try{return await this.canary.live(input,this.reader);}finally{this.livePending=false;}
     }
     if (['beginManual', 'endManual', 'resumeManual'].includes(input.operation)) {
-      if (this.busy || this.readActive || this.mediaActive || this.livePending) fail('BUSY');
+      if (this.busy || this.readActive || this.mediaActive || this.livePending || this.activityPending) fail('BUSY');
       if (input.operation !== 'resumeManual' && !uuid(input.leaseId)) fail('INVALID_REQUEST');
       const previous = new Set(this.leases);
       if (input.operation === 'beginManual') {
@@ -102,6 +102,15 @@ export class NativeReadService {
       return { manual: this.leases.size > 0, writesEnabled: false };
     }
     if (this.leases.size) fail('MANUAL_RECOVERY');
+    // Account/app-shell readiness is entirely local. Slow upstream histories must
+    // not consume its admission and disable every new chat after verification expires.
+    // One shared local read remains independent of network reads and the writer.
+    if(input.operation==='workspace'&&input.action==='activity'){
+      if(this.activityPending)return this.activityPending;
+      const task=Promise.resolve().then(()=>this.reader.workspace({operation:'activity',accountFingerprint:this.accountFingerprint}));
+      this.activityPending=task;
+      try{return await task;}finally{if(this.activityPending===task)this.activityPending=undefined;}
+    }
     const readOnly = ['readPublicPresentation','readHistoryUpdate','readConversationGraph','readConversation','readModels','readCatalog',
       'readPins','readProjects','readProject','readProjectConversations','inspectProject','listArtifacts'].includes(input.operation) || (input.operation==='workspace' && ['scheduledList','scheduledRead','activity'].includes(input.action));
     const media = ['openMedia','readMedia','closeMedia','readArtifact'].includes(input.operation);
