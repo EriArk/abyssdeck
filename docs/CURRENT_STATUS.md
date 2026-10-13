@@ -1,5 +1,22 @@
 # Текущий статус — 13 октября 2026
 
+### Quiet composer — October 13 (web publication verified)
+
+Removed the shared Codex compatibility disclosure from `ComposerOptions` for all
+projects and chats. The installed engine's historical version allowlist produces
+the notice even for the now verified 0.162.1; this is not an observed RPC failure.
+The composer no longer displays capability diagnostic warnings. Actual settings
+and operation errors retain their existing handling; no backend compatibility
+claim, capability support or send admission is changed by this presentation fix.
+
+Production web build passed. A browser check injected the exact old-engine
+warning and verified its absence in mobile and wide layouts, available model/mode
+controls and preserved draft. Published `bd6b141f` through the checked web-only
+publisher; public release is
+`c6226262fb8e4224549deb028dc138367848e6999411d6cee9c4eac5f25736f9`.
+HTTPS version and entry asset were verified. Engine/gateway container IDs, start
+times and restart counts were unchanged. No native restart or chat replay.
+
 ### Durable Codex runtime coordinator — October 13 (installed, activation verified)
 
 Installed the owner-scoped `CodexWebRuntimeUpdate` Scheduled Task, Limited /
