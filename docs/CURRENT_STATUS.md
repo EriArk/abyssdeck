@@ -1,6 +1,50 @@
 # Текущий статус — 13 октября 2026
 
-### GPT deletion and public-output recovery — October 13 (source verified, activation pending)
+### GPT client update and recovery — October 13 (installed and verified)
+
+Installed official native ChatGPT `26.1007.21434` with the matching adapter image
+`codex-web-gpt-native:26.1007.21434-bb8ab08e`; engine and gateway now run
+`codex-web-hub:bb8ab08e`, schema 31. This supersedes the activation-pending snapshot
+below. Public web release is
+`ed4bade7b3694be67af0ac214c26cddac557ece79285f0cf0c76e358bd48a8c6`.
+The guarded update verified its checkpoint and restore rehearsal before activation;
+completed checkpoint retention kept the newest three backups.
+
+The owner confirmed that no GPT work was active. Explicit owner-client recovery
+and the audited exact-job recovery command released the stale delivered running
+job as **idle**, retaining its receipt and 862 characters of saved output. No old
+request was resent or declared complete. Finished native streams now release their
+exact delivered jobs even when canonical history is temporarily unavailable,
+including recovery after Hub restart; uncertain delivery remains protected.
+The sequential deletion and public-output repairs described below are activated.
+
+Candidate compatibility passed on a private profile copy. The actual restored
+installation additionally exposed Chromium renderer startup failures at the old
+512-task/3-GiB limits. The owner container now has bounded 1,024-task/4-GiB memory
+and 5-GiB memory+swap limits, preserving its CPU limit, sandbox and seccomp.
+After explicit recovery, cgroup refusal/OOM counters remained zero through history,
+model and real-send checks. Other users' clients were not resized or restarted.
+
+Validation: production build/type checks, 315 focused Linux tests, nine native
+upgrade/rollback tests and four audited-recovery tests passed. Earlier Chromium and
+WebKit library/progress tests cover the unchanged web assets. Installed account,
+model catalog and canonical history reads succeeded. A single durable test send in
+a separate conversation returned `ABYSSDECK_NATIVE_OK`; canonical readback verified
+exactly one matching user message and the exact completed assistant response.
+No HTTP 429 occurred in these post-recovery checks; this does not eliminate future
+upstream rate limits or establish a full-library content audit.
+
+Post-activation maintenance reports idle with no blockers; owner jobs contain no
+queued/preparing/running entries. Four older uncertain receipts remain preserved.
+GPT, SSH, Codex login, Companion and model checks are healthy. Private deployment,
+native send/readback and resource evidence are recorded in
+`codex-web-releases/bb8ab08e/verification.json` and
+`codex-web-native-update-20261013/send-proof.json` on the host. Public HTTPS and its
+release manifest were checked; authenticated installed-browser interaction was not
+claimed from the login-page check. The previous native container remains stopped
+for rollback; account/profile/history storage and selected Codex runtime are retained.
+
+### GPT deletion and public-output recovery — October 13 (earlier pre-activation snapshot)
 
 Compared ten exact pinned/recent native conversation identities with the owner's
 Hub library and retained history. Titles and identities agree; chats not previously

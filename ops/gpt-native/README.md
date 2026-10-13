@@ -1,11 +1,27 @@
-> Current (2026-10-01): the owner's production native provider is on official
-> 26.928.31416. Build export mappings are centralized in `compatibility.mjs`;
+> Current (2026-10-13): the owner's production native provider is on official
+> 26.1007.21434. Build export mappings are centralized in `compatibility.mjs`;
 > `check-compatibility.mjs` supports candidate checks on a private profile copy.
-> See [current compatibility maintenance](../../docs/GPT_NATIVE_LINUX.md#compatibility-maintenance--2026-10-01).
+> See [current compatibility maintenance](../../docs/GPT_NATIVE_LINUX.md#compatibility-maintenance--2026-10-13).
 > Dated lab-only and old-debugger instructions below are historical, not the current launch procedure.
 > The current runtime requires the [sandbox seccomp profile](SECCOMP.md).
 
 # Isolated Linux ChatGPT evaluation
+
+## Native resource budget — October 13
+
+The owner runtime uses bounded 4 GiB memory, 5 GiB memory+swap, 1,024 tasks and
+the existing 1.5 CPU / 256 MiB shared-memory budget. The October package's restored
+windows exceeded the former 512-task cap (251 `pids.events max` refusals), causing
+Chromium zygote/renderer launch failures; its 3 GiB memory cap was also reached.
+The quiet profile-copy check alone did not expose that startup burst. After the
+budget change and explicit recovery, normal account/history/model reads succeeded
+and both cgroup limit counters stayed zero. Keep Chromium's sandbox and seccomp.
+
+Check cgroup `pids.events` and `memory.events` on the actual restored installation,
+not only current process count or a quiet test window. Future guarded upgrades
+clone these HostConfig limits. Retain bounded budgets; do not disable sandboxing
+or use unlimited resources as a compatibility workaround. This owner installation
+change does not silently resize or restart other users' clients.
 
 ## Native outcomes and waiting (2026-10-07)
 

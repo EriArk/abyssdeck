@@ -7,9 +7,10 @@ that all automatic Doctor work is diagnostic-only are historical. Ordinary
 background health checks do not send upstream probes. Slow history alone does not
 justify a repair or restart. See the dated owner decisions in `AGENTS.md`.
 
-> Recorded owner runtime (2026-10-01): official **26.928.31416**, verified on the
-> server with both previously failing conversations and a completed disposable
-> send (one exact native user message). See [current status](CURRENT_STATUS.md).
+> Recorded owner runtime (2026-10-13): official **26.1007.21434**, verified on the
+> server with canonical history/model reads and a completed diagnostic send,
+> followed by exact single-message readback. See [current status](CURRENT_STATUS.md)
+> and the [restored-profile resource budget](../ops/gpt-native/README.md#native-resource-budget--october-13).
 > Older installation/version statements below are dated evidence.
 
 ## Native error authority - 2026-10-07
