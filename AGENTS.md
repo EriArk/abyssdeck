@@ -1,5 +1,20 @@
 # AGENTS.md
 
+## Native runtime update coordination (2026-10-13)
+
+- Use the durable independent Scheduled Task coordinator described in
+  `docs/CODEX_RUNTIME_UPDATES.md` for owner Windows Codex runtime activation.
+  A hidden `Start-Process` descendant of Codex is not an independent updater and
+  can die when native idle-close terminates its Windows Job. Do not reuse the
+  retired one-off activation helper.
+- Persist operation identity and intent before effects; after interruption,
+  reconcile the server lease, config hashes and actual processes. A stale local
+  waiting state is not proof that the Hub never acquired a drain. Time alone
+  never authorizes releasing a drain or replaying a chat operation.
+- Verify account, selected executable and actual activation separately. Preserve
+  active work, rollback configuration and explicit identity-conflict evidence.
+  Prune only after activation proof, retaining occupied/selected runtimes.
+
 ## Owner-requested three-mode navigation (2026-10-11)
 
 - The existing round client button cycles Codex, GPT and shared projects when

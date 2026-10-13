@@ -1,4 +1,79 @@
-# Текущий статус — 11 октября 2026
+# Текущий статус — 13 октября 2026
+
+### Durable Codex runtime coordinator — October 13 (installed, waiting for native idle)
+
+Installed the owner-scoped `CodexWebRuntimeUpdate` Scheduled Task, Limited /
+Interactive, IgnoreNew, one-minute repeat plus logon recovery. Its immutable
+coordinator release and per-operation sealed snapshots live under the existing
+Companion updates root. A file lock excludes parallel installers/runners; it
+persists intents before effects and reconciles the exact Hub operation, selected
+config and real processes after interruption. Release verifies the preserved
+account and selected executable. Safe startup rollback and post-activation
+retention are included; identity conflicts remain explicit and never force-stop
+native work. The old one-off helper stays retired.
+
+17 focused staging, Hub maintenance and coordinator tests passed, including
+process death at every modeled journal/effect boundary. A real disposable
+Scheduled Task survived the launching command and confirmed ancestry outside
+Codex. The installed coordinator independently reported PowerShell → svchost →
+services → wininit, completed its initial pass successfully and resumed the same
+operation on a second scheduled start. Read back the actual task's logon/repeat
+triggers, limited principal, IgnoreNew and three-minute execution bound.
+
+Operation `1dbf6afd-2862-4c1f-bb5e-f64fb00bd186` selects the verified 0.162.1
+candidate. Latest observed phase: `waitingIdle`; the running 0.159.2 native PID
+21548 was unchanged, and no maintenance fence was taken. **0.162.1 activation is
+still pending**, not claimed from these tests. No physical reboot was performed.
+See [operation and recovery guide](CODEX_RUNTIME_UPDATES.md) for paths, commands,
+retention, owner-only scope and remaining failure boundaries. Companion UI wizard
+integration is not part of this installed operations command.
+
+### Recovery from orphaned Codex update — October 13 (live recovery verified)
+
+The one-off update coordinator disappeared while the server retained its exact
+maintenance lease in `drained`. Its local journal still said `waitingIdle` and
+the configured runtime was unchanged. Windows subsequently shows a fresh boot;
+the exact cause/time of coordinator termination has not been established.
+The durable admission fence caused chat queue/capability requests to return 409
+while the website and engine stayed healthy. This was an update coordination
+failure, not proof of a broken 0.162.1 binary.
+
+Recovered the original operation with the existing Hub `release` path, including
+preserved-account validation. The lease is now `released`; a real broker child
+runs the unchanged 0.159.2 path and the user's chat queue requests return 200.
+No messages were replayed and no Hub/GPT service was restarted. Retired both
+copies of the unsafe one-off activation entry point (they now fail before any
+operation); retained its original script/journal as evidence. Local update state
+is `cancelledRecovered`. There is no pending activation from that helper.
+
+Future automatic activation must run in a durable coordinator independent of the
+native process being drained, with restart reconciliation before acquiring or
+releasing admission. `Start-Process -WindowStyle Hidden` alone does not prove
+independence from the native process/job lifetime. Local state may lag a confirmed
+server side effect; recovery must read the exact server lease first. Do not
+auto-expire the server fence merely by time or replay an uncertain chat operation.
+The durable coordinator is still outstanding; do not reuse the retired helper.
+
+### Codex update and compatibility audit — October 13 (candidate verified, activation waiting)
+
+Historical checkpoint below; superseded by the recovery above.
+
+Desktop Codex `26.1007.2314.0` matches the official Windows package. Companion
+still runs `0.159.2`; stable `0.162.1` is staged as a complete verified package
+under its existing runtime root. The existing adapter passed initialize, account,
+model catalogue, bounded thread/turn/item history, MCP inventory and command
+execution against the new binary. 31 focused tests passed, including the new
+idempotent package-staging and integrity regression. Browser and node_repl smoke
+checks passed; Computer Use capture works but input remains untested on locked
+Windows. Native cua_repl returns an empty surface inventory.
+
+A bounded background activation is queued through the existing owner Hub's
+native-idle maintenance lease, preserving account/operation receipts. The latest
+observed state is `waitingIdle`, **not activated**. Durable result:
+`%LOCALAPPDATA%\CodexWeb\companion-persistent\updates\0.162.1\state.json`.
+No active native writer, GPT, Hub engine or other Companion module was restarted.
+See [the full audit](CODEX_UPDATE_AUDIT_2026-10-13.md) for package paths, warnings,
+new-feature priorities and the outstanding activation/retention/GUI checks.
 
 ### Mobile panel on mode switching — October 11 (installed)
 
