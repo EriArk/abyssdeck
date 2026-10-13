@@ -1,6 +1,6 @@
 # Текущий статус — 13 октября 2026
 
-### Durable Codex runtime coordinator — October 13 (installed, waiting for native idle)
+### Durable Codex runtime coordinator — October 13 (installed, activation verified)
 
 Installed the owner-scoped `CodexWebRuntimeUpdate` Scheduled Task, Limited /
 Interactive, IgnoreNew, one-minute repeat plus logon recovery. Its immutable
@@ -21,9 +21,13 @@ operation on a second scheduled start. Read back the actual task's logon/repeat
 triggers, limited principal, IgnoreNew and three-minute execution bound.
 
 Operation `1dbf6afd-2862-4c1f-bb5e-f64fb00bd186` selects the verified 0.162.1
-candidate. Latest observed phase: `waitingIdle`; the running 0.159.2 native PID
-21548 was unchanged, and no maintenance fence was taken. **0.162.1 activation is
-still pending**, not claimed from these tests. No physical reboot was performed.
+candidate. A subsequent live check confirmed `completed` at 13:12:07 +03:00,
+with cleanup complete. The selected command and actual native process PID 20892
+(broker parent 25444) both use `runtime/0.162.1/bin/codex.exe`; the executable
+reports `codex-cli 0.162.1`. The exact Hub operation returns `released` (HTTP 200),
+and the activation receipt is present. The scheduled task reports result 0.
+**0.162.1 activation is verified.** No physical reboot was performed. This
+operations coordinator has no dedicated update-progress indicator in the web UI.
 See [operation and recovery guide](CODEX_RUNTIME_UPDATES.md) for paths, commands,
 retention, owner-only scope and remaining failure boundaries. Companion UI wizard
 integration is not part of this installed operations command.
@@ -52,7 +56,8 @@ releasing admission. `Start-Process -WindowStyle Hidden` alone does not prove
 independence from the native process/job lifetime. Local state may lag a confirmed
 server side effect; recovery must read the exact server lease first. Do not
 auto-expire the server fence merely by time or replay an uncertain chat operation.
-The durable coordinator is still outstanding; do not reuse the retired helper.
+The durable coordinator above supersedes this recovery checkpoint; do not reuse
+the retired helper.
 
 ### Codex update and compatibility audit — October 13 (candidate verified, activation waiting)
 

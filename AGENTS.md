@@ -1,5 +1,14 @@
 # AGENTS.md
 
+## Owner-requested completed repairs without unsolicited status UI (2026-10-13)
+
+- Finish requested updates, resolve compatibility defects and verify the installed
+  result. Reporting a problem or adding an informational banner is not a repair.
+- Do not put runtime-version compatibility warnings in the chat composer. Keep
+  actual actionable operation errors and preserve drafts and delivery receipts.
+- Do not introduce unsolicited update indicators or information panels. Give a
+  concise outcome after completing the authorized work.
+
 ## Native runtime update coordination (2026-10-13)
 
 - Use the durable independent Scheduled Task coordinator described in
