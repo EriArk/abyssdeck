@@ -25,6 +25,30 @@ Temporary read errors/cooldowns keep waiting with bounded polling, without repla
 The three-failure review remains for compatibility/identity/receipt faults, not
 ordinary latency or transport interruptions. See CURRENT_STATUS for activation.
 
+## Compatibility maintenance — 2026-10-13
+
+The official Linux amd64 package is now `26.1007.21434`, SHA-256
+`276b5341c3d74b261d3ad52106f7fa7edde06841e4767fe2a40cb54099b1f3ed`.
+The build-specific map covers the new shared/initial/primary chunks and keeps
+26.915/26.928 mappings for rollback. A private stopped-profile copy passed exact
+account, action registry, completion service, model catalog (three versions), and
+the reported chat's canonical history (864 nodes). This read-only compatibility
+check is separate from installed activation, tracked in CURRENT_STATUS.
+
+An exact local response stream ending now persists `idle` for already delivered
+work even if canonical history returns 429. It preserves partial public output,
+request identity and uncertainty; it does not claim canonical completion. A
+renderer restart alone still proves neither server completion nor cancellation.
+
+For explicitly owner-attested stale work after a confirmed manual client restart,
+`ops/linux/recover-idle-gpt-job.py` checks the exact owner/profile, restart receipt,
+native readiness, delivered job identity and exclusive manual lease, then records
+an audited transition to idle without changing the send receipt or answer. It is
+an operations recovery command, never a background timeout or automatic watchdog.
+Unknown delivery and other queued/active work are rejected. If interrupted, inspect
+its `verification-idle-recovery-<job>/intent.json`, actual job and lease; an existing
+intent deliberately requires reconciliation instead of replaying the operation.
+
 ## Compatibility maintenance — 2026-10-01
 
 The pinned official amd64 package SHA-256 is

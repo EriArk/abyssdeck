@@ -158,6 +158,9 @@ export class NativeDispatchReceipts {
   const result=await reader.readLive({key,conversationId,userMessageId:payload.userMessageId,accountFingerprint:payload.accountFingerprint},
    {signal:AbortSignal.timeout(900)});
   if(result?.failure)this.failure(key,result.failure);
+  // This exact account/message stream has ended. Preserve delivery uncertainty
+  // for unknown receipts; an ended local stream never proves a successful answer.
+  if(result?.finished===true)this.db.prepare("UPDATE receipts SET state='idle' WHERE key=? AND state='running'").run(key);
   const saved=this.db.prepare('SELECT value FROM receipt_failures WHERE key=?').get(key);
   return {...result,...(saved?{failure:JSON.parse(saved.value)}:{})};
  }
@@ -186,6 +189,7 @@ export class NativeDispatchReceipts {
    if(candidate==null)return {state:'unknown',messages:[],userMessageId:payload.userMessageId,conversationId:null,...(failure?{failure}:{})};
   }
   const result=await reader.readSubmission({...payload,conversationId:candidate,...(conversationId===null?{newChat:true}:{})});
+  if(result.state==='running'&&this.db.prepare('SELECT state FROM receipts WHERE key=?').get(key).state==='idle')result.state='idle';
   if(result.state==='running'&&typeof reader.inspectConversation==='function'&&!this.db.prepare('SELECT 1 FROM stops WHERE key=?').get(key)){
    // Missing final text is not proof of active generation. Observe only the
    // already selected exact conversation; never navigate, stop or resume it.

@@ -22,7 +22,7 @@ export async function nativeRead(request, load = () => nativeModule(), runtime =
      (request.messageId != null && (typeof request.messageId !== 'string' || !/^[a-zA-Z0-9_-]{1,128}$/.test(request.messageId) || request.before != null)))) fail('INVALID_REQUEST');
  if(request.operation==='readPublicPresentation'&&!uuid(request.messageId))fail('INVALID_REQUEST');
  const build = runtime.electronBridge?.getSentryInitOptions?.().appVersion;
- if (!['26.915.31945','26.928.31416'].includes(build)) fail('UNSUPPORTED_BUILD');
+ if (!['26.915.31945','26.928.31416','26.1007.21434'].includes(build)) fail('UNSUPPORTED_BUILD');
  if(['readProject','readProjectConversations'].includes(request.operation)&&!projectId(request.projectId))fail('INVALID_PROJECT');
  if(request.cursor!=null&&(typeof request.cursor!=='string'||request.cursor.length>4000))fail('INVALID_CURSOR');
  if(request.projectId!=null&&!projectId(request.projectId))fail('INVALID_PROJECT');

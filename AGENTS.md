@@ -1,5 +1,17 @@
 # AGENTS.md
 
+## Owner-confirmed stale GPT work and client update (2026-10-13)
+
+- An owner's explicit report that no GPT tasks are active is evidence for scoped
+  recovery of stale running state, not a reason to wait indefinitely on that state.
+  Preserve exact delivery receipts, history and partial output; idle is not complete.
+- Use the audited owner recovery command after a confirmed explicit native restart.
+  Keep unknown delivery and unrelated work protected. Never infer completion from
+  elapsed time, a sidebar badge or the restart alone, and never replay an old send.
+- When updating the native GPT client, evaluate the official package with the
+  matching adapter on a private stopped-profile copy, retain rollback, and verify
+  the installed account, model catalog, histories and ordinary operation separately.
+
 ## Owner-requested sequential GPT deletion (2026-10-13)
 
 - Hide requested chats locally immediately. Keep one durable FIFO deletion head;

@@ -1,6 +1,6 @@
 # Isolated native-client evaluation. Never mount the browser connector profile here.
 FROM mcr.microsoft.com/playwright:v1.62.0-noble@sha256:baed2032d533817f3dbe6425de795788430ba345e819a1201337009ba17c9d07
-ARG APP_SHA256=c463727f1ed5dced78338c8e2a65d889bd153276ff373fd77698ccb9af32d181
+ARG APP_SHA256=276b5341c3d74b261d3ad52106f7fa7edde06841e4767fe2a40cb54099b1f3ed
 COPY chatgpt_amd64.deb /tmp/chatgpt.deb
 RUN echo "${APP_SHA256}  /tmp/chatgpt.deb" | sha256sum -c - && \
     apt-get update && apt-get install -y --no-install-recommends /tmp/chatgpt.deb \

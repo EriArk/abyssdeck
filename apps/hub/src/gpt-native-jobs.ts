@@ -468,7 +468,10 @@ export class NativeGptJobs {
     await this.client.stopDispatch(id, payload.conversationId);
     if (!this.busy) return this.reconcile(id);
   }
-  saveLiveOutput(id: string, live: { items: { id: string; text: string; activity?: string }[] }) {
+  saveLiveOutput(
+    id: string,
+    live: { items: { id: string; text: string; activity?: string }[]; finished?: boolean },
+  ) {
     const row = this.row(id);
     const saved = this.store.db
       .prepare("SELECT payload,messages,deliveredAt FROM gpt_native_receipts WHERE jobId=?")
@@ -495,10 +498,25 @@ export class NativeGptJobs {
       JSON.parse(String(saved.messages));
     const messages = extendPublicOutput(previous, live.items);
     const encoded = JSON.stringify(messages);
-    if (encoded === saved.messages) return false;
+    const stopped = live.finished === true && ["running", "unknown"].includes(String(row.status));
+    if (encoded === saved.messages && !stopped) return false;
     this.authorize();
     this.store.db.exec("BEGIN IMMEDIATE");
     try {
+      // Exact, account-checked local stream termination remains valid when the
+      // next canonical history read is rate limited. Idle is not completion.
+      if (stopped) {
+        this.store.db
+          .prepare(
+            "UPDATE gpt_jobs SET status='idle' WHERE id=? AND status IN ('running','unknown')",
+          )
+          .run(id);
+        this.store.db
+          .prepare(
+            "INSERT INTO gpt_native_idle_watch(jobId,changedAt) VALUES(?,?) ON CONFLICT(jobId) DO UPDATE SET changedAt=excluded.changedAt",
+          )
+          .run(id, Date.now());
+      }
       this.store.db
         .prepare("UPDATE gpt_native_receipts SET messages=? WHERE jobId=?")
         .run(encoded, id);
@@ -521,7 +539,7 @@ export class NativeGptJobs {
             id: m.id,
             text: m.text,
             richReferences: m.richReferences,
-            state: row.status === "running" && !m.complete ? "active" : "completed",
+            state: row.status === "running" && !stopped && !m.complete ? "active" : "completed",
           }));
         this.store.db
           .prepare(

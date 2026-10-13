@@ -6,6 +6,28 @@ export async function nativeModule(kind = 'main', runtime = globalThis, importer
  if (build === '26.915.31945') return importer(kind === 'actions'
   ? 'app://-/assets/register-app-actions-a2e5974b9821.js'
   : 'app://-/assets/app-initial-430deae5a13a.js');
+ if (build === '26.1007.21434') {
+  if (kind === 'actions') return importer('app://-/assets/register-app-actions-59f7542a0c68.js');
+  const [shared, initial, primary] = await Promise.all([
+   importer('app://-/assets/app-shared-2d77298f0100.js'),
+   importer('app://-/assets/app-initial-ed5807835d97.js'),
+   importer('app://-/assets/app-primary-f49030709665.js'),
+  ]);
+  const m = {
+   M9: shared.fN, kWt: shared.$wt, $rn: shared.TFt,
+   dWt: shared.avt, eWt: shared.Hyt,
+   mDt: initial.yRt, lDt: initial.wKt, lzt: initial.MRn,
+   Nzt: initial.ozn, gzt: initial.VRn, hzt: initial.zRn,
+   Tzt: initial.QRn, CUt: initial.oMn, UNt: initial.Uwn,
+   VNt: initial.Vwn, czt: initial.eCn, z$: primary.cy,
+  };
+  if (!m.M9?.accessInputs || typeof m.kWt?.getRequestTarget !== 'function' ||
+      typeof m.$rn?.getInstance !== 'function' ||
+      ['mDt','lDt','eWt','czt','z$'].some(key => typeof m[key] !== 'function') ||
+      ['dWt','lzt','Nzt','gzt','hzt','Tzt','CUt','UNt','VNt'].some(key => m[key] == null))
+   throw Error('NATIVE_INCOMPATIBLE');
+  return m;
+ }
  if (build !== '26.928.31416') throw Error('NATIVE_UNSUPPORTED_BUILD');
  if (kind === 'actions') return importer('app://-/assets/register-app-actions-3ec531e6a3f0.js');
  const [shared, initial, primary] = await Promise.all([

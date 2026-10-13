@@ -460,6 +460,34 @@ test("read-only service never admits canary operations without explicit host con
     });
   await assert.rejects(service.request({ userId, operation: "dispatchText" }), /INVALID_REQUEST/);
 });
+test("ended local stream releases only a delivered receipt and survives stale running history", async (t) => {
+  const f = receipts(t),
+    ledger = f.open();
+  t.after(() => ledger.close());
+  const input = { ...fixture().input, versionId: "latest", presetId: 1 };
+  delete input.operation;
+  const reader = {
+    dispatchText: async () => {},
+    readLive: async () => ({ items: [], finished: true }),
+    readSubmission: async () => ({ state: "running", messages: [] }),
+  };
+  await ledger.dispatch(input, reader);
+  await ledger.live(input, reader);
+  assert.equal(ledger.db.prepare("SELECT state FROM receipts").get().state, "unknown");
+  await ledger.reconcile(input, reader);
+  const before = ledger.db.prepare("SELECT hash,payload FROM receipts").get();
+  await ledger.live(input, reader);
+  assert.equal(ledger.pending(), false);
+  assert.equal((await ledger.reconcile(input, reader)).state, "idle");
+  assert.deepEqual(ledger.db.prepare("SELECT hash,payload FROM receipts").get(), before);
+  const other = randomUUID();
+  ledger.allowed.add(other);
+  await assert.rejects(
+    ledger.live({ ...input, conversationId: other }, reader),
+    /CONVERSATION_MISMATCH/,
+  );
+});
+
 function queue(t) {
   const db = new DatabaseSync(":memory:");
   t.after(() => db.close());
@@ -510,6 +538,26 @@ function queue(t) {
   return { db, id, state, open, client };
 }
 
+test("an ended stream with no new text settles a delivered job after Hub restart, never unknown delivery", async (t) => {
+  const f = queue(t);
+  await f.open().run(f.id);
+  const before = f.db.prepare("SELECT * FROM gpt_native_receipts").get();
+  const worker = f.open();
+  assert.equal(f.db.prepare("SELECT status FROM gpt_jobs").get().status, "unknown");
+  assert.equal(worker.saveLiveOutput(f.id, { items: [] }), false);
+  assert.equal(worker.saveLiveOutput(f.id, { items: [], finished: true }), true);
+  assert.equal(f.db.prepare("SELECT status FROM gpt_jobs").get().status, "idle");
+  assert.equal(
+    f.db.prepare("SELECT deliveredAt FROM gpt_native_receipts").get().deliveredAt,
+    before.deliveredAt,
+  );
+  f.db.prepare("UPDATE gpt_jobs SET status='unknown'").run();
+  f.db.prepare("UPDATE gpt_native_receipts SET deliveredAt=NULL").run();
+  assert.equal(worker.saveLiveOutput(f.id, { items: [], finished: true }), false);
+  assert.equal(f.db.prepare("SELECT status FROM gpt_jobs").get().status, "unknown");
+  assert.equal(f.state.sends, 1);
+});
+
 test("exact delivered live output survives rate limited history, stale snapshots and worker restart without a send", async (t) => {
   const f = queue(t),
     worker = f.open();
@@ -534,8 +582,8 @@ test("exact delivered live output survives rate limited history, stale snapshots
   );
   assert.equal(
     f.db.prepare("SELECT status FROM gpt_jobs").get().status,
-    "running",
-    "stream finish alone cannot claim completion",
+    "idle",
+    "an ended exact stream is idle even during 429, but cannot claim completion",
   );
   f.client.liveDispatch = async () => ({ items: [] });
   f.client.reconcileDispatch = originalRead;

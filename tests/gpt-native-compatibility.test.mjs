@@ -5,6 +5,47 @@ import { nativeModule } from "../ops/gpt-native/compatibility.mjs";
 const runtime = (appVersion) => ({
   electronBridge: { getSentryInitOptions: () => ({ appVersion }) },
 });
+
+test("October package mapping is serializable and retains each distinct native service and atom", async () => {
+  const shared = {
+    fN: { accessInputs: {} },
+    $wt: { getRequestTarget() {} },
+    TFt: { getInstance() {} },
+    avt: {},
+    Hyt: () => {},
+  };
+  const initial = Object.fromEntries(
+    ["MRn", "ozn", "VRn", "zRn", "QRn", "oMn", "Uwn", "Vwn"].map((key) => [key, { key }]),
+  );
+  Object.assign(initial, { yRt() {}, wKt() {}, eCn() {} });
+  const primary = { cy() {} },
+    registry = new Map(),
+    seen = [];
+  const importer = async (url) => {
+    seen.push(url);
+    if (url.endsWith("app-shared-2d77298f0100.js")) return shared;
+    if (url.endsWith("app-initial-ed5807835d97.js")) return initial;
+    if (url.endsWith("app-primary-f49030709665.js")) return primary;
+    if (url.endsWith("register-app-actions-59f7542a0c68.js"))
+      return { appActionRegistry: registry };
+    throw Error("Unexpected import");
+  };
+  // biome-ignore lint/security/noGlobalEval: trusted function serialization into the native pipe.
+  const serialized = (0, eval)(`(${nativeModule.toString()})`);
+  const m = await serialized("main", runtime("26.1007.21434"), importer);
+  assert.equal(m.M9, shared.fN);
+  assert.equal(m.kWt, shared.$wt);
+  assert.equal(m.UNt, initial.Uwn);
+  assert.equal(m.VNt, initial.Vwn);
+  assert.equal(m.CUt, initial.oMn);
+  assert.equal(
+    (await serialized("actions", runtime("26.1007.21434"), importer)).appActionRegistry,
+    registry,
+  );
+  assert.equal(seen.length, 4);
+  delete initial.Uwn;
+  await assert.rejects(serialized("main", runtime("26.1007.21434"), importer), /INCOMPATIBLE/);
+});
 test("unknown builds never import guessed native modules; old build remains usable for rollback", async () => {
   const seen = [],
     importer = async (url) => {
