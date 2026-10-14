@@ -1,5 +1,19 @@
 # AGENTS.md
 
+## Owner-requested background file uploads (2026-10-14)
+
+- A started Files/copy/extraction upload belongs to the authenticated page, not
+  its launcher or dialog. Closing either window, switching project/mode or hiding
+  the page must not cancel it. Keep one queue per exact project/checkout and a
+  transfer-owned grant; explicit cancellation and session termination still stop it.
+- On return/connection recovery, reconcile the same durable upload identity and
+  accepted bytes. Preserve destination, conflict checks and completion receipts.
+  Never reuse this recovery as permission to replay chat or arbitrary writes.
+- iOS can suspend or terminate Safari/PWA. A web-only release cannot guarantee
+  continued phone-to-server transmission during OS suspension. Preserve recovery
+  metadata, retain File handles while the page lives, and require reselection after
+  page destruction. Do not claim physical iPhone background proof from WebKit tests.
+
 ## Owner-confirmed stale GPT work and client update (2026-10-13)
 
 - An owner's explicit report that no GPT tasks are active is evidence for scoped

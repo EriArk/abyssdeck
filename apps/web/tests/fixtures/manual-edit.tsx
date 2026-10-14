@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { DownloadLink } from "../../src/DownloadLink";
 import { GitHubFilesButton } from "../../src/GitHubFiles";
 import { githubDraftStorage } from "../../src/githubDraftStorage";
+import { ProjectFileUploadHost } from "../../src/ProjectFileUploadHost";
 import "../../src/styles.css";
 import "../../src/workspace.css";
 import "../../src/themes.css";
@@ -24,6 +25,7 @@ Object.assign(window, {
 configureApi((window as any).fixtureCsrf, () => {});
 createRoot(document.getElementById("root")!).render(
   <main>
+    <ProjectFileUploadHost />
     <GitHubFilesButton
       projectId="project"
       projectName="Очень длинное название проекта для проверки заголовка"

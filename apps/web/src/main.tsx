@@ -6,6 +6,7 @@ import { DeviceWorkspaceHost } from "./DeviceWorkspaceHost";
 import { GuiPreviewHost } from "./GuiPreviewHost";
 import { applyCachedPersonalScale } from "./PersonalScale";
 import { ProjectDeliveryHost } from "./ProjectDeliveryHost";
+import { ProjectFileUploadHost } from "./ProjectFileUploadHost";
 import { QuickCaptureHost } from "./QuickCaptureHost";
 import { TeamProjectsHost } from "./TeamProjectsHost";
 import { applyTheme, cachedTheme } from "./theme";
@@ -42,6 +43,7 @@ createRoot(root).render(
       <DeviceWorkspaceHost />
       <QuickCaptureHost />
       <ProjectDeliveryHost />
+      <ProjectFileUploadHost />
       <GuiPreviewHost />
       <TeamProjectsHost />
       <WindowDock />

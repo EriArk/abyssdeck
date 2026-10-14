@@ -3,12 +3,26 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { accountLocalStorage as storage } from "./accountStorage";
 import { ApiError, api, messageOf } from "./api";
-import { FileActionKey } from "./FileActionKey";
 import { Icon } from "./icons";
 import { useWorkspaceDialog } from "./useWorkspaceDialog";
 import "./project-file-upload.css";
 
 export type UploadCopy = { file: File; path: string };
+export { ProjectFileUpload } from "./ProjectFileUploadHost";
+export type UploadProps = {
+  compact?: boolean;
+  projectId: string;
+  projectName: string;
+  capability: string;
+  checkout: string;
+  folder: string;
+  onDone: (path: string) => void;
+  initialFile?: File;
+  initialCopies?: UploadCopy[];
+  initialBatchKey?: string;
+  onBatchDone?: () => void;
+  onDismiss?: () => void;
+};
 type Row = {
   batch?: boolean;
   sourcePath?: string;
@@ -44,8 +58,7 @@ const size = (n: number) =>
   n < 1024
     ? `${n} Б`
     : new Intl.NumberFormat("ru", { maximumFractionDigits: 1 }).format(n / 1024) + " КБ";
-export function ProjectFileUpload({
-  compact = false,
+export function ProjectFileUploadSession({
   projectId,
   projectName,
   capability,
@@ -57,20 +70,10 @@ export function ProjectFileUpload({
   initialBatchKey,
   onBatchDone,
   onDismiss,
-}: {
-  compact?: boolean;
-  projectId: string;
-  projectName: string;
-  capability: string;
-  checkout: string;
-  folder: string;
-  onDone: (path: string) => void;
-  initialFile?: File;
-  initialCopies?: UploadCopy[];
-  initialBatchKey?: string;
-  onBatchDone?: () => void;
-  onDismiss?: () => void;
-}) {
+  shown,
+  copyKey,
+  onCount,
+}: UploadProps & { shown: boolean; copyKey: string; onCount: (count: number) => void }) {
   const [opened, setOpened] = useState(false),
     [rows, setRows] = useState<Row[]>([]),
     [error, setError] = useState(""),
@@ -79,11 +82,17 @@ export function ProjectFileUpload({
     picker = useRef<HTMLInputElement>(null),
     selectedAgain = useRef("");
   useWorkspaceDialog(dialog, opened);
+  useEffect(() => {
+    setOpened(shown);
+  }, [shown]);
   const records = useRef<Row[]>([]),
     files = useRef(new Map<string, File>()),
     running = useRef(false),
     active = useRef(true);
-  const paused = useRef(false);
+  const transferGrant = useRef("");
+  const grantUntil = useRef(0);
+  const retryable = useRef(new Set<string>());
+  const wakePending = useRef(false);
   const control = useRef<{
     id: string;
     abort: AbortController;
@@ -92,16 +101,55 @@ export function ProjectFileUpload({
   } | null>(null);
   const key = `workspace-file-uploads:${projectId}:${checkout}`,
     base = `/projects/${encodeURIComponent(projectId)}/file-uploads`;
-  const options = { fileCapability: capability };
+  const options = {
+    get fileCapability() {
+      return transferGrant.current || capability;
+    },
+  };
+  const releaseGrant = (token: string) => {
+    if (token)
+      void api(`/projects/${encodeURIComponent(projectId)}/file-tools/access`, {
+        method: "POST",
+        body: { unlock: false, capability: token },
+      }).catch(() => {});
+  };
+  const ensureGrant = async () => {
+    if (transferGrant.current && Date.now() < grantUntil.current) return;
+    const access = await api<{ capability: string; checkout: string }>(
+      `/projects/${encodeURIComponent(projectId)}/file-tools/access`,
+      { method: "POST", body: { unlock: true } },
+    );
+    if (!active.current || access.checkout !== checkout) {
+      releaseGrant(access.capability);
+      throw Error("Рабочая копия изменилась.");
+    }
+    releaseGrant(transferGrant.current);
+    transferGrant.current = access.capability;
+    grantUntil.current = Date.now() + 10 * 60 * 1000;
+  };
   const update = (next: Row[]) => {
     if (!active.current) return;
     // Commit recovery metadata before issuing any mutation; never persist binary file data.
     storage.setItem(key, JSON.stringify(retainRows(next)));
     records.current = next;
     setRows(next);
+    const retained = new Set(
+      next.filter((row) => !["done", "cancelled"].includes(row.status)).map((row) => row.id),
+    );
+    for (const id of files.current.keys()) if (!retained.has(id)) files.current.delete(id);
   };
-  const change = (id: string, patch: Partial<Row>) =>
+  useEffect(() => {
+    onCount(rows.filter((row) => !["done", "cancelled"].includes(row.status)).length);
+  }, [rows, onCount]);
+  const change = (id: string, patch: Partial<Row>) => {
     update(records.current.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+    if (patch.status === "done")
+      window.dispatchEvent(
+        new CustomEvent("workspace-file-saved", {
+          detail: { source: `/api/projects/${projectId}/files/content?upload=${id}` },
+        }),
+      );
+  };
   useEffect(() => {
     active.current = true;
     try {
@@ -143,25 +191,28 @@ export function ProjectFileUpload({
     };
   }, [key]);
   // A frozen edited copy enters the normal upload/replacement flow, never a second writer.
-  const seeded = useRef("");
+  const seeded = useRef(new Set<string>());
+  const callbacks = useRef(new Map<string, { done: (path: string) => void; batch?: () => void }>());
   // biome-ignore lint/correctness/useExhaustiveDependencies: Seed this frozen copy once after restoring the ordinary queue.
   useEffect(() => {
-    if ((!initialFile && !initialCopies?.length) || seeded.current) return;
+    if (!initialFile && !initialCopies?.length) return;
     if (initialCopies && !initialBatchKey) return;
-    seeded.current = initialCopies
-      ? JSON.stringify([initialBatchKey, folder])
-      : crypto.randomUUID();
+    const seed = initialCopies ? JSON.stringify([initialBatchKey, folder]) : copyKey;
+    callbacks.current.set(seed, { done: onDone, batch: initialCopies ? onBatchDone : undefined });
+    if (seeded.current.has(copyKey)) {
+      setRows([...records.current]);
+      return;
+    }
+    seeded.current.add(copyKey);
     try {
       const copies = initialCopies ?? [{ file: initialFile!, path: initialFile!.name }];
-      const keep = retainRows(records.current).filter((r) => r.copyId !== seeded.current);
+      const keep = retainRows(records.current).filter((r) => r.copyId !== seed);
       if (keep.length + copies.length > 32)
         throw Error("В одной очереди — до 32 файлов. Сначала закончи прежние загрузки.");
       const next = copies.map((copy) => {
         const restored =
           initialCopies &&
-          records.current.find(
-            (row) => row.copyId === seeded.current && row.sourcePath === copy.path,
-          );
+          records.current.find((row) => row.copyId === seed && row.sourcePath === copy.path);
         if (restored) {
           files.current.set(restored.id, copy.file);
           return restored;
@@ -187,7 +238,7 @@ export function ProjectFileUpload({
         const row: Row = {
           batch: !!initialCopies,
           sourcePath: copy.path,
-          copyId: seeded.current,
+          copyId: seed,
           id: crypto.randomUUID(),
           name,
           originalName: copy.file.name,
@@ -207,16 +258,20 @@ export function ProjectFileUpload({
       setError(messageOf(e));
       setOpened(true);
     }
-  }, [initialFile, initialCopies, initialBatchKey, folder]);
-  const batchNotified = useRef(false);
+  }, [initialFile, initialCopies, initialBatchKey, folder, copyKey, onDone, onBatchDone]);
   useEffect(() => {
-    if (!initialCopies || !onBatchDone || batchNotified.current || busy) return;
-    const own = rows.filter((row) => row.copyId === seeded.current);
-    if (own.length && own.every((row) => ["done", "cancelled"].includes(row.status))) {
-      batchNotified.current = true;
-      onBatchDone();
+    if (busy) return;
+    for (const [id, callback] of callbacks.current) {
+      const own = rows.filter((row) => row.copyId === id);
+      if (own.length && own.every((row) => ["done", "cancelled"].includes(row.status))) {
+        callbacks.current.delete(id);
+        callback.batch?.();
+      }
     }
-  }, [rows, initialCopies, onBatchDone, busy]);
+  }, [rows, busy]);
+  const notifyDone = (row: Row, path: string) => {
+    if (!row.batch) (row.copyId ? callbacks.current.get(row.copyId)?.done : onDone)?.(path);
+  };
   const pathOf = (row: Row) => (row.folder ? row.folder + "/" + row.name : row.name);
   const cancelRow = async (row: Row) => {
     const state = row.started
@@ -227,8 +282,7 @@ export function ProjectFileUpload({
       : null;
     if (state?.result?.file) {
       change(row.id, { status: "done", offset: row.bytes, error: undefined });
-      if (!initialCopies && (!initialFile || row.copyId === seeded.current))
-        onDone(state.result.file.path);
+      notifyDone(row, state.result.file.path);
       return false;
     }
     change(row.id, { status: "cancelled", error: undefined });
@@ -291,17 +345,24 @@ export function ProjectFileUpload({
       await api(url, {
         method: "POST",
         signal,
-        body: { op: "mkdir", path: directory.path, id: directory.id, capability },
+        body: {
+          op: "mkdir",
+          path: directory.path,
+          id: directory.id,
+          capability: options.fileCapability,
+        },
       });
       directory.pending = false;
       change(row.id, { directories: [...directories] });
     }
   };
   const upload = async (initial: Row) => {
+    retryable.current.delete(initial.id);
     const controller = new AbortController();
     control.current = { id: initial.id, abort: controller, phase: "uploading", cancel: false };
     let started = initial.started;
     try {
+      await ensureGrant();
       await prepareDirectories(initial, controller.signal);
       started = true;
       change(initial.id, {
@@ -331,8 +392,7 @@ export function ProjectFileUpload({
       }
       if (state.result?.file) {
         change(initial.id, { status: "done", offset: initial.bytes });
-        if (!initialCopies && (!initialFile || initial.copyId === seeded.current))
-          onDone(state.result.file.path);
+        notifyDone(initial, state.result.file.path);
         return;
       }
       if (state.bytes !== initial.bytes || state.offset < 0 || state.offset > initial.bytes)
@@ -343,9 +403,12 @@ export function ProjectFileUpload({
       // On a reselected File, validate saved prefix chunks byte-for-byte before appending.
       if (file)
         for (let offset = 0; offset < file.size; offset += UPLOAD_CHUNK_BYTES) {
+          if (controller.signal.aborted) throw controller.signal.reason;
+          await ensureGrant();
           const end = Math.min(file.size, offset + UPLOAD_CHUNK_BYTES);
           const part = await api<State>(`${url}?offset=${offset}`, {
             ...opts,
+            ...options,
             method: "PUT",
             raw: file.slice(offset, end),
           });
@@ -354,18 +417,19 @@ export function ProjectFileUpload({
           change(initial.id, { offset: part.offset });
         }
       if (controller.signal.aborted) throw controller.signal.reason;
+      await ensureGrant();
       change(initial.id, { status: "committing", offset: initial.bytes });
       control.current.phase = "committing";
       const result = await api<{ file: FileSnapshot }>(url + "/complete", {
         ...opts,
+        ...options,
         method: "POST",
         body: {},
         timeoutMs: 1860000,
       });
       change(initial.id, { status: "done", error: undefined });
       files.current.delete(initial.id);
-      if (!initialCopies && (!initialFile || initial.copyId === seeded.current))
-        onDone(result.file.path);
+      notifyDone(initial, result.file.path);
     } catch (e) {
       if (!active.current) return;
       const row = { ...initial, started };
@@ -388,53 +452,83 @@ export function ProjectFileUpload({
               ? "Существующий файл изменился. Выбери действие заново."
               : "Файл с таким именем уже существует.",
         });
-      } else
+      } else {
+        if (
+          e instanceof ApiError &&
+          ([0, 502, 503, 504].includes(e.status) ||
+            (e.code === "FILE_LOCKED" && Date.now() >= grantUntil.current)) &&
+          !controller.signal.aborted
+        )
+          retryable.current.add(initial.id);
         change(initial.id, {
           status: "error",
           started,
           error: controller.signal.aborted ? "Загрузка приостановлена." : messageOf(e),
         });
+      }
     } finally {
       control.current = null;
     }
   };
-  const start = async (only?: string) => {
+  const start = async (only?: string | string[]) => {
     if (running.current) return;
     running.current = true;
     setBusy(true);
     setError("");
-    paused.current = false;
     try {
+      // A transfer owns its own grant. Closing/relocking Files revokes only the window grant.
+      await ensureGrant();
       for (const row of records.current.filter((r) =>
-        only ? r.id === only : ["queued", "error"].includes(r.status),
+        only
+          ? Array.isArray(only)
+            ? only.includes(r.id)
+            : r.id === only
+          : ["queued", "error"].includes(r.status),
       )) {
-        if (!active.current || paused.current) break;
+        if (!active.current) break;
         await upload(row);
       }
     } catch (e) {
       if (active.current) setError(messageOf(e));
     } finally {
+      const token = transferGrant.current;
+      transferGrant.current = "";
+      releaseGrant(token);
       running.current = false;
       if (active.current) setBusy(false);
+      if (wakePending.current) {
+        wakePending.current = false;
+        resume.current();
+      }
     }
   };
+  const resume = useRef(() => {});
+  resume.current = () => {
+    if (!active.current || document.visibilityState === "hidden") return;
+    if (running.current) {
+      wakePending.current = true;
+      return;
+    }
+    const ids = [...retryable.current].filter((id) => files.current.has(id));
+    if (ids.length) void start(ids);
+  };
+  useEffect(() => {
+    const wake = () => resume.current();
+    window.addEventListener("online", wake);
+    window.addEventListener("pageshow", wake);
+    document.addEventListener("visibilitychange", wake);
+    return () => {
+      window.removeEventListener("online", wake);
+      window.removeEventListener("pageshow", wake);
+      document.removeEventListener("visibilitychange", wake);
+    };
+  }, []);
   const close = () => {
-    if (control.current?.phase === "committing") return;
-    paused.current = true;
-    control.current?.abort.abort();
     setOpened(false);
     onDismiss?.();
   };
-  const pending = rows.filter((r) => !["done", "cancelled"].includes(r.status)).length;
   return (
     <>
-      <FileActionKey
-        compact={compact}
-        icon="upload"
-        label="Загрузить файлы"
-        count={pending}
-        onClick={() => setOpened(true)}
-      />
       {opened &&
         createPortal(
           <dialog
@@ -460,7 +554,6 @@ export function ProjectFileUpload({
                 type="button"
                 className="icon-button"
                 aria-label="Закрыть загрузку"
-                disabled={rows.some((r) => r.status === "committing")}
                 onClick={close}
               >
                 <Icon name="close" />
@@ -562,7 +655,7 @@ export function ProjectFileUpload({
                     {size(row.bytes)} · {row.folder || "Корень проекта"}
                     {row.replace ? " · Замена выбранной версии" : ""}
                   </small>
-                  {initialCopies && <small>{pathOf(row)}</small>}
+                  {row.batch && <small>{pathOf(row)}</small>}
                   <progress
                     max={row.bytes || 1}
                     value={row.status === "done" ? row.bytes || 1 : row.offset}

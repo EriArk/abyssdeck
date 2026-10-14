@@ -208,14 +208,92 @@ for (const [engine, type] of [
     await expect(row("cancel.bin")).toContainText("Пропущен");
     await assert.rejects(stat(join(root, "target/cancel.bin")), { code: "ENOENT" });
     await page.unroute("**/file-uploads/*?offset=*");
+    // Closing both windows must not abort the transfer or revoke its own grant.
+    for (const phase of ["chunk", "commit", "offline", "renew"]) {
+      let ready, proceed;
+      const seen = new Promise((resolve) => (ready = resolve));
+      const hold = new Promise((resolve) => (proceed = resolve));
+      const pattern =
+        phase === "commit" ? "**/file-uploads/*/complete" : "**/file-uploads/*?offset=*";
+      const operations = new Set();
+      const capabilities = new Set();
+      let first = true;
+      await page.route(pattern, async (route) => {
+        operations.add(new URL(route.request().url()).pathname.split("/")[5]);
+        capabilities.add(route.request().headers()["x-file-capability"]);
+        if (first) {
+          first = false;
+          ready();
+          await hold;
+          if (phase === "offline") return route.abort("failed");
+        }
+        await route.continue();
+      });
+      const filename = `background-${phase}.bin`;
+      const content = Buffer.alloc(4 * 1024 * 1024 + 23, 7);
+      await select(filename, content);
+      await start();
+      await seen;
+      await popup.getByRole("button", { name: "Закрыть загрузку", exact: true }).click();
+      await pane.getByRole("button", { name: "Закрыть файлы", exact: true }).click();
+      await expect(popup).toHaveCount(0);
+      await expect(composer).toHaveValue("Не потерять этот чат");
+      // Simulate a wake event while the old request is unresolved as on iOS resume.
+      if (phase === "offline")
+        await page.evaluate(() => window.dispatchEvent(new Event("pageshow")));
+      if (phase === "renew")
+        await page.evaluate(() => {
+          window.originalUploadClock = Date.now;
+          Date.now = () => window.originalUploadClock() + 11 * 60 * 1000;
+        });
+      proceed();
+      await expect
+        .poll(
+          async () =>
+            (await readFile(join(root, "target", filename)).catch(() => Buffer.alloc(0))).length,
+        )
+        .toBe(content.length);
+      assert.deepEqual(await readFile(join(root, "target", filename)), content);
+      assert.equal(operations.size, 1);
+      if (phase === "renew") {
+        assert.equal(capabilities.size, 2);
+        await page.evaluate(() => {
+          Date.now = window.originalUploadClock;
+        });
+      }
+      await page.unroute(pattern);
+      await open();
+      await expect(row(filename)).toContainText("Загружен");
+    }
     await popup.getByRole("button", { name: "Закрыть загрузку", exact: true }).click();
     await expect(pane).toBeVisible();
     await pane.getByRole("button", { name: "Закрыть файлы", exact: true }).click();
     await expect(composer).toHaveValue("Не потерять этот чат");
+    await open();
+    let logoutReady, logoutRelease;
+    const logoutSeen = new Promise((resolve) => (logoutReady = resolve));
+    const logoutHeld = new Promise((resolve) => (logoutRelease = resolve));
+    let chunks = 0;
+    await page.route("**/file-uploads/*?offset=*", async (route) => {
+      chunks++;
+      logoutReady();
+      await logoutHeld;
+      await route.abort("failed").catch(() => {});
+    });
+    await select("logout.bin", Buffer.alloc(4 * 1024 * 1024 + 1, 5));
+    await start();
+    await logoutSeen;
+    await page.evaluate(() => window.dispatchEvent(new Event("private-session-ended")));
+    logoutRelease();
+    await expect(popup).toHaveCount(0);
+    await page.evaluate(() => window.dispatchEvent(new Event("online")));
+    await assert.rejects(stat(join(root, "target/logout.bin")), { code: "ENOENT" });
+    assert.equal(chunks, 1);
+    await page.unroute("**/file-uploads/*?offset=*");
     assert.deepEqual(errors, []);
     console.log(
       engine +
-        ": uploads, conflicts, rename, skip, lost ack, prefix integrity, cancellation and themes passed",
+        ": uploads, conflicts, rename, skip, lost ack, prefix integrity, cancellation, closed windows, wake recovery and themes passed",
     );
   } catch (error) {
     const page = context.pages()[0];

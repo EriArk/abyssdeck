@@ -1,4 +1,26 @@
-# Текущий статус — 13 октября 2026
+# Текущий статус — 14 октября 2026
+
+### Background Files uploads — October 14 (source verified; activation pending)
+
+Started project uploads, edited copies and archive extraction now share a page-owned
+queue per exact project/checkout. Closing the upload dialog or Files no longer
+aborts requests, discards File handles or revokes the transfer's own grant. Grants
+renew between requests for long transfers. Returning online/visible reconciles
+transport-interrupted uploads with their existing IDs and completion receipts.
+Cancellation, logout, byte-prefix verification, destination and conflict checks remain.
+No new header button or status panel was added; the cancelled header-upload proposal
+was not included.
+
+Linux type/build checks and eight focused upload/chunk tests passed. Chromium and
+WebKit passed the upload suite (closed windows during chunks/commit, wake recovery,
+grant renewal, cancellation/logout, receipt and prefix checks), archive-selection
+suite and manual-edit suite. Phone/tablet/desktop and four-theme checks passed;
+the phone upload render was inspected. These are fixtures, not physical iPhone proof.
+
+iOS can suspend or destroy Safari/PWA. The web implementation continues while
+execution is allowed and resumes on return; uninterrupted phone-to-Hub transmission
+during OS suspension is not guaranteed. Full page destruction requires original-file
+reselection when bytes remain. See [background upload boundaries](BACKGROUND_FILE_UPLOADS.md).
 
 ### GPT new-chat readiness follow-up — October 13 (installed verification)
 

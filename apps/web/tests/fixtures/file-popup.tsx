@@ -2,6 +2,7 @@ import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { configureApi } from "../../src/api";
 import { DownloadLink } from "../../src/DownloadLink";
+import { ProjectFileUploadHost } from "../../src/ProjectFileUploadHost";
 import { ResultFilePreview } from "../../src/ResultFilePreview";
 import "../../src/styles.css";
 import "../../src/themes.css";
@@ -38,6 +39,7 @@ function ResultFixture() {
 }
 createRoot(document.getElementById("root")!).render(
   <main style={{ padding: 16, height: "100dvh", overflow: "auto" }}>
+    <ProjectFileUploadHost />
     <textarea aria-label="Draft" defaultValue="Preserve this draft" />
     <div style={{ height: 400 }} />
     {query.has("result") ? (
