@@ -1,6 +1,14 @@
 # Текущий статус — 14 октября 2026
 
-### Background Files uploads — October 14 (source verified; activation pending)
+### Background Files uploads — October 14 (web installed)
+
+Web-only release `e3d4a22d` is published. Public HTTPS and the local gateway both
+serve manifest `02c011ba687d831a0e1d2b258af4226643d6c5b2e50ffb3c7d2aaba56eca7986`;
+the entry asset matches the verified image byte-for-byte. Engine and native GPT
+container IDs/start times are unchanged (`be49917a`). Evidence and the source bundle
+are in `codex-web-releases/e3d4a22d/verification.json` and adjacent build/browser logs.
+The production browser reached login, so authenticated production upload interaction
+is not claimed; browser functional evidence below uses isolated fixtures.
 
 Started project uploads, edited copies and archive extraction now share a page-owned
 queue per exact project/checkout. Closing the upload dialog or Files no longer
