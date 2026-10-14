@@ -14,6 +14,14 @@ export interface MessageImage {
   name: string;
   url: string;
 }
+export function nativeImageMessageId(turnId: string | null, itemId: string): string {
+  return (
+    "codex-image:" +
+    createHash("sha256")
+      .update(JSON.stringify([turnId, itemId]))
+      .digest("hex")
+  );
+}
 export function displayUserText(text: string, paths: string[]): string {
   const match = text.match(
     /^# Files mentioned by the user:\s*\r?\n([\s\S]*?)\r?\n## My request for Codex:\s*\r?\n/,
@@ -32,6 +40,8 @@ export class NativeImages {
   private pending = new Map<string, Promise<ReturnType<Artifacts["get"]>>>();
   private artifacts: Artifacts;
   private serial: Promise<unknown> = Promise.resolve();
+  private captures = new Set<string>();
+  private capturing: Promise<void> | undefined;
   constructor(
     config: HubConfig,
     private store: Store,
@@ -58,6 +68,26 @@ export class NativeImages {
       .prepare("INSERT INTO native_images VALUES(?,?,?,?,?,?,NULL)")
       .run(id, threadId, messageId, key, source, name);
     return { id, name, url: `/api/native-images/${id}` };
+  }
+  /** Retain observed output independently of whether a browser opens its thumbnail. */
+  retain(id: string): void {
+    if (this.captures.size >= 1024) return; // Durable source remains available for a later read.
+    this.captures.add(id);
+    if (this.capturing) return;
+    this.capturing = (async () => {
+      while (this.captures.size) {
+        const next = this.captures.values().next().value!;
+        this.captures.delete(next);
+        // A failed capture keeps its exact source; viewing/reopening can retry that read.
+        await this.get(next).catch(() => {});
+      }
+    })().finally(() => {
+      this.capturing = undefined;
+    });
+  }
+  async flush(): Promise<void> {
+    await this.capturing;
+    await this.serial;
   }
   thread(id: string): string {
     const row = this.store.db.prepare("SELECT threadId FROM native_images WHERE id=?").get(id);

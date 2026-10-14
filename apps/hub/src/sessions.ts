@@ -2263,6 +2263,19 @@ export class Sessions extends EventEmitter {
         this.emitEvent(t.id, "result.created", { id: linkId, type: "link" }, turnId);
       for (const imageId of this.catalog.observeImages(t, turnId, item))
         this.emitEvent(t.id, "result.created", { id: imageId, type: "image" }, turnId);
+      const imageMessage = this.catalog.imageMessage(t, turnId, item);
+      if (imageMessage)
+        this.emitEvent(
+          t.id,
+          "assistant.completed",
+          {
+            id: imageMessage.id,
+            text: "",
+            phase: "commentary",
+            images: imageMessage.images,
+          },
+          turnId,
+        );
       for (const previewId of this.catalog.previews.observe(t, turnId, item))
         this.emitEvent(t.id, "result.created", { id: previewId, type: "preview" }, turnId);
       if (type === "reasoning") {

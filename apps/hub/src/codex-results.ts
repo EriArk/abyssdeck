@@ -94,7 +94,7 @@ export function codexTimeline(
       const result = db
         .prepare("SELECT * FROM results WHERE id=? AND threadId=? AND turnId=?")
         .get(String(p.id), threadId, turnId);
-      if (result && resultCategory(String(result.type)) === "work")
+      if (result && (resultCategory(String(result.type)) === "work" || result.type === "image"))
         items.push({
           ...base,
           kind: "work",
@@ -158,7 +158,7 @@ export function unlinkedTurnWork(
   return {
     items: rows
       .slice(0, 40)
-      .filter((r) => resultCategory(String(r.type)) === "work")
+      .filter((r) => resultCategory(String(r.type)) === "work" || r.type === "image")
       .map((r) => ({ ...r, payload: JSON.parse(String(r.payload)) })),
     nextBefore: rows.length > 40 ? Number(rows[39]!.cursor) : null,
   };

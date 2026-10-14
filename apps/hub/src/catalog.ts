@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { join, posix, win32 } from "node:path";
-import type { CodexClient } from "@codex-web/codex";
+import { type CodexClient, codexImageSources } from "@codex-web/codex";
 import { assertProjectRoot, projectPathAllowed, verifyProjectRoot } from "@codex-web/machines";
 import {
   chatQuestions,
@@ -16,7 +16,7 @@ import { observeScheduleReceipt } from "./codex-schedules.js";
 import { GeneratedArtifacts } from "./generatedArtifacts.js";
 import { gptResultContent } from "./gpt-result-content.js";
 import { type EntityAction, Library } from "./library.js";
-import { displayUserText, NativeImages } from "./nativeImages.js";
+import { displayUserText, NativeImages, nativeImageMessageId } from "./nativeImages.js";
 import { Previews } from "./previews.js";
 import type { MessageRecord, Store, ThreadRecord } from "./store.js";
 import { visibleCodexThreadSql } from "./thread-visibility.js";
@@ -140,6 +140,7 @@ export class Catalog {
   async closeChatLogs() {
     this.logStopped = true;
     await this.logPending;
+    await this.images.flush();
   }
   private async logHistory(thread: ThreadRecord, before?: string): Promise<HistoryPage> {
     await this.verifyThreadRoot(thread);
@@ -758,7 +759,10 @@ export class Catalog {
     const item = obj(entry.item),
       type = str(item.type),
       turnId = str(entry.turnId, 100);
-    if (!["userMessage", "agentMessage", "plan"].includes(type)) return;
+    if (!["userMessage", "agentMessage", "plan"].includes(type)) {
+      const image = this.imageMessage(thread, turnId || null, item);
+      return image ? { ...image, firstSeq: -index } : undefined;
+    }
     // Import exports from already existing native history as well as live events.
     if (capture && type === "agentMessage") this.artifacts.observe(thread, turnId || null, item);
     let content = typeof item.text === "string" ? item.text : "";
@@ -836,38 +840,60 @@ export class Catalog {
     turnId: string | null,
     item: Record<string, unknown>,
   ): string[] {
-    const sources: string[] = [];
-    if (item.type === "mcpToolCall") {
-      for (const block of array(obj(item.result).content).slice(0, 8)) {
-        if (
-          block.type === "image" &&
-          typeof block.data === "string" &&
-          typeof block.mimeType === "string"
-        )
-          sources.push("data:" + block.mimeType + ";base64," + block.data);
-        const resource = obj(block.resource);
-        if (
-          block.type === "resource" &&
-          typeof resource.blob === "string" &&
-          typeof resource.mimeType === "string" &&
-          resource.mimeType.startsWith("image/")
-        )
-          sources.push("data:" + resource.mimeType + ";base64," + resource.blob);
-      }
-    }
-    if (item.type === "agentMessage")
-      for (const match of str(item.text).matchAll(/!\[[^\]\n]*\]\((?:<([^>\n]+)>|([^\s)]+))\)/g))
-        if (sources.length < 8) sources.push(match[1] || match[2] || "");
+    const itemId = str(item.id, 200);
+    if (!itemId) return [];
+    const sources = codexImageSources(item);
+    const messageId = nativeImageMessageId(turnId, itemId);
     const results: string[] = [];
     for (const source of sources) {
-      const image = this.images.register(thread.id, "result:" + str(item.id, 200), source);
+      // Reuse previously captured MCP results, but only for this exact native turn.
+      this.store.db
+        .prepare(`UPDATE native_images SET messageId=? WHERE threadId=? AND messageId=? AND sourceKey=?
+          AND EXISTS (SELECT 1 FROM results r WHERE r.threadId=native_images.threadId AND r.turnId IS ? AND r.sourceKey='image:' || native_images.id)`)
+        .run(
+          messageId,
+          thread.id,
+          "result:" + itemId,
+          createHash("sha256").update(source).digest("hex"),
+          turnId,
+        );
+      const image = this.images.register(thread.id, messageId, source);
       if (!image) continue;
+      this.images.retain(image.id);
+      if (item.type !== "agentMessage")
+        this.store.db
+          .prepare(
+            "UPDATE results SET payload=json_set(payload,'$.messageId',?,'$.sourceItemId',?) WHERE threadId=? AND turnId IS ? AND sourceKey=?",
+          )
+          .run(messageId, itemId, thread.id, turnId, "image:" + image.id);
       const id = this.store.result(thread.id, turnId, "image:" + image.id, "image", image.name, {
         url: image.url,
+        ...(item.type !== "agentMessage" ? { messageId, sourceItemId: itemId } : {}),
       });
       if (id) results.push(id);
     }
     return results;
+  }
+  imageMessage(
+    thread: ThreadRecord,
+    turnId: string | null,
+    item: Record<string, unknown>,
+  ): MessageRecord | undefined {
+    if (item.type === "agentMessage" || !item.id) return;
+    const id = nativeImageMessageId(turnId, str(item.id, 200));
+    const message: MessageRecord = {
+      threadId: thread.id,
+      id,
+      turnId,
+      role: "assistant",
+      phase: "commentary",
+      text: "",
+      firstSeq: 0,
+      lastSeq: 0,
+      createdAt: "",
+    };
+    const saved = this.store.withAttachments([message])[0]!;
+    return saved.images?.length ? saved : undefined;
   }
   observeLinks(thread: ThreadRecord, turnId: string | null, item: Record<string, unknown>) {
     if (item.type !== "agentMessage" || typeof item.text !== "string") return [];

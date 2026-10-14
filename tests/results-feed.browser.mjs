@@ -138,6 +138,7 @@ try {
             label: "Codex",
             text: "Проверка завершена. Перехожу к снимкам.",
           },
+          { id: "screen-step", kind: "work", label: "Снимок проверки", result: items[1] },
         ],
         nextAfter: null,
       });
@@ -282,6 +283,15 @@ try {
           await page.getByRole("button", { name: "Рассуждения", exact: true }).click();
           await page.locator(".result-reasoning-details > summary").click();
           await expect(page.locator(".result-work-step")).toHaveCount(1);
+          const reasoningImage = page.locator(".result-timeline .result-picture img");
+          await expect(reasoningImage).toBeVisible();
+          await expect(reasoningImage).toHaveJSProperty("naturalWidth", 1366);
+          await page
+            .locator(".result-timeline")
+            .getByRole("button", { name: "Открыть снимок", exact: true })
+            .click();
+          await expect(page.getByRole("dialog", { name: "Просмотр файла" })).toBeVisible();
+          await page.getByRole("button", { name: "Закрыть просмотр", exact: true }).click();
           await expect(page.getByText("Пишет ответ", { exact: true })).toHaveCount(0);
           await expect(page.getByText("Обдумывает задачу", { exact: true })).toHaveCount(0);
           await expect(page.getByText("Изменяет файлы", { exact: true })).toHaveCount(0);
@@ -292,6 +302,7 @@ try {
           await page.locator(".result-reasoning-details > summary").click();
           await page.locator(".result-reasoning-details > summary").click();
           await expect(page.locator(".result-work-step")).toHaveAttribute("open", "");
+          await expect(reasoningImage).toBeVisible();
           await page.getByRole("button", { name: "Файлы", exact: true }).click();
           await page.getByRole("button", { name: "Рассуждения", exact: true }).click();
           await expect(page.locator(".result-work-step")).toHaveAttribute("open", "");

@@ -306,6 +306,7 @@ export function ResultCard({
             r.payload.codexTurn ? (
               <CodexResultTimeline
                 result={r}
+                inspect={inspect}
                 expanded={open}
                 onFile={onFile}
                 disclosure={disclosure}

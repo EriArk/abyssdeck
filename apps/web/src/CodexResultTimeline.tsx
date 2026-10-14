@@ -2,7 +2,7 @@ import type { ResultItem, ResultTimelinePage } from "@codex-web/shared";
 import { useEffect, useState } from "react";
 import { api, messageOf } from "./api";
 import { LiveCommandOutput } from "./LiveCommandOutput";
-import { type ResultDisclosure, ResultWork } from "./ResultCard";
+import { ResultCard, type ResultDisclosure, ResultWork } from "./ResultCard";
 
 export function CodexResultTimeline({
   result,
@@ -10,10 +10,12 @@ export function CodexResultTimeline({
   onFile,
   disclosure,
   setDisclosure,
+  inspect,
 }: ResultDisclosure & {
   result: ResultItem;
   expanded: boolean;
   onFile?: (path: string) => void;
+  inspect: (result: ResultItem) => void;
 }) {
   const [page, setPage] = useState<ResultTimelinePage | null>(null);
   const [legacy, setLegacy] = useState<{ items: ResultItem[]; nextBefore: number | null } | null>(
@@ -111,28 +113,42 @@ export function CodexResultTimeline({
     value?: ResultItem,
     text?: string,
     logUrl?: string,
-  ) => (
-    <details
-      key={id}
-      className="result-work-step"
-      open={!!disclosure[id]}
-      onToggle={(event) => {
-        const value = event.currentTarget.open;
-        setDisclosure((old) => (old[id] === value ? old : { ...old, [id]: value }));
-      }}
-    >
-      <summary>
-        {label}
-        {value?.payload.exitCode !== undefined && (
-          <span className={`badge ${value.payload.exitCode === 0 ? "success" : "danger"}`}>
-            {value.payload.exitCode === 0 ? "Успешно" : `Код ${value.payload.exitCode}`}
-          </span>
-        )}
-      </summary>
-      {value ? <ResultWork result={value} onFile={onFile} /> : <p>{text}</p>}
-      {logUrl && disclosure[id] && <LiveCommandOutput url={logUrl} />}
-    </details>
-  );
+  ) =>
+    value?.type === "image" ? (
+      <ResultCard
+        key={id}
+        result={value}
+        focusId=""
+        inspect={inspect}
+        onFile={onFile}
+        selecting={false}
+        selected={[]}
+        onSelect={() => {}}
+        disclosure={disclosure}
+        setDisclosure={setDisclosure}
+      />
+    ) : (
+      <details
+        key={id}
+        className="result-work-step"
+        open={!!disclosure[id]}
+        onToggle={(event) => {
+          const value = event.currentTarget.open;
+          setDisclosure((old) => (old[id] === value ? old : { ...old, [id]: value }));
+        }}
+      >
+        <summary>
+          {label}
+          {value?.payload.exitCode !== undefined && (
+            <span className={`badge ${value.payload.exitCode === 0 ? "success" : "danger"}`}>
+              {value.payload.exitCode === 0 ? "Успешно" : `Код ${value.payload.exitCode}`}
+            </span>
+          )}
+        </summary>
+        {value ? <ResultWork result={value} onFile={onFile} /> : <p>{text}</p>}
+        {logUrl && disclosure[id] && <LiveCommandOutput url={logUrl} />}
+      </details>
+    );
   // Progress labels alone have no content to expand; keep them in live status UI.
   const steps = page?.items.filter(
     (item) => item.text?.trim() || (item.kind === "work" && (item.result || item.logUrl)),

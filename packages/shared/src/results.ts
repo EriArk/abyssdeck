@@ -53,6 +53,8 @@ export interface ResultItem {
     width?: number;
     height?: number;
     sourcePath?: string;
+    messageId?: string;
+    sourceItemId?: string;
     command?: string;
     exitCode?: number;
     status?: string;

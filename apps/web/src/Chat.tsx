@@ -803,9 +803,9 @@ export function Chat({
                               }
                             />
                           )}
-                          {!message.text && !message.attachments?.length && (
-                            <span className="typing">•••</span>
-                          )}
+                          {!message.text &&
+                            !message.attachments?.length &&
+                            !message.images?.length && <span className="typing">•••</span>}
                           <AttachmentList
                             files={[
                               ...(message.attachments ?? []),
@@ -836,6 +836,9 @@ export function Chat({
                                   .filter(
                                     (result) =>
                                       result.type === "image" &&
+                                      !state.messages.some(
+                                        (m) => m.id === result.payload.messageId,
+                                      ) &&
                                       result.turnId === message.turnId &&
                                       (!result.threadId || result.threadId === threadId) &&
                                       result.payload.url,

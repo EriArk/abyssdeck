@@ -1,5 +1,25 @@
 # Текущий статус — 14 октября 2026
 
+### Codex public images — October 14 (source verified; activation pending)
+
+Fixed the shared live/history image path. `imageView`, function output, dynamic
+tools and native image generation were previously omitted; Results reasoning also
+filtered out the image category. Public tool images now retain exact turn/item
+identity, appear in chat and reasoning, and are captured before anyone opens a
+thumbnail. Existing saved images are reused; old available native history repairs
+on opening. No native input is resumed or replayed.
+
+Linux build/type checks and 35 focused backend tests passed. Chromium/WebKit passed
+the dedicated chat image test (live, completed, reload, viewer, draft, phone/tablet)
+and Results feed test (four themes, phone/tablet, reasoning image viewer). Phone
+chat and reasoning screenshots were inspected. Two broader, unmodified browser
+checks exposed unrelated stale expectations: `native-work.browser.mjs` expects a
+download dialog where the shared viewer opens; `message-results.browser.mjs`
+times out at its existing external-thumbnail scroll check. They are not counted
+as passing. The focused new image scenarios run independently and pass.
+
+See [native image coverage and recovery limits](CODEX_INTEGRATION.md#public-tool-images-2026-10-14).
+
 ### Background Files uploads — October 14 (web installed)
 
 Web-only release `e3d4a22d` is published. Public HTTPS and the local gateway both

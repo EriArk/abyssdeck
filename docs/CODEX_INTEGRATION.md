@@ -1,5 +1,38 @@
 # Codex Integration
 
+## Public tool images (2026-10-14)
+
+The live `item/completed` path and canonical history use the same image extractor.
+It recognizes `imageView.path`, `functionCallOutput.output[].input_image.image_url`,
+`dynamicToolCall.contentItems[].inputImage.imageUrl`, MCP image/resource blocks,
+native image generation (PNG result/data URL or saved path), and assistant Markdown.
+This inventory was checked against the selected 0.162.1 App Server schema and a
+read-only native history sample containing `imageView`. Text JSON, tool arguments,
+encrypted/private reasoning and unresolved `file_id` values are not image sources.
+
+Image metadata is bound to the exact Hub thread, native turn, item and source hash.
+Existing MCP/Markdown records are reused only within that turn. Tool images have
+stable public commentary entries in chat and image cards in Results → Reasoning,
+as well as the Images category. A completed turn/history refresh retains those
+entries. History-only results without event ordering appear in saved work rather
+than acquiring invented chronological positions.
+
+Observed images enter a bounded serial capture queue immediately, independently
+of thumbnail visibility. Inline bytes are durable at registration; machine files
+are read and cached in private artifact storage. Existing preview limits apply:
+8 MiB input, 50 million decoded pixels, PNG preview up to 1600 px. Event payloads,
+chat recovery ZIPs and browser history carry references, never base64 image bytes.
+Shutdown drains capture work; source/read/quota failures retain the reference for
+a later authorized read. Reopening old native history imports available images
+without resuming or replaying a turn. Already deleted uncached files and native
+outputs whose bytes are no longer supplied cannot be reconstructed.
+
+Regression coverage: `codex-images.test.mjs`, native image/result/catalog/reference
+tests, `codex-images.browser.mjs` and `results-feed.browser.mjs`. Chromium/WebKit
+cover live delivery, completion, reload, image viewing, drafts, phone/tablet widths
+and themed reasoning cards. This is isolated browser evidence, not physical-device
+acceptance.
+
 ## Public questions and native planning answers (2026-09-30)
 
 Asynchronous public `agentMessage.questions` are distinct from a pending

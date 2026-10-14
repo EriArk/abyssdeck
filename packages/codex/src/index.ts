@@ -4,6 +4,8 @@ import { StringDecoder } from "node:string_decoder";
 import { stopProcess } from "@codex-web/machines";
 import { HubError } from "@codex-web/shared";
 
+export { codexImageSources } from "./images.js";
+
 type RpcId = string | number;
 type RecordValue = Record<string, unknown>;
 export interface ServerRequest {

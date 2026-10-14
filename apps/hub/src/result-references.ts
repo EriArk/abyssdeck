@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { codexArtifactPath } from "@codex-web/machines";
 import { HubError, type MachineConfig } from "@codex-web/shared";
 import { z } from "zod";
+import { nativeImageMessageId } from "./nativeImages.js";
 import type { Store, ThreadRecord } from "./store.js";
 
 export const resultReferenceSchema = z.object({
@@ -50,8 +51,15 @@ export function resolveResultReference(
   if (!row) {
     const sourceKey = ref.sourceHash || createHash("sha256").update(ref.source).digest("hex");
     const image = store.db
-      .prepare("SELECT id FROM native_images WHERE threadId=? AND messageId=? AND sourceKey=?")
-      .get(thread.id, "result:" + ref.messageId, sourceKey);
+      .prepare(`SELECT n.id FROM native_images n JOIN results r ON r.threadId=n.threadId AND r.sourceKey='image:' || n.id
+        WHERE n.threadId=? AND n.messageId IN (?,?) AND n.sourceKey=? AND r.turnId IS ?`)
+      .get(
+        thread.id,
+        nativeImageMessageId(ref.turnId ?? null, ref.messageId),
+        "result:" + ref.messageId,
+        sourceKey,
+        ref.turnId ?? null,
+      );
     if (image)
       row = store.db
         .prepare("SELECT id FROM results WHERE threadId=? AND sourceKey=?")

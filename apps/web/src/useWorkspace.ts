@@ -167,6 +167,7 @@ export function useWorkspace(threadId: string) {
                   ? (prior?.text ?? "") + String(p.text ?? "")
                   : String(p.text ?? ""),
               attachments: (p.attachments as Attachment[] | undefined) ?? prior?.attachments,
+              images: (p.images as Message["images"]) ?? prior?.images,
               questions: chatQuestions(p.questions) ?? prior?.questions,
               firstSeq: prior?.firstSeq ?? seq,
               lastSeq: seq,
