@@ -1,6 +1,6 @@
 # Текущий статус — 14 октября 2026
 
-### Codex public images — October 14 (source verified; activation pending)
+### Codex public images — October 14 (installed)
 
 Fixed the shared live/history image path. `imageView`, function output, dynamic
 tools and native image generation were previously omitted; Results reasoning also
@@ -8,6 +8,19 @@ filtered out the image category. Public tool images now retain exact turn/item
 identity, appear in chat and reasoning, and are captured before anyone opens a
 thumbnail. Existing saved images are reused; old available native history repairs
 on opening. No native input is resumed or replayed.
+
+Installed engine/gateway `codex-web-hub:e3abb768` through the guarded idle update,
+with checkpoint/restore admission and three-checkpoint retention. Public HTTPS,
+local gateway and the packaged web serve manifest
+`bdd734bd67d423b53cc2edeccee2ab6710fecb05d07108ad718f018850757fda`;
+the public entry asset matches the release bytes. Native GPT container identity
+and start time are unchanged. Post-installation SSH, Codex login/executable and
+Companion checks passed. The actual installed Hub modules passed isolated HTTP
+history, image, reasoning and Results checks, including unauthenticated denial.
+This uses a separate test database; authenticated owner browser interaction and
+physical iPhone behavior are not claimed. Evidence, exact source bundle and
+browser captures are in `codex-web-releases/e3abb768/verification.json` and its
+adjacent files. The release includes the previous background-upload changes.
 
 Linux build/type checks and 35 focused backend tests passed. Chromium/WebKit passed
 the dedicated chat image test (live, completed, reload, viewer, draft, phone/tablet)
