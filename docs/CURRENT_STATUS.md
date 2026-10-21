@@ -1,6 +1,6 @@
 # Текущий статус — 21 октября 2026
 
-### Independent project chats — October 21 (source verified; activation pending)
+### Independent project chats — October 21 (installed)
 
 Two defects were reproduced and repaired at their shared boundaries. The Hub's
 turn admission rejected a send whenever any ordinary chat in the project was
@@ -22,7 +22,18 @@ title is not fully explained: stored receipts prove separate successful create
 commands, but ordinary title taps did not reproduce them in either browser.
 The selection race is verified separately and is not proof of that symptom's
 root cause. No existing chat, draft or receipt was removed; no native task was
-interrupted. Installed activation and physical iPhone behavior are not yet claimed.
+interrupted. Physical iPhone behavior is not claimed.
+
+Engine and gateway `codex-web-hub:fbbf8770` are installed through the normal idle
+guard (no force). The public HTTPS entry matches the verified release image;
+manifest `e4895824a654f3303f4703024e7507425550f7a5d2482a131b1fbac37ee2d076`.
+The actual packaged modules passed isolated authenticated HTTP checks for parallel
+sends, same-chat rejection, read-only navigation and completion isolation.
+Post-installation checks confirm the seven reported chat identities and all five
+empty-chat creation receipts remain. Native GPT container identity/start time are
+unchanged. The checkpoint and restore checks caused 459876 ms of gateway downtime;
+three verified engine checkpoints are retained. Exact evidence is in the host's
+`codex-web-releases/fbbf8770/verification.json` and adjacent logs. PR: #241.
 
 ### Codex public images — October 14 (installed)
 
