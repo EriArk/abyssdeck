@@ -773,6 +773,8 @@ function Workspace({
     };
   }, [view, threadId, state.revision]);
   const selectThread = (id: string, owner = projectId) => {
+    // Explicit navigation wins over a catalog read started by creation/send/refresh.
+    ++threadRequest.current;
     rememberDestination({ client: "codex", kind: "thread", id });
     chooseSharedProject(owner);
     if (owner !== projectId) {
@@ -786,6 +788,7 @@ function Workspace({
     setDrawer(false);
   };
   const openMachineProject = (id: string, remote: boolean) => {
+    ++threadRequest.current;
     if (!projects.some((p) => p.id === id))
       void api<{ projects: Project[] }>("/projects")
         .then((data) => setProjects(data.projects))
@@ -938,6 +941,7 @@ function Workspace({
   const selectOverviewProject = () => {
     if (overviewProject) chooseSharedProject(overviewProject.id);
     if (!overviewProject || overviewProject.id === projectId) return;
+    ++threadRequest.current;
     setProjectId(overviewProject.id);
     setThreadId("");
     setThreads(threadGroups[overviewProject.id] ?? []);

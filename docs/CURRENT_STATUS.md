@@ -1,4 +1,28 @@
-# Текущий статус — 14 октября 2026
+# Текущий статус — 21 октября 2026
+
+### Independent project chats — October 21 (source verified; activation pending)
+
+Two defects were reproduced and repaired at their shared boundaries. The Hub's
+turn admission rejected a send whenever any ordinary chat in the project was
+active; it now checks the exact target chat. Same-chat busy/unknown admission,
+native writer ownership, approvals and the short project operation lock remain.
+In the web client a delayed catalog response after creation/send/refresh could
+replace a newer explicit chat selection. Navigation now invalidates that older
+request, including the device and overview project entries.
+
+Linux build/type checks and 37 focused Hub/access/queue/maintenance/Team-upgrade
+tests passed. Chromium and WebKit mobile fixtures cover five identically named
+empty chats, repeated selection without creation POSTs, separate drafts, delayed
+catalog selection and a second running chat while the first keeps its exact turn.
+The delayed-catalog case fails on the original frontend and passes after repair.
+See `tests/multi-chat.browser.mjs` and the independent-chat case in `hub.test.mjs`.
+
+The owner's reported creation of additional empty chats by tapping an existing
+title is not fully explained: stored receipts prove separate successful create
+commands, but ordinary title taps did not reproduce them in either browser.
+The selection race is verified separately and is not proof of that symptom's
+root cause. No existing chat, draft or receipt was removed; no native task was
+interrupted. Installed activation and physical iPhone behavior are not yet claimed.
 
 ### Codex public images — October 14 (installed)
 

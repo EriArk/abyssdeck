@@ -488,3 +488,37 @@ test("progress and multi-question requests remain scoped, resolvable and reconne
     store.close();
   }
 });
+
+test("independent chats in one project can run while same-chat work stays protected", async () => {
+  const store = new Store(":memory:"),
+    rpc = new FakeRpc(),
+    sessions = new Sessions(config, store, () => rpc);
+  try {
+    const first = await sessions.create("project", "First"),
+      second = await sessions.create("project", "Second"),
+      third = await sessions.create("project", "Third");
+    await sessions.startTurn(first.id, "First request");
+    const firstTurn = store.thread(first.id).activeTurnId;
+    rpc.emit("request", {
+      id: 123,
+      method: "item/commandExecution/requestApproval",
+      params: { threadId: first.codexThreadId, turnId: firstTurn, command: "npm test" },
+    });
+    await sessions.startTurn(second.id, "Second request");
+    assert.equal(store.thread(first.id).status, "waiting_approval");
+    assert.equal(store.thread(first.id).activeTurnId, firstTurn);
+    assert.equal(store.thread(second.id).status, "running");
+    for (const id of [first.id, second.id])
+      await assert.rejects(sessions.startTurn(id, "Must not be sent"), { code: "PROJECT_BUSY" });
+    store.setStatus(second.id, "unknown");
+    await sessions.startTurn(third.id, "Third request");
+    assert.equal(store.thread(second.id).status, "unknown");
+    assert.equal(rpc.calls.filter((c) => c.method === "turn/start").length, 3);
+    assert.equal(rpc.calls.filter((c) => c.method === "turn/interrupt").length, 0);
+    assert.equal(store.history(first.id).messages.filter((m) => m.role === "user").length, 1);
+    assert.equal(store.history(second.id).messages.filter((m) => m.role === "user").length, 1);
+  } finally {
+    await sessions.close();
+    store.close();
+  }
+});

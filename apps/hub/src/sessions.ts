@@ -1650,12 +1650,7 @@ export class Sessions extends EventEmitter {
       return await this.locked(t.projectId, async () => {
         const r = await this.runtime(t.projectId);
         if (
-          (!maintenance &&
-            [...r.active].some(
-              (activeId) =>
-                this.store.thread(activeId).projectId === t.projectId &&
-                !doctorThread(this.store, activeId),
-            )) ||
+          r.active.has(id) ||
           ["unknown", "starting", "running", "waiting_approval"].includes(
             this.store.thread(id).status,
           )
@@ -1663,7 +1658,7 @@ export class Sessions extends EventEmitter {
           throw new HubError(
             409,
             "PROJECT_BUSY",
-            "Сначала дождись завершения работы или восстанови диалог",
+            "Сначала дождись завершения работы в этом диалоге или восстанови его",
           );
         const selection =
           settings ??
