@@ -259,6 +259,11 @@ export function ResultCard({
               title
             )}
           </h3>
+          {(file || r.type === "preview") && r.payload.sourcePath && (
+            <small className="result-source-path" title={r.payload.sourcePath}>
+              {r.payload.sourcePath}
+            </small>
+          )}
           <div className="result-entry-meta">
             {(file || service) && <span>{format}</span>}
             {r.payload.bytes !== undefined && (

@@ -23,6 +23,7 @@ import {
 } from "@codex-web/shared";
 
 import { codexRequestCount, codexRequests } from "./codex-results.js";
+import { readResult } from "./result-source.js";
 import { migrateDatabase } from "./migrations.js";
 import { visibleCodexThreadSql } from "./thread-visibility.js";
 
@@ -538,7 +539,7 @@ export class Store {
       .all(threadId, before, ...types);
     const items = rows
       .slice(0, 20)
-      .map((row) => ({ ...row, payload: JSON.parse(String(row.payload)) }));
+      .map((row) => readResult(this.db, row));
     return { items, counts, nextBefore: rows.length > 20 ? rows[19]?.cursor : null };
   }
   projectResults(
@@ -571,7 +572,7 @@ export class Store {
       )
       .all(projectId, before, ...types);
     return {
-      items: rows.slice(0, 20).map((row) => ({ ...row, payload: JSON.parse(String(row.payload)) })),
+      items: rows.slice(0, 20).map((row) => readResult(this.db, row)),
       counts,
       nextBefore: rows.length > 20 ? rows[19]?.cursor : null,
     };
@@ -581,7 +582,7 @@ export class Store {
       .prepare("SELECT * FROM results WHERE threadId=? AND id=?")
       .get(threadId, id);
     if (!row) throw new HubError(404, "RESULT_NOT_FOUND", "Результат не найден.");
-    return { ...row, payload: JSON.parse(String(row.payload)) };
+    return readResult(this.db, row);
   }
   preferences(): Record<string, unknown> {
     const row = this.db.prepare("SELECT value FROM preferences WHERE id=1").get();

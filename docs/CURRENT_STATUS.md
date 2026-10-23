@@ -1,5 +1,20 @@
 # Текущий статус — 24 октября 2026
 
+### Result source locations — October 24 (source verified, activation pending)
+
+File/image cards now show their known original computer path below the title in
+small wrapping text. The shared result projection resolves existing captured and
+failed file metadata by exact thread/source identity; native image capture keeps
+file paths while dropping inline image bytes after caching. A matching later
+history observation can restore an older image's cleared path. Inline images and
+unknown legacy paths do not invent a computer location or expose a Hub cache URL.
+Thread/project feeds and nested reasoning use the same projection.
+
+Build/type checks and 31 focused image/result/storage tests passed. Chromium and
+WebKit verified phone/tablet layouts in four themes, long paths, downloads,
+gallery, saved drafts/disclosure and existing actions. Screenshots were inspected.
+This source change requires the next guarded engine/web activation.
+
 ### Result artifact quota and expiry — October 24 (source verified, activation pending)
 
 The reported missing `slopes-green-3.png` was reproduced in the installed Hub as
@@ -21,6 +36,15 @@ passed. Chromium and WebKit passed phone/tablet live/completed/reload/viewer/dra
 checks plus an expired-image card. Production activation remains separate; active
 tasks were not interrupted. Evidence is in the host's `artifact-quota-*.log` files
 and isolated `codex-artifact-quota-20261024` workspace.
+
+Release `31803507` is committed on main, packaged, and passed the same eight
+expiry checks inside its actual runtime image. An independent user systemd unit
+queues ordinary idle-guarded activation and verifies the installed 60 GiB policy,
+public web version and unchanged native GPT process afterwards. No force flag.
+The owner narrowed backfill to the last two requests per affected chat. That
+bounded pass recovered 43 additional images and 9 files successfully, without
+replaying model work; already restored older images were retained. The exact
+selected turn IDs and per-item receipts remain in private host recovery journals.
 
 ### Independent project chats — October 21 (installed)
 

@@ -1,5 +1,14 @@
 # AGENTS.md
 
+## Owner-requested Results source locations (2026-10-24)
+
+- Show the known original computer path in small text below file/image titles in
+  Results, including existing entries where exact source metadata is retained.
+  Preserve the native source path when caching an image. Never infer a location
+  from the filename or substitute a Hub cache URL for the original computer path.
+- Recovery for the quota incident is limited to the latest two requests per
+  affected chat. Keep already recovered content; do not broaden historical reads.
+
 ## Owner-requested result quota and oldest-first expiry (2026-10-24)
 
 - The owner installation uses a 60 GiB result-artifact budget. On pressure, retire

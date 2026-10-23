@@ -67,6 +67,15 @@
   font-size: 11px;
   line-height: 1.5;
 }
+.result-source-path {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  user-select: text;
+  margin-bottom: 3px;
+}
 .result-entry-meta time {
   white-space: nowrap;
 }

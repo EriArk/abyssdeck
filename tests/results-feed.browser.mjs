@@ -50,11 +50,14 @@ try {
       url: "/api/gpt/assets/file-md",
       mime: "text/markdown",
       bytes: 3400,
+      sourcePath:
+        "D:\\Projects\\Очень длинное название проекта\\Документы\\Инструкция по интерфейсу.md",
     }),
     make("image", "image", "Зелёная тема.png", {
       url: "/api/gpt/assets/file-image",
       mime: "image/png",
       bytes: pictures[0].length,
+      sourcePath: "/home/user/project/screenshots/Зелёная тема.png",
     }),
     make("image2", "image", "Органайзер.png", {
       url: "/api/gpt/assets/file-image2",
@@ -208,6 +211,14 @@ try {
             document.documentElement.dataset.caseColor = "red";
           }, theme);
           await expect(page.locator('[data-result="file"]')).toBeVisible();
+          await expect(page.locator('[data-result="file"] .result-source-path')).toHaveText(
+            items[0].payload.sourcePath,
+          );
+          assert(
+            await page
+              .locator('[data-result="file"]')
+              .evaluate((e) => e.scrollWidth <= e.clientWidth + 1),
+          );
           await page
             .getByRole("button", { name: "Действия: Инструкция по интерфейсу.md", exact: true })
             .click();
@@ -250,6 +261,10 @@ try {
           }
           await page.getByRole("button", { name: "Изображения", exact: true }).click();
           await expect(page.locator(".result-picture img").first()).toBeVisible();
+          await expect(page.locator('[data-result="image"] .result-source-path')).toHaveText(
+            items[1].payload.sourcePath,
+          );
+          await expect(page.locator('[data-result="image2"] .result-source-path')).toHaveCount(0);
           const pic = await page.locator(".result-picture").first().boundingBox(),
             dots = await page.locator(".result-picture .result-more").first().boundingBox();
           assert(

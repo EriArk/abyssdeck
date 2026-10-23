@@ -96,7 +96,7 @@ test("native attachments become private cached images with no exposed source pat
     assert.deepEqual((await images.get(image.id)).data, bytes.data);
     assert.equal(
       store.db.prepare("SELECT source FROM native_images WHERE id=?").get(image.id).source,
-      "",
+      imagePath,
     );
     const raw =
       "# Files mentioned by the user:\n\n## Фото.png: " +

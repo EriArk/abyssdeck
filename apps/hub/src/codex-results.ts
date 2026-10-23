@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
+import { readResult } from "./result-source.js";
 import {
   type ResultItem,
   type ResultTimelineItem,
@@ -99,10 +100,7 @@ export function codexTimeline(
           ...base,
           kind: "work",
           label: String(result.title),
-          result: {
-            ...result,
-            payload: JSON.parse(String(result.payload)),
-          } as unknown as ResultItem,
+          result: readResult(db, result) as unknown as ResultItem,
         });
     } else if (["activity.summary", "message", "request"].includes(String(row.type))) {
       items.push({
@@ -159,7 +157,7 @@ export function unlinkedTurnWork(
     items: rows
       .slice(0, 40)
       .filter((r) => resultCategory(String(r.type)) === "work" || r.type === "image")
-      .map((r) => ({ ...r, payload: JSON.parse(String(r.payload)) })),
+      .map((r) => readResult(db, r)),
     nextBefore: rows.length > 40 ? Number(rows[39]!.cursor) : null,
   };
 }

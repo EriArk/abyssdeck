@@ -61,8 +61,13 @@ export class NativeImages {
     const old = this.store.db
       .prepare("SELECT id,name FROM native_images WHERE threadId=? AND messageId=? AND sourceKey=?")
       .get(threadId, messageId, key);
-    if (old)
+    if (old) {
+      if (!inline)
+        this.store.db
+          .prepare("UPDATE native_images SET source=? WHERE id=? AND source=''")
+          .run(source, String(old.id));
       return { id: String(old.id), name: String(old.name), url: `/api/native-images/${old.id}` };
+    }
     const id = randomUUID(),
       name = inline ? "Изображение" : source.split(/[\\/]/).at(-1)?.slice(0, 240) || "Изображение";
     this.store.db
@@ -124,7 +129,9 @@ export class NativeImages {
         }
         const artifact = this.artifacts.putPng(String(row.threadId), png.toString("base64"));
         this.store.db
-          .prepare("UPDATE native_images SET artifactId=?,source='' WHERE id=?")
+          .prepare(
+            "UPDATE native_images SET artifactId=?,source=CASE WHEN source LIKE 'data:%' THEN '' ELSE source END WHERE id=?",
+          )
           .run(artifact.artifactId, id);
         return this.artifacts.get(artifact.artifactId);
       })
