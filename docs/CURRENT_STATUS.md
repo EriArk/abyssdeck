@@ -13,7 +13,14 @@ Thread/project feeds and nested reasoning use the same projection.
 Build/type checks and 31 focused image/result/storage tests passed. Chromium and
 WebKit verified phone/tablet layouts in four themes, long paths, downloads,
 gallery, saved drafts/disclosure and existing actions. Screenshots were inspected.
-This source change requires the next guarded engine/web activation.
+Release `0ffa2acc` is committed on main and packaged. Its actual runtime image
+passed ten source-location/expiry checks. Independent user service
+`abyssdeck-result-paths-upgrade-0ffa2acc` waits for verified `31803507` activation,
+then performs a fresh native continuity check and the normal guarded engine/web
+upgrade. Both queues preserve active work and verify their actual installed
+image/public assets. At handoff the current engine remains `fbbf8770`; pending
+installation is not claimed as complete. Private release evidence is under
+`/home/abysscloud/codex-web-releases/<revision>/verification.json`.
 
 ### Result artifact quota and expiry — October 24 (source verified, activation pending)
 
