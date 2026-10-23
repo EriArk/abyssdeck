@@ -178,7 +178,12 @@ export async function createApp(
       instance,
     }));
   }
-  const artifacts = new Artifacts(config.hub.resultsPath, store, config.hub.storage.artifactBytes);
+  const artifacts = new Artifacts(
+    config.hub.resultsPath,
+    store,
+    config.hub.storage.artifactBytes,
+    config.hub.storage.artifactRetention,
+  );
   await auth.prepare(options.setupToken);
   await app.register(cookie);
   await app.register(helmet, webSecurity(config));
@@ -819,6 +824,26 @@ export async function createApp(
       .header("X-Content-Type-Options", "nosniff")
       .header("Content-Disposition", 'inline; filename="image.png"')
       .send(image.data);
+  });
+  app.get("/api/native-images/:id/status", async (req, reply) => {
+    const id = z.string().uuid().parse(paramId(req));
+    sessions.thread(sessions.catalog.images.thread(id));
+    reply.header("Cache-Control", "no-store");
+    return {
+      expired: !!store.db
+        .prepare(
+          "SELECT 1 FROM native_images n JOIN artifact_expiry e ON e.id=n.artifactId WHERE n.id=?",
+        )
+        .get(id),
+    };
+  });
+  app.get("/api/artifacts/:id/status", async (req, reply) => {
+    const id = z.string().uuid().parse(paramId(req));
+    const row = store.db.prepare("SELECT threadId FROM artifacts WHERE id=?").get(id);
+    if (!row) throw new HubError(404, "ARTIFACT_NOT_FOUND", "Файл не найден.");
+    sessions.thread(String(row.threadId));
+    reply.header("Cache-Control", "no-store");
+    return { expired: !!store.db.prepare("SELECT 1 FROM artifact_expiry WHERE id=?").get(id) };
   });
   registerFilePreviews(app, auth);
   installResultCaptureLimit(app);

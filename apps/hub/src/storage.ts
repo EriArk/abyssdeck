@@ -125,6 +125,14 @@ function references(db: DatabaseSync) {
     optional = new Set<string>(),
     artifacts = new Set<string>(),
     metadataGaps = new Set<string>();
+  const expired = new Set<string>(
+    db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='artifact_expiry'").get()
+      ? db
+          .prepare("SELECT id FROM artifact_expiry WHERE state='removed'")
+          .all()
+          .map((r) => String(r.id))
+      : [],
+  );
   for (const row of db
     .prepare(
       db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='artifact_files'").get()
@@ -132,7 +140,7 @@ function references(db: DatabaseSync) {
         : "SELECT id, '.png' AS extension FROM artifacts",
     )
     .all()) {
-    required.add(String(row.id) + String(row.extension));
+    if (!expired.has(String(row.id))) required.add(String(row.id) + String(row.extension));
     artifacts.add(String(row.id));
   }
   for (const row of db.prepare("SELECT id,image FROM attachments").all()) {

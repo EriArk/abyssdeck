@@ -1,5 +1,18 @@
 # AGENTS.md
 
+## Owner-requested result quota and oldest-first expiry (2026-10-24)
+
+- The owner installation uses a 60 GiB result-artifact budget. On pressure, retire
+  the oldest Hub-owned result bytes first. This explicitly supersedes indefinite
+  byte retention for that installation's result cache; other installations opt in.
+- Preserve conversation text, result/source identities, operation receipts, user
+  uploads, active/uncertain work and saved review/note/GUI evidence. Expired bytes
+  have a durable receipt and a clear unavailable reason; never present them as a
+  temporary connection failure or recreate them merely by opening history.
+- Apply the policy through the shared artifact writer, including streamed files,
+  images, chat and Results. Do not delete originals on execution machines. Normal
+  idle admission still applies to activating an engine change.
+
 ## Owner-requested background file uploads (2026-10-14)
 
 - A started Files/copy/extraction upload belongs to the authenticated page, not

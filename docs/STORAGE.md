@@ -10,7 +10,8 @@ Optional `hub.storage` configuration (bytes, unless noted):
 
 | Property | Default | Effect |
 | --- | --- | --- |
-| artifactBytes | 8 GiB | Reject new Hub images above quota; retain existing results |
+| artifactBytes | 8 GiB | Aggregate Hub result bytes; owner installation uses 60 GiB |
+| artifactRetention | `keep` | `oldest` opts into oldest-first expiry on quota pressure |
 | attachmentBytes | 2 GiB | Aggregate Codex uploads |
 | gptUploadBytes | 2 GiB | Aggregate original GPT uploads |
 | databaseWarningBytes | 512 MiB | Warning only; do not truncate visible history |
@@ -23,6 +24,27 @@ The GPT container separately accepts `GPT_UPLOAD_MAX_BYTES` (2 GiB) and `GPT_ART
 Cached HTML previews keep their existing bounded cache. Original user uploads and history remain durable. Database, receipt and Windows staging totals are monitored rather than hard-capped; automatic destructive history retention is intentionally not implemented.
 
 ## Maintenance
+
+### Result expiry (owner decision, October 24)
+
+The owner configuration selects `artifactBytes: 64424509440` and
+`artifactRetention: oldest`. The shared PNG, file and streamed-file writers make
+room only when a new verified result would exceed that budget. Oldest capture
+dates go first. Stream failures do not retire old content. The current writer,
+active/uncertain chats, unconfirmed operations and frozen review/note/GUI evidence
+are protected. If eligible old bytes cannot make enough room, the new capture
+fails without deleting an insufficient subset. User uploads and machine originals
+are outside this policy. GPT's separate native storage budget is unchanged.
+
+`artifact_expiry` records intent before unlink and completion afterwards. Exact
+artifact/message/result IDs survive; expired artifacts return HTTP 410
+`ARTIFACT_EXPIRED`. History does not recapture an expired result. Interrupted
+unlink/accounting is reconciled by a later quota pass. Storage reports and backups
+recognize intentional expiry; restore preserves its receipt. Other installations
+keep the existing non-destructive `keep` default unless they explicitly opt in.
+
+This policy bounds each account's Hub result store, not total host usage, uploaded
+files or retained backups. Protected content can still exhaust its budget.
 
 Read-only report:
 

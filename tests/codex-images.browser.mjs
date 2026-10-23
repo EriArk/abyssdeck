@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { chromium, expect, webkit } from "@playwright/test";
+import { Artifacts } from "../apps/hub/dist/artifacts.js";
 import { handoffFixture } from "./handoff-fixture.mjs";
 
 const sharp = createRequire(new URL("../apps/hub/package.json", import.meta.url))("sharp");
@@ -88,6 +89,26 @@ for (const [name, engine] of [
       await expect(screenshot).toBeVisible();
       await page.screenshot({ path: `.local/qa-codex-images/${name}-${width}-retained.png` });
     }
+    const imageId = f.store.db
+      .prepare("SELECT artifactId FROM native_images WHERE threadId=?")
+      .get(f.thread.id).artifactId;
+    const existing = new Artifacts(f.sessions.config.hub.resultsPath, f.store).get(imageId);
+    const writer = f.store.createThread("project", "retention-writer", "New result");
+    new Artifacts(
+      f.sessions.config.hub.resultsPath,
+      f.store,
+      existing.data.length,
+      "oldest",
+    ).putPng(writer.id, existing.data.toString("base64"));
+    await page.reload();
+    await expect(
+      page.getByText("Изображение удалено при очистке старых результатов по лимиту хранилища.", {
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(editor).toHaveValue("Сохранить черновик");
+    await expect(page.locator(".attachment-open:disabled")).toHaveCount(1);
+    await page.screenshot({ path: `.local/qa-codex-images/${name}-expired.png` });
     assert.deepEqual(errors, []);
     console.log(
       JSON.stringify({
@@ -97,6 +118,7 @@ for (const [name, engine] of [
         reload: true,
         viewer: true,
         draft: true,
+        expired: true,
         widths: [390, 1024],
       }),
     );

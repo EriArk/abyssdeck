@@ -1,4 +1,26 @@
-# Текущий статус — 21 октября 2026
+# Текущий статус — 24 октября 2026
+
+### Result artifact quota and expiry — October 24 (source verified, activation pending)
+
+The reported missing `slopes-green-3.png` was reproduced in the installed Hub as
+`ARTIFACT_STORAGE_FULL`: the 8 GiB artifact quota had 54,373 bytes remaining,
+although the host had approximately 634 GiB free. The exact Windows source read
+successfully. Its SHA-256-checked preview was recovered into the original native
+image identity without changing any thread or restarting native work.
+
+The owner requested 60 GiB and automatic oldest-first deletion. Private host
+configuration now records that budget and `artifactRetention: oldest`; the running
+engine still has its startup settings until guarded activation. The new shared
+artifact writer expires eligible old PNG/file/streamed result bytes on pressure,
+preserving text, IDs, receipts, uploads, active/uncertain work and saved evidence.
+Expiry is durable and reports HTTP 410, including after restart/backup/restore.
+The default for other installations remains `keep`. GPT native storage is separate.
+
+Linux build/type checks and 41 focused artifact/image/storage/backup/upgrade tests
+passed. Chromium and WebKit passed phone/tablet live/completed/reload/viewer/draft
+checks plus an expired-image card. Production activation remains separate; active
+tasks were not interrupted. Evidence is in the host's `artifact-quota-*.log` files
+and isolated `codex-artifact-quota-20261024` workspace.
 
 ### Independent project chats — October 21 (installed)
 

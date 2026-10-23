@@ -8,6 +8,7 @@ const bytes = z
 export const storagePolicySchema = z
   .object({
     artifactBytes: bytes.default(8 * 1024 ** 3),
+    artifactRetention: z.enum(["keep", "oldest"]).default("keep"),
     attachmentBytes: bytes.default(2 * 1024 ** 3),
     gptUploadBytes: bytes.default(2 * 1024 ** 3),
     databaseWarningBytes: bytes.default(512 * 1024 ** 2),

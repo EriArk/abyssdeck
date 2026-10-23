@@ -51,6 +51,7 @@ export class NativeImages {
       config.hub.resultsPath,
       store,
       config.hub.storage?.artifactBytes,
+      config.hub.storage?.artifactRetention,
     );
   }
   register(threadId: string, messageId: string, source: string): MessageImage | undefined {

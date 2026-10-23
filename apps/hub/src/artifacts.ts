@@ -3,17 +3,21 @@ import { createReadStream, mkdirSync, readFileSync, statSync, writeFileSync } fr
 import { rename, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { defaultStoragePolicy, HubError } from "@codex-web/shared";
+import { ArtifactRetention } from "./artifact-retention.js";
 import type { Store } from "./store.js";
 export class Artifacts {
+  private retention: ArtifactRetention;
   constructor(
     readonly root: string,
     readonly store: Store,
     readonly maxBytes = defaultStoragePolicy.artifactBytes,
+    readonly retentionPolicy: "keep" | "oldest" = "keep",
   ) {
     mkdirSync(root, { recursive: true, mode: 0o700 });
     store.db.exec(
       "CREATE TABLE IF NOT EXISTS artifact_source_bindings(id TEXT PRIMARY KEY,root TEXT NOT NULL,machineBinding TEXT NOT NULL)",
     );
+    this.retention = new ArtifactRetention(root, store);
   }
   putPng(
     threadId: string,
@@ -32,15 +36,12 @@ export class Artifacts {
       height = data.readUInt32BE(20);
     if (!width || !height || width > 8192 || height > 8192 || width * height > 32000000)
       throw new HubError(400, "INVALID_IMAGE", "Размер снимка не поддерживается");
-    const used = Number(
-      this.store.db.prepare("SELECT coalesce(sum(bytes),0) AS bytes FROM artifacts").get()?.bytes,
+    this.retention.makeRoom(
+      data.length,
+      this.maxBytes,
+      threadId,
+      this.retentionPolicy === "oldest",
     );
-    if (used + data.length > this.maxBytes)
-      throw new HubError(
-        507,
-        "ARTIFACT_STORAGE_FULL",
-        "Хранилище результатов заполнено. Сохранённые файлы доступны.",
-      );
     const id = randomUUID();
     writeFileSync(join(this.root, `${id}.png`), data, { flag: "wx", mode: 0o600 });
     this.store.db
@@ -58,15 +59,12 @@ export class Artifacts {
   ) {
     if (data.length > 32 * 1024 * 1024)
       throw new HubError(413, "ARTIFACT_TOO_LARGE", "Файл больше 32 МБ.");
-    const used = Number(
-      this.store.db.prepare("SELECT coalesce(sum(bytes),0) AS bytes FROM artifacts").get()?.bytes,
+    this.retention.makeRoom(
+      data.length,
+      this.maxBytes,
+      threadId,
+      this.retentionPolicy === "oldest",
     );
-    if (used + data.length > this.maxBytes)
-      throw new HubError(
-        507,
-        "ARTIFACT_STORAGE_FULL",
-        "Хранилище результатов заполнено. Сохранённые файлы доступны.",
-      );
     const id = randomUUID(),
       sha256 = createHash("sha256").update(data).digest("hex");
     writeFileSync(join(this.root, id + ".bin"), data, { flag: "wx", mode: 0o600 });
@@ -100,10 +98,11 @@ export class Artifacts {
       Number(
         this.store.db.prepare("SELECT coalesce(sum(bytes),0) AS bytes FROM artifacts").get()?.bytes,
       );
-    if (used() >= this.maxBytes)
+    if (used() >= this.maxBytes && this.retentionPolicy !== "oldest")
       throw new HubError(507, "ARTIFACT_STORAGE_FULL", "Хранилище результатов заполнено.");
     try {
-      const available = this.maxBytes - used();
+      // Stage first, then retire only the bytes needed for a verified receipt.
+      const available = this.retentionPolicy === "oldest" ? this.maxBytes : this.maxBytes - used();
       const receipt = await transfer(temporary, available);
       if (
         !Number.isSafeInteger(receipt.bytes) ||
@@ -113,12 +112,20 @@ export class Artifacts {
         !/^[a-f0-9]{64}$/.test(receipt.sha256)
       )
         throw new Error("INVALID_TRANSFER_RECEIPT");
-      if (used() + receipt.bytes > this.maxBytes)
-        throw new HubError(507, "ARTIFACT_STORAGE_FULL", "Хранилище результатов заполнено.");
+      this.retention.makeRoom(
+        receipt.bytes,
+        this.maxBytes,
+        threadId,
+        this.retentionPolicy === "oldest",
+      );
       await rename(temporary, final);
       // Another image capture may have consumed quota while rename was pending.
-      if (used() + receipt.bytes > this.maxBytes)
-        throw new HubError(507, "ARTIFACT_STORAGE_FULL", "Хранилище результатов заполнено.");
+      this.retention.makeRoom(
+        receipt.bytes,
+        this.maxBytes,
+        threadId,
+        this.retentionPolicy === "oldest",
+      );
       this.store.db.exec("SAVEPOINT streamed_artifact");
       try {
         this.store.db
@@ -140,6 +147,7 @@ export class Artifacts {
     }
   }
   describe(id: string) {
+    this.retention.assertAvailable(id);
     const row = this.store.db
       .prepare(
         "SELECT a.*,f.name FROM artifacts a LEFT JOIN artifact_files f ON f.id=a.id WHERE a.id=?",
@@ -161,6 +169,7 @@ export class Artifacts {
     return createReadStream(item.path, range);
   }
   get(id: string): { data: Buffer; mime: string; threadId: string; name: string } {
+    this.retention.assertAvailable(id);
     const row = this.store.db.prepare("SELECT * FROM artifacts WHERE id=?").get(id);
     if (!row) throw new HubError(404, "ARTIFACT_NOT_FOUND", "Файл не найден");
     const file = this.store.db.prepare("SELECT name FROM artifact_files WHERE id=?").get(id);

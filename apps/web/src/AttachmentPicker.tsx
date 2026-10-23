@@ -156,6 +156,7 @@ export function AttachmentList({
   onRemove?: (id: string) => void;
 }) {
   const [unavailable, setUnavailable] = useState<Record<string, boolean>>({});
+  const [expired, setExpired] = useState<Record<string, string>>({});
   const [attempt, setAttempt] = useState<Record<string, number>>({});
   const [preview, setPreview] = useState<Attachment | null>(null),
     dialog = useRef<HTMLDialogElement>(null);
@@ -173,16 +174,18 @@ export function AttachmentList({
           type="button"
           className="attachment-open"
           onClick={() => {
+            if (expired[file.id]) return;
             if (unavailable[file.id]) {
               setUnavailable((v) => ({ ...v, [file.id]: false }));
               setAttempt((v) => ({ ...v, [file.id]: (v[file.id] ?? 0) + 1 }));
             } else setPreview(file);
           }}
           aria-label={`${unavailable[file.id] ? "Повторить загрузку" : "Посмотреть"} ${file.name}`}
+          disabled={!!expired[file.id]}
         >
           {unavailable[file.id] ? (
             <span className="image-unavailable">
-              Изображение пока недоступно. Нажми, чтобы повторить.
+              {expired[file.id] || "Изображение пока недоступно. Нажми, чтобы повторить."}
             </span>
           ) : (
             <img
@@ -191,7 +194,24 @@ export function AttachmentList({
               )}
               alt=""
               loading="lazy"
-              onError={() => setUnavailable((v) => ({ ...v, [file.id]: true }))}
+              onError={() => {
+                setUnavailable((v) => ({ ...v, [file.id]: true }));
+                // One bounded status read on failure, never a polling/retry loop.
+                if (
+                  file.previewUrl &&
+                  /^\/api\/(?:native-images|artifacts)\/[a-f0-9-]+$/.test(file.previewUrl)
+                )
+                  void api<{ expired: boolean }>(file.previewUrl.slice(4) + "/status")
+                    .then((status) => {
+                      if (status.expired)
+                        setExpired((v) => ({
+                          ...v,
+                          [file.id]:
+                            "Изображение удалено при очистке старых результатов по лимиту хранилища.",
+                        }));
+                    })
+                    .catch(() => {});
+              }}
             />
           )}
           <span>

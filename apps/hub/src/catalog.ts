@@ -182,11 +182,21 @@ export class Catalog {
         };
       },
       (id) => this.artifacts.preview(id),
-      new Artifacts(config.hub.resultsPath, store, config.hub.storage.artifactBytes),
+      new Artifacts(
+        config.hub.resultsPath,
+        store,
+        config.hub.storage.artifactBytes,
+        config.hub.storage.artifactRetention,
+      ),
     );
     this.artifacts = new GeneratedArtifacts(
       store,
-      new Artifacts(config.hub.resultsPath, store, config.hub.storage.artifactBytes),
+      new Artifacts(
+        config.hub.resultsPath,
+        store,
+        config.hub.storage.artifactBytes,
+        config.hub.storage.artifactRetention,
+      ),
       (threadId) => {
         const thread = store.thread(threadId),
           project = this.projects().find((p) => p.id === thread.projectId);
