@@ -1,6 +1,6 @@
 # Текущий статус — 24 октября 2026
 
-### Result source locations — October 24 (source verified, activation pending)
+### Result source locations — October 24 (installed)
 
 File/image cards now show their known original computer path below the title in
 small wrapping text. The shared result projection resolves existing captured and
@@ -13,16 +13,22 @@ Thread/project feeds and nested reasoning use the same projection.
 Build/type checks and 31 focused image/result/storage tests passed. Chromium and
 WebKit verified phone/tablet layouts in four themes, long paths, downloads,
 gallery, saved drafts/disclosure and existing actions. Screenshots were inspected.
-Release `0ffa2acc` is committed on main and packaged. Its actual runtime image
-passed ten source-location/expiry checks. Independent user service
-`abyssdeck-result-paths-upgrade-0ffa2acc` waits for verified `31803507` activation,
-then performs a fresh native continuity check and the normal guarded engine/web
-upgrade. Both queues preserve active work and verify their actual installed
-image/public assets. At handoff the current engine remains `fbbf8770`; pending
-installation is not claimed as complete. Private release evidence is under
+Release `0ffa2acc` is committed on main and installed in engine and gateway after
+the owner reported all tasks stopped. Its actual runtime image passed ten
+source-location/expiry checks. Independent user service
+`abyssdeck-result-paths-upgrade-0ffa2acc` verified the preceding `31803507`
+activation, fresh native continuity and the ordinary guarded engine/web upgrade.
+Actual container image IDs and public web manifest match the packaged release;
+manifest `53ff088252c4f14b98f818964d1d4ff24d2795aff24512cb0f74ee37d8b332f3`.
+Native GPT identity/start time are unchanged. Installed shared result projection
+verified 281 available artifacts, zero pending captures and 38 known original
+paths across the 54 selected turns. Physical iPhone interaction is not claimed.
+Online checkpoint preparation took 430895 ms; final validation, snapshot/restore
+and activation caused 415522 ms of gateway downtime. Three verified engine
+checkpoints are retained. Private release evidence is under
 `/home/abysscloud/codex-web-releases/<revision>/verification.json`.
 
-### Result artifact quota and expiry — October 24 (source verified, activation pending)
+### Result artifact quota and expiry — October 24 (installed)
 
 The reported missing `slopes-green-3.png` was reproduced in the installed Hub as
 `ARTIFACT_STORAGE_FULL`: the 8 GiB artifact quota had 54,373 bytes remaining,
@@ -31,8 +37,8 @@ successfully. Its SHA-256-checked preview was recovered into the original native
 image identity without changing any thread or restarting native work.
 
 The owner requested 60 GiB and automatic oldest-first deletion. Private host
-configuration now records that budget and `artifactRetention: oldest`; the running
-engine still has its startup settings until guarded activation. The new shared
+configuration and the installed engine use that budget and
+`artifactRetention: oldest`. The new shared
 artifact writer expires eligible old PNG/file/streamed result bytes on pressure,
 preserving text, IDs, receipts, uploads, active/uncertain work and saved evidence.
 Expiry is durable and reports HTTP 410, including after restart/backup/restore.
@@ -40,18 +46,23 @@ The default for other installations remains `keep`. GPT native storage is separa
 
 Linux build/type checks and 41 focused artifact/image/storage/backup/upgrade tests
 passed. Chromium and WebKit passed phone/tablet live/completed/reload/viewer/draft
-checks plus an expired-image card. Production activation remains separate; active
-tasks were not interrupted. Evidence is in the host's `artifact-quota-*.log` files
+checks plus an expired-image card. Guarded production activation is verified;
+native tasks were not interrupted. Evidence is in the host's `artifact-quota-*.log` files
 and isolated `codex-artifact-quota-20261024` workspace.
 
 Release `31803507` is committed on main, packaged, and passed the same eight
 expiry checks inside its actual runtime image. An independent user systemd unit
-queues ordinary idle-guarded activation and verifies the installed 60 GiB policy,
-public web version and unchanged native GPT process afterwards. No force flag.
+completed ordinary idle-guarded activation and verified the installed 60 GiB
+policy, public web version and unchanged native GPT process. No force flag.
+The subsequent `0ffa2acc` release retains the same verified policy.
 The owner narrowed backfill to the last two requests per affected chat. That
 bounded pass recovered 43 additional images and 9 files successfully, without
 replaying model work; already restored older images were retained. The exact
 selected turn IDs and per-item receipts remain in private host recovery journals.
+Post-installation validation found all 252 images and 29 files available with no
+missing bytes or pending captures in that scope. Total artifact storage is
+10,550,531,036 bytes of 64,424,509,440. Older recovery outside the requested scope
+was stopped; already saved content was retained.
 
 ### Independent project chats — October 21 (installed)
 
