@@ -1,5 +1,14 @@
 # AGENTS.md
 
+## Owner-requested per-chat Results (2026-10-24)
+
+- Results belongs to the selected chat, including files/images, counts, search,
+  pagination, gallery, reasoning and result selection. Switching between chats
+  in one project must discard the previous chat's mounted result state and ignore
+  late responses. Keep exact thread/source identities and drafts.
+- This supersedes the September 13 project-wide Results presentation. GPT keeps
+  its existing conversation-scoped Results. No project aggregation in a chat's tab.
+
 ## Owner-requested Results source locations (2026-10-24)
 
 - Show the known original computer path in small text below file/image titles in
@@ -1376,7 +1385,9 @@ Before mobile support is considered complete, the same core workflow must also w
 - Audit all issues and produce the remaining-work plan before further feature work. Continue in short verified passes; the current inventory and UI findings are in `docs/ISSUE_AUDIT_2026-09-13.md`, ordered by `docs/ROADMAP.md`.
 - Shared projects belong in the same evenly styled shortcut row as Tasks, Notes, Plans and Reports. Use a short clear visible label (planned: «Общие») and a full accessible name; do not retain the separate oversized shared-project shortcut.
 - Tasks, Notes, Plans and Reports each open as an independent popup window. Files and Git also use separate popup windows, superseding their combined support-pane placement. Reuse existing contracts/stores and shared window primitives; preserve project/checkout binding, drafts, scroll and active native work.
-- Results show the whole project without the Dialog scope picker, in both Codex and GPT. Preserve exact source chat/turn identities and authorization for backlinks; project-wide presentation must not expose another user's private results.
+- Historical project-wide Results presentation is superseded by the October 24
+  per-chat Results decision above. Preserve exact source chat/turn identities and
+  authorization for backlinks.
 - Audit existing as well as new forms and panels. Extend the physical casing/recessed-screen design consistently in CRT and Hi-Tech, including controls/cards/fields, while retaining Organizer/Classic Dark identities. Keep the approved dark matte CRT casing, light glossy exceptions and all surface-specific contrast rules.
 - Phone windows use the available keyboard viewport with compact rims and reachable close/save controls. Larger screens use purpose-sized windows; avoid stacks of generic nested tabs, flat cards and oversized empty forms.
 

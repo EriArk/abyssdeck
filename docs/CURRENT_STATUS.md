@@ -1,5 +1,20 @@
 # Текущий статус — 24 октября 2026
 
+### Per-chat Results — October 24 (verified, publication pending)
+
+The owner now requests separate Results for each chat. Codex's workspace tab was
+using the project aggregation endpoint and a project-keyed mounted feed. It now
+uses the existing thread endpoint and a thread-keyed feed, including its search,
+counts, pagination, gallery, selected items and reasoning. GPT and intake Results
+already use their exact conversation/thread endpoints. Stored results and source
+identities are unchanged. This is a compatible web-only change.
+
+Build/type checks passed. The authenticated full-app fixture passed in Chromium
+and WebKit at 390/1024 px: two chats with identical filenames and turn IDs,
+pagination, exact result access (cross-chat 404), counts, search, image gallery,
+reasoning, an empty third chat, delayed old responses and retained composer draft.
+See `tests/results-chat.browser.mjs`. Physical iPhone interaction is not claimed.
+
 ### Result source locations — October 24 (installed)
 
 File/image cards now show their known original computer path below the title in

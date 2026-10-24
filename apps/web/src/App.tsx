@@ -1814,8 +1814,8 @@ function Workspace({
                 setFileFocus((v) => ({ path, version: v.version + 1, projectId }));
                 setProjectTool("files");
               }}
-              key={`project-results:${projectId}`}
-              endpoint={projectId ? "/projects/" + encodeURIComponent(projectId) + "/results" : ""}
+              key={`thread-results:${threadId}`}
+              endpoint={threadId ? "/threads/" + encodeURIComponent(threadId) + "/results" : ""}
               revision={
                 String(state.revision) +
                 ":" +
