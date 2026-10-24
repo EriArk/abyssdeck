@@ -1,6 +1,6 @@
 # Текущий статус — 24 октября 2026
 
-### Per-chat Results — October 24 (verified, publication pending)
+### Per-chat Results — October 24 (installed)
 
 The owner now requests separate Results for each chat. Codex's workspace tab was
 using the project aggregation endpoint and a project-keyed mounted feed. It now
@@ -14,6 +14,13 @@ and WebKit at 390/1024 px: two chats with identical filenames and turn IDs,
 pagination, exact result access (cross-chat 404), counts, search, image gallery,
 reasoning, an empty third chat, delayed old responses and retained composer draft.
 See `tests/results-chat.browser.mjs`. Physical iPhone interaction is not claimed.
+
+Web-only release `f5c5fbe6` is published through the normal compatibility-checked
+publisher. The public manifest and entry JavaScript match the verified build:
+`4c276632c708673760b818f304b8647813860df4f976ac70e176791ea0ce7860`.
+Engine, gateway and native GPT container IDs/start times are unchanged. No data
+migration or service restart. Exact source comparison, build/browser logs and
+publication proof are in the private host's `codex-web-releases/f5c5fbe6/`.
 
 ### Result source locations — October 24 (installed)
 
