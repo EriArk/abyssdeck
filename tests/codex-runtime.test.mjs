@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import test from "node:test";
-import { codexRuntimeBinding, confirmCodexRuntime } from "../apps/hub/dist/codex-runtime.js";
+import {
+  codexAccountHash,
+  codexAccountMatches,
+  codexRuntimeBinding,
+  confirmCodexRuntime,
+} from "../apps/hub/dist/codex-runtime.js";
 import { deploymentBlockers } from "../apps/hub/dist/deployment-status.js";
 import { Store } from "../apps/hub/dist/store.js";
 import { handoffFixture, settings } from "./handoff-fixture.mjs";
@@ -14,6 +19,86 @@ const machine = {
   allowedProjectRoots: ["C:/Projects"],
 };
 const account = { type: "chatgpt", email: "fixture@example.test" };
+test("maintenance identity refusal closes only an idle capability-bound candidate, allowing rollback", async (t) => {
+  const f = await handoffFixture();
+  t.after(() => f.close());
+  const m = f.sessions.config.machines[0];
+  m.codex.persistent = true;
+  m.codex.launcher = "C:/Bridge.exe";
+  const b = codexRuntimeBinding(f.store, m, "C:/Project");
+  f.store.db
+    .prepare("UPDATE codex_runtime_bindings SET accountHash=? WHERE machineId='pc'")
+    .run(codexAccountHash(account));
+  f.rpc.initialize = async () => ({
+    companion: { protocol: 2, runtimeId: b.binding, instanceId: randomUUID() },
+  });
+  f.rpc.request = async (method) =>
+    method === "account/read" ? { account: { ...account, email: "different@example.test" } } : {};
+  let idleClose = 0;
+  f.rpc.closeIdleCompanion = async () => {
+    idleClose++;
+    return { closed: true };
+  };
+  await assert.rejects(
+    f.sessions.machineRuntime(m, "C:/Project", true),
+    (e) => e.code === "RUNTIME_IDENTITY_CHANGED",
+  );
+  assert.equal(idleClose, 1);
+  assert.equal(
+    f.store.db.prepare("SELECT accountHash FROM codex_runtime_bindings WHERE machineId='pc'").get()
+      .accountHash,
+    codexAccountHash(account),
+  );
+  // Ordinary reconnection never closes a runtime as a side effect of a mismatch.
+  f.rpc.closed = false;
+  await assert.rejects(
+    f.sessions.machineRuntime(m, "C:/Project"),
+    (e) => e.code === "RUNTIME_IDENTITY_CHANGED",
+  );
+  assert.equal(idleClose, 1);
+});
+test("account presentation additions do not change identity; real identity changes still fail closed", () => {
+  const original = codexAccountHash(account);
+  for (const workspaceName of [null, "Personal", "Renamed workspace"]) {
+    const candidate = { ...account, planType: "pro", workspaceName };
+    assert(codexAccountMatches(original, candidate));
+    assert.equal(codexAccountHash(candidate), original);
+  }
+  for (const changed of [
+    null,
+    { ...account, email: "other@example.test" },
+    { ...account, type: "apiKey" },
+    { ...account, accountId: "new-identity" },
+  ]) {
+    assert.equal(codexAccountMatches(original, changed), false);
+  }
+  const legacy = createHash("sha256")
+    .update(JSON.stringify({ email: account.email, type: account.type, workspaceName: "Personal" }))
+    .digest("hex");
+  assert(codexAccountMatches(legacy, { ...account, workspaceName: "Personal" }));
+  assert.equal(codexAccountMatches(legacy, { ...account, workspaceName: "Unknown" }), false);
+  const store = new Store(":memory:");
+  try {
+    const b = codexRuntimeBinding(store, machine, "C:/Projects", "owner:1");
+    store.db
+      .prepare("UPDATE codex_runtime_bindings SET accountHash=? WHERE machineId='pc'")
+      .run(legacy);
+    confirmCodexRuntime(
+      store,
+      "pc",
+      b,
+      { protocol: 2, runtimeId: b.binding, instanceId: randomUUID() },
+      { ...account, workspaceName: "Personal" },
+    );
+    assert.equal(
+      store.db.prepare("SELECT accountHash FROM codex_runtime_bindings WHERE machineId='pc'").get()
+        .accountHash,
+      original,
+    );
+  } finally {
+    store.close();
+  }
+});
 test("private runtime capability survives Hub recreation and never adopts another instance/account/epoch", () => {
   const store = new Store(":memory:");
   try {

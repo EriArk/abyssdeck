@@ -2,6 +2,34 @@
 
 ## Запуск
 
+### Compatibility gate (2026-11-01)
+
+Before creating an activation intent or draining the existing worker, Queue now
+launches the candidate with the actual owner profile for read-only initialization,
+account/read (no token refresh), model/list and one harmless executor command.
+It creates no thread/turn and never sends a chat message. The preserved Hub owner
+binding is checked by the installed engine's account matcher over the existing
+private SSH connection. Account data stays in pipes/memory; the receipt contains
+only version, model count, time and success. An old engine without this gate or
+an incompatible candidate fails before activation; the selected runtime stays live.
+
+Account identity excludes documented mutable presentation fields (planType and
+workspaceName). Unknown fields and actual person/provider changes still fail
+closed. An older metadata-bearing hash migrates only after an exact match against
+the observed old representation. We never clear the stored identity to fix an update.
+
+If account validation rejects a newly created maintenance runtime, Hub requests
+capability-bound idle-close before detaching. The broker refuses this with active
+turns, pending questions or calls. Confirmed closure permits the coordinator's
+existing childless rollback; activity/uncertainty still prevents it. Ordinary
+reconnection never closes a runtime on identity mismatch. Maintenance diagnostics
+retain the nested native error code instead of just HTTP 409.
+
+This addresses the 0.166 incident: isolated unauthenticated protocol tests passed,
+but account/read added workspaceName and the old fingerprint treated it as an
+identity change. The running idle child then prevented rollback. Preflight must
+exercise the real account contract, not just package layout or anonymous probes.
+
 Для владельца существующего Windows Companion и его приватного SSH-подключения
 к Hub:
 

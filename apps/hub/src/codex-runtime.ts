@@ -4,6 +4,27 @@ import type { Store } from "./store.js";
 
 export type RuntimeBinding = { capability: string; binding: string; cwd: string; create: boolean };
 const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
+// Account/read also contains presentation metadata. Only documented non-identity
+// fields may be omitted; unknown fields remain fail-closed on protocol changes.
+function accountIdentity(account: unknown, legacy = false) {
+  return account && typeof account === "object" && !Array.isArray(account)
+    ? Object.fromEntries(
+        Object.entries(account)
+          .filter(([key]) => key !== "planType" && (legacy || key !== "workspaceName"))
+          .sort(([a], [b]) => a.localeCompare(b)),
+      )
+    : account;
+}
+export function codexAccountHash(account: unknown): string {
+  return hash(accountIdentity(account));
+}
+export function codexAccountMatches(expected: string, account: unknown): boolean {
+  // Upgrade a previously stored full-metadata fingerprint only when its exact
+  // observed value still matches. Never accept a different person/provider.
+  return (
+    expected === codexAccountHash(account) || expected === hash(accountIdentity(account, true))
+  );
+}
 export function codexRuntimeBinding(
   store: Store,
   machine: MachineConfig,
@@ -62,20 +83,11 @@ export function confirmCodexRuntime(
       "SELECT * FROM codex_runtime_bindings WHERE machineId=? AND binding=? AND capability=?",
     )
     .get(machineId, binding.binding, binding.capability);
-  // Subscription tier can change while the authenticated person remains the same.
-  const identity =
-    account && typeof account === "object"
-      ? Object.fromEntries(
-          Object.entries(account)
-            .filter(([key]) => key !== "planType")
-            .sort(([a], [b]) => a.localeCompare(b)),
-        )
-      : account;
-  const accountHash = hash(identity);
+  const accountHash = codexAccountHash(account);
   if (
     !row ||
     (row.instanceId && row.instanceId !== info.instanceId) ||
-    (row.accountHash && row.accountHash !== accountHash)
+    (row.accountHash && !codexAccountMatches(String(row.accountHash), account))
   )
     throw new HubError(
       409,

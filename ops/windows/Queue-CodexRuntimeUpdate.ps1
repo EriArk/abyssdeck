@@ -34,7 +34,7 @@ try {
  foreach($p in @($node,$ssh,$broker)){No-Link $p}
  $operationId=[Guid]::NewGuid().ToString()
  $directory=Join-Path $base ('operations\'+$operationId);New-Item -ItemType Directory -Path $directory -Force|Out-Null
- $codeFiles=@('coordinator.mjs','runner.mjs','hub-maintenance.mjs','windows-port.ps1','Start-RuntimeUpdate.ps1')
+ $codeFiles=@('coordinator.mjs','runner.mjs','hub-maintenance.mjs','candidate-probe.mjs','windows-port.ps1','Start-RuntimeUpdate.ps1')
  $hashes=[ordered]@{};foreach($name in $codeFiles){$hashes[$name]=(Get-FileHash (Join-Path $PSScriptRoot ('runtime-update\'+$name))).Hash.ToLowerInvariant()}
  $manifest=$hashes|ConvertTo-Json -Compress
  $sha=[Security.Cryptography.SHA256]::Create();try{$codeHash=([BitConverter]::ToString($sha.ComputeHash($utf8.GetBytes($manifest)))).Replace('-','').ToLowerInvariant()}finally{$sha.Dispose()}
@@ -46,6 +46,19 @@ try {
  $reply=Get-Content (Join-Path $code 'hub-maintenance.mjs') -Raw -Encoding UTF8|& $ssh -o BatchMode=yes -o ConnectTimeout=10 $HubSshTarget docker exec -i -e "ABYSS_RUNTIME_MAINTENANCE=$encoded" $EngineContainer node --input-type=module
  if($LASTEXITCODE -ne 0){throw 'Cannot identify the configured Hub owner'}
  $owner=($reply|ConvertFrom-Json).owner;if(-not $owner){throw 'Hub owner missing'}
+ # Exercise the real candidate with the owner's account before any drain or
+ # config switch. Incompatibility leaves the old runtime and chat admission live.
+ $probeJson=& $node (Join-Path $code 'candidate-probe.mjs') $candidate
+ if($LASTEXITCODE -ne 0){throw 'Candidate failed native preflight; current runtime unchanged'}
+ $probe=$probeJson|ConvertFrom-Json
+ $validation=@{operationId=$operationId;machineId=$MachineId;owner=$owner;action='validate';account=$probe.account}|ConvertTo-Json -Depth 10 -Compress
+ $encoded=[Convert]::ToBase64String($utf8.GetBytes($validation))
+ # Keep account data off command-line arguments: send it with the private script.
+ $validationScript="process.env.ABYSS_RUNTIME_MAINTENANCE='$encoded';`n"+(Get-Content (Join-Path $code 'hub-maintenance.mjs') -Raw -Encoding UTF8)
+ $validated=$validationScript|& $ssh -o BatchMode=yes -o ConnectTimeout=10 $HubSshTarget docker exec -i $EngineContainer node --input-type=module
+ if($LASTEXITCODE -ne 0 -or -not ($validated|ConvertFrom-Json).validated){throw 'Hub rejected candidate preflight; current runtime unchanged'}
+ [IO.File]::WriteAllText((Join-Path $directory 'preflight.json'),(@{operationId=$operationId;validated=$true;userAgent=$probe.userAgent;models=$probe.models;atUtc=[DateTime]::UtcNow.ToString('o')}|ConvertTo-Json),$utf8)
+ $probe=$null;$probeJson=$null;$validation=$null;$validationScript=$null;$encoded=$null
  [IO.File]::WriteAllBytes((Join-Path $directory 'previous.json'),$oldBytes)
  $config.codexCommand=$candidate;[IO.File]::WriteAllText((Join-Path $directory 'candidate.json'),($config|ConvertTo-Json -Depth 30),$utf8)
  $candidateRoot=Split-Path (Split-Path $candidate)

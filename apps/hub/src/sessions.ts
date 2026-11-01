@@ -526,6 +526,17 @@ export class Sessions extends EventEmitter {
           this.adoptLiveTurns(runtime, record(identity.companion));
         }
       } catch (error) {
+        if (
+          initializingMaintenance &&
+          binding?.create &&
+          error instanceof HubError &&
+          error.code === "RUNTIME_IDENTITY_CHANGED"
+        ) {
+          // A rejected candidate must not strand an idle native child and make
+          // the updater's childless rollback impossible. The capability-bound
+          // broker refuses close while any turn/question/request is active.
+          await rpc.closeIdleCompanion(() => this.authorizeInspection()).catch(() => {});
+        }
         rpc.close();
         if (binding && error instanceof HubError && error.code === "CODEX_RUNTIME_MISSING") {
           // A fixed authenticated pipe response proved this exact runtime no longer exists.

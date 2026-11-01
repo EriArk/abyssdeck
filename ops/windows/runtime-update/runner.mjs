@@ -47,7 +47,7 @@ const io={
  hub:async action=>{
   const input=Buffer.from(JSON.stringify({owner:plan.owner,machineId:plan.machineId,operationId:plan.operationId,action})).toString('base64');
   const r=await command(plan.ssh,['-o','BatchMode=yes','-o','ConnectTimeout=10',plan.sshTarget,'docker','exec','-i','-e','ABYSS_RUNTIME_MAINTENANCE='+input,plan.engineContainer,'node','--input-type=module'],readFileSync(join(code,'hub-maintenance.mjs'),'utf8'));
-  if(r.status!==200||r.result?.operationId!==plan.operationId)throw Error('Hub maintenance refused: '+(r.result?.code??r.status));
+  if(r.status!==200||r.result?.operationId!==plan.operationId)throw Error('Hub maintenance refused: '+(r.result?.error?.code??r.result?.code??r.status));
   return r.result.state;
  },
  inspect:()=>port('inspect'),

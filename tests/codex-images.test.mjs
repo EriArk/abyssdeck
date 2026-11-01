@@ -42,6 +42,23 @@ const outputs = [
   { type: "imageGeneration", status: "completed", result: png, savedPath: "/tmp/other.png" },
 ];
 
+test("0.166 generated image file identity retains exact saved output and excludes reference inputs", () => {
+  const item = {
+    type: "imageGeneration",
+    status: "completed",
+    fileId: "file-generated-output",
+    generationId: "generation-output",
+    failure: null,
+    savedPath: "C:/Pictures/generated.png",
+    inputImages: [{ path: "C:/Pictures/reference.png", sha256: "a".repeat(64) }],
+    startedAtMs: 1000,
+    completedAtMs: 2000,
+  };
+  assert.deepEqual(codexImageSources(item), [item.savedPath]);
+  assert.deepEqual(codexImageSources({ ...item, savedPath: undefined }), []);
+  assert.deepEqual(codexImageSources({ ...item, failure: { message: "Generation failed" } }), []);
+});
+
 test("native public image shapes are extracted without parsing private text/arguments or losing later images", () => {
   for (const item of outputs) assert.deepEqual(codexImageSources(item), [source]);
   assert.deepEqual(codexImageSources({ type: "imageView", path: "/tmp/screen.png" }), [
