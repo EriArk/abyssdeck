@@ -35,7 +35,7 @@ exercise the real account contract, not just package layout or anonymous probes.
 
 ```powershell
 & .\ops\windows\Queue-CodexRuntimeUpdate.ps1 `
-  -Version 0.162.1 -HubSshTarget books-server -MachineId main-windows
+  -Version 0.166.0 -HubSshTarget books-server -MachineId main-windows
 ```
 
 Команда проверяет полный официальный пакет, сохраняет предыдущую и будущую

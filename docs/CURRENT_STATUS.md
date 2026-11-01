@@ -1,4 +1,70 @@
-# Текущий статус — 24 октября 2026
+# Текущий статус — 1 ноября 2026
+
+### Runtime compatibility recovery — November 1 (installed)
+
+Installed engine/web revision `e3581884` and owner Windows Codex **0.166.0**.
+The previous October 30 activation did fail after queueing: 0.166 added
+`account/read.workspaceName`, which the old Hub incorrectly included in its
+account fingerprint. The rejected idle native child then prevented rollback,
+leaving maintenance admission closed. Anonymous/isolated protocol checks had
+missed this authenticated-account boundary; the earlier queued result was not
+installation proof.
+
+The shared account matcher now excludes documented mutable presentation fields
+`planType` and `workspaceName`, while retaining real identity/unknown-field
+checks. Exact legacy matches migrate without clearing the binding. A newly
+created maintenance runtime rejected for identity mismatch receives capability-
+bound idle-close; active turns, questions and calls still prevent closure.
+Ordinary reconnects never close a mismatched runtime. This permits the existing
+verified childless rollback instead of stranding the Hub.
+
+The independent Windows coordinator now checks the candidate against the actual
+owner profile and installed Hub matcher **before** acquiring a drain: initialize,
+authenticated account/read without refresh, model/list and harmless command/exec.
+An incompatible candidate leaves the selected runtime and chat admission alone.
+Account data is not persisted in preflight receipts or command-line arguments.
+Nested native error codes are preserved instead of reducing failures to HTTP 409.
+No compatibility banners or new status controls were added.
+
+Recovery first reconciled the exact old drained operation
+`c04d35c9-39d5-4a7c-bb24-5daab8a6cade`, closed its verified idle candidate and
+completed ordinary rollback to 0.162.1. The repaired Hub was then installed through
+`upgrade-engine.py` with schema 31, full Team checkpoint/admission and retention.
+Deployment completed at `2026-11-01T08:30:18Z`; preparation took 270 seconds with
+the site live and the guarded engine switch took 344 seconds. Public health and
+web release `4c276632c708673760b818f304b8647813860df4f976ac70e176791ea0ce7860`
+were verified. Native GPT's container and October 13 start time are unchanged.
+
+New independent operation `5c199252-2e57-46ec-99da-9c40ddb2b8e2` passed real-account
+preflight, reached `completed`, cleared its fence and completed runtime retention.
+The coordinator verified the exact selected/running 0.166.0 executable and Hub
+account. A post-activation probe again verified the preserved identity, ten models
+and actual executor output. Hub maintenance reports idle with no blockers.
+Managed packages remain under the existing `companion-persistent/runtime` root.
+
+Windows recovery restored sshd and TightVNC with the existing credentials and
+Hub-scoped firewall access, and re-enabled the exact installed CodexWeb tasks.
+Persistent/legacy Companion, browser and Computer Use are running; delivery,
+file launch, project setup, GitHub releases, GUI preview and desktop control are
+ready. Browser/Computer Use MCP entries were also disabled; they are re-enabled,
+their actual status replies are ready and 0.166 discovers four tools from each.
+The newer built-in Codex tools/configuration were preserved. No desktop restart,
+chat replay, history deletion or credential replacement was performed.
+
+Validation: local TypeScript build; server build/typecheck/repository checks;
+40 focused runtime/image/Results tests passed (one Windows-only staging fixture
+skipped on Linux); 17 maintenance/checkpoint/rollback tests passed, overlapping
+some coordinator coverage. Chromium and WebKit real-Hub lost-acknowledgement,
+reload and explicit-retry fixtures passed. Isolated production-image smoke
+verified private socket/auth boundaries, schema 31, gateway restart continuity
+and engine reconnect. The 0.166 image fileId+savedPath regression preserves exact
+source paths and never fabricates bytes/URLs for an unsupported bare fileId.
+These checks do not claim fresh model inference, every third-party integration,
+or physical iPhone UI acceptance.
+
+Server evidence: `/home/abysscloud/codex-web-releases/e3581884/`,
+`deployment-e3581884.json` in the existing service root, and the exact Windows
+coordinator operation above. See [runtime updates](CODEX_RUNTIME_UPDATES.md).
 
 ### Per-chat Results — October 24 (installed)
 
