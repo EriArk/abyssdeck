@@ -29,6 +29,7 @@ const iso = (v: unknown) =>
   new Date(typeof v === "number" && v > 0 ? v * 1000 : Date.now()).toISOString();
 export type CatalogProject = ProjectConfig & {
   sourceId?: string;
+  recoverySourceId?: string;
   roots?: string[];
   position?: number;
   discovered?: boolean;
@@ -310,7 +311,15 @@ export class Catalog {
     if (!roots.every((root) => projectPathAllowed(machine, root))) return;
     for (const root of roots) if (!(await this.allowedDirectory(machine, root))) return;
     const normalized = roots.map((path) => this.absolute(machine, path));
-    const old = this.projects().find((p) => p.machineId === machine.id && p.sourceId === sourceId);
+    const old = this.projects().find(
+      (p) =>
+        p.machineId === machine.id &&
+        (p.sourceId === sourceId ||
+          (!p.sourceId &&
+            p.recoverySourceId &&
+            this.pathKey(machine, p.workingDirectory) ===
+              this.pathKey(machine, normalized[0] ?? ""))),
+    );
     const seed = this.config.projects.find(
       (p) =>
         !this.projects().some(
@@ -330,6 +339,7 @@ export class Catalog {
     const project: CatalogProject = {
       id,
       sourceId,
+      ...(old?.recoverySourceId ? { recoverySourceId: old.recoverySourceId } : {}),
       name: str(raw.name, 120) || "Проект",
       machineId: machine.id,
       workingDirectory: normalized[0] ?? "",
@@ -373,8 +383,10 @@ export class Catalog {
           }
           if (complete)
             for (const row of this.store.db
-              .prepare("SELECT id,sourceId FROM catalog_projects WHERE machineId=?")
+              .prepare("SELECT id,sourceId,value FROM catalog_projects WHERE machineId=?")
               .all(machine.id)) {
+              const saved = JSON.parse(String(row.value)) as CatalogProject;
+              if (saved.recoverySourceId && !saved.sourceId) continue;
               if (!found.has(String(row.sourceId)))
                 this.store.db
                   .prepare("DELETE FROM catalog_projects WHERE id=?")

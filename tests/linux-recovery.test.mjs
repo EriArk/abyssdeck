@@ -43,3 +43,45 @@ test("lost native profile retains paginated public history without native reads 
     0,
   );
 });
+
+test("native refresh retains recovered groups and rebinds an exact surviving root without changing Hub identity", async (t) => {
+  const f = await handoffFixture();
+  t.after(() => f.close());
+  const project = {
+    id: "recovered",
+    machineId: "pc",
+    name: "Surviving",
+    workingDirectory: "C:/Surviving",
+    roots: ["C:/Surviving"],
+    enabled: true,
+    recoverySourceId: "old-native-project",
+  };
+  f.store.db
+    .prepare("INSERT INTO catalog_projects VALUES(?,?,?,?)")
+    .run(project.id, "pc", "old-native-project", JSON.stringify(project));
+  const raw = { id: "new-native-project", name: "Surviving", roots: [{ path: "C:/Surviving" }] };
+  let projects = [];
+  const previous = f.rpc.request.bind(f.rpc);
+  f.rpc.request = async (method, params) =>
+    method === "project/list"
+      ? { data: projects, nextCursor: null }
+      : method === "fs/getMetadata"
+        ? { isDirectory: true }
+        : previous(method, params);
+  await f.sessions.catalog.refresh(true);
+  assert(f.sessions.catalog.projects().some((p) => p.id === project.id));
+  projects = [raw];
+  await f.sessions.catalog.refresh(true);
+  const rebound = f.sessions.catalog.projects().find((p) => p.id === project.id);
+  assert.equal(rebound.sourceId, "new-native-project");
+  assert.equal(rebound.recoverySourceId, "old-native-project");
+  assert.equal(
+    f.sessions.catalog.projects().filter((p) => p.workingDirectory === "C:\\Surviving").length,
+    1,
+  );
+  assert.equal(
+    f.calls.filter((c) => ["project/create", "project/update", "project/delete"].includes(c.method))
+      .length,
+    0,
+  );
+});
