@@ -156,7 +156,10 @@ test("global navigation stream updates unopened chats and read receipts across c
     machines: [{ id: "local", name: "Local", type: "local-linux" }],
     projects: [{ id: "p", name: "Project", machineId: "local", workingDirectory: "/tmp" }],
   });
-  const { app, store } = await createApp(config, { setupToken });
+  const { app, store, sessions } = await createApp(config, { setupToken });
+  // This stream fixture owns synthetic native IDs, never the developer's local profile.
+  sessions.externalActivity.refresh = async () => {};
+  sessions.catalog.refresh = async () => {};
   const sockets = [];
   await app.listen({ host: "127.0.0.1", port: 0 });
   try {

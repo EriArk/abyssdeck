@@ -125,6 +125,7 @@ export type WorkspaceDestinationRef = z.infer<typeof destinationSchema>;
 export const destinationKey = (ref: WorkspaceDestinationRef) =>
   `${ref.client}:${ref.kind}:${ref.id}`;
 export interface WorkspaceDestinationItem {
+  serverArchived?: boolean;
   ref: WorkspaceDestinationRef;
   title: string;
   subtitle: string;

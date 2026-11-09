@@ -574,6 +574,7 @@ export function Chat({
   const send = async (dictated?: string) => {
     const value = dictated ?? draft;
     if (
+      state.thread.historyMode === "saved" ||
       (dictation.locked && dictated === undefined) ||
       (!value.trim() && !attachments.files.length) ||
       busy ||
@@ -1094,8 +1095,14 @@ export function Chat({
         )}
         <MessageQueue key={threadId} queue={queue} turnId={state.thread.activeTurnId} />
         {dictation.panel}
+        {state.thread.historyMode === "saved" && (
+          <p className="nav-empty" role="status">
+            Серверный архив · Только чтение. Для продолжения создай новый чат в рабочем проекте.
+          </p>
+        )}
         <form
           className="composer"
+          style={state.thread.historyMode === "saved" ? { display: "none" } : undefined}
           onDragOver={(e) => {
             if (e.dataTransfer.types.includes("Files")) e.preventDefault();
           }}

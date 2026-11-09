@@ -23,8 +23,8 @@ import {
 } from "@codex-web/shared";
 
 import { codexRequestCount, codexRequests } from "./codex-results.js";
-import { readResult } from "./result-source.js";
 import { migrateDatabase } from "./migrations.js";
+import { readResult } from "./result-source.js";
 import { visibleCodexThreadSql } from "./thread-visibility.js";
 
 export interface ThreadRecord {
@@ -237,7 +237,7 @@ export class Store {
     );
     const rows = this.db
       .prepare(
-        `SELECT t.id,t.projectId,t.title,t.status,t.activeTurnId,t.updatedAt,t.activityAt,t.completedSeq,t.seenSeq,t.completedTurnId,t.completedStatus,t.activitySource,t.diagnostic FROM threads t WHERE ${visibleCodexThreadSql}`,
+        `SELECT t.id,t.projectId,t.title,t.status,t.activeTurnId,t.updatedAt,t.activityAt,t.completedSeq,t.seenSeq,t.completedTurnId,t.completedStatus,t.activitySource,t.historyMode,t.diagnostic FROM threads t WHERE ${visibleCodexThreadSql}`,
       )
       .all() as unknown as (ThreadActivity & { diagnostic: number })[];
     const groups = new Map<string, ThreadActivity[]>();
@@ -250,6 +250,12 @@ export class Store {
         continue;
       }
       if (diagnostic) continue;
+      if (thread.historyMode === "saved") {
+        const list = groups.get(thread.projectId) ?? [];
+        list.push(thread);
+        groups.set(thread.projectId, list);
+        continue;
+      }
       const active = isActiveThread(thread.status);
       project.active += Number(active);
       project.unread += Number(hasUnreadCompletion(thread));
@@ -266,7 +272,16 @@ export class Store {
       projects: [...projects.values()],
       threads: [
         ...serviceThreads,
-        ...[...groups.values()].flatMap((list) => list.sort(compareThreadActivity).slice(0, 200)),
+        ...[...groups.values()].flatMap((list) => [
+          ...list
+            .filter((t) => t.historyMode !== "saved")
+            .sort(compareThreadActivity)
+            .slice(0, 200),
+          ...list
+            .filter((t) => t.historyMode === "saved")
+            .sort(compareThreadActivity)
+            .slice(0, 200),
+        ]),
       ],
     };
   }
@@ -537,9 +552,7 @@ export class Store {
           ") ORDER BY rowid DESC LIMIT 21",
       )
       .all(threadId, before, ...types);
-    const items = rows
-      .slice(0, 20)
-      .map((row) => readResult(this.db, row));
+    const items = rows.slice(0, 20).map((row) => readResult(this.db, row));
     return { items, counts, nextBefore: rows.length > 20 ? rows[19]?.cursor : null };
   }
   projectResults(

@@ -64,6 +64,12 @@ and operation receipts remain intact. Old native project IDs are retained as
 recovery metadata rather than supplied to a new native profile.
 
 If the old native profile was lost, affected threads become `historyMode: saved`.
+The web sidebar groups these under the initially collapsed «Серверный архив».
+Recovered projects without a new native binding appear there too; surviving
+projects remain in the ordinary list with their usable chats. Archive history
+is read-only, excluded from live activity counts and recent shortcuts, and
+clearly labelled in explicit search. Temporary connectivity loss does not
+reclassify a working project or chat as server archive.
 History and backlinks read the public messages already retained on the Hub, with
 pagination and no native reads. A send fails with `NATIVE_HISTORY_UNAVAILABLE`;
 it never recreates a conversation or replays an uncertain prompt. This preserves

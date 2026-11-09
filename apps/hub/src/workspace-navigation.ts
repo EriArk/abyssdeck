@@ -84,18 +84,21 @@ export function registerWorkspaceNavigation(app: FastifyInstance, sessions: Sess
     const projectIds = new Set(projects.map((p) => p.id));
     for (const p of projects) {
       if (p.unassigned) continue;
+      const serverArchived = !!p.recoverySourceId && !p.sourceId;
       output.push({
         ref: { client: "codex", kind: "project", id: p.id },
         title: p.name,
-        subtitle: "Проект · Codex",
+        subtitle: serverArchived ? "Серверный архив · Проект" : "Проект · Codex",
+        serverArchived,
         projectId: p.id,
       });
-      output.push({
-        ref: { client: "codex", kind: "discuss", id: p.id },
-        title: p.name,
-        subtitle: "Обсуждение проекта · GPT",
-        projectId: p.id,
-      });
+      if (!serverArchived)
+        output.push({
+          ref: { client: "codex", kind: "discuss", id: p.id },
+          title: p.name,
+          subtitle: "Обсуждение проекта · GPT",
+          projectId: p.id,
+        });
     }
     const q = `%${query.q.toLocaleLowerCase().replaceAll("\\", "\\\\").replaceAll("%", "\\%").replaceAll("_", "\\_")}%`;
     const saved = preferences();
@@ -114,7 +117,9 @@ export function registerWorkspaceNavigation(app: FastifyInstance, sessions: Sess
       output.push({
         ref: { client: "codex", kind: "thread", id: String(row.id) },
         title: meta?.name || String(row.title),
-        subtitle: "Диалог · Codex",
+        subtitle:
+          row.historyMode === "saved" ? "Серверный архив · Только чтение" : "Диалог · Codex",
+        serverArchived: row.historyMode === "saved",
         projectId: String(row.projectId),
       });
     }

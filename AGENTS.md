@@ -1,5 +1,16 @@
 # AGENTS.md
 
+## Owner-requested server archive (2026-11-09)
+
+- Keep server-only recovered chats and unrebound recovered projects in one
+  initially collapsed «Серверный архив» section below ordinary chat navigation.
+  Working projects stay visible even when their older chats belong in that section.
+- Use persisted recovery metadata, never a temporary PC/network failure, to
+  classify the archive. Preserve IDs, messages, results, drafts and receipts.
+  Reading archived history must not acquire a native writer or replay a prompt.
+- Keep archived chats out of ordinary activity/counts and recent shortcuts;
+  explicit search can find them with a clear read-only archive label.
+
 ## Owner-requested Linux web workflow priority (2026-11-09)
 
 - The owner needs everyday work through AbyssDeck on the restored Linux PC.

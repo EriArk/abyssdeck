@@ -618,7 +618,7 @@ function Workspace({
           ? selected
           : data.threads.some((t) => t.id === current)
             ? current
-            : (data.threads[0]?.id ?? ""),
+            : (data.threads.find((t) => t.historyMode !== "saved")?.id ?? ""),
     );
   }, []);
   useEffect(() => {
@@ -646,7 +646,7 @@ function Workspace({
         hydratePersonalScale(prefs);
         if (prefs.view)
           setView(["remote", "overview", "files"].includes(prefs.view) ? "chat" : prefs.view);
-        const visible = list.filter((p) => !p.archived && !p.deleted);
+        const visible = list.filter((p) => !p.archived && !p.deleted && !p.serverArchived);
         const id = visible.some((p) => p.id === prefs.projectId)
           ? (prefs.projectId ?? "")
           : (visible[0]?.id ?? "");
@@ -1129,7 +1129,9 @@ function Workspace({
         setProjects(data.projects);
         const selected = selectionRef.current;
         const available = data.projects.filter((p) => !p.archived && !p.deleted);
-        const project = available.find((p) => p.id === selected.projectId) ?? available[0];
+        const project =
+          available.find((p) => p.id === selected.projectId) ??
+          available.find((p) => !p.serverArchived);
         const warning = data.machineWarnings
           ? (data.machineWarnings.find((w) => w.machineId === project?.machineId)?.message ?? "")
           : force

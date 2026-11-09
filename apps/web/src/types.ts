@@ -22,6 +22,7 @@ export interface Machine {
   remoteAvailable: boolean;
 }
 export interface Project {
+  serverArchived?: boolean;
   pinned?: boolean;
   archived?: boolean;
   deleted?: boolean;

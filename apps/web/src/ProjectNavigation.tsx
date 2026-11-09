@@ -6,11 +6,11 @@ import {
   type ProjectActivity,
   type ThreadActivity,
 } from "@codex-web/shared";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { ActivityBadge } from "./ActivityBadge";
 import { BrainstormCards } from "./Brainstorm";
-import { SpaceBell, SpaceCards } from "./CollaborationSpaces";
 import type { WorkspaceMode } from "./ClientPicker";
+import { SpaceBell, SpaceCards } from "./CollaborationSpaces";
 import { EntityMenu } from "./EntityMenu";
 import { Icon } from "./icons";
 import { NavigationFooter } from "./NavigationFooter";
@@ -19,6 +19,7 @@ import { PinnedList } from "./PinnedList";
 import type { Project, Thread } from "./types";
 import type { SpacesController } from "./useCollaborationSpaces";
 import { WorkspaceLinks } from "./WorkspaceLinks";
+import "./server-archive.css";
 
 export function ProjectNavigation({
   spaces,
@@ -66,6 +67,8 @@ export function ProjectNavigation({
   onRemote?: () => void;
 }) {
   const openRequest = useRef(0);
+  const archiveId = useId();
+  const [archiveOpen, setArchiveOpen] = useState(false);
   // biome-ignore lint/correctness/useExhaustiveDependencies: Mode changes invalidate outstanding navigation requests.
   useEffect(() => {
     // A delayed project expansion must not select its chat in the other mode.
@@ -148,6 +151,14 @@ export function ProjectNavigation({
     );
   }
   const spaceMode = spaces.enabled && spaces.mode === "spaces";
+  const archivedGroups = Object.fromEntries(
+    projects.map((p) => [p.id, (groups[p.id] ?? []).filter((t) => t.historyMode === "saved")]),
+  );
+  for (const id of Object.keys(groups))
+    groups[id] = groups[id]!.filter((t) => t.historyMode !== "saved");
+  const archiveProjects = projects.filter(
+    (p) => !p.deleted && !p.archived && (p.serverArchived || archivedGroups[p.id]?.length),
+  );
   const doctorThreads = Object.values(groups)
     .flat()
     .filter((t) => t.bridgeDoctor);
@@ -161,6 +172,7 @@ export function ProjectNavigation({
     .filter(
       (p) =>
         !p.unassigned &&
+        !p.serverArchived &&
         !p.archived &&
         !p.deleted &&
         (spaceMode ? selectedIds.has(p.id) : !sharedIds.has(p.id)),
@@ -199,7 +211,7 @@ export function ProjectNavigation({
   useEffect(() => {
     if (projectId) setExpanded((old) => new Set(old).add(projectId));
   }, [projectId]);
-  const renderThread = (t: Thread) => {
+  const renderThread = (t: Thread, saved = false) => {
     const status = detail(t);
     const active = ["running", "starting", "waiting_approval"].includes(status.status);
     return (
@@ -217,24 +229,28 @@ export function ProjectNavigation({
         >
           <Icon name={t.pinned ? "pin" : "chat"} size={17} />
           <span>{t.title}</span>
-          <ActivityBadge
-            active={Number(active)}
-            waiting={Number(status.status === "waiting_approval")}
-            unread={Number(hasUnreadCompletion(status))}
-            failed={status.completedStatus !== "completed"}
-          />
+          {!saved && (
+            <ActivityBadge
+              active={Number(active)}
+              waiting={Number(status.status === "waiting_approval")}
+              unread={Number(hasUnreadCompletion(status))}
+              failed={status.completedStatus !== "completed"}
+            />
+          )}
         </button>
-        <EntityMenu
-          client="codex"
-          entity={{
-            id: t.id,
-            kind: "thread",
-            name: t.title,
-            projectId: t.projectId,
-            pinned: t.pinned,
-          }}
-          active={active}
-        />
+        {!saved && (
+          <EntityMenu
+            client="codex"
+            entity={{
+              id: t.id,
+              kind: "thread",
+              name: t.title,
+              projectId: t.projectId,
+              pinned: t.pinned,
+            }}
+            active={active}
+          />
+        )}
       </div>
     );
   };
@@ -436,7 +452,8 @@ export function ProjectNavigation({
                               const visible = loaded?.filter(
                                 (t) =>
                                   !metadata.get("thread" + t.id)?.archived &&
-                                  !metadata.get("thread" + t.id)?.deleted,
+                                  !metadata.get("thread" + t.id)?.deleted &&
+                                  t.historyMode !== "saved",
                               );
                               if (visible?.length === 1 && visible[0])
                                 onThread(visible[0].id, p.id);
@@ -570,6 +587,49 @@ export function ProjectNavigation({
             </section>
             {!standalone.length && !doctorThreads.length && (
               <p className="nav-empty">Чатов без проекта пока нет.</p>
+            )}
+          </section>
+        )}
+        {!spaceMode && archiveProjects.length > 0 && (
+          <section className="server-archive" aria-label="Серверный архив">
+            <button
+              type="button"
+              className="nav-new-thread server-archive-toggle"
+              aria-expanded={archiveOpen}
+              aria-controls={archiveId}
+              onClick={() => {
+                ++openRequest.current;
+                setArchiveOpen((open) => !open);
+                if (!archiveOpen) for (const p of archiveProjects) void load(p.id);
+              }}
+            >
+              <span className="project-chevron" data-open={archiveOpen}>
+                <Icon name="chevron" size={16} />
+              </span>
+              Серверный архив
+            </button>
+            {archiveOpen && (
+              <div id={archiveId}>
+                <p className="nav-empty">Сохранённая переписка. Только чтение.</p>
+                {archiveProjects.map((p) => (
+                  <section
+                    key={p.id}
+                    className="server-archive-project"
+                    aria-label={`Архив: ${p.name}`}
+                  >
+                    <div className="nav-label">{p.name}</div>
+                    {p.serverArchived && (
+                      <p className="nav-empty">Проект сохранён только на сервере.</p>
+                    )}
+                    {(archivedGroups[p.id] ?? []).map((t) => renderThread(t, true))}
+                    {errors[p.id] && (
+                      <button type="button" className="nav-empty" onClick={() => void load(p.id)}>
+                        {errors[p.id]} Повторить
+                      </button>
+                    )}
+                  </section>
+                ))}
+              </div>
             )}
           </section>
         )}

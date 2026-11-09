@@ -1,5 +1,20 @@
 # Текущий статус — 9 ноября 2026
 
+## Server archive navigation (2026-11-09)
+
+Prepared the owner-requested collapsed «Серверный архив» below personal chat
+navigation. Retained `historyMode: saved` chats are separated from live chats;
+unrebound recovery projects leave the ordinary project list, while surviving
+projects remain available for new work. Saved histories have a read-only label
+and no composer. Recent shortcuts omit these entries; explicit search labels
+them as server archive. No histories, native IDs or operation receipts move.
+
+Type checks and 18 focused tests passed, including navigation, recovery and
+the existing coordinated Team checkpoint/rollback wrapper. Chromium/WebKit
+verify four responsive themes, preserved working drafts and archive reads
+without native resume/send. Engine installation follows the existing guarded
+updater; an active web turn is a real admission blocker, not permission to force it.
+
 ## Linux PC recovery (2026-11-09)
 
 The owner clarified that everyday web work is the priority, not a separate

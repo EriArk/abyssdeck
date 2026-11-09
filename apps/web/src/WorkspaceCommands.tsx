@@ -218,7 +218,7 @@ export function NavigationPlaces() {
     ...preferences.recent.filter((r) => !pinned.has(destinationKey(r))),
   ]
     .map((r) => available.get(destinationKey(r)))
-    .filter((r): r is WorkspaceDestinationItem => !!r)
+    .filter((r): r is WorkspaceDestinationItem => !!r && !r.serverArchived)
     .slice(0, 8);
   if (!items.length) return null;
   return (

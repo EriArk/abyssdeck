@@ -1,0 +1,19 @@
+.server-archive {
+  margin-top: 1rem;
+  border-top: 1px solid var(--line);
+  padding-top: 0.4rem;
+}
+.server-archive-toggle {
+  min-height: 44px;
+  width: 100%;
+  text-align: left;
+}
+.server-archive-toggle .project-chevron {
+  margin-left: 0;
+}
+.server-archive-project .nav-label {
+  overflow-wrap: anywhere;
+}
+.server-archive-project + .server-archive-project {
+  margin-top: 0.7rem;
+}

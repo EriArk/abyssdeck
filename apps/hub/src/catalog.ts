@@ -428,6 +428,7 @@ export class Catalog {
       return {
         id: p.id,
         name: p.name,
+        serverArchived: !!p.recoverySourceId && !p.sourceId,
         pinned: this.library.get("project", p.id)?.pinned === true,
         archived: this.library.get("project", p.id)?.archived === true,
         deleted: this.library.get("project", p.id)?.deleted === true,
@@ -441,7 +442,7 @@ export class Catalog {
         threadCount: Number(
           this.store.db
             .prepare(
-              `SELECT COUNT(*) AS n FROM threads t WHERE t.projectId=? AND t.diagnostic=0 AND ${visibleCodexThreadSql}`,
+              `SELECT COUNT(*) AS n FROM threads t WHERE t.projectId=? AND t.diagnostic=0 AND COALESCE(t.historyMode,'')<>'saved' AND ${visibleCodexThreadSql}`,
             )
             .get(p.id)?.n ?? 0,
         ),
