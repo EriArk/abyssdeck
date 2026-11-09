@@ -1,5 +1,17 @@
 # AGENTS.md
 
+## Owner-requested Linux web workflow priority (2026-11-09)
+
+- The owner needs everyday work through AbyssDeck on the restored Linux PC.
+  A separate Linux Companion application, tray and setup UI are not requested.
+  Keep working background services and fix concrete web workflow gaps directly;
+  do not make a Companion product stage a prerequisite or the proposed next step.
+- Distinguish a live native chat held by another client from retained history
+  whose old OS profile was lost. Preserve both identities, drafts and receipts;
+  never force a writer handoff or replay old prompts during diagnosis.
+- GitHub CLI sign-in is deferred by the owner. Continue independent work without
+  repeatedly requesting that authorization.
+
 ## Owner-requested per-chat Results (2026-10-24)
 
 - Results belongs to the selected chat, including files/images, counts, search,

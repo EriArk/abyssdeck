@@ -2,6 +2,15 @@
 
 ## Linux PC recovery (2026-11-09)
 
+The owner clarified that everyday web work is the priority, not a separate
+Linux Companion application. Additional real-PC acceptance through the installed
+engine image passed: authenticated Files create/read/save with revision checks,
+Git inspection, uploaded attachment delivery to Codex, actual Node execution,
+file creation, retained native history and byte-verified Results download.
+The check used a disposable chat and scratch directory with an isolated Hub
+store; it did not take over the owner's current desktop conversation. Existing
+PTY/RDP acceptance remains separate. GitHub sign-in is still deferred.
+
 Follow-up: the web client now presents platform-neutral `THREAD_IN_USE`
 guidance, including when the installed engine returns its older Windows text.
 The recovered current Linux conversation is a live native chat; its desktop
