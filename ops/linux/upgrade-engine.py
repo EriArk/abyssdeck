@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import engine_checkpoint
 import checkpoint_retention
 import workspace_activation
+import machine_recovery
 
 
 def run(args, **kwargs):
@@ -83,6 +84,7 @@ def main():
     p.add_argument('--allow-owner-force', action='store_true')
     p.add_argument('--enable-server-workspaces', action='store_true')
     p.add_argument('--workspace-image')
+    p.add_argument('--recover-machine', type=Path)
     a = p.parse_args()
     if not a.state or not all(re.fullmatch(r'[a-f0-9]{7,64}', x) for x in [a.revision, a.expected]):
         p.error('Explicit state and image revisions required')
@@ -116,6 +118,10 @@ def main():
         assert old_engine and not a.enable_team_owner
         assert all(proof.get(k) for k in ['teamCheckpoint', 'teamRollback', 'teamUpgradeAdmission', 'codexContinuityPreflight'])
         engine_checkpoint.team_layout(state, config)
+    recovery = machine_recovery.load(state, a.recover_machine) if a.recover_machine else None
+    if recovery:
+        assert enabled_team and not a.enable_team_owner and not a.enable_server_workspaces and not a.allow_owner_force
+        assert proof.get('machineRecovery'), 'Machine replacement acceptance required'
     activation = owner_activation(state, config) if a.enable_team_owner else None
     workspace_config = None
     if a.enable_server_workspaces:
@@ -274,6 +280,9 @@ def main():
                 atomic(state / 'config.json', activation[0])
             if workspace_config:
                 atomic(state / 'config.json', workspace_config)
+            if recovery:
+                recovery_counts = machine_recovery.apply(state, config, recovery)
+                stages['machineRecovery'] = recovery_counts
             phase_started = time.monotonic()
             run(compose + ['up', '-d', '--no-deps', '--no-build', '--wait', 'engine'])
             stages['engineStartMs'] = round((time.monotonic() - phase_started) * 1000)
@@ -281,7 +290,7 @@ def main():
             if activation:
                 run(['docker', 'exec', 'codex-web-engine', 'node', 'dist/owner-team-check.js'])
             if checkpoint:
-                engine_checkpoint.admission(state, checkpoint, workspace_activation=bool(workspace_config), prepared=prepared)
+                engine_checkpoint.admission(state, checkpoint, workspace_activation=bool(workspace_config), prepared=prepared, machine_recovery=recovery)
             stages['admissionMs'] = round((time.monotonic() - phase_started) * 1000)
             phase_started = time.monotonic()
             run(['docker', 'run', '--rm', '--network', 'none', '--read-only', '--user', '1000:1000', '--cap-drop', 'ALL',

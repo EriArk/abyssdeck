@@ -21,7 +21,7 @@ const machine = z
   .object({
     id,
     name: z.string().min(1).max(120),
-    type: z.enum(["local-linux", "ssh-windows", "server-workspace"]),
+    type: z.enum(["local-linux", "ssh-windows", "ssh-linux", "server-workspace"]),
     // Omitted only for pre-team owner configurations. Enrollment always supplies roots.
     allowedProjectRoots: z.array(z.string().min(1).max(2048)).min(1).max(20).optional(),
     ssh: z
@@ -37,6 +37,12 @@ const machine = z
         shell: z.enum(["powershell", "pwsh"]).default("powershell"),
         launcher: z.string().min(1).max(1024).optional(),
         persistent: z.boolean().optional(),
+        appServerSocket: z
+          .string()
+          .startsWith("/")
+          .max(100)
+          .regex(/^[^\0\r\n]+$/)
+          .optional(),
         activityNode: z.string().min(1).max(1024).optional(),
         desktopControl: z
           .string()
@@ -62,11 +68,26 @@ const machine = z
           .string()
           .regex(/^[A-Z][A-Z0-9_]*$/)
           .optional(),
+        certificateFingerprint: z
+          .string()
+          .regex(/^sha256:(?:[a-fA-F0-9]{2}:){31}[a-fA-F0-9]{2}$/)
+          .optional(),
       })
       .optional(),
   })
   .superRefine((m, ctx) => {
-    if (m.type === "ssh-windows" && !m.ssh)
+    if (
+      m.codex.appServerSocket &&
+      (m.type !== "ssh-linux" ||
+        !m.codex.activityNode?.startsWith("/") ||
+        !m.codex.launcher?.startsWith("/"))
+    )
+      ctx.addIssue({
+        code: "custom",
+        message: "Native Unix socket requires Linux SSH, absolute Node and bridge paths",
+        path: ["codex", "appServerSocket"],
+      });
+    if ((m.type === "ssh-windows" || m.type === "ssh-linux") && !m.ssh)
       ctx.addIssue({
         code: "custom",
         message: "SSH machine requires an SSH target",
@@ -338,10 +359,10 @@ export type {
   GptHistoryPage,
   GptJob,
   GptMessage,
-  GptRichReference,
   GptModels,
   GptProgress,
   GptProject,
+  GptRichReference,
 } from "./gpt.js";
 export * from "./gpt-connection.js";
 export * from "./gpt-operations.js";
@@ -441,7 +462,7 @@ export * from "./file-tools.js";
 export { isFileSource } from "./fileSource.js";
 export { parseGitHubReference } from "./github-reference.js";
 export * from "./github-work.js";
-export { isGptChatMessage } from "./gpt.js";
+export { gptCitedFiles, gptFileIndex, isGptChatMessage } from "./gpt.js";
 export * from "./intake.js";
 export * from "./issue-drawer.js";
 export * from "./project-gpt.js";
@@ -451,4 +472,3 @@ export * from "./result-search.js";
 export * from "./visualization-reference.js";
 export * from "./workspace-commands.js";
 export * from "./workspace-notices.js";
-export { gptFileIndex, gptCitedFiles } from "./gpt.js";

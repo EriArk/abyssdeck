@@ -1,4 +1,13 @@
-# Текущий статус — 1 ноября 2026
+# Текущий статус — 9 ноября 2026
+
+## Linux PC recovery (2026-11-09)
+
+Personal Linux PCs now have an SSH transport for Codex and project operations,
+a persistent Codex 0.167 Unix-WebSocket bridge, RDP certificate pins, Linux file
+launch and the existing device terminal. Guarded OS replacement preserves Team
+state and exposes retained old chat text without replaying missing native history.
+See [Linux setup and recovery](LINUX_PC.md) for acceptance and platform limits.
+
 
 ### Runtime compatibility recovery — November 1 (installed)
 

@@ -8,7 +8,8 @@ export const fileLaunchReceiptSchema = z.object({
   code: z.string().max(80).optional(),
 });
 export type FileLaunchReceipt = z.infer<typeof fileLaunchReceiptSchema>;
-export const runnableFile = (name: string) => /\.(exe|bat|cmd|ps1)$/i.test(name);
+export const runnableFile = (name: string) =>
+  /\.(exe|bat|cmd|ps1|sh|appimage|desktop|py)$/i.test(name);
 export type FileLaunchPrepared = {
   id: string;
   projectId: string;
@@ -16,7 +17,7 @@ export type FileLaunchPrepared = {
   machineId: string;
   machineName: string;
   path: string;
-  handler: "exe" | "cmd" | "ps1";
+  handler: "exe" | "cmd" | "ps1" | "sh" | "appimage" | "desktop" | "python";
   sha256: string;
   bytes: number;
   unverified?: boolean;
@@ -31,4 +32,9 @@ export type FileLaunchRequest =
   | { op: "status"; id: string };
 export type FileLaunchResponse =
   | FileLaunchReceipt
-  | { path: string; handler: "exe" | "cmd" | "ps1"; sha256: string; bytes: number };
+  | {
+      path: string;
+      handler: "exe" | "cmd" | "ps1" | "sh" | "appimage" | "desktop" | "python";
+      sha256: string;
+      bytes: number;
+    };

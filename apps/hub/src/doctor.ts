@@ -47,12 +47,16 @@ export async function sshProbe(machine: MachineConfig): Promise<string> {
         "-o",
         "ConnectTimeout=6",
         machine.ssh!.target,
-        "powershell.exe",
-        "-NoLogo",
-        "-NoProfile",
-        "-NonInteractive",
-        "-EncodedCommand",
-        Buffer.from(script, "utf16le").toString("base64"),
+        ...(machine.type === "ssh-linux"
+          ? ["printf CODEX_WEB_SSH_OK"]
+          : [
+              "powershell.exe",
+              "-NoLogo",
+              "-NoProfile",
+              "-NonInteractive",
+              "-EncodedCommand",
+              Buffer.from(script, "utf16le").toString("base64"),
+            ]),
       ],
       { stdio: "pipe", detached: process.platform !== "win32", windowsHide: true },
     );
@@ -313,9 +317,8 @@ export async function collectDiagnostics(
     if (options.offline) add(boundary, "skipped", "NETWORK_PROBES_SKIPPED");
     else if (!seed) add(boundary, "error", "SEED_PROJECT_MISSING");
     else {
-      const ssh =
-        machine.type === "ssh-windows" ? await (dependencies.ssh ?? sshProbe)(machine) : "LOCAL";
-      if (machine.type === "ssh-windows")
+      const ssh = machine.ssh ? await (dependencies.ssh ?? sshProbe)(machine) : "LOCAL";
+      if (machine.ssh)
         add(
           boundary + "/ssh",
           ssh === "SSH_OK" ? "ok" : "error",
@@ -339,7 +342,7 @@ export async function collectDiagnostics(
           executable.available ? "ok" : "error",
           executable.available ? "CODEX_EXECUTABLE_OK" : "CODEX_EXECUTABLE_UNAVAILABLE",
         );
-        if (version && !["0.153.4", "0.159.2"].includes(version))
+        if (version && !["0.153.4", "0.159.2", "0.167.0"].includes(version))
           add(boundary + "/tested-version", "warning", "CODEX_VERSION_NOT_RELEASE_TESTED");
         if (executable.available) {
           const rpc = dependencies.rpc

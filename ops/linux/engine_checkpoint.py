@@ -442,13 +442,18 @@ def create(state, destination, revision, prepared=None):
         raise
 
 
-def admission(state, checkpoint, workspace_activation=False, prepared=None):
+def admission(state, checkpoint, workspace_activation=False, prepared=None, machine_recovery=None):
     if prepared is not None:
         require((prepared.state, prepared.destination) == (canonical(state), canonical(checkpoint)), 'CHECKPOINT_PREPARATION')
     checks = prepared.database_checks if prepared else {}
     manifest = verify(checkpoint, prepared.cache if prepared else None, checks)
     require(str(canonical(state)) == manifest['state'], 'CHECKPOINT_INSTALLATION')
-    if workspace_activation:
+    if machine_recovery is not None:
+        require(not workspace_activation, 'CHECKPOINT_MIXED_RECOVERY')
+        from machine_recovery import candidate
+        expected = candidate(json.loads((checkpoint / 'config.json').read_text()), machine_recovery)
+        require(json.loads((state / 'config.json').read_text()) == expected, 'CHECKPOINT_CONFIG_CHANGED')
+    elif workspace_activation:
         # Permit one fixed addition only. Every prior setting, account and machine
         # remains exact; the verified checkpoint still contains rollback config.
         from workspace_activation import candidate

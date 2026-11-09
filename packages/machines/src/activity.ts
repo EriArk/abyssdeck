@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { HubError, type MachineConfig } from "@codex-web/shared";
 import { authorizeMachine } from "./authority.js";
 import { quotePowerShell, stopProcess } from "./index.js";
-import { spawnWorkspace } from "./serverWorkspace.js";
+import { spawnRemote as spawnWorkspace } from "./remoteLinux.js";
 
 export interface NativeActivity {
   threadId: string;
@@ -61,7 +61,7 @@ export async function readNativeActivity(
     "; exit $LASTEXITCODE";
   // The script is fixed above. The only dynamic arguments are the server's own home and known IDs.
   const child =
-    machine.type === "server-workspace"
+    machine.type === "server-workspace" || machine.type === "ssh-linux"
       ? spawnWorkspace(machine, ["node", "--no-warnings", "-"])
       : machine.type === "local-linux"
         ? spawn(
@@ -148,7 +148,7 @@ export async function readNativeActivity(
       finish(new HubError(503, "ACTIVITY_UNAVAILABLE", "Наблюдение за Codex недоступно")),
     );
     child.stdin.end(
-      machine.type === "server-workspace"
+      machine.type === "server-workspace" || machine.type === "ssh-linux"
         ? `process.argv[1]=${JSON.stringify(payload)};\n${activityReader}`
         : undefined,
     );

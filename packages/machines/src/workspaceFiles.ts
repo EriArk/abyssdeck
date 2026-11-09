@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { pipeline } from "node:stream/promises";
 import { HubError, type MachineConfig } from "@codex-web/shared";
-import { spawnWorkspace, workspaceProbe } from "./serverWorkspace.js";
+import { spawnRemote as spawnWorkspace, remoteProbe as workspaceProbe } from "./remoteLinux.js";
 
 // All filesystem access below executes in the personal container, never on Hub.
 export async function workspaceRead(root: string, path: string, limit: number) {
@@ -80,7 +80,11 @@ export async function stageWorkspaceFile(
     name.length > 160
   )
     throw Error("INVALID_UPLOAD");
-  const path = `/workspace/home/.codex-web/uploads/${randomUUID()}/${name}`;
+  const home =
+    machine.type === "ssh-linux"
+      ? await workspaceProbe(machine, async () => (await import("node:os")).homedir(), [])
+      : "/workspace/home";
+  const path = `${home}/.codex-web/uploads/${randomUUID()}/${name}`;
   async function receive(path: string, bytes: number, expected: string) {
     const fs = await import("node:fs/promises"),
       streams = await import("node:fs"),

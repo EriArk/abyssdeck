@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { win32 } from "node:path";
+import { posix, win32 } from "node:path";
 import { authorizeMachine, fileLaunchMessage, runFileLaunch } from "@codex-web/machines";
 import {
   type FileLaunchOperation,
@@ -30,7 +30,12 @@ export function registerFileLaunches(
     const project = sessions.project(id),
       machine = sessions.catalog.machine(project.machineId);
     const entry = sessions.catalog.library.get("project", id);
-    if (project.unassigned || entry?.deleted || entry?.archived || machine.type !== "ssh-windows")
+    if (
+      project.unassigned ||
+      entry?.deleted ||
+      entry?.archived ||
+      (machine.type !== "ssh-windows" && machine.type !== "ssh-linux")
+    )
       throw fail("LAUNCH_PATH");
     authorizeMachine(machine);
     return { project, machine, binding: hash([project.id, project.workingDirectory, machine]) };
@@ -97,15 +102,16 @@ export function registerFileLaunches(
       path = q.get("path")!;
     } else throw fail("LAUNCH_PATH");
     const c = context(projectId),
-      root = win32.resolve(c.project.workingDirectory);
+      paths = c.machine.type === "ssh-windows" ? win32 : posix,
+      root = paths.resolve(c.project.workingDirectory);
     if (artifact) {
-      if (!win32.isAbsolute(path)) throw fail("LAUNCH_PATH");
-      path = win32.relative(root, path);
+      if (!paths.isAbsolute(path)) throw fail("LAUNCH_PATH");
+      path = paths.relative(root, path);
     }
-    path = path.replaceAll("\\", "/");
+    if (c.machine.type === "ssh-windows") path = path.replaceAll("\\", "/");
     if (
       !path ||
-      win32.isAbsolute(path) ||
+      paths.isAbsolute(path) ||
       path.split("/").some((p) => !p || p === "." || p === "..") ||
       !runnableFile(path)
     )
@@ -113,7 +119,7 @@ export function registerFileLaunches(
     const inspected = z
       .object({
         path: z.string(),
-        handler: z.enum(["exe", "cmd", "ps1"]),
+        handler: z.enum(["exe", "cmd", "ps1", "sh", "appimage", "desktop", "python"]),
         sha256: sha,
         bytes: z.number().int().nonnegative(),
       })
@@ -128,7 +134,9 @@ export function registerFileLaunches(
     const unverified =
       !!artifactId &&
       (!provenance ||
-        win32.resolve(String(provenance.root)).toLowerCase() !== root.toLowerCase() ||
+        (c.machine.type === "ssh-windows"
+          ? win32.resolve(String(provenance.root)).toLowerCase() !== root.toLowerCase()
+          : posix.resolve(String(provenance.root)) !== root) ||
         provenance.machineBinding !== hash(c.machine));
     const p: Prepared = {
       ...inspected,

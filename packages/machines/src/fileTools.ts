@@ -5,7 +5,7 @@ import { authorizeMachine } from "./authority.js";
 import { fileToolsProbe } from "./fileToolsProbe.js";
 import { quotePowerShell, stopProcess } from "./index.js";
 import { verifyProjectRoot } from "./projectRoots.js";
-import { workspaceProbe } from "./serverWorkspace.js";
+import { remoteProbe as workspaceProbe } from "./remoteLinux.js";
 
 export async function runFileTools(
   machine: MachineConfig,
@@ -20,7 +20,7 @@ export async function runFileTools(
 ): Promise<Awaited<ReturnType<typeof fileToolsProbe>>> {
   await verifyProjectRoot(machine, root);
   authorizeMachine(machine);
-  if (machine.type === "server-workspace") {
+  if (machine.type === "server-workspace" || machine.type === "ssh-linux") {
     if (upload) {
       const { stageWorkspaceFile } = await import("./workspaceFiles.js");
       const staged = await stageWorkspaceFile(machine, upload.path, upload.bytes, upload.sha256);
@@ -40,8 +40,10 @@ export async function runFileTools(
         async (path: string) => {
           const fs = await import("node:fs/promises"),
             p = await import("node:path");
-          if (!/^\/workspace\/home\/\.codex-web\/uploads\/[a-f0-9-]{36}\/upload$/.test(path))
-            throw Error("INVALID_UPLOAD");
+          const home = (await import("node:os")).homedir();
+          const base = p.join(home, ".codex-web", "uploads");
+          const relative = p.relative(base, path);
+          if (!/^[a-f0-9-]{36}\/upload$/.test(relative)) throw Error("INVALID_UPLOAD");
           await fs.unlink(path).catch((error: NodeJS.ErrnoException) => {
             if (error.code !== "ENOENT") throw error;
           });

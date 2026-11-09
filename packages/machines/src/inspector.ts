@@ -3,7 +3,7 @@ import { HubError, type InspectRequest, type MachineConfig } from "@codex-web/sh
 import { quotePowerShell, stopProcess } from "./index.js";
 import { inspectorProbe } from "./inspectorProbe.js";
 import { verifyProjectRoot } from "./projectRoots.js";
-import { workspaceProbe } from "./serverWorkspace.js";
+import { remoteProbe as workspaceProbe } from "./remoteLinux.js";
 
 export async function inspectProject(
   machine: MachineConfig,
@@ -11,7 +11,7 @@ export async function inspectProject(
   request: InspectRequest,
 ): Promise<Awaited<ReturnType<typeof inspectorProbe>>> {
   await verifyProjectRoot(machine, root);
-  if (machine.type === "server-workspace")
+  if (machine.type === "server-workspace" || machine.type === "ssh-linux")
     return workspaceProbe(machine, inspectorProbe, [root, request]);
   const failure = () =>
     new HubError(

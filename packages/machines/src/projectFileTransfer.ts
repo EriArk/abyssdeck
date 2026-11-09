@@ -9,7 +9,7 @@ import { HubError, type MachineConfig } from "@codex-web/shared";
 import { quotePowerShell, stopProcess } from "./index.js";
 import { codexArtifactPath, projectFilePath } from "./projectFile.js";
 import { verifyProjectRoot } from "./projectRoots.js";
-import { spawnWorkspace } from "./serverWorkspace.js";
+import { spawnRemote as spawnWorkspace } from "./remoteLinux.js";
 import { workspaceTransferScript } from "./workspaceFiles.js";
 
 // Only this fixed, root-checked read is sent through system SSH. Neither endpoint
@@ -120,7 +120,7 @@ async function transferFile(
       return { bytes, sha256: hash.digest("hex") };
     }
     const child =
-      machine.type === "server-workspace"
+      machine.type === "server-workspace" || machine.type === "ssh-linux"
         ? spawnWorkspace(machine, [
             "python3",
             "-c",

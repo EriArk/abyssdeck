@@ -6,6 +6,7 @@ import {
   codexAccountMatches,
   codexRuntimeBinding,
   confirmCodexRuntime,
+  confirmLinuxAccount,
 } from "../apps/hub/dist/codex-runtime.js";
 import { deploymentBlockers } from "../apps/hub/dist/deployment-status.js";
 import { Store } from "../apps/hub/dist/store.js";
@@ -465,4 +466,33 @@ test("stale native inProgress history without live Companion proof stays uncerta
   assert.equal(reads, 1);
   assert.equal(f.store.thread(f.thread.id).status, "unknown");
   assert.equal(f.runtime.loaded.size, 0);
+});
+
+test("Linux replacement preserves the previous binding and refuses another account", () => {
+  const store = new Store(":memory:");
+  try {
+    codexRuntimeBinding(store, machine, "C:/Projects");
+    store.db
+      .prepare("UPDATE codex_runtime_bindings SET accountHash=? WHERE machineId='pc'")
+      .run(codexAccountHash(account));
+    const before = store.db.prepare("SELECT * FROM codex_runtime_bindings").get();
+    confirmLinuxAccount(
+      store,
+      { ...machine, type: "ssh-linux" },
+      { ...account, planType: "pro", workspaceName: "Personal" },
+    );
+    assert.deepEqual(store.db.prepare("SELECT * FROM codex_runtime_bindings").get(), before);
+    assert.throws(
+      () =>
+        confirmLinuxAccount(
+          store,
+          { ...machine, type: "ssh-linux" },
+          { ...account, email: "other@example.test" },
+        ),
+      (e) => e.code === "RUNTIME_IDENTITY_CHANGED",
+    );
+    assert.deepEqual(store.db.prepare("SELECT * FROM codex_runtime_bindings").get(), before);
+  } finally {
+    store.close();
+  }
 });

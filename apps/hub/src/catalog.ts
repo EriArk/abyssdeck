@@ -11,7 +11,7 @@ import {
   turnSettingsSchema,
 } from "@codex-web/shared";
 import { Artifacts } from "./artifacts.js";
-import { saveChatLog } from "./chat-log.js";
+import { readChatLog, saveChatLog } from "./chat-log.js";
 import { observeScheduleReceipt } from "./codex-schedules.js";
 import { GeneratedArtifacts } from "./generatedArtifacts.js";
 import { gptResultContent } from "./gpt-result-content.js";
@@ -72,6 +72,7 @@ export class Catalog {
         if (this.logStopped) break;
         const thread = this.store.thread(String(row.id));
         if (
+          thread.historyMode === "saved" ||
           !projects.some((p) => p.id === thread.projectId) ||
           this.library.get("thread", thread.codexThreadId)?.deleted
         )
@@ -699,6 +700,7 @@ export class Catalog {
     return this.store.thread(thread.id);
   }
   async readThread(thread: ThreadRecord): Promise<{ version: number }> {
+    if (thread.historyMode === "saved") return { version: thread.sourceUpdatedAt ?? 0 };
     await this.verifyThreadRoot(thread);
     const project = this.projects().find((p) => p.id === thread.projectId);
     if (!project) throw new HubError(404, "PROJECT_NOT_FOUND", "Проект не найден");
@@ -957,6 +959,7 @@ export class Catalog {
       );
   }
   async history(thread: ThreadRecord, before?: string, turnId?: string): Promise<HistoryPage> {
+    if (thread.historyMode === "saved") return this.savedHistory(thread, before);
     await this.verifyThreadRoot(thread);
     // App Server persists a new draft only after its first turn; it has no native history yet.
     if (
@@ -1192,11 +1195,41 @@ export class Catalog {
       ...(turnId ? { contextTurn: turnId, hasNewer: true } : {}),
     };
   }
+  private savedHistory(thread: ThreadRecord, before?: string, messageId?: string): HistoryPage {
+    const all = readChatLog(this.store, thread.id);
+    let end = all.length;
+    if (before) {
+      end = all.findIndex((m) => m.id === before);
+      if (end < 0)
+        throw new HubError(404, "HISTORY_CURSOR_MISSING", "Страница истории не найдена.");
+    }
+    if (messageId) {
+      const at = all.findIndex((m) => m.id === messageId);
+      if (at < 0)
+        throw new HubError(
+          404,
+          "MESSAGE_SOURCE_UNAVAILABLE",
+          "Это сообщение не сохранилось на сервере.",
+        );
+      end = Math.min(all.length, at + 51);
+    }
+    const start = Math.max(0, end - 100),
+      messages = all.slice(start, end);
+    return {
+      messages,
+      nextBefore: start ? messages[0]!.id : null,
+      hasMore: start > 0,
+      lastSeq: this.store.lastSeq(thread.id),
+      sourceVersion: thread.sourceUpdatedAt ?? 0,
+      ...(messageId ? { contextTurn: "saved", hasNewer: end < all.length } : {}),
+    };
+  }
   async messageContext(
     thread: ThreadRecord,
     messageId: string,
     turnId?: string,
   ): Promise<HistoryPage> {
+    if (thread.historyMode === "saved") return this.savedHistory(thread, undefined, messageId);
     await this.verifyThreadRoot(thread);
     // Pages remain bounded. Never scan an entire old conversation to resolve a backlink.
     for (const [key, entry] of this.pages) {

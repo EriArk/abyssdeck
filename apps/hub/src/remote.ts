@@ -84,6 +84,7 @@ export function remoteProvider(machine: MachineConfig): RemoteProvider {
       autoretry: "0",
       security: "nla",
       "ignore-cert": "false",
+      ...(r.certificateFingerprint ? { "cert-fingerprints": r.certificateFingerprint } : {}),
       "quality-level": "6",
       "compress-level": "6",
     },

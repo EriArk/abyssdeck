@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { HubError, type MachineConfig } from "@codex-web/shared";
 import { authorizeMachine } from "./authority.js";
 import { stopProcess } from "./index.js";
+import { remoteProbe } from "./remoteLinux.js";
 
 export interface WorkspaceDependencies {
   installed: boolean;
@@ -43,6 +44,42 @@ export async function readWorkspaceDependencies(
   authorizeMachine(machine);
   // The managed base has standard development tools, not a primary document-runtime bundle.
   if (machine.type === "server-workspace") return { installed: false };
+  if (machine.type === "ssh-linux")
+    return remoteProbe(machine, async () => {
+      const fs = await import("node:fs/promises"),
+        p = await import("node:path"),
+        os = await import("node:os");
+      const root = p.join(os.homedir(), ".cache/codex-runtimes/codex-primary-runtime");
+      const manifestPath = p.join(root, "runtime.json");
+      try {
+        if ((await fs.stat(manifestPath)).size > 65536) throw Error("INVALID_MANIFEST");
+        const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
+        const out: WorkspaceDependencies = {
+          installed: true,
+          root,
+          bundleVersion: String(manifest.bundleVersion || "").slice(0, 100),
+        };
+        for (const [key, suffix] of Object.entries({
+          node: "dependencies/node/bin/node",
+          python: "dependencies/python/bin/python3",
+          nodeModules: "dependencies/node/node_modules",
+          plugins: "plugins/openai-primary-runtime",
+        })) {
+          const path = p.join(root, suffix);
+          if (
+            await fs.stat(path).then(
+              () => true,
+              () => false,
+            )
+          )
+            (out as unknown as Record<string, unknown>)[key] = path;
+        }
+        return out;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") return { installed: false };
+        throw error;
+      }
+    }, []);
   if (machine.type === "local-linux") {
     const root = join(homedir(), ".cache/codex-runtimes/codex-primary-runtime");
     let manifest: Record<string, unknown>;

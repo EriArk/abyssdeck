@@ -132,6 +132,30 @@ class CheckpointTest(unittest.TestCase):
         self.assertNotIn('serverWorkspaces', json.loads((self.state / 'config.json').read_text()))
         checkpoint.admission(self.state, self.target)
 
+    def test_linux_recovery_requires_exact_config_and_preserves_rollback(self):
+        import machine_recovery
+        self.config.update(machines=[dict(id='pc', type='ssh-windows')], projects=[dict(id='project', machineId='pc', workingDirectory='D:/Projects')], devices=[dict(id='pc', platform='windows')])
+        (self.state / 'config.json').write_text(json.dumps(self.config))
+        with sqlite3.connect(self.data / 'app.db') as db:
+            db.executescript("ALTER TABLE threads ADD COLUMN workingDirectory TEXT; ALTER TABLE threads ADD COLUMN historyMode TEXT; CREATE TABLE catalog_projects(id TEXT, machineId TEXT, sourceId TEXT, value TEXT);")
+            db.execute("UPDATE threads SET workingDirectory='D:/Projects',historyMode='paginated'")
+        plan = dict(format=1, configHash='fixture', machineId='pc', machine=dict(id='pc', type='ssh-linux', ssh=dict(target='pc'), codex=dict(appServerSocket='/run/user/1000/codex.sock', persistent=True)), device=dict(id='pc', platform='linux'), paths=[{'from':'D:/', 'to':'/data'}], saveNativeHistory=True)
+        self.create()
+        machine_recovery.apply(self.state, self.config, plan)
+        with self.assertRaisesRegex(RuntimeError, 'CONFIG_CHANGED'):
+            checkpoint.admission(self.state, self.target)
+        checkpoint.admission(self.state, self.target, machine_recovery=plan)
+        changed = json.loads((self.state / 'config.json').read_text())
+        changed['auth']['ownerLogin'] = 'different'
+        (self.state / 'config.json').write_text(json.dumps(changed))
+        with self.assertRaisesRegex(RuntimeError, 'CONFIG_CHANGED'):
+            checkpoint.admission(self.state, self.target, machine_recovery=plan)
+        checkpoint.restore(self.state, self.target)
+        self.assertEqual(json.loads((self.state / 'config.json').read_text()), self.config)
+        with sqlite3.connect(self.data / 'app.db') as db:
+            self.assertEqual(db.execute('SELECT workingDirectory,historyMode FROM threads').fetchone(), ('D:/Projects', 'paginated'))
+            self.assertEqual(db.execute('SELECT state FROM receipts').fetchone(), ('unknown',))
+
     def test_corrupt_copy_or_missing_private_database_blocks_restore(self):
         self.create()
         (self.target / 'data/team/users' / MEMBER / 'app.db').write_bytes(b'bad copy')

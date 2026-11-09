@@ -8,7 +8,7 @@ import {
 import { authorizeMachine } from "./authority.js";
 import { quotePowerShell, stopProcess } from "./index.js";
 import { verifyProjectRoot } from "./projectRoots.js";
-import { workspaceProbe } from "./serverWorkspace.js";
+import { remoteProbe as workspaceProbe } from "./remoteLinux.js";
 import { setupProbe } from "./setupProbe.js";
 
 const messages: Record<string, string> = {
@@ -50,7 +50,7 @@ export async function runProjectSetup(
   authorizeMachine(machine);
   if (request.op === "inspect" || request.op === "apply")
     await verifyProjectRoot(machine, request.input.workingDirectory, request.input.createDirectory);
-  if (machine.type === "server-workspace")
+  if (machine.type === "server-workspace" || machine.type === "ssh-linux")
     return workspaceProbe(machine, setupProbe, [request], 250000);
   if (machine.type === "local-linux") {
     try {

@@ -207,7 +207,8 @@ export class MachineHealthService {
           id: machine.id,
           name: machine.name,
           os: machine.type === "ssh-windows" ? "Windows" : "Linux",
-          transport: machine.type === "ssh-windows" ? "SSH" : "Local",
+          transport:
+            machine.type === "ssh-windows" || machine.type === "ssh-linux" ? "SSH" : "Local",
           remoteProvider: machine.remote?.provider,
           lastSeenAt: value?.lastSeenAt,
           probe: value?.probe,

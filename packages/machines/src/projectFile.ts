@@ -56,7 +56,7 @@ export async function readProjectFile(
 ): Promise<Buffer> {
   await verifyProjectRoot(machine, root);
   const path = projectFilePath(machine, root, input);
-  if (machine.type === "server-workspace")
+  if (machine.type === "server-workspace" || machine.type === "ssh-linux")
     return readWorkspaceFile(machine, root, path, PROJECT_FILE_LIMIT);
   if (machine.type === "local-linux") {
     const actualRoot = await realpath(root),

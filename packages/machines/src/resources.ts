@@ -4,11 +4,29 @@ import { freemem, totalmem, uptime } from "node:os";
 import type { MachineConfig, MachineProbe } from "@codex-web/shared";
 import { quotePowerShell, stopProcess } from "./index.js";
 import { verifyProjectRoot } from "./projectRoots.js";
+import { remoteProbe } from "./remoteLinux.js";
 import { workspaceProbe } from "./serverWorkspace.js";
 
 type Metrics = NonNullable<MachineProbe["metrics"]>;
 export async function readMachineResources(machine: MachineConfig, root: string): Promise<Metrics> {
   await verifyProjectRoot(machine, root);
+  if (machine.type === "ssh-linux")
+    return remoteProbe(
+      machine,
+      async (root: string) => {
+        const fs = await import("node:fs/promises"),
+          os = await import("node:os");
+        const disk = await fs.statfs(root);
+        return {
+          memoryTotal: os.totalmem(),
+          memoryAvailable: os.freemem(),
+          diskTotal: disk.blocks * disk.bsize,
+          diskAvailable: disk.bavail * disk.bsize,
+          bootedAt: Date.now() - os.uptime() * 1000,
+        };
+      },
+      [root],
+    );
   if (machine.type === "server-workspace")
     return workspaceProbe(
       machine,

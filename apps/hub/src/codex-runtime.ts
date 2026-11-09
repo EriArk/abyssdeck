@@ -25,6 +25,36 @@ export function codexAccountMatches(expected: string, account: unknown): boolean
     expected === codexAccountHash(account) || expected === hash(accountIdentity(account, true))
   );
 }
+
+/** A Linux transport migration retains the existing machine/account boundary. */
+export function confirmLinuxAccount(store: Store, machine: MachineConfig, account: unknown) {
+  if (machine.type !== "ssh-linux") return;
+  const previous = store.db
+    .prepare("SELECT accountHash FROM codex_runtime_bindings WHERE machineId=?")
+    .get(machine.id);
+  if (previous?.accountHash && !codexAccountMatches(String(previous.accountHash), account))
+    throw new HubError(
+      409,
+      "RUNTIME_IDENTITY_CHANGED",
+      "На компьютере открыт другой аккаунт Codex. История и отправки сохранены.",
+    );
+  const accountHash = codexAccountHash(account);
+  if (previous)
+    store.db
+      .prepare("UPDATE codex_runtime_bindings SET accountHash=? WHERE machineId=?")
+      .run(accountHash, machine.id);
+  else
+    store.db
+      .prepare(
+        "INSERT INTO codex_runtime_bindings(machineId,binding,capability,accountHash) VALUES(?,?,?,?)",
+      )
+      .run(
+        machine.id,
+        hash([machine.id, machine.type, machine.ssh]),
+        randomBytes(32).toString("hex"),
+        accountHash,
+      );
+}
 export function codexRuntimeBinding(
   store: Store,
   machine: MachineConfig,

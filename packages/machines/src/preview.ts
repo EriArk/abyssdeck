@@ -71,7 +71,7 @@ async function readPreviewFile(
   path: string,
 ): Promise<Buffer> {
   await verifyProjectRoot(machine, root);
-  if (machine.type === "server-workspace")
+  if (machine.type === "server-workspace" || machine.type === "ssh-linux")
     return readWorkspaceFile(machine, root, path, PREVIEW_LIMIT);
   if (machine.type === "local-linux") {
     const actualRoot = await realpath(root),

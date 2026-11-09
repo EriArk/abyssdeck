@@ -26,7 +26,9 @@ export function PcRemote({
       !p.deleted &&
       !p.archived &&
       p.remoteAvailable &&
-      machines.some((m) => m.id === p.machineId && m.type === "ssh-windows"),
+      machines.some(
+        (m) => m.id === p.machineId && (m.type === "ssh-windows" || m.type === "ssh-linux"),
+      ),
   );
   const byMachine = [...new Map(choices.map((p) => [p.machineId, p])).values()];
   const [selected, setSelected] = useState(

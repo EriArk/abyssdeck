@@ -25,7 +25,12 @@ import { Attachments } from "./attachments.js";
 import { doctorThread } from "./bridge-doctor-policy.js";
 import { Catalog, type CatalogProject } from "./catalog.js";
 import { clientToolContext } from "./client-tool-context.js";
-import { codexRuntimeBinding, confirmCodexRuntime, type RuntimeBinding } from "./codex-runtime.js";
+import {
+  codexRuntimeBinding,
+  confirmCodexRuntime,
+  confirmLinuxAccount,
+  type RuntimeBinding,
+} from "./codex-runtime.js";
 import { observeScheduleReceipt } from "./codex-schedules.js";
 import { elicitationResponse, parseElicitation } from "./elicitation.js";
 import { ExternalActivity } from "./externalActivity.js";
@@ -407,6 +412,12 @@ export class Sessions extends EventEmitter {
     return t;
   }
   private async verifyThreadRoot(thread: ThreadRecord) {
+    if (thread.historyMode === "saved")
+      throw new HubError(
+        409,
+        "NATIVE_HISTORY_UNAVAILABLE",
+        "Сохранённая переписка доступна для чтения. Локальный профиль прежнего компьютера утрачен; для продолжения создай новый чат.",
+      );
     const project = this.project(thread.projectId);
     await verifyProjectRoot(
       this.catalog.machine(project.machineId),
@@ -518,6 +529,7 @@ export class Sessions extends EventEmitter {
             "CODEX_LOGIN_REQUIRED",
             "Выполни вход в Codex на выбранной машине",
           );
+        confirmLinuxAccount(this.store, machine, account.account);
         if (binding) {
           confirmCodexRuntime(this.store, machine.id, binding, identity.companion, account.account);
           runtime.instanceId = text(record(identity.companion).instanceId);
@@ -1231,10 +1243,6 @@ export class Sessions extends EventEmitter {
     if (!models.length)
       throw new HubError(503, "MODELS_UNAVAILABLE", "Codex не вернул доступные модели");
     const warnings: string[] = [];
-    if (!["0.153.4", "0.159.2"].includes(r.version ?? ""))
-      warnings.push(
-        `Codex ${r.version ?? "неизвестной версии"}: эта версия ещё не прошла проверку совместимости.`,
-      );
     const optional = async (method: string, params: Record<string, unknown>, label: string) => {
       try {
         return await r.rpc.request(method, params);

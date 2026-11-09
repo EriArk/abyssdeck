@@ -17,7 +17,7 @@ export async function readMachineImage(machine: MachineConfig, path: string): Pr
     !(machine.type !== "ssh-windows" ? path.startsWith("/") : /^[a-z]:[\\/]/i.test(path))
   )
     throw new HubError(400, "INVALID_IMAGE_PATH", "Неподдерживаемый путь изображения");
-  if (machine.type === "server-workspace")
+  if (machine.type === "server-workspace" || machine.type === "ssh-linux")
     return readWorkspaceFile(machine, posix.dirname(path), path, limit);
   if (machine.type === "local-linux") {
     const file = await open(path, "r");

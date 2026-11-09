@@ -7,18 +7,20 @@ import {
 } from "@codex-web/shared";
 import { authorizeMachine } from "./authority.js";
 import { quotePowerShell, stopProcess } from "./index.js";
+import { linuxFileLaunch } from "./linuxFileLaunch.js";
 import { verifyProjectRoot } from "./projectRoots.js";
+import { remoteProbe } from "./remoteLinux.js";
 
 const messages: Record<string, string> = {
   LAUNCH_UNAVAILABLE: "Не удалось связаться с помощником запуска на компьютере.",
   LAUNCH_POLICY: "Политика Windows не разрешает запуск PowerShell-скриптов на этом компьютере.",
   LAUNCH_PATH: "Файл должен находиться внутри рабочей папки проекта без перенаправлений.",
   LAUNCH_CHANGED: "Файл изменился. Открой текущую версию в Файлах перед запуском.",
-  LAUNCH_FORMAT: "Этот файл нельзя запустить выбранным обработчиком Windows.",
+  LAUNCH_FORMAT: "Этот файл нельзя запустить выбранным обработчиком компьютера.",
   LAUNCH_BUSY: "Предыдущий запуск ещё проверяется. Дождись его состояния.",
   LAUNCH_EXPIRED: "Время подготовки истекло. Повторного запуска не было.",
   LAUNCH_UNKNOWN: "Состояние запуска не подтверждено. Повторного запуска не было.",
-  LAUNCH_FAILED: "Windows не удалось запустить этот файл.",
+  LAUNCH_FAILED: "Не удалось запустить этот файл.",
   LAUNCH_MISSING: "Квитанция запуска на компьютере не найдена. Повторного запуска не было.",
   LAUNCH_KEY_REUSED: "Эта квитанция относится к другому запуску.",
   LAUNCH_CAPACITY: "Хранилище квитанций запуска заполнено.",
@@ -31,6 +33,7 @@ export async function runFileLaunch(
 ): Promise<FileLaunchResponse> {
   await verifyProjectRoot(machine, root);
   authorizeMachine(machine);
+  if (machine.type === "ssh-linux") return remoteProbe(machine, linuxFileLaunch, [root, request]);
   if (machine.type !== "ssh-windows" || !machine.ssh || !machine.codex.activityNode) {
     throw new HubError(409, "LAUNCH_UNAVAILABLE", fileLaunchMessage("LAUNCH_UNAVAILABLE"));
   }

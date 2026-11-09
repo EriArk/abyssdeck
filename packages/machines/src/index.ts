@@ -1,6 +1,7 @@
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { HubError, type MachineConfig } from "@codex-web/shared";
 import { authorizeMachine } from "./authority.js";
+import { spawnRemote } from "./remoteLinux.js";
 import { spawnWorkspace } from "./serverWorkspace.js";
 
 export { type NativeActivity, readNativeActivity } from "./activity.js";
@@ -83,6 +84,14 @@ export function spawnCodex(
   authorizeMachine(machine);
   if (machine.codex.enabled === false)
     throw new HubError(409, "CODEX_COMPONENT_DISABLED", "Codex не подключён к этому устройству.");
+  if (machine.type === "ssh-linux")
+    return spawnRemote(
+      machine,
+      machine.codex.appServerSocket && args[0] === "app-server"
+        ? [machine.codex.activityNode!, machine.codex.launcher!, machine.codex.appServerSocket]
+        : [machine.codex.command, ...args],
+      cwd,
+    );
   if (machine.type === "server-workspace")
     return spawnWorkspace(machine, [machine.codex.command, ...args], cwd);
   const options = {
@@ -185,7 +194,7 @@ export async function stageAttachment(
       .replace(/[^a-zA-Z0-9а-яА-ЯёЁ._ -]/gu, "_")
       .slice(-120)
       .replace(/[. ]+$/, "") || "attachment";
-  if (machine.type === "server-workspace") {
+  if (machine.type === "server-workspace" || machine.type === "ssh-linux") {
     const { createHash } = await import("node:crypto");
     const { createReadStream } = await import("node:fs");
     const { stageWorkspaceFile } = await import("./workspaceFiles.js");

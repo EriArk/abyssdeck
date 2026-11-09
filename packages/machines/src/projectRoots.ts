@@ -4,7 +4,7 @@ import { posix, win32 } from "node:path";
 import { HubError, type MachineConfig } from "@codex-web/shared";
 import { authorizeMachine } from "./authority.js";
 import { quotePowerShell, stopProcess } from "./index.js";
-import { workspaceProbe } from "./serverWorkspace.js";
+import { remoteProbe as workspaceProbe } from "./remoteLinux.js";
 
 const denied = () =>
   new HubError(
@@ -89,7 +89,7 @@ export async function verifyProjectRoot(
   authorizeMachine(machine);
   if (machine.allowedProjectRoots === undefined) return;
   const path = assertProjectRoot(machine, value);
-  if (machine.type === "server-workspace") {
+  if (machine.type === "server-workspace" || machine.type === "ssh-linux") {
     await workspaceProbe(
       machine,
       async (path: string, missing: boolean) => {
