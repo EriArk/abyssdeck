@@ -54,6 +54,9 @@ The plan binds the original config checksum and one existing machine ID, supplie
 its Linux machine/device settings, and declares Windows-to-POSIX path mappings.
 It cannot replace authentication, Team or another machine's settings. Full
 checkpoint rollback restores the old config and databases before public admission.
+Background native discovery waits until candidate admission completes, then
+resumes automatically. This prevents newly discovered desktop threads from
+changing the exact identities being checked against the checkpoint.
 
 Only the owner's catalog paths and thread working directories change. Existing
 Hub/native thread IDs, account bindings, messages, attachments, result provenance

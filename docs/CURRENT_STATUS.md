@@ -2,6 +2,18 @@
 
 ## Linux PC recovery (2026-11-09)
 
+Installed engine/web `ec13ce32` with the pinned Linux Codex **0.167.0**.
+Real-account acceptance covered a Hub chat and history, SSH reconnection, PTY,
+file/Git inspection, one-effect systemd script launch and authenticated RDP
+image delivery. Chromium/WebKit Remote checks and the local Linux build passed.
+The installed check preserved original thread identities, account/Team settings
+and existing GPT container identities. GitHub CLI login is deferred by the owner.
+
+The first candidate was rolled back before public admission because background
+native discovery added a desktop thread during exact checkpoint validation.
+Discovery now waits for installation admission, with a real Team startup test
+verifying both the frozen and resumed phases; strict identity checks remain.
+
 Personal Linux PCs now have an SSH transport for Codex and project operations,
 a persistent Codex 0.167 Unix-WebSocket bridge, RDP certificate pins, Linux file
 launch and the existing device terminal. Guarded OS replacement preserves Team
