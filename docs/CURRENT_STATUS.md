@@ -2,6 +2,14 @@
 
 ## Linux PC recovery (2026-11-09)
 
+Follow-up: the web client now presents platform-neutral `THREAD_IN_USE`
+guidance, including when the installed engine returns its older Windows text.
+The recovered current Linux conversation is a live native chat; its desktop
+writer conflict is distinct from the 43 retained read-only histories. No writer
+is forcibly released. Type checks, six error tests and Chromium/WebKit phone
+checks passed: drafts survive refusal and access recovery never sends them.
+This is a compatible web-only publication; engine/runtime behavior is unchanged.
+
 Installed engine/web `ec13ce32` with the pinned Linux Codex **0.167.0**.
 Real-account acceptance covered a Hub chat and history, SSH reconnection, PTY,
 file/Git inspection, one-effect systemd script launch and authenticated RDP

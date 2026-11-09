@@ -7,7 +7,7 @@ import test from "node:test";
 import { CodexClient } from "../packages/codex/dist/index.js";
 
 const source = await readFile(new URL("../apps/web/src/api.ts", import.meta.url), "utf8");
-const { api, configureApi, changePassword } = await import(
+const { api, configureApi, changePassword, ApiError, messageOf } = await import(
   "data:text/javascript;base64," +
     Buffer.from(
       stripTypeScriptTypes(source, { mode: "transform" }).replace(
@@ -16,6 +16,24 @@ const { api, configureApi, changePassword } = await import(
       ),
     ).toString("base64")
 );
+test("writer guidance is platform neutral and distinct from lost native history", () => {
+  const conflict = new ApiError(
+    409,
+    "THREAD_IN_USE",
+    "Выйди из Codex на Windows и оставь Companion",
+  );
+  assert.match(messageOf(conflict), /другом клиенте Codex/);
+  assert.match(messageOf(conflict), /Дождись завершения/);
+  assert.match(messageOf(conflict), /Черновик сохранён/);
+  assert.doesNotMatch(messageOf(conflict), /Windows|Companion/);
+  const saved = new ApiError(
+    409,
+    "NATIVE_HISTORY_UNAVAILABLE",
+    "Сохранённая переписка доступна для чтения.",
+  );
+  assert.equal(messageOf(saved), saved.message);
+  assert.equal(messageOf(new Error("Other error")), "Other error");
+});
 test("proxy HTML and empty responses produce readable API errors, not Safari JSON parsing errors", async () => {
   const original = globalThis.fetch;
   let expired = false;

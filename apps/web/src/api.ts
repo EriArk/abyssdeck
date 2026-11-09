@@ -166,7 +166,11 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
   return value as T;
 }
 export const messageOf = (error: unknown): string =>
-  error instanceof Error ? error.message : "Не удалось выполнить действие";
+  error instanceof ApiError && error.code === "THREAD_IN_USE"
+    ? "Этот чат открыт в другом клиенте Codex. Дождись завершения его работы и закрой приложение, в котором открыт чат, затем проверь доступ ещё раз. Фоновое подключение AbyssDeck к компьютеру оставь включённым. Черновик сохранён."
+    : error instanceof Error
+      ? error.message
+      : "Не удалось выполнить действие";
 
 export async function changePassword(
   currentPassword: string,
