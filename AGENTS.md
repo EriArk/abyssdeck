@@ -5,6 +5,9 @@
 - Keep server-only recovered chats and unrebound recovered projects in one
   initially collapsed «Серверный архив» section below ordinary chat navigation.
   Working projects stay visible even when their older chats belong in that section.
+- Archive projects/chats use the same folder rows, inline disclosure, single-chat
+  shortcut and thread rows as ordinary navigation, without live-only actions.
+  Do not replace them with a separately styled flat history list.
 - Use persisted recovery metadata, never a temporary PC/network failure, to
   classify the archive. Preserve IDs, messages, results, drafts and receipts.
   Reading archived history must not acquire a native writer or replay a prompt.

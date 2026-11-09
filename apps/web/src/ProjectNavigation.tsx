@@ -159,6 +159,9 @@ export function ProjectNavigation({
   const archiveProjects = projects.filter(
     (p) => !p.deleted && !p.archived && (p.serverArchived || archivedGroups[p.id]?.length),
   );
+  const selectedSaved = Object.values(archivedGroups).some((list) =>
+    list.some((t) => t.id === threadId),
+  );
   const doctorThreads = Object.values(groups)
     .flat()
     .filter((t) => t.bridgeDoctor);
@@ -209,8 +212,9 @@ export function ProjectNavigation({
     [projectId, threadId],
   );
   useEffect(() => {
-    if (projectId) setExpanded((old) => new Set(old).add(projectId));
-  }, [projectId]);
+    if (projectId)
+      setExpanded((old) => new Set(old).add((selectedSaved ? "archive:" : "live:") + projectId));
+  }, [projectId, selectedSaved]);
   const renderThread = (t: Thread, saved = false) => {
     const status = detail(t);
     const active = ["running", "starting", "waiting_approval"].includes(status.status);
@@ -256,8 +260,8 @@ export function ProjectNavigation({
   };
   const threadActive = (t: Thread) =>
     ["running", "starting", "waiting_approval"].includes(detail(t).status);
-  const threadList = (p: Project) => {
-    const list = groups[p.id];
+  const threadList = (p: Project, saved = false) => {
+    const list = (saved ? archivedGroups : groups)[p.id];
     return (
       <section className="project-thread-list" aria-label={`Диалоги: ${p.name}`}>
         {pending.has(p.id) && !list && (
@@ -272,27 +276,155 @@ export function ProjectNavigation({
         )}
         <PinnedList
           items={(list ?? []).filter((t) => matches(p.name) || matches(t.title))}
-          renderItem={renderThread}
-          active={threadActive}
+          renderItem={(t) => renderThread(t, saved)}
+          active={(t) => !saved && threadActive(t)}
           recent={(t) => Date.parse(detail(t).activityAt || detail(t).updatedAt) || 0}
-          storageKey={"codex-project-" + p.id}
+          storageKey={(saved ? "codex-archive-project-" : "codex-project-") + p.id}
           searching={!!query.trim()}
         />
         {list?.length === 0 && !pending.has(p.id) && (
           <p className="nav-empty">
-            {p.unassigned ? "Пока нет чатов без проекта." : "В проекте пока нет диалогов."}
+            {saved
+              ? "Сохранённых диалогов нет."
+              : p.unassigned
+                ? "Пока нет чатов без проекта."
+                : "В проекте пока нет диалогов."}
           </p>
         )}
-        <button
-          type="button"
-          className="nav-new-thread"
-          disabled={busy}
-          onClick={() => onNewThread(p.id)}
-        >
-          <Icon name="plus" size={16} />
-          Новый диалог
-        </button>
+        {!saved && (
+          <button
+            type="button"
+            className="nav-new-thread"
+            disabled={busy}
+            onClick={() => onNewThread(p.id)}
+          >
+            <Icon name="plus" size={16} />
+            Новый диалог
+          </button>
+        )}
       </section>
+    );
+  };
+  const renderProject = (p: Project, saved = false) => {
+    const list = (saved ? archivedGroups : groups)[p.id] ?? [];
+    const key = (saved ? "archive:" : "live:") + p.id;
+    const selectedProject = projectId === p.id && saved === selectedSaved;
+    const single = list.length === 1 || (!saved && list.length === 0 && p.threadCount === 1);
+    const open = !single && (expanded.has(key) || !!query.trim());
+    return (
+      <div className="nav-project-group" key={p.id}>
+        <div className={"entity-row " + (selectedProject ? "selected" : "")}>
+          <button
+            type="button"
+            className={`nav-project ${selectedProject ? "selected" : ""}`}
+            disabled={busy || pending.has(p.id)}
+            aria-expanded={single ? undefined : open}
+            data-project-id={p.id}
+            title={p.name}
+            onClick={(event) => {
+              const request = ++openRequest.current;
+              const button = event.currentTarget;
+              const sole = list.length === 1 ? list[0] : undefined;
+              if (sole) {
+                onThread(sole.id, p.id);
+                return;
+              }
+              setExpanded((old) => {
+                const next = new Set(old);
+                if (next.has(key) && !single) next.delete(key);
+                else next.add(key);
+                return next;
+              });
+              if (!open)
+                void load(p.id).then((loaded) => {
+                  if (
+                    request !== openRequest.current ||
+                    !button.isConnected ||
+                    !button.getClientRects().length
+                  )
+                    return;
+                  const visible = loaded?.filter(
+                    (t) =>
+                      !metadata.get("thread" + t.id)?.archived &&
+                      !metadata.get("thread" + t.id)?.deleted &&
+                      (t.historyMode === "saved") === saved,
+                  );
+                  if (visible?.length === 1 && visible[0]) onThread(visible[0].id, p.id);
+                });
+            }}
+          >
+            <span
+              className={`folder-icon folder-${projects.findIndex((item) => item.id === p.id) % 5}`}
+            >
+              <Icon name={p.pinned ? "pin" : "folder"} />
+            </span>
+            <span>
+              {p.name}
+              <small>{saved ? "Серверный архив" : p.machineName}</small>
+            </span>
+            {!saved && (
+              <ActivityBadge
+                aggregate
+                active={summary(p).active}
+                unread={summary(p).unread}
+                waiting={summary(p).waiting}
+              />
+            )}
+            {pending.has(p.id) ? (
+              <span className="spinner" role="img" aria-label="Загрузка диалогов" />
+            ) : (
+              !single && (
+                <span className="project-chevron" data-open={open}>
+                  <Icon name="chevron" size={15} />
+                </span>
+              )
+            )}
+          </button>
+          {!saved && (
+            <EntityMenu
+              client="codex"
+              entity={{ id: p.id, kind: "project", name: p.name, pinned: p.pinned }}
+              active={summary(p).active > 0}
+              relatedThread={
+                list.length === 1 && list[0]
+                  ? {
+                      id: list[0].id,
+                      kind: "thread",
+                      name: list[0].title,
+                      projectId: p.id,
+                      pinned: list[0].pinned,
+                    }
+                  : undefined
+              }
+              newThreadDisabled={busy}
+              onNewThread={() => {
+                ++openRequest.current;
+                setExpanded((old) => new Set(old).add(key));
+                onNewThread(p.id);
+              }}
+            />
+          )}
+        </div>
+        {single && errors[p.id] && (
+          <button type="button" className="nav-empty" onClick={() => void load(p.id)}>
+            {errors[p.id]} Повторить
+          </button>
+        )}
+        {!saved && open && onOverview && (
+          <button
+            type="button"
+            className="nav-new-thread overview-nav"
+            onClick={() => {
+              ++openRequest.current;
+              onOverview(p.id);
+            }}
+          >
+            <Icon name="folder" size={16} />
+            Обзор проекта
+          </button>
+        )}
+        {open && threadList(p, saved)}
+      </div>
     );
   };
   return (
@@ -414,122 +546,7 @@ export function ProjectNavigation({
               recent={(p) => Date.parse(summary(p).activityAt || summary(p).updatedAt) || 0}
               storageKey="codex-projects"
               searching={!!query.trim()}
-              renderItem={(p) => {
-                const list = groups[p.id] ?? [];
-                const single = list.length === 1 || (list.length === 0 && p.threadCount === 1);
-                const open = !single && (expanded.has(p.id) || !!query.trim());
-                return (
-                  <div className="nav-project-group" key={p.id}>
-                    <div className={"entity-row " + (projectId === p.id ? "selected" : "")}>
-                      <button
-                        type="button"
-                        className={`nav-project ${projectId === p.id ? "selected" : ""}`}
-                        disabled={busy || pending.has(p.id)}
-                        aria-expanded={single ? undefined : open}
-                        data-project-id={p.id}
-                        onClick={(event) => {
-                          const request = ++openRequest.current;
-                          const button = event.currentTarget;
-                          const sole = list.length === 1 ? list[0] : undefined;
-                          if (sole) {
-                            onThread(sole.id, p.id);
-                            return;
-                          }
-                          setExpanded((old) => {
-                            const next = new Set(old);
-                            if (next.has(p.id) && !single) next.delete(p.id);
-                            else next.add(p.id);
-                            return next;
-                          });
-                          if (!open)
-                            void load(p.id).then((loaded) => {
-                              if (
-                                request !== openRequest.current ||
-                                !button.isConnected ||
-                                !button.getClientRects().length
-                              )
-                                return;
-                              const visible = loaded?.filter(
-                                (t) =>
-                                  !metadata.get("thread" + t.id)?.archived &&
-                                  !metadata.get("thread" + t.id)?.deleted &&
-                                  t.historyMode !== "saved",
-                              );
-                              if (visible?.length === 1 && visible[0])
-                                onThread(visible[0].id, p.id);
-                            });
-                        }}
-                      >
-                        <span
-                          className={`folder-icon folder-${projects.findIndex((item) => item.id === p.id) % 5}`}
-                        >
-                          <Icon name={p.pinned ? "pin" : "folder"} />
-                        </span>
-                        <span>
-                          {p.name}
-                          <small>{p.machineName}</small>
-                        </span>
-                        <ActivityBadge
-                          aggregate
-                          active={summary(p).active}
-                          unread={summary(p).unread}
-                          waiting={summary(p).waiting}
-                        />
-                        {pending.has(p.id) ? (
-                          <span className="spinner" role="img" aria-label="Загрузка диалогов" />
-                        ) : (
-                          !single && (
-                            <span className="project-chevron" data-open={open}>
-                              <Icon name="chevron" size={15} />
-                            </span>
-                          )
-                        )}
-                      </button>
-                      <EntityMenu
-                        client="codex"
-                        entity={{ id: p.id, kind: "project", name: p.name, pinned: p.pinned }}
-                        active={summary(p).active > 0}
-                        relatedThread={
-                          list.length === 1 && list[0]
-                            ? {
-                                id: list[0].id,
-                                kind: "thread",
-                                name: list[0].title,
-                                projectId: p.id,
-                                pinned: list[0].pinned,
-                              }
-                            : undefined
-                        }
-                        newThreadDisabled={busy}
-                        onNewThread={() => {
-                          ++openRequest.current;
-                          setExpanded((old) => new Set(old).add(p.id));
-                          onNewThread(p.id);
-                        }}
-                      />
-                    </div>
-                    {single && errors[p.id] && (
-                      <button type="button" className="nav-empty" onClick={() => void load(p.id)}>
-                        {errors[p.id]} Повторить
-                      </button>
-                    )}
-                    {open && onOverview && (
-                      <button
-                        type="button"
-                        className="nav-new-thread overview-nav"
-                        onClick={() => {
-                          ++openRequest.current;
-                          onOverview(p.id);
-                        }}
-                      >
-                        <Icon name="folder" size={16} />
-                        Обзор проекта
-                      </button>
-                    )}
-                    {open && threadList(p)}
-                  </div>
-                );
-              }}
+              renderItem={(p) => renderProject(p)}
             />
             {query &&
               !folders.some(
@@ -600,7 +617,6 @@ export function ProjectNavigation({
               onClick={() => {
                 ++openRequest.current;
                 setArchiveOpen((open) => !open);
-                if (!archiveOpen) for (const p of archiveProjects) void load(p.id);
               }}
             >
               <span className="project-chevron" data-open={archiveOpen}>
@@ -610,25 +626,18 @@ export function ProjectNavigation({
             </button>
             {archiveOpen && (
               <div id={archiveId}>
-                <p className="nav-empty">Сохранённая переписка. Только чтение.</p>
-                {archiveProjects.map((p) => (
-                  <section
-                    key={p.id}
-                    className="server-archive-project"
-                    aria-label={`Архив: ${p.name}`}
-                  >
-                    <div className="nav-label">{p.name}</div>
-                    {p.serverArchived && (
-                      <p className="nav-empty">Проект сохранён только на сервере.</p>
-                    )}
-                    {(archivedGroups[p.id] ?? []).map((t) => renderThread(t, true))}
-                    {errors[p.id] && (
-                      <button type="button" className="nav-empty" onClick={() => void load(p.id)}>
-                        {errors[p.id]} Повторить
-                      </button>
-                    )}
-                  </section>
-                ))}
+                {archiveProjects.filter((p) => !p.unassigned).map((p) => renderProject(p, true))}
+                {archiveProjects
+                  .filter((p) => p.unassigned)
+                  .map((p) => (
+                    <section
+                      key={p.id}
+                      className="standalone-thread-list"
+                      aria-label="Архив: диалоги без проекта"
+                    >
+                      {archivedGroups[p.id]?.map((t) => renderThread(t, true))}
+                    </section>
+                  ))}
               </div>
             )}
           </section>

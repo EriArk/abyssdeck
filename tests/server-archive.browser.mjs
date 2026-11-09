@@ -21,7 +21,8 @@ for (const type of [chromium, webkit]) {
     .run(lost.id, "pc", "old-project", JSON.stringify(lost));
   const old = f.store.createThread("project", "lost-native", "Старая переписка");
   const absent = f.store.createThread(lost.id, "lost-project-native", "Чат исчезнувшего проекта");
-  for (const thread of [old, absent]) {
+  const older = f.store.createThread("project", "lost-native-2", "Ещё одна старая переписка");
+  for (const thread of [old, older, absent]) {
     f.store.db.prepare("UPDATE threads SET historyMode='saved' WHERE id=?").run(thread.id);
     saveChatLog(
       f.store,
@@ -85,9 +86,33 @@ for (const type of [chromium, webkit]) {
       await expect(
         page.locator('[data-project-id="project"]').filter({ visible: true }),
       ).toBeVisible();
+      const archiveReads = [];
+      const observeArchiveRead = (request) => {
+        if (/\/api\/projects\/[^/]+\/threads$/.test(new URL(request.url()).pathname))
+          archiveReads.push(request.url());
+      };
+      page.on("request", observeArchiveRead);
       await toggle.click();
+      const savedProject = archive.locator('[data-project-id="project"]');
+      await expect(savedProject).toHaveAttribute("aria-expanded", "false");
+      await expect(savedProject.locator(".folder-icon")).toBeVisible();
+      await expect(archive.locator(`[data-thread-id="${old.id}"]`)).toHaveCount(0);
+      assert.equal(archiveReads.length, 0, "Opening archive does not refresh all native projects");
+      page.off("request", observeArchiveRead);
+      await savedProject.click();
+      await expect(savedProject).toHaveAttribute("aria-expanded", "true");
       await expect(archive.locator(`[data-thread-id="${old.id}"]`)).toBeVisible();
-      await expect(archive.getByText(lost.name, { exact: true })).toBeVisible();
+      await expect(archive.locator(`[data-thread-id="${older.id}"]`)).toBeVisible();
+      await expect(
+        archive.locator(
+          ".entity-trigger, .activity-badge, .nav-new-thread:not(.server-archive-toggle)",
+        ),
+      ).toHaveCount(0);
+      await savedProject.click();
+      await expect(archive.locator(`[data-thread-id="${old.id}"]`)).toHaveCount(0);
+      await savedProject.click();
+      await expect(archive.locator(`[data-project-id="${lost.id}"]`)).toBeVisible();
+      await expect(archive.locator(".spinner")).toHaveCount(0);
       await page.screenshot({
         path: `.local/qa-server-archive/${type.name()}-${theme}-${width}.png`,
       });
@@ -106,7 +131,21 @@ for (const type of [chromium, webkit]) {
         mutations,
       );
       await open();
-      await page.locator('[data-project-id="project"]').filter({ visible: true }).click();
+      const liveProject = page
+        .locator('.nav-projects [data-project-id="project"]')
+        .filter({ visible: true });
+      await expect(liveProject).not.toHaveClass(/selected/);
+      await expect(savedProject).toHaveClass(/selected/);
+      await liveProject.click();
+      await expect(editor).toHaveValue("Сохрани мой рабочий черновик");
+      await open();
+      await archive.locator(`[data-project-id="${lost.id}"]`).click();
+      await expect(
+        page.getByText("Серверный архив · Только чтение.", { exact: false }),
+      ).toBeVisible();
+      await expect(editor).not.toBeVisible();
+      await open();
+      await liveProject.click();
       await expect(editor).toHaveValue("Сохрани мой рабочий черновик");
       await open();
       await toggle.click();

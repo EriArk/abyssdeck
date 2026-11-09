@@ -11,9 +11,3 @@
 .server-archive-toggle .project-chevron {
   margin-left: 0;
 }
-.server-archive-project .nav-label {
-  overflow-wrap: anywhere;
-}
-.server-archive-project + .server-archive-project {
-  margin-top: 0.7rem;
-}

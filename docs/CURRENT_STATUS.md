@@ -2,7 +2,7 @@
 
 ## Server archive navigation (2026-11-09)
 
-Prepared the owner-requested collapsed «Серверный архив» below personal chat
+Installed engine/web `67cf4e80`: the owner-requested collapsed «Серверный архив» below personal chat
 navigation. Retained `historyMode: saved` chats are separated from live chats;
 unrebound recovery projects leave the ordinary project list, while surviving
 projects remain available for new work. Saved histories have a read-only label
@@ -12,8 +12,16 @@ them as server archive. No histories, native IDs or operation receipts move.
 Type checks and 18 focused tests passed, including navigation, recovery and
 the existing coordinated Team checkpoint/rollback wrapper. Chromium/WebKit
 verify four responsive themes, preserved working drafts and archive reads
-without native resume/send. Engine installation follows the existing guarded
-updater; an active web turn is a real admission blocker, not permission to force it.
+without native resume/send. Guarded installation completed with a verified checkpoint; all 45 thread
+identities and 43 retained saved histories were preserved.
+
+The owner corrected the archive presentation: reuse ordinary project folders,
+inline chat disclosure and single-chat shortcuts, with live-only actions omitted.
+The compatible web correction uses the same row renderer for both sections,
+independent expansion/selection state, and no bulk native refresh on disclosure.
+Build/type checks, 12 focused tests and Chromium/WebKit in all four responsive
+themes passed; screenshots were inspected. Publication is compatible with the
+installed engine and does not restart native work.
 
 ## Linux PC recovery (2026-11-09)
 
