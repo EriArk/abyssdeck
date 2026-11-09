@@ -937,7 +937,17 @@ export class Sessions extends EventEmitter {
         const absent = new Set<string>(),
           nativeArchived = new Set<string>();
         if ((action.action === "archive" && action.value) || action.action === "delete") {
-          const targets = t ? [t] : this.store.threads(projectId);
+          // A project mutation checks every native chat, including hidden ones.
+          // The bounded sidebar list is not an execution-safety inventory. Saved
+          // recovery histories have no native writer/queue on this machine and
+          // are only detached, never resumed or deleted, by project deletion.
+          const targets = t
+            ? [t]
+            : (this.store.db
+                .prepare(
+                  "SELECT * FROM threads WHERE projectId=? AND COALESCE(historyMode,'')<>'saved'",
+                )
+                .all(projectId) as unknown as ThreadRecord[]);
           for (const row of targets) {
             if (
               r.active.has(row.id) ||

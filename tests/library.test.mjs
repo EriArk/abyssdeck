@@ -136,6 +136,79 @@ test("Deleting a Codex project detaches its chats, preserves source files and do
   assert(!rpc.calls.some((c) => c.method.startsWith("fs/") || c.method === "thread/delete"));
 });
 
+test("Project deletion never reads missing saved histories and preserves their identities and text", async (t) => {
+  const { store, sessions, rpc, thread } = await codex(t);
+  const saved = store.createThread("seed", "lost-windows-thread", "Saved history");
+  store.db
+    .prepare("UPDATE threads SET historyMode='saved',status='running' WHERE id=?")
+    .run(saved.id);
+  store.append(
+    saved.id,
+    "assistant.message",
+    { id: "retained", text: "Retained text" },
+    "old-turn",
+  );
+  const before = store.db.prepare("SELECT * FROM messages WHERE threadId=?").all(saved.id);
+  const original = rpc.request.bind(rpc);
+  rpc.request = async (method, params) => {
+    assert.notEqual(
+      params?.threadId,
+      saved.codexThreadId,
+      "Saved history must never be probed/resumed natively",
+    );
+    return original(method, params);
+  };
+  const key = randomUUID(),
+    action = { action: "delete", confirm: true };
+  const remove = () =>
+    store.once("library:codex:project:seed", key, action, async () => {
+      await sessions.manageEntity("project", "seed", action);
+      return { ok: true };
+    });
+  await remove();
+  await remove();
+  assert.equal(store.thread(saved.id).projectId, "unassigned-pc");
+  assert.equal(store.thread(saved.id).codexThreadId, saved.codexThreadId);
+  assert.equal(store.thread(saved.id).historyMode, "saved");
+  assert.deepEqual(
+    store.db.prepare("SELECT * FROM messages WHERE threadId=?").all(saved.id),
+    before,
+  );
+  assert.equal(store.thread(thread.id).projectId, "unassigned-pc");
+  assert.equal(rpc.calls.filter((c) => c.method === "project/delete").length, 1);
+  assert(
+    !rpc.calls.some(
+      (c) =>
+        ["thread/delete", "thread/resume", "turn/start"].includes(c.method) ||
+        c.method.startsWith("fs/"),
+    ),
+  );
+});
+
+test("Project destructive guards cover hidden native chats beyond the sidebar limit", async (t) => {
+  const { store, sessions, rpc, thread } = await codex(t);
+  for (let i = 0; i < 205; i++) {
+    const old = store.createThread("seed", "saved-" + i, "Saved");
+    store.db.prepare("UPDATE threads SET historyMode='saved' WHERE id=?").run(old.id);
+  }
+  store.db.prepare("UPDATE threads SET archived=1 WHERE id=?").run(thread.id);
+  sessions.catalog.library.save("thread", thread.codexThreadId, { archived: true });
+  rpc.state = "active";
+  await assert.rejects(
+    sessions.manageEntity("project", "seed", { action: "delete", confirm: true }),
+    { code: "ENTITY_BUSY" },
+  );
+  rpc.state = "idle";
+  store.db.prepare("UPDATE threads SET archived=0 WHERE id=?").run(thread.id);
+  rpc.queue = [{ id: "queued" }];
+  await assert.rejects(
+    sessions.manageEntity("project", "seed", { action: "archive", value: true }),
+    { code: "ENTITY_QUEUED" },
+  );
+  assert(!rpc.calls.some((c) => c.method === "project/delete"));
+  assert(!rpc.calls.some((c) => c.p?.threadId?.startsWith("saved-")));
+});
+
 test("A failed native thread can be archived and deleted; its queue and actual writer remain protected", async (t) => {
   const { store, sessions, rpc, thread } = await codex(t);
   store.setStatus(thread.id, "failed");

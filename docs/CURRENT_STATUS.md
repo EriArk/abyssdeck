@@ -1,5 +1,21 @@
 # Текущий статус — 9 ноября 2026
 
+## Recovered-project deletion correction (2026-11-09)
+
+Deleting CodexWeb hit THREAD_NOT_LOADED because the project mutation guard
+queried old `historyMode: saved` conversations in the new native profile.
+Project guards now inspect all native chats, including hidden entries beyond
+the sidebar's 200-item limit, while saved recovery histories remain local.
+Deletion detaches their existing IDs/text into unassigned archive navigation;
+it never resumes or deletes a native conversation or removes source files.
+The real owner project is not deleted during verification. Build/type checks,
+24 focused tests (including checkpoint/rollback admission), and Chromium/WebKit
+phone confirmation flows passed. Native acceptance uses a disposable group.
+
+The preceding archive membership engine `b8c1a07e` installed successfully,
+preserving all 45 thread identities and 43 saved histories. Its temporary SSD
+checkpoint was removed only after the installed health and identity proof.
+
 ## HDD backup policy and cleanup (2026-11-09)
 
 Configured a fresh disk-UUID-bound restic repository on the owner's separate
