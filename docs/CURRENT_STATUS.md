@@ -1,5 +1,18 @@
 # Текущий статус — 9 ноября 2026
 
+## Server archive membership correction (2026-11-09)
+
+The OS recovery automatically recreated native project groups for surviving
+folders. Treating their new source IDs as working-project proof incorrectly
+left empty old groups in the normal list. Recovered groups now remain in the
+server archive until a new native chat exists on the replacement PC; ordinary
+new empty projects are unaffected. Sidebar and search use the same rule.
+A complete native catalog removing a recovered group retains its Hub/archive
+identity; transient failures still keep the last snapshot. No directories,
+messages or receipts are deleted. Build/type checks, 19 focused tests including
+Team checkpoint/rollback admission, and Chromium/WebKit across four responsive
+themes passed. Activation requires the guarded engine update.
+
 ## Server archive navigation (2026-11-09)
 
 Installed engine/web `67cf4e80`: the owner-requested collapsed «Серверный архив» below personal chat

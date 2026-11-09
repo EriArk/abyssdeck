@@ -387,10 +387,21 @@ export class Catalog {
               .all(machine.id)) {
               const saved = JSON.parse(String(row.value)) as CatalogProject;
               if (saved.recoverySourceId && !saved.sourceId) continue;
-              if (!found.has(String(row.sourceId)))
-                this.store.db
-                  .prepare("DELETE FROM catalog_projects WHERE id=?")
-                  .run(String(row.id));
+              if (!found.has(String(row.sourceId))) {
+                if (saved.recoverySourceId) {
+                  // A confirmed complete native catalog may remove a restored
+                  // group, but its server history and Hub identity still belong
+                  // in the archive. A failed/incomplete read never does this.
+                  delete saved.sourceId;
+                  this.store.db
+                    .prepare("UPDATE catalog_projects SET value=? WHERE id=?")
+                    .run(JSON.stringify(saved), String(row.id));
+                } else {
+                  this.store.db
+                    .prepare("DELETE FROM catalog_projects WHERE id=?")
+                    .run(String(row.id));
+                }
+              }
             }
           this.projectSupport.set(machine.id, true);
           this.errors.delete(machine.id);
@@ -422,13 +433,26 @@ export class Catalog {
     });
     return this.refreshing;
   }
+  isServerArchived(project: CatalogProject): boolean {
+    if (!project.recoverySourceId) return false;
+    if (!project.sourceId) return true;
+    // Recovery can recreate native groups for surviving directories. A new group
+    // is not recovered native chat context: keep it in the archive until it has
+    // actually been used on the replacement PC. Count retained native identities,
+    // even when hidden in the library, so archiving a chat cannot move its project.
+    return !this.store.db
+      .prepare(
+        "SELECT 1 FROM threads WHERE projectId=? AND diagnostic=0 AND COALESCE(historyMode,'')<>'saved' LIMIT 1",
+      )
+      .get(project.id);
+  }
   publicProjects() {
     return this.projects().map((p) => {
       const machine = this.machine(p.machineId);
       return {
         id: p.id,
         name: p.name,
-        serverArchived: !!p.recoverySourceId && !p.sourceId,
+        serverArchived: this.isServerArchived(p),
         pinned: this.library.get("project", p.id)?.pinned === true,
         archived: this.library.get("project", p.id)?.archived === true,
         deleted: this.library.get("project", p.id)?.deleted === true,

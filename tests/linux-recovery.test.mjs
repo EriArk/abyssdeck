@@ -79,6 +79,12 @@ test("native refresh retains recovered groups and rebinds an exact surviving roo
     f.sessions.catalog.projects().filter((p) => p.workingDirectory === "C:\\Surviving").length,
     1,
   );
+  projects = [];
+  await f.sessions.catalog.refresh(true);
+  const retained = f.sessions.catalog.projects().find((p) => p.id === project.id);
+  assert(retained, "Removing the native group must retain the recovered server archive");
+  assert.equal(retained.sourceId, undefined);
+  assert.equal(f.sessions.catalog.isServerArchived(retained), true);
   assert.equal(
     f.calls.filter((c) => ["project/create", "project/update", "project/delete"].includes(c.method))
       .length,

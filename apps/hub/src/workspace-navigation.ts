@@ -84,7 +84,7 @@ export function registerWorkspaceNavigation(app: FastifyInstance, sessions: Sess
     const projectIds = new Set(projects.map((p) => p.id));
     for (const p of projects) {
       if (p.unassigned) continue;
-      const serverArchived = !!p.recoverySourceId && !p.sourceId;
+      const serverArchived = sessions.catalog.isServerArchived(p);
       output.push({
         ref: { client: "codex", kind: "project", id: p.id },
         title: p.name,

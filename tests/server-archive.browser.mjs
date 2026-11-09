@@ -15,10 +15,23 @@ for (const type of [chromium, webkit]) {
     workingDirectory: "C:/Lost",
     enabled: true,
     recoverySourceId: "old-project",
+    sourceId: "recreated-linux-group",
   };
   f.store.db
     .prepare("INSERT INTO catalog_projects VALUES(?,?,?,?)")
     .run(lost.id, "pc", "old-project", JSON.stringify(lost));
+  // Both groups exist natively after automatic recovery, but neither has been
+  // used on the replacement PC. One has retained text; the other is empty.
+  const empty = {
+    ...lost,
+    id: "empty-recovered-project",
+    name: "Пустой восстановленный проект",
+    sourceId: "recreated-empty-group",
+  };
+  f.store.db
+    .prepare("INSERT INTO catalog_projects VALUES(?,?,?,?)")
+    .run(empty.id, "pc", empty.sourceId, JSON.stringify(empty));
+  f.sessions.catalog.refresh = async () => {};
   const old = f.store.createThread("project", "lost-native", "Старая переписка");
   const absent = f.store.createThread(lost.id, "lost-project-native", "Чат исчезнувшего проекта");
   const older = f.store.createThread("project", "lost-native-2", "Ещё одна старая переписка");
@@ -80,6 +93,7 @@ for (const type of [chromium, webkit]) {
       await expect(toggle).toHaveAttribute("aria-expanded", "false");
       await expect(page.locator(`[data-thread-id="${old.id}"]`)).toHaveCount(0);
       await expect(page.locator(`[data-project-id="${lost.id}"]`)).toHaveCount(0);
+      await expect(page.locator(`[data-project-id="${empty.id}"]`)).toHaveCount(0);
       await expect(
         page.locator(".navigation-places").getByText(old.title, { exact: true }),
       ).toHaveCount(0);
@@ -112,6 +126,7 @@ for (const type of [chromium, webkit]) {
       await expect(archive.locator(`[data-thread-id="${old.id}"]`)).toHaveCount(0);
       await savedProject.click();
       await expect(archive.locator(`[data-project-id="${lost.id}"]`)).toBeVisible();
+      await expect(archive.locator(`[data-project-id="${empty.id}"]`)).toBeVisible();
       await expect(archive.locator(".spinner")).toHaveCount(0);
       await page.screenshot({
         path: `.local/qa-server-archive/${type.name()}-${theme}-${width}.png`,

@@ -27,7 +27,7 @@ test("saved histories stay separately bounded and never count as live work or un
   );
 });
 
-test("only unrebound recovery projects enter server archive; ordinary cached projects stay visible", async (t) => {
+test("recovery groups stay in server archive until used on the new PC; ordinary empty projects stay visible", async (t) => {
   const f = await handoffFixture();
   t.after(() => f.close());
   const saved = {
@@ -50,6 +50,32 @@ test("only unrebound recovery projects enter server archive; ordinary cached pro
   f.store.db
     .prepare("UPDATE catalog_projects SET value=? WHERE id=?")
     .run(JSON.stringify({ ...saved, sourceId: "restored-native-project" }), saved.id);
+  assert.equal(
+    publicProject().serverArchived,
+    true,
+    "recreating a native group is not recovered chat context",
+  );
+  const old = f.store.createThread(saved.id, "lost-thread", "Saved only");
+  f.store.db.prepare("UPDATE threads SET historyMode='saved' WHERE id=?").run(old.id);
+  assert.equal(publicProject().serverArchived, true);
+  const getDestination = async () =>
+    (
+      await f.app.inject({ url: "/api/workspace/destinations?id=" + saved.id, headers: f.headers })
+    ).json().items;
+  const archived = await getDestination();
+  assert(
+    archived.some((i) => i.ref.id === saved.id && i.ref.kind === "project" && i.serverArchived),
+  );
+  assert(!archived.some((i) => i.ref.id === saved.id && i.ref.kind === "discuss"));
+  const live = f.store.createThread(saved.id, "linux-native-thread", "New Linux chat");
   assert.equal(publicProject().serverArchived, false);
+  f.sessions.catalog.library.save("thread", live.codexThreadId, { archived: true });
+  assert.equal(
+    publicProject().serverArchived,
+    false,
+    "hiding a native chat does not reclassify a working project",
+  );
+  assert((await getDestination()).some((i) => i.ref.id === saved.id && i.ref.kind === "discuss"));
+  assert.equal(f.store.thread(old.id).historyMode, "saved");
   assert.equal(f.calls.length, 0, "classification performs no native reads or writes");
 });
