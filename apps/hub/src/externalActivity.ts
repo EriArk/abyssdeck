@@ -1,6 +1,7 @@
 import { type NativeActivity, readNativeActivity } from "@codex-web/machines";
 import type { HubConfig, HubEvent, MachineConfig } from "@codex-web/shared";
 import type { Catalog } from "./catalog.js";
+import { engineAdmissionPending } from "./engine-admission.js";
 import type { Store } from "./store.js";
 
 export class ExternalActivity {
@@ -44,7 +45,7 @@ export class ExternalActivity {
     await this.pending;
   }
   refresh(): Promise<void> {
-    if (this.stopped) return Promise.resolve();
+    if (this.stopped || engineAdmissionPending()) return Promise.resolve();
     if (this.pending) return this.pending;
     this.pending = this.poll().finally(() => {
       this.pending = undefined;
