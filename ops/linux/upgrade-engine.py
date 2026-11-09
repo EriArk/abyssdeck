@@ -19,6 +19,7 @@ import time
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import engine_checkpoint
 import checkpoint_retention
+import backup_storage
 import workspace_activation
 import machine_recovery
 
@@ -200,7 +201,7 @@ def main():
         if enabled_team:
             try:
                 prepared = engine_checkpoint.prepare(
-                    state, state / 'backups' / ('before-team-engine-' + a.revision + '-' + str(time.time_ns())), a.expected)
+                    state, backup_storage.checkpoint_root(state) / ('before-team-engine-' + a.revision + '-' + str(time.time_ns())), a.expected)
             except Exception:
                 status('failed', code='BACKUP_PREPARATION_FAILED')
                 raise  # Public gateway and engine are still running.

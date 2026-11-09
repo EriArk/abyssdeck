@@ -193,3 +193,37 @@ On a failure **before** public admission, stop the candidate and restore every m
 Immediately before the candidate gateway starts, the updater persists `admitted.json`. After this boundary an error requires forward repair: the rollback helper refuses to overwrite storage, even if a later health/Doctor check fails. Never remove this marker merely to force an old database over newer user writes. Engine/schema updates still wait for active or unknown Codex/GPT work; this change does not turn a live task into an idle one.
 
 Verification: `node --test tests/owner-team-upgrade.test.mjs tests/team-engine-upgrade.test.mjs`, plus the existing Team isolation, profile-backup and engine-socket tests on Linux. The Python fault suite exercises three account states, exact rollback, private/shared files, WAL, missing/corrupt namespaces, wrong bindings/native identities, protected profile inodes, the final activity reservation and pre-/post-admission failures. No native account is connected by these fixtures.
+
+### Owner HDD incremental policy (9 November 2026)
+
+This installation starts fresh backups on `/mnt/batocera-share/abyssdeck-backup`;
+old SSD copies are not migrated. `backup-storage.json` in the private state root
+binds that directory to the mounted HDD UUID. Absence, a different mount, links
+or unsuitable ownership fail closed; backup never falls back to the SSD.
+
+`ops/linux/backup_storage.py` wraps the existing authenticated Team snapshot
+writer for the daily job and the existing weekly storage-maintenance job.
+Staging, restore checks, cache and restic temporary files live on the HDD.
+The installed engine image is resolved at execution time. The deployment lock
+prevents overlap; busy updates defer backup without stopping live work.
+
+One restic repository deduplicates content across backups. After a successful
+backup, repository check and byte-verified manifest restore, retain the latest
+snapshot per daily/engine stream. Failed verification retains the preceding
+snapshot and its staging. Engine checkpoints also use the HDD and retain one
+current complete checkpoint for direct rollback; the existing sealed database,
+Team isolation, restore rehearsal and native idle admission checks still apply.
+The active SSD checkpoint from the already running update is an exception until
+that update's post-install identity checks complete, then it is removed.
+
+The repository password is kept in `repository-password` beside the repository,
+inside the private `0700` HDD directory (`0600` password file). It survives loss
+of the system disk; confidentiality relies on that private filesystem access.
+To recover, set `RESTIC_REPOSITORY`, `RESTIC_PASSWORD_FILE`, `RESTIC_CACHE_DIR`
+and `TMPDIR` to the corresponding HDD locations, list snapshots with `restic
+snapshots`, and restore into a new private HDD directory. Verify the restored
+Team snapshot with its matching image's `dist/maintenance.js verify`; engine
+checkpoints use `engine_checkpoint.verify`. Restoration does not grant permission
+to overwrite live state or replay uncertain sends. This backs up Hub data, not
+project source trees or native profiles on execution PCs, and does not replace
+the separate workspace-disk backup stream.

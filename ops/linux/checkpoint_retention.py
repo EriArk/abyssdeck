@@ -13,6 +13,8 @@ import re
 import shutil
 import time
 
+import backup_storage
+
 KEEP = 3
 NAME = re.compile(r'before-team-engine-([a-f0-9]{7,64})-([0-9]+)')
 
@@ -21,7 +23,7 @@ def plan(state):
     state = Path(state)
     if not state.is_absolute() or state.resolve() != state:
         raise RuntimeError('RETENTION_STATE_PATH')
-    root = state / 'backups'
+    root = backup_storage.checkpoint_root(state)
     if root.is_symlink() or root.resolve() != root:
         raise RuntimeError('RETENTION_BACKUP_PATH')
     candidates, skipped = [], []
@@ -49,8 +51,9 @@ def plan(state):
         except (OSError, ValueError, TypeError, AttributeError):
             skipped.append(path.name)
     candidates.sort(reverse=True)
-    return {'keep': [v[1] for v in candidates[:KEEP]],
-            'remove': [v[1] for v in candidates[KEEP:]],
+    keep = 1 if backup_storage.settings(state) else KEEP
+    return {'keep': [v[1] for v in candidates[:keep]],
+            'remove': [v[1] for v in candidates[keep:]],
             'identities': {v[1]: [v[2], v[3]] for v in candidates}, 'skipped': sorted(skipped)}
 
 
@@ -68,12 +71,19 @@ def record(state, result):
 def prune(state):
     state = Path(state)
     selected = plan(state)
+    root = backup_storage.settings(state)
+    if root and selected['keep']:
+        source = backup_storage.checkpoint_root(state) / selected['keep'][0]
+        receipt = root / 'last-engine.json'
+        previous = json.loads(receipt.read_text()) if receipt.exists() else {}
+        if previous.get('source') != str(source):
+            backup_storage.archive(root, source, 'engine')
     result = {**selected, 'removed': [], 'state': 'running', 'at': time.time()}
     record(state, result)
     try:
         for name in selected['remove']:
-            target = state / 'backups' / name
-            if target.is_symlink() or target.resolve() != target or target.parent != state / 'backups':
+            target = backup_storage.checkpoint_root(state) / name
+            if target.is_symlink() or target.resolve() != target or target.parent != backup_storage.checkpoint_root(state):
                 raise RuntimeError('RETENTION_TARGET_CHANGED')
             info = target.stat()
             if [info.st_dev, info.st_ino] != selected['identities'][name]:

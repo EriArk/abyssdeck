@@ -462,6 +462,18 @@
   decisions. Verify installation/acceptance in `docs/CURRENT_STATUS.md`; historical
   next-stage proposals and old release versions are not the active work queue.
 
+## Owner-requested HDD incremental backups (2026-11-09)
+
+- Start the next backup on the separate HDD; do not migrate old SSD backups.
+  Reuse one incremental restic repository, writing only new content blocks.
+  Keep one verified snapshot per daily/engine stream and one current engine
+  checkpoint for direct rollback; temporary staging/rehearsals also use the HDD.
+- Never fall back to the SSD if the configured HDD is absent or has changed.
+  Old SSD backups and verified disposable caches may be deleted as requested,
+  but preserve the checkpoint of an in-progress deployment until it completes.
+  Preserve live data, native profiles, operation receipts and unrelated services.
+- This supersedes the older three-full-copy retention policy for this owner.
+
 ## Owner-requested backup retention (2026-10-01)
 
 - Keep the latest three completed backups per automatic backup stream: pre-upgrade

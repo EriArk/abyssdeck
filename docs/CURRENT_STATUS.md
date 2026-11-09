@@ -1,5 +1,23 @@
 # Текущий статус — 9 ноября 2026
 
+## HDD backup policy and cleanup (2026-11-09)
+
+Configured a fresh disk-UUID-bound restic repository on the owner's separate
+HDD. Next daily backup and future engine checkpoint/rehearsal use that disk;
+old SSD copies were not migrated. Daily and weekly maintenance retain their
+existing schedules and run through one incremental repository wrapper. Missing
+HDD fails closed. One verified snapshot per stream and one current engine
+rollback checkpoint replace the old three-full-copy policy for this owner.
+
+Five policy tests, five retention tests, 28 checkpoint/rollback cases and a real
+HDD/restic fixture passed: a 1 MiB random first input added about 1 MiB, changing
+only its manifest added 2,691 bytes; one snapshot remained, restore bytes matched
+and full repository read verification passed. The first real daily snapshot is
+still scheduled, not claimed completed. Old SSD copies were removed except the
+in-progress `b8c1a07e` checkpoint; that one stays until its post-install checks.
+Unused Docker build cache older than seven days released 56.26 GB. Running
+containers, images, volumes, profiles and working files were preserved.
+
 ## Server archive membership correction (2026-11-09)
 
 The OS recovery automatically recreated native project groups for surviving
