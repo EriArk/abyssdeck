@@ -436,6 +436,25 @@ export class Catalog {
   isServerArchived(project: CatalogProject): boolean {
     if (!project.recoverySourceId) return false;
     if (!project.sourceId) return true;
+    if (this.library.get("project", project.id)?.activatedSourceId === project.sourceId)
+      return false;
+    // Earlier setup releases completed explicit folder additions without marking
+    // the recovered group active. Honor those receipts only for this exact group
+    // and current machine path; old-OS and parent-folder receipts cannot match.
+    const machine = this.machine(project.machineId);
+    for (const row of this.store.db
+      .prepare(
+        "SELECT value FROM project_setup_operations WHERE machineId=? AND state='complete' AND json_extract(value,'$.project.id')=?",
+      )
+      .all(project.machineId, project.id)) {
+      const input = obj(obj(JSON.parse(String(row.value))).input);
+      if (
+        typeof input.workingDirectory === "string" &&
+        this.pathKey(machine, input.workingDirectory) ===
+          this.pathKey(machine, project.workingDirectory)
+      )
+        return false;
+    }
     // Recovery can recreate native groups for surviving directories. A new group
     // is not recovered native chat context: keep it in the archive until it has
     // actually been used on the replacement PC. Count retained native identities,
@@ -445,6 +464,15 @@ export class Catalog {
         "SELECT 1 FROM threads WHERE projectId=? AND diagnostic=0 AND COALESCE(historyMode,'')<>'saved' LIMIT 1",
       )
       .get(project.id);
+  }
+  activateProject(id: string) {
+    const project = this.projects().find((p) => p.id === id);
+    if (project?.sourceId)
+      this.library.save("project", id, {
+        activatedSourceId: project.sourceId,
+        archived: false,
+      });
+    return this.publicProjects().find((p) => p.id === id);
   }
   publicProjects() {
     return this.projects().map((p) => {
@@ -555,7 +583,7 @@ export class Catalog {
     if (!project)
       throw new HubError(502, "PROJECT_CREATE_FAILED", "Codex не подтвердил создание проекта");
     this.refreshed = 0;
-    return this.publicProjects().find((p) => p.id === project.id);
+    return this.activateProject(project.id);
   }
   async changeProject(id: string, action: EntityAction) {
     if (this.refreshing) await this.refreshing;

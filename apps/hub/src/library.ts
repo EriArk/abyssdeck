@@ -24,6 +24,7 @@ export type LibraryEntry = {
   pinned?: boolean;
   archived?: boolean;
   deleted?: boolean;
+  activatedSourceId?: string;
 };
 export class Library {
   constructor(

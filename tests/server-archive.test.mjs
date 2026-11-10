@@ -79,3 +79,52 @@ test("recovery groups stay in server archive until used on the new PC; ordinary 
   assert.equal(f.store.thread(old.id).historyMode, "saved");
   assert.equal(f.calls.length, 0, "classification performs no native reads or writes");
 });
+
+test("completed explicit setup receipts reveal only their exact recovered machine folder", async (t) => {
+  const f = await handoffFixture(undefined, undefined, {
+    configure(c) {
+      c.machines[0].type = "local-linux";
+      c.projects[0].workingDirectory = "/Projects";
+    },
+  });
+  t.after(() => f.close());
+  const p = {
+    id: "recovered",
+    machineId: "pc",
+    name: "Child",
+    workingDirectory: "/Projects/Child",
+    enabled: true,
+    sourceId: "native",
+    recoverySourceId: "old",
+  };
+  f.store.db
+    .prepare("INSERT INTO catalog_projects VALUES(?,?,?,?)")
+    .run(p.id, p.machineId, p.sourceId, JSON.stringify(p));
+  const write = (state, path, id = p.id, machineId = p.machineId) =>
+    f.store.db
+      .prepare("INSERT OR REPLACE INTO project_setup_operations VALUES(?,?,?,?,?,?)")
+      .run(
+        "setup",
+        machineId,
+        state,
+        JSON.stringify({ input: { workingDirectory: path, machineId }, project: { id } }),
+        1,
+        1,
+      );
+  for (const [state, path, id, machine] of [
+    ["prepared", p.workingDirectory],
+    ["unknown", p.workingDirectory],
+    ["complete", "D:/Projects/Child"],
+    ["complete", "/Projects"],
+    ["complete", "/Projects/child"],
+    ["complete", p.workingDirectory, "other"],
+    ["complete", p.workingDirectory, p.id, "other-machine"],
+  ]) {
+    write(state, path, id, machine);
+    assert.equal(f.sessions.catalog.isServerArchived(p), true);
+  }
+  write("complete", p.workingDirectory);
+  assert.equal(f.sessions.catalog.isServerArchived(p), false);
+  assert.equal(f.sessions.catalog.isServerArchived({ ...p, sourceId: undefined }), true);
+  assert.equal(f.calls.length, 0);
+});

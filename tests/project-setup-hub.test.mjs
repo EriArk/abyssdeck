@@ -289,3 +289,141 @@ test("failed setup reads do not claim a saved creation, and recovery retains exa
   assert.equal(receipt.id, key);
   assert.equal(applies, 1);
 });
+
+test("explicit Linux folder setup activates the exact recovered child without attaching it to its parent", async (t) => {
+  const root = "/Projects";
+  const f = await handoffFixture(undefined, undefined, {
+    configure(c) {
+      c.machines[0].type = "local-linux";
+      c.projects[0].workingDirectory = root;
+      c.projects[0].name = "AbyssDeck";
+    },
+    projectSetupProbe: async (_m, r) =>
+      r.op === "inspect" ? inspection : { id: r.id, state: "complete", phase: "register-project" },
+  });
+  t.after(() => f.close());
+  f.sessions.catalog.refresh = async () => {};
+  const child = {
+    id: "recovered-child",
+    sourceId: "native-child",
+    recoverySourceId: "old-child",
+    machineId: "pc",
+    name: "Old name",
+    workingDirectory: root + "/Child",
+    roots: [root + "/Child"],
+    enabled: true,
+  };
+  f.store.db
+    .prepare("INSERT INTO catalog_projects VALUES(?,?,?,?)")
+    .run(child.id, "pc", child.sourceId, JSON.stringify(child));
+  const saved = f.store.createThread(child.id, "old-thread", "Saved history");
+  f.store.db.prepare("UPDATE threads SET historyMode='saved' WHERE id=?").run(saved.id);
+  assert.equal(f.sessions.catalog.isServerArchived(child), true);
+  const mutations = [];
+  const nativeRequest = f.rpc.request.bind(f.rpc);
+  f.rpc.request = async (method, params) => {
+    if (method !== "project/update") return nativeRequest(method, params);
+    mutations.push({ method, params });
+    assert.equal(params.projectId, child.sourceId);
+    return {
+      project: { id: child.sourceId, name: params.name, roots: [{ path: child.workingDirectory }] },
+    };
+  };
+  const id = randomUUID();
+  const prepared = await f.app.inject({
+    method: "POST",
+    url: "/api/project-setup/prepare",
+    headers: { ...f.headers, "idempotency-key": id },
+    payload: {
+      ...input,
+      name: "New name",
+      workingDirectory: child.workingDirectory,
+      createDirectory: false,
+    },
+  });
+  assert.equal(prepared.statusCode, 200);
+  await f.app.inject({
+    method: "POST",
+    url: `/api/project-setup/${id}/execute`,
+    headers: f.headers,
+    payload: {},
+  });
+  const read = async () =>
+    (await f.app.inject({ url: `/api/project-setup/${id}`, headers: f.headers })).json();
+  await until(async () => (await read()).state === "complete");
+  const result = (await read()).project;
+  assert.equal(result.id, child.id);
+  assert.equal(result.name, "New name");
+  assert.equal(result.serverArchived, false);
+  assert.equal(result.workingDirectory, child.workingDirectory);
+  assert.equal(f.sessions.project("project").name, "AbyssDeck");
+  assert.equal(f.sessions.project("project").workingDirectory, root);
+  assert.equal(f.store.thread(saved.id).historyMode, "saved");
+  assert.equal(f.store.thread(saved.id).projectId, child.id);
+  assert.deepEqual(
+    mutations.map((c) => c.method),
+    ["project/update"],
+  );
+  // The durable activation survives metadata refresh; it does not need a new chat.
+  assert.equal(
+    f.sessions.catalog.library.get("project", child.id).activatedSourceId,
+    child.sourceId,
+  );
+});
+
+test("a parent project and missing/deleted recovered groups cannot swallow a new child registration", async (t) => {
+  for (const state of ["fresh", "missing", "deleted"]) {
+    const f = await handoffFixture(undefined, undefined, {
+      configure(c) {
+        c.machines[0].type = "local-linux";
+        c.projects[0].workingDirectory = "/Projects";
+      },
+      projectSetupProbe: async (_m, r) =>
+        r.op === "inspect"
+          ? inspection
+          : { id: r.id, state: "complete", phase: "register-project" },
+    });
+    t.after(() => f.close());
+    f.sessions.catalog.refresh = async () => {};
+    const path = "/Projects/Child";
+    if (state !== "fresh") {
+      const p = {
+        id: "old-child",
+        machineId: "pc",
+        name: "Old",
+        workingDirectory: path,
+        enabled: true,
+        recoverySourceId: "old",
+        ...(state === "deleted" ? { sourceId: "deleted-native" } : {}),
+      };
+      f.store.db
+        .prepare("INSERT INTO catalog_projects VALUES(?,?,?,?)")
+        .run(p.id, "pc", p.sourceId ?? "old", JSON.stringify(p));
+      if (state === "deleted") f.sessions.catalog.library.save("project", p.id, { deleted: true });
+    }
+    const calls = [];
+    f.sessions.catalog.createProject = async (...args) => {
+      calls.push(args);
+      return { id: "new-child", machineId: "pc", name: "Child", workingDirectory: path };
+    };
+    const id = randomUUID();
+    await f.app.inject({
+      method: "POST",
+      url: "/api/project-setup/prepare",
+      headers: { ...f.headers, "idempotency-key": id },
+      payload: { ...input, name: "Child", workingDirectory: path, createDirectory: false },
+    });
+    await f.app.inject({
+      method: "POST",
+      url: `/api/project-setup/${id}/execute`,
+      headers: f.headers,
+      payload: {},
+    });
+    const read = async () =>
+      (await f.app.inject({ url: `/api/project-setup/${id}`, headers: f.headers })).json();
+    await until(async () => (await read()).state === "complete");
+    assert.equal((await read()).project.id, "new-child", state);
+    assert.equal(calls.length, 1, state);
+    assert.deepEqual(calls[0], ["pc", "Child", path, false, id]);
+  }
+});

@@ -85,9 +85,22 @@ export function registerProjectSetup(
         (p) =>
           p.machineId === machine.id &&
           !p.unassigned &&
+          !p.deleted &&
+          !sessions.catalog
+            .projects()
+            .some((saved) => saved.id === p.id && saved.recoverySourceId && !saved.sourceId) &&
           canonical(p.workingDirectory) === canonical(op.input.workingDirectory),
       );
-    if (existing) return existing;
+    if (existing) {
+      // Reconnecting an automatically restored group is an explicit choice to
+      // work here, even before its first new chat. Keep its identity/history.
+      if (existing.serverArchived && existing.name !== op.input.name)
+        await sessions.catalog.changeProject(existing.id, {
+          action: "rename",
+          name: op.input.name,
+        });
+      return sessions.catalog.activateProject(existing.id);
+    }
     // The same native idempotency key is retained even if the acknowledgement is lost.
     return sessions.catalog.createProject(
       machine.id,

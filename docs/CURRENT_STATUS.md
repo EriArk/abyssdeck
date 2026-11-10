@@ -1,4 +1,31 @@
-# Текущий статус — 9 ноября 2026
+# Текущий статус — 10 ноября 2026
+
+## Explicit folder reconnection (2026-11-10)
+
+Project setup reused a restored native group but left it classified as server
+archive. Explicit setup now activates the exact native group without requiring
+a new chat, retaining saved history separately. Existing completed setup receipts
+also count for their exact project/machine/path, so the owner's completed
+JavaGameEmu addition is recovered. Old Windows paths, parent folders, other
+machines and incomplete operations do not activate a group. Missing/deleted
+native groups cannot satisfy a new registration. Automatic discovery alone
+still leaves old recovery groups in the server archive.
+
+The folder picker now keeps its confirmation in the fixed wizard footer; while
+browsing, the old-path Review action is unavailable. Reopening starts at the
+selected folder, and Back cancels browsing without changing that selection.
+The setup step says “Добавить проект в список” to distinguish the application
+from a project coincidentally named AbyssDeck. Nested filesystem folders remain
+independent projects; current native chat/project roots are not rewritten.
+
+The preceding engine `bfdc7fcc` is installed and healthy, with all 47 thread
+identities and 43 saved histories preserved. This correction requires the
+guarded engine/web installation; source checks and activation are recorded
+separately in its deployment evidence.
+Build/type checks, 35 focused tests (including Team checkpoint/rollback
+admission), repository checks and Chromium/WebKit phone setup flows passed.
+The existing setup recovery/theme/browser suite also passed. Real-PC directory
+reads confirmed both the parent and selected child are available independently.
 
 ## Recovered-project deletion correction (2026-11-09)
 

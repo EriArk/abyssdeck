@@ -5,7 +5,8 @@
 - Keep server-only recovered chats and unrebound recovered projects in one
   initially collapsed «Серверный архив» section below ordinary chat navigation.
   A recovered group recreated from a surviving directory remains in the archive
-  until it has a new native chat on the replacement PC. A sourceId or directory
+  until it has a new native chat on the replacement PC or the owner explicitly
+  reconnects that exact folder through project setup. A sourceId or directory
   alone is insufficient. Ordinary newly created projects remain visible.
   Working projects stay visible even when their older chats belong in that section.
 - Archive projects/chats use the same folder rows, inline disclosure, single-chat

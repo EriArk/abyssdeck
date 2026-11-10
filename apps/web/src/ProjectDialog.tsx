@@ -76,7 +76,7 @@ const labels: Record<string, string> = {
   "create-repository": "Создать репозиторий GitHub",
   "link-origin": "Подключить origin",
   clone: "Клонировать репозиторий",
-  "register-project": "Подключить проект в AbyssDeck",
+  "register-project": "Добавить проект в список",
   "agent-profile": "Применить профиль поведения",
   complete: "Проект готов",
   review: "Проверь перед созданием",
@@ -692,7 +692,11 @@ function ProjectDialogContent({
                   aria-label="Выбрать папку проекта"
                   disabled={locked || browsing}
                   onClick={() =>
-                    void openFolder(machine?.projectsDirectory ?? input.workingDirectory)
+                    void openFolder(
+                      !input.createDirectory && input.workingDirectory
+                        ? input.workingDirectory
+                        : (machine?.projectsDirectory ?? input.workingDirectory),
+                    )
                   }
                 >
                   <Icon name="folder" />
@@ -707,7 +711,11 @@ function ProjectDialogContent({
                     type="button"
                     className="icon-button"
                     aria-label="Закрыть выбор папки"
-                    onClick={() => setBrowse(null)}
+                    onClick={() => {
+                      folderGeneration.current++;
+                      setBrowsing(false);
+                      setBrowse(null);
+                    }}
                   >
                     <Icon name="close" />
                   </button>
@@ -726,18 +734,6 @@ function ProjectDialogContent({
                   pathLabel="Путь к папке проекта"
                   emptyLabel="Вложенных папок нет"
                 />
-                <button
-                  type="button"
-                  className="secondary"
-                  disabled={browsing}
-                  onClick={() => {
-                    setEditedPath(true);
-                    setField({ workingDirectory: browse.path, createDirectory: false });
-                    setBrowse(null);
-                  }}
-                >
-                  Выбрать эту папку
-                </button>
               </div>
             )}
           </>
@@ -995,6 +991,12 @@ function ProjectDialogContent({
               type="button"
               className="secondary"
               onClick={() => {
+                if (browse) {
+                  folderGeneration.current++;
+                  setBrowsing(false);
+                  setBrowse(null);
+                  return;
+                }
                 if (seed?.resetReview && operation?.state === "prepared") {
                   setBusy(true);
                   void seed
@@ -1022,12 +1024,26 @@ function ProjectDialogContent({
               Назад
             </button>
           )}
-          {step < 3 ? (
+          {browse ? (
+            <button
+              type="button"
+              className="primary"
+              disabled={browsing}
+              onClick={() => {
+                setEditedPath(true);
+                setField({ workingDirectory: browse.path, createDirectory: false });
+                setBrowse(null);
+              }}
+            >
+              Выбрать эту папку
+            </button>
+          ) : step < 3 ? (
             <button
               type="button"
               className="primary"
               disabled={
                 busy ||
+                browsing ||
                 restoringOperation ||
                 (input.repository.mode !== "none" && repoBusy) ||
                 !machine ||
