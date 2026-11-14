@@ -23,6 +23,16 @@ status and initial-history browser coverage remains the adjacent acceptance.
 Physical iPhone behavior and an explanation of the two controls in the owner's
 capture are not inferred from headless WebKit tests.
 
+All four browser suites passed in Chromium and WebKit (eight runs), alongside
+the web build/typecheck, scoped formatting checks and repository guard.
+Web revision `0f98eec6` is installed as release
+`0090ef108d0bc156b042d81434260f4261a8690685126014aae1f5218be9a1a4`.
+Gateway-served HTML/entry/chat assets match the release SHA-256 hashes and the
+previous entry remains available. Both services retain their November 10 start
+times and healthy state; the engine stays on `14228a9e`. Anonymous public HTTPS
+verification returned 403, so installed delivery was verified through the
+serving gateway rather than claimed as a physical phone acceptance.
+
 ## Explicit folder reconnection (2026-11-10)
 
 Project setup reused a restored native group but left it classified as server
