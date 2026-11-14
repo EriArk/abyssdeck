@@ -1,5 +1,42 @@
 # Текущий статус — 14 ноября 2026
 
+## Linux boot recovery, Codex 0.169 and local controls (2026-11-14)
+
+After a PC reboot, the NTFS Data volume was absent from its expected mount path.
+Its old desktop autostart UDisks command required interactive authorization;
+`/etc/fstab` had no Data entry. Both server containers were healthy. The owner
+confirmed the Linux administrator dialog, and Data now has a UUID-bound systemd
+automount at its original path. Generated boot dependencies are present. SSH and
+user lingering were already enabled; Codex is enabled and now verifies the actual
+project filesystem UUID before launch, retrying missing-disk startup failures.
+A physical reboot was not performed during this active desktop conversation.
+
+The complete official Linux Codex package 0.169.0 was SHA-256 verified, probed
+with the existing account without changing its identity, and activated in the
+independent web service. The terminal CLI now selects the same package. Version
+0.167.0 and the previous unit/CLI target remain available for rollback. The
+installed desktop package remains 26.1111.21308: its cached APT candidate matches,
+but fresh official repository/download requests return HTTP 403, so remote
+latest-desktop availability could not be established. No desktop restart occurred.
+
+Installed server -> SSH -> Linux -> native acceptance confirmed the retained
+account binding, eight models, real project directory access, metadata reads of
+retained chats, command execution, and a disposable model turn surviving bridge
+disconnection/reconnection. The test chat was archived. Native protocol and the
+existing installed adapter are compatible; no engine replacement was needed.
+Three older unknown turns remain unresolved rather than being relabeled complete
+or resent; the current active desktop conversation keeps its own writer.
+
+`ops/linux/companion` installs a small GTK window and CLI under the user's home.
+It shows disk/client/server status, opens the website and provides explicit scoped
+restart buttons. It creates no listener and does not copy authentication data.
+Its startup path waits for native readiness, addressing the observed active-unit /
+not-yet-listening socket race. The installed local restart, disk precheck and native
+status were exercised; the GTK construction smoke, eight Python regressions and
+18 existing native-runtime/Linux transport tests passed. Server restart behavior
+was tested with command fixtures; healthy production containers were not restarted.
+
+
 ## Codex connection recovery after suspension (2026-11-14)
 
 The owner reported `Codex connection is closed` across chats after a transport

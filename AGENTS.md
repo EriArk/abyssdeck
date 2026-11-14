@@ -1,5 +1,20 @@
 # AGENTS.md
 
+## Owner-requested Linux recovery controls and boot startup (2026-11-14)
+
+- The owner now explicitly requests a minimal Linux Companion for starting,
+  inspecting and restarting AbyssDeck after failures. This supersedes the earlier
+  no-Companion preference only for these local recovery controls; the web remains
+  the everyday client. Keep controls in the home filesystem, independent of Data.
+- Data and the web execution service must work after reboot without opening the
+  file manager or desktop client. Use UUID-bound system mounting, enabled SSH and
+  a lingering user service. Fail visibly on an absent/wrong project filesystem;
+  never create empty replacement project directories on the system disk.
+- Status reads never restart services or resume/replay a chat. Explicit restart
+  controls confirm interruption and target only the selected local Codex service
+  or the two AbyssDeck server containers. Preserve histories and uncertain sends.
+
+
 ## Owner-requested server archive (2026-11-09)
 
 - Keep server-only recovered chats and unrebound recovered projects in one
