@@ -967,6 +967,7 @@ export function Chat({
             key={threadId}
             needed={state.thread.status === "unknown"}
             error={state.error}
+            connection={state.connection}
             disabled={busy || !visible}
             onRecover={onReconnect}
           />

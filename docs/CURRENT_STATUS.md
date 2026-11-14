@@ -1,4 +1,27 @@
-# Текущий статус — 10 ноября 2026
+# Текущий статус — 14 ноября 2026
+
+## Codex connection recovery after suspension (2026-11-14)
+
+The owner reported `Codex connection is closed` across chats after a transport
+failure. Server logs confirmed failed history/status reads; neither the native
+Codex process nor the installed engine had restarted. The original cause of the
+transport closure is not established by those logs.
+
+A browser regression reproduced a stale recovery control after a new native
+turn had already started. Native turn start/completion now clears the stale
+connection error. Late failed status reads cannot restore a resolved error.
+Returning to the foreground, a restored page/network, or recovery of a lost
+event stream offers one coalesced status read. The local event-stream refresh
+performed by that read does not create a retry loop when work remains unknown.
+Drafts, messages, native ownership and uncertain send receipts are preserved;
+recovery never sends a prompt or restarts a native process.
+
+This is a compatible web-only correction. The focused Chromium/WebKit phone
+regression covers native progress, a late failed read, page restoration, event
+stream recovery, one recovery control and no input replay. Existing recovery,
+status and initial-history browser coverage remains the adjacent acceptance.
+Physical iPhone behavior and an explanation of the two controls in the owner's
+capture are not inferred from headless WebKit tests.
 
 ## Explicit folder reconnection (2026-11-10)
 

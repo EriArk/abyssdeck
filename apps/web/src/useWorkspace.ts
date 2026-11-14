@@ -226,15 +226,17 @@ export function useWorkspace(threadId: string) {
             thread = { ...thread, status: approvals.length ? "waiting_approval" : "running" };
           }
           const error =
-            event.type === "session.state" &&
-            [
-              "starting",
-              "running",
-              "waiting_approval",
-              "idle",
-              "completed",
-              "interrupted",
-            ].includes(String(p.status))
+            event.type === "turn.started" ||
+            event.type === "turn.completed" ||
+            (event.type === "session.state" &&
+              [
+                "starting",
+                "running",
+                "waiting_approval",
+                "idle",
+                "completed",
+                "interrupted",
+              ].includes(String(p.status)))
               ? ""
               : (event.type === "error" && !(turnId && p.code === "CODEX_ERROR")) ||
                   (["session.state", "session.notice"].includes(event.type) && p.message)
