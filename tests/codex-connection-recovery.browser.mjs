@@ -11,6 +11,10 @@ for (const [name, engine] of [
   const browser = await engine.launch();
   try {
     await f.release();
+    f.sessions.catalog.syncThreads = async () => {};
+    f.sessions.catalog.history = async (t) => ({ ...f.store.history(t.id), nextBefore: null });
+    const other = f.store.createThread("project", "native-other", "Second recovery chat");
+
     f.store.setPreferences({ projectId: "project", threadId: f.thread.id });
     await f.app.listen({ port: 19988, host: "127.0.0.1" });
     const context = await browser.newContext({
@@ -110,6 +114,28 @@ for (const [name, engine] of [
     // turn an honestly unknown result into a self-sustaining status loop.
     await page.waitForTimeout(1500);
     assert.equal(attempts, 6);
+    for (let attempt = 7; attempt <= 9; attempt++) {
+      await page.getByRole("button", { name: "Повторить подключение" }).click();
+      await expect.poll(() => attempts).toBe(attempt);
+      finish({ json: f.store.thread(f.thread.id) });
+      await expect(page.locator(".connection-recovery")).toHaveCount(1);
+      await expect(page.getByRole("button", { name: "Повторить подключение" })).toBeEnabled();
+    }
+    // Replacing a keyed chat must remove its recovery DOM, including after
+    // repeated unknown outcomes; the queue is a different sibling component.
+    const select = async (id) => {
+      const menu = page.getByRole("button", { name: "Открыть проекты", exact: true });
+      if (await menu.isVisible()) await menu.click();
+      await page.locator(`[data-thread-id="${id}"]`).filter({ visible: true }).first().click();
+      await expect.poll(() => f.store.preferences().threadId).toBe(id);
+    };
+    await select(other.id);
+    await expect(page.locator(".connection-recovery")).toHaveCount(0);
+    await select(f.thread.id);
+    await expect.poll(() => attempts).toBe(10);
+    finish({ json: f.store.thread(f.thread.id) });
+    await expect(page.locator(".connection-recovery")).toHaveCount(1);
+    await expect(draft).toHaveValue("Не отправлять повторно");
     assert.deepEqual(writes, []);
     assert.deepEqual(errors, []);
     assert(!f.calls.some((c) => /turn\/start|turn\/steer|thread\/resume/.test(c.method)));

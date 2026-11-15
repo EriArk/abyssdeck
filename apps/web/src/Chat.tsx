@@ -964,7 +964,7 @@ export function Chat({
         <UpdateNotice visible={visible} busy={busy || attachments.busy} />
         {threadId && (
           <ConnectionRecovery
-            key={threadId}
+            key={`recovery:${threadId}`}
             needed={state.thread.status === "unknown"}
             error={state.error}
             connection={state.connection}
@@ -1094,7 +1094,7 @@ export function Chat({
             {queue.state.message}
           </div>
         )}
-        <MessageQueue key={threadId} queue={queue} turnId={state.thread.activeTurnId} />
+        <MessageQueue key={`queue:${threadId}`} queue={queue} turnId={state.thread.activeTurnId} />
         {dictation.panel}
         {state.thread.historyMode === "saved" && (
           <p className="nav-empty" role="status">

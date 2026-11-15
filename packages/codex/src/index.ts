@@ -72,6 +72,25 @@ export class CodexClient extends EventEmitter {
   inspectCompanion(authorize: () => void): Promise<RecordValue> {
     return this.authorizedRequest("companion/inspect", {}, authorize);
   }
+  /** Narrow read-only Linux admission, usable while new execution is frozen. */
+  async inspectLiveThread(threadId: string, authorize: () => void): Promise<RecordValue> {
+    const latest = await this.authorizedRequest(
+      "thread/turns/list",
+      {
+        threadId,
+        limit: 1,
+        itemsView: "notLoaded",
+        sortDirection: "desc",
+      },
+      authorize,
+    );
+    const state = await this.authorizedRequest(
+      "thread/read",
+      { threadId, includeTurns: false },
+      authorize,
+    );
+    return { latest, state };
+  }
   closeIdleCompanion(authorize: () => void): Promise<RecordValue> {
     return this.authorizedRequest("companion/close", {}, authorize);
   }

@@ -496,3 +496,165 @@ test("Linux replacement preserves the previous binding and refuses another accou
     store.close();
   }
 });
+
+async function linuxRecoveryFixture(t) {
+  const f = await recoveryFixture(t);
+  Object.assign(f.sessions.config.machines[0], {
+    type: "ssh-linux",
+    codex: { persistent: true, appServerSocket: "/run/user/1000/codex.sock" },
+  });
+  f.store.db
+    .prepare("UPDATE codex_runtime_bindings SET instanceId=NULL WHERE machineId='pc'")
+    .run();
+  f.store.db.prepare("UPDATE threads SET activitySource='hub' WHERE id=?").run(f.thread.id);
+  f.runtime.machineId = "pc";
+  delete f.runtime.binding;
+  f.sessions.runtimes.set("pc", Promise.resolve(f.runtime));
+  const calls = [];
+  let state = "active",
+    turn = "offline-turn",
+    cwd = "C:/Project";
+  f.rpc.inspectCompanion = async () => {
+    throw Error("Windows broker must not be queried on Linux");
+  };
+  f.rpc.request = async (method, params) => {
+    calls.push({ method, params });
+    if (method === "thread/read")
+      return {
+        thread: { id: f.thread.codexThreadId, cwd, status: { type: state, activeFlags: [] } },
+      };
+    if (method === "thread/turns/list") return { data: [{ id: turn, status: "inProgress" }] };
+    if (method === "thread/items/list") return { data: [] };
+    if (method === "thread/resume") return { thread: { id: f.thread.codexThreadId } };
+    throw Error("Unexpected mutation: " + method);
+  };
+  f.rpc.inspectLiveThread = async (id, authorize) => {
+    authorize();
+    const latest = await f.rpc.request("thread/turns/list", { threadId: id });
+    authorize();
+    return { latest, state: await f.rpc.request("thread/read", { threadId: id }) };
+  };
+  return {
+    ...f,
+    calls,
+    change: (value) => {
+      state = value.state ?? state;
+      turn = value.turn ?? turn;
+      cwd = value.cwd ?? cwd;
+    },
+  };
+}
+
+test("Linux status proves a running turn without resuming or acquiring its subscription", async (t) => {
+  const f = await linuxRecoveryFixture(t);
+  const result = await f.sessions.inspect(f.thread.id);
+  assert.equal(result.status, "running");
+  assert.equal(result.activeTurnId, "offline-turn");
+  assert.equal(f.runtime.loaded.has(f.thread.id), false);
+  assert(f.calls.every((c) => ["thread/read", "thread/turns/list"].includes(c.method)));
+});
+
+test("Linux recovery restores only the exact live subscription after Hub memory is lost", async (t) => {
+  const f = await linuxRecoveryFixture(t);
+  await f.sessions.recoverPersistent();
+  assert.equal(f.store.thread(f.thread.id).status, "running");
+  assert(f.runtime.loaded.has(f.thread.id));
+  assert.deepEqual(
+    f.calls.filter((c) => c.method === "thread/resume"),
+    [{ method: "thread/resume", params: { threadId: f.thread.codexThreadId, excludeTurns: true } }],
+  );
+  await f.sessions.recoverPersistent();
+  assert.equal(f.calls.filter((c) => c.method === "thread/resume").length, 1);
+  assert(f.calls.every((c) => !/turn\/start|turn\/steer|thread\/start/.test(c.method)));
+});
+
+for (const value of [
+  { state: "notLoaded" },
+  { state: "idle" },
+  { turn: "different-turn" },
+  { cwd: "/different/project" },
+]) {
+  test("Linux recovery rejects stale or mismatched proof " + JSON.stringify(value), async (t) => {
+    const f = await linuxRecoveryFixture(t);
+    f.change(value);
+    await f.sessions.recoverPersistent();
+    assert.equal(f.store.thread(f.thread.id).status, "unknown");
+    assert.equal(f.runtime.loaded.size, 0);
+    assert(!f.calls.some((c) => c.method === "thread/resume"));
+    assert.equal((await f.sessions.persistentThreadIds()).size, 0);
+  });
+}
+
+test("Linux engine replacement admission requires exact live proof and authority", async (t) => {
+  const f = await linuxRecoveryFixture(t);
+  assert((await f.sessions.persistentThreadIds()).has(f.thread.id));
+  f.sessions.authorizeInspection = () => {
+    throw Error("Revoked");
+  };
+  assert.equal((await f.sessions.persistentThreadIds()).size, 0);
+});
+
+test("Linux recovery does not claim or attach external work", async (t) => {
+  const f = await linuxRecoveryFixture(t);
+  f.store.db.prepare("UPDATE threads SET activitySource='external' WHERE id=?").run(f.thread.id);
+  await f.sessions.recoverPersistent();
+  assert(!f.calls.some((c) => c.method === "thread/resume"));
+  assert.equal(f.runtime.loaded.size, 0);
+});
+
+test("Linux terminal history recovers without attaching a stopped native thread", async (t) => {
+  const f = await linuxRecoveryFixture(t);
+  f.rpc.request = async (method) => {
+    f.calls.push({ method });
+    if (method === "thread/turns/list")
+      return { data: [{ id: "offline-turn", status: "completed" }] };
+    if (method === "thread/items/list")
+      return {
+        data: [
+          {
+            type: "agentMessage",
+            id: "linux-final",
+            text: "Finished offline",
+            phase: "final_answer",
+          },
+        ],
+      };
+    throw Error("Must not attach finished history: " + method);
+  };
+  await f.sessions.recoverPersistent();
+  assert.equal(f.store.thread(f.thread.id).status, "completed");
+  assert.equal(f.store.thread(f.thread.id).activeTurnId, null);
+  assert(f.store.history(f.thread.id).messages.some((m) => m.text === "Finished offline"));
+  assert(!f.calls.some((c) => c.method === "thread/resume"));
+});
+
+test("Linux read-only proof remains usable during execution freeze, never after revocation", async () => {
+  const { CodexClient } = await import("../packages/codex/dist/index.js");
+  const { PassThrough } = await import("node:stream");
+  const { EventEmitter } = await import("node:events");
+  const child = Object.assign(new EventEmitter(), {
+    stdin: new PassThrough(),
+    stdout: new PassThrough(),
+    stderr: new PassThrough(),
+  });
+  const rpc = new CodexClient(child, 500);
+  rpc.authorize = () => {
+    throw Error("Execution frozen");
+  };
+  const calls = [];
+  child.stdin.on("data", (bytes) => {
+    const request = JSON.parse(bytes.toString());
+    calls.push(request.method);
+    child.stdout.write(JSON.stringify({ id: request.id, result: {} }) + "\n");
+  });
+  await rpc.inspectLiveThread("native-id", () => {});
+  assert.deepEqual(calls, ["thread/turns/list", "thread/read"]);
+  await assert.rejects(rpc.request("turn/start", {}), /Execution frozen/);
+  await assert.rejects(
+    rpc.inspectLiveThread("native-id", () => {
+      throw Error("Revoked");
+    }),
+    /Revoked/,
+  );
+  assert.equal(calls.length, 2);
+});

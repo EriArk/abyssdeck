@@ -1,4 +1,30 @@
-# Текущий статус — 14 ноября 2026
+# Текущий статус — 15 ноября 2026
+
+## Linux live-turn recovery after Hub reboot (2026-11-15)
+
+The owner's server reboot left Linux turns running on the PC while Hub marked
+those exact turns unknown. Recovery still required Windows Companion instance
+metadata and event subscriptions were lost with the server connection. Read-only
+Linux inspection now checks the exact turn plus the live native thread status,
+identity and working directory on the account-bound dedicated Unix socket.
+A stale rollout, other turn/path, external writer or missing runtime remains
+unconfirmed. Saved server archive history is not reactivated.
+
+Background recovery restores the event subscription only for that already-live,
+Hub-owned Linux turn, using metadata-only native `thread/resume` without input,
+settings or permission overrides. Ordinary status checks remain read-only. This
+is the native running-thread subscription path, not a prompt replay; terminal
+history is recovered without subscription. A post-attach read and current-turn
+check protect completion while reconnecting. Narrow inspection is also available
+while execution is frozen for maintenance; revocation remains enforced.
+
+The repeated recovery controls reproduced when switching chats: ConnectionRecovery
+and MessageQueue had identical sibling keys. Distinct component-prefixed keys
+remove the old recovery DOM on selection changes and preserve each draft.
+Chromium and WebKit regression runs now cover repeated failed checks, switching
+away/back, one control, restored progress and no automatic message submission.
+Source checks and installed activation are recorded separately below.
+
 
 ## Linux boot recovery, Codex 0.169 and local controls (2026-11-14)
 

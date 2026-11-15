@@ -867,6 +867,52 @@ export class Sessions extends EventEmitter {
     }
   }
 
+  private persistentLinux(machineId: string): boolean {
+    const machine = this.config.machines.find((m) => m.id === machineId);
+    return (
+      machine?.type === "ssh-linux" && !!machine.codex.persistent && !!machine.codex.appServerSocket
+    );
+  }
+
+  /** Live memory of the dedicated Linux service, never a stale rollout alone. */
+  private async linuxLiveTurn(r: Runtime, t: ThreadRecord): Promise<string[] | undefined> {
+    if (
+      !r.machineId ||
+      !this.persistentLinux(r.machineId) ||
+      !t.activeTurnId ||
+      t.activitySource !== "hub" ||
+      t.historyMode === "saved"
+    )
+      return;
+    this.authorizeInspection();
+    const proof = await r.rpc.inspectLiveThread(t.codexThreadId, () => this.authorizeInspection());
+    const latest = record(proof.latest),
+      reply = record(proof.state);
+    const turn = record(Array.isArray(latest.data) ? latest.data[0] : undefined);
+    if (turn.id !== t.activeTurnId || turn.status !== "inProgress") return;
+    this.authorizeInspection();
+    const native = record(reply.thread),
+      status = record(native.status);
+    const cwd = t.workingDirectory || this.project(t.projectId).workingDirectory;
+    if (
+      r.rpc.closed ||
+      native.id !== t.codexThreadId ||
+      native.cwd !== cwd ||
+      status.type !== "active" ||
+      this.store.thread(t.id).activeTurnId !== t.activeTurnId
+    )
+      return;
+    return Array.isArray(status.activeFlags)
+      ? status.activeFlags.filter((v): v is string => typeof v === "string")
+      : [];
+  }
+
+  private liveLinuxStatus(flags: string[]): string {
+    return flags.some((v) => v === "waitingOnApproval" || v === "waitingOnUserInput")
+      ? "waiting_approval"
+      : "running";
+  }
+
   /** Status checks never resume, unload or acquire a native thread writer. */
   async inspect(id: string, maintenance = false): Promise<ThreadRecord> {
     if (!maintenance || !doctorThread(this.store, id)) this.assertWorkThread(id);
@@ -889,6 +935,18 @@ export class Sessions extends EventEmitter {
       this.adoptLiveTurns(r, proof);
       if (record(proof.turns)[t.codexThreadId]) return this.store.thread(id);
     } else if (r.loaded.has(id) && r.active.has(id)) return this.store.thread(id);
+    const linux = await this.linuxLiveTurn(r, t);
+    if (linux) {
+      const status = this.pending(id).length ? "waiting_approval" : this.liveLinuxStatus(linux);
+      this.store.setStatus(id, status, t.activeTurnId);
+      this.emitEvent(
+        id,
+        "session.state",
+        { status, activeTurnId: t.activeTurnId, activitySource: "hub" },
+        t.activeTurnId,
+      );
+      return this.store.thread(id);
+    }
     await this.externalActivity.refresh();
     const current = this.store.thread(id);
     // Summary avoids multi-megabyte history frames during a connection check.
@@ -2434,11 +2492,12 @@ export class Sessions extends EventEmitter {
           );
         if (
           !threads.length ||
-          !this.store.db
-            .prepare(
-              "SELECT 1 FROM codex_runtime_bindings WHERE machineId=? AND instanceId IS NOT NULL",
-            )
-            .get(machine.id)
+          (!this.persistentLinux(machine.id) &&
+            !this.store.db
+              .prepare(
+                "SELECT 1 FROM codex_runtime_bindings WHERE machineId=? AND instanceId IS NOT NULL",
+              )
+              .get(machine.id))
         )
           continue;
         try {
@@ -2496,13 +2555,38 @@ export class Sessions extends EventEmitter {
               this.threadRecoveryAttempts.delete(recoveryKey);
               if (this.store.thread(thread.id).activeTurnId !== thread.activeTurnId) continue;
               if (exact.status === "inProgress") {
-                const proof = await r.rpc.inspectCompanion(() => this.authorizeInspection());
-                if (
-                  proof.protocol !== 2 ||
-                  proof.runtimeId !== r.binding?.binding ||
-                  proof.instanceId !== r.instanceId ||
-                  record(proof.turns)[thread.codexThreadId] !== exact.id
-                ) {
+                let live = false;
+                if (this.persistentLinux(machine.id)) {
+                  // A Hub restart loses the native event subscription, not the
+                  // already-running Linux turn. Reattach only our exact live
+                  // turn on this dedicated socket; no settings/input overrides.
+                  const proof = await this.linuxLiveTurn(r, thread);
+                  if (proof) {
+                    const attached = await r.rpc.request("thread/resume", {
+                      threadId: thread.codexThreadId,
+                      excludeTurns: true,
+                    });
+                    if (record(attached.thread).id !== thread.codexThreadId)
+                      throw new Error("Linux subscription identity mismatch");
+                    // Completion may arrive while the subscription is installed.
+                    if (this.store.thread(thread.id).activeTurnId !== thread.activeTurnId) continue;
+                    live = !!(await this.linuxLiveTurn(r, thread));
+                    if (!live) {
+                      this.catalog.invalidate(thread.id);
+                      await this.inspect(thread.id);
+                      this.threadRecoveryAttempts.delete(recoveryKey);
+                      continue;
+                    }
+                  }
+                } else {
+                  const proof = await r.rpc.inspectCompanion(() => this.authorizeInspection());
+                  live =
+                    proof.protocol === 2 &&
+                    proof.runtimeId === r.binding?.binding &&
+                    proof.instanceId === r.instanceId &&
+                    record(proof.turns)[thread.codexThreadId] === exact.id;
+                }
+                if (!live) {
                   r.loaded.delete(thread.id);
                   this.threadRecoveryAttempts.set(recoveryKey, 3);
                   continue;
@@ -2547,6 +2631,15 @@ export class Sessions extends EventEmitter {
       try {
         this.authorizeInspection();
         const r = await promise;
+        if (this.persistentLinux(machineId)) {
+          for (const p of this.catalog.projects().filter((p) => p.machineId === machineId))
+            for (const t of this.store.threads(p.id)) {
+              if (!t.activeTurnId || !["running", "waiting_approval", "unknown"].includes(t.status))
+                continue;
+              if (await this.linuxLiveTurn(r, t)) safe.add(t.id);
+            }
+          continue;
+        }
         if (!r.binding) continue;
         const info = await r.rpc.inspectCompanion(() => this.authorizeInspection());
         this.authorizeInspection();

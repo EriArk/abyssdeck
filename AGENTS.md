@@ -1,5 +1,16 @@
 # AGENTS.md
 
+## Owner-confirmed Linux live work after server reboot (2026-11-15)
+
+- A Hub reboot can lose its event subscription while the dedicated Linux native
+  service continues the same turn. Verify live native status and exact thread,
+  turn, account and directory; never equate a stale rollout with live ownership.
+- Restore the subscription only for a proved live Hub-owned Linux turn, without
+  settings changes or prompt replay. Ordinary status inspection stays read-only.
+  Saved archive history and external writers must not be acquired by recovery.
+- Keep activity indicators and active-turn composer controls consistent with this
+  proof. Recovery and queue components need distinct keys when switching chats.
+
 ## Owner-requested Linux recovery controls and boot startup (2026-11-14)
 
 - The owner now explicitly requests a minimal Linux Companion for starting,
