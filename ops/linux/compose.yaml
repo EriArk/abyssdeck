@@ -20,6 +20,7 @@ services:
     command: [node, dist/web-main.js]
     environment:
       HUB_ROLE: web
+      HUB_REVISION: ${WEB_REVISION:-unknown}
       HUB_ENGINE_SOCKET: /run/codex-engine/engine.sock
       HUB_RELEASE_ROOT: /releases
     volumes:
@@ -46,6 +47,7 @@ services:
     env_file: ["${CODEX_WEB_STATE}/remote.env"]
     environment:
       HUB_ROLE: engine
+      HUB_REVISION: ${ENGINE_REVISION:-unknown}
       HUB_ENGINE_SOCKET: /run/codex-engine/engine.sock
       HUB_RELEASE_ROOT: /releases
     volumes:

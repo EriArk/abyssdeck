@@ -23,7 +23,37 @@ and MessageQueue had identical sibling keys. Distinct component-prefixed keys
 remove the old recovery DOM on selection changes and preserve each draft.
 Chromium and WebKit regression runs now cover repeated failed checks, switching
 away/back, one control, restored progress and no automatic message submission.
-Source checks and installed activation are recorded separately below.
+Verification: 28 native-runtime/Linux transport cases, 28 checkpoint/rollback/
+admission cases, repository checks, TypeScript and production build passed.
+Four browser suites passed in both Chromium and WebKit. The actual candidate
+Docker image recovered a disposable live native turn after its original controller
+disconnected, received 32 native events and its final response without resending
+input; the test chat was archived. Real Team startup also verified that native
+discovery stays frozen before admission and resumes afterward.
+
+Web revision `9df9b289` is published as release
+`fe13170cbaf8737835aca591b02c15643f5bfd7590d4d2226e1427ddd8e8ed55`,
+entry `index-yjsBD1d7.js`; gateway HTML and entry bytes match the immutable build.
+The owner explicitly approved replacing the server pair with this exact revision
+while native Linux work continues. The engine/gateway pair is installed after
+HDD checkpoint, byte-verified restore and account admission. All 56 existing
+thread identities, history/attachment counts and configuration were preserved.
+Both previously active threads report `running` again and receive fresh native
+command/progress events. The first cutover took 215 seconds; the PC native
+service remains the same process started on November 14.
+
+The composed services now explicitly take their diagnostic `HUB_REVISION` from
+the deployed engine/web revision, avoiding stale metadata inherited by a derived
+image. The installed pair uses the same verified image with this corrected launch
+environment. Its correction used the ordinary read-only maintenance/reservation
+check, which now accepts the independently persistent Linux turns. No native
+process or prompt was restarted. The immutable web release remains unchanged.
+
+The server backup HDD was initially unmounted after reboot. It is mounted again;
+its existing UUID entry now supplies systemd automount. The disk-bound restic
+backup/check/restore/retention completed without errors. Data automount, PC Codex
+autostart/lingering and server Docker restart policies were also verified; no
+physical PC/server reboot or physical iPhone acceptance is claimed here.
 
 
 ## Linux boot recovery, Codex 0.169 and local controls (2026-11-14)
