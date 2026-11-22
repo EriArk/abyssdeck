@@ -1,6 +1,11 @@
 ﻿import { createHash } from "node:crypto";
 import { posix, win32 } from "node:path";
-import { codexArtifactPath, copyCodexArtifact, type readProjectFile } from "@codex-web/machines";
+import {
+  codexArtifactPath,
+  copyCodexArtifact,
+  PREVIEW_LIMIT,
+  type readProjectFile,
+} from "@codex-web/machines";
 import {
   CHAT_BLOCK_LINES,
   HubError,
@@ -306,8 +311,12 @@ export class GeneratedArtifacts {
     const row = this.store.db
       .prepare("SELECT bytes FROM artifacts WHERE id=?")
       .get(capture.artifactId);
-    if (!row || Number(row.bytes) > 2 * 1024 ** 2)
-      throw new HubError(413, "PREVIEW_TOO_LARGE", "Демо больше 2 МБ.");
+    if (!row || Number(row.bytes) > PREVIEW_LIMIT)
+      throw new HubError(
+        413,
+        "PREVIEW_TOO_LARGE",
+        "HTML-файл больше 32 МБ. Скачай оригинал для просмотра.",
+      );
     return this.artifacts.get(capture.artifactId).data;
   }
   capture(id: string, verify?: () => void): Promise<void> {

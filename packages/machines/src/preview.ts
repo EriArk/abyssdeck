@@ -7,7 +7,7 @@ import { quotePowerShell, stopProcess } from "./index.js";
 import { assertProjectRoot, verifyProjectRoot } from "./projectRoots.js";
 import { readWorkspaceFile } from "./workspaceFiles.js";
 
-export const PREVIEW_LIMIT = 2 * 1024 * 1024;
+export const PREVIEW_LIMIT = 32 * 1024 * 1024;
 export function previewPath(machine: MachineConfig, root: string, input: string): string {
   return checkedPath(machine, root, input, false);
 }
@@ -83,14 +83,21 @@ async function readPreviewFile(
     try {
       const stat = await file.stat();
       if (!stat.isFile() || stat.size > PREVIEW_LIMIT) throw invalid();
-      const bytes = Buffer.alloc(PREVIEW_LIMIT + 1);
+      const bytes = Buffer.alloc(stat.size + 1);
       let size = 0;
       while (size < bytes.length) {
         const read = await file.read(bytes, size, bytes.length - size, null);
         if (!read.bytesRead) break;
         size += read.bytesRead;
       }
-      if (size > PREVIEW_LIMIT) throw invalid();
+      const after = await file.stat();
+      if (
+        size !== stat.size ||
+        after.size !== stat.size ||
+        after.mtimeMs !== stat.mtimeMs ||
+        after.ctimeMs !== stat.ctimeMs
+      )
+        throw invalid();
       return bytes.subarray(0, size);
     } finally {
       await file.close();
@@ -104,7 +111,9 @@ async function readPreviewFile(
     // Reject junctions and symlinks all the way to the volume, including the configured root.
     "$check=$path; while($check){if(([IO.File]::GetAttributes($check) -band [IO.FileAttributes]::ReparsePoint) -ne 0){throw 'REPARSE_POINT'}; $check=[IO.Path]::GetDirectoryName($check)}",
     "$f=[IO.File]::Open($path,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)",
-    "try {if($f.Length -gt 2097152){throw 'TOO_LARGE'}; $b=New-Object byte[] ([int]$f.Length); $n=0; while($n -lt $b.Length){$read=$f.Read($b,$n,$b.Length-$n); if($read -eq 0){throw 'TRUNCATED'}; $n+=$read}; [Console]::Out.Write([Convert]::ToBase64String($b))} finally {$f.Dispose()}",
+    "try {if($f.Length -gt " +
+      PREVIEW_LIMIT +
+      "){throw 'TOO_LARGE'}; $b=New-Object byte[] ([int]$f.Length); $n=0; while($n -lt $b.Length){$read=$f.Read($b,$n,$b.Length-$n); if($read -eq 0){throw 'TRUNCATED'}; $n+=$read}; [Console]::Out.Write([Convert]::ToBase64String($b))} finally {$f.Dispose()}",
   ].join("; ");
   const child = spawn(
     "ssh",

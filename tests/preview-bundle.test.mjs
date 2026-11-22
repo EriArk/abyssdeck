@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promis
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { bundlePreview } from "../apps/hub/dist/preview-bundle.js";
+import { bundlePreview, PREVIEW_BUNDLE_BYTES } from "../apps/hub/dist/preview-bundle.js";
 import { Previews } from "../apps/hub/dist/previews.js";
 import { Store } from "../apps/hub/dist/store.js";
 import { previewAssetPath, readMachinePreviewAsset } from "../packages/machines/dist/preview.js";
@@ -66,4 +66,16 @@ test("bounded bundle fails atomically; cached complete HTML retains old sidecar 
     bundlePreview(many, "index.html", async () => Buffer.from("svg")),
     { code: "PREVIEW_BUNDLE_LIMIT" },
   );
+});
+
+test("oversized entry is rejected before parsing or reading related files", async () => {
+  let reads = 0;
+  await assert.rejects(
+    bundlePreview("x".repeat(PREVIEW_BUNDLE_BYTES + 1), "index.html", async () => {
+      reads++;
+      return Buffer.from("unexpected");
+    }),
+    { code: "PREVIEW_BUNDLE_LIMIT" },
+  );
+  assert.equal(reads, 0);
 });

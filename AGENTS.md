@@ -1,5 +1,14 @@
 # AGENTS.md
 
+## Owner-requested usable HTML gallery previews (2026-11-22)
+
+- Explicit HTML-file previews allow 32 MiB, including captured exports and machine
+  reads. Keep one shared limit across Linux, Windows and server workspaces, with
+  base64 transport overhead accounted for. Automatic inline message blocks retain
+  their separate small storage budget. Preserve exact captured bytes and isolation.
+- Exercise a gallery above the former 2 MiB ceiling through the actual capture and
+  preview path; do not merely rewrite the error or alter the original user file.
+
 ## Owner-confirmed Linux live work after server reboot (2026-11-15)
 
 - A Hub reboot can lose its event subscription while the dedicated Linux native

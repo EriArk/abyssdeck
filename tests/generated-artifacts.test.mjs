@@ -78,6 +78,42 @@ test("visualize exports outside checkout open exact captured HTML and sibling as
     await f.close();
   }
 });
+test("captured HTML galleries above 2 MiB open without replacing the saved source", async () => {
+  const f = await fixture();
+  try {
+    const path = join(f.source, "gallery.html");
+    const image = Buffer.from(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><!--' +
+        "x".repeat(2 * 1024 ** 2) +
+        "--></svg>",
+    ).toString("base64");
+    const original = '<h1>Gallery</h1><img src="data:image/svg+xml;base64,' + image + '">';
+    await writeFile(path, original);
+    const item = { id: "large-gallery", type: "agentMessage", text: `[Gallery](${path})` };
+    f.generated.observe(f.thread, "turn", item);
+    await f.generated.close();
+    const previews = new Previews(
+      join(f.root, "previews"),
+      f.store,
+      () => ({ machine, root: f.source }),
+      (id) => f.generated.preview(id),
+    );
+    const [resultId] = previews.observe(f.thread, "turn", item);
+    const id = f.store.resultById(f.thread.id, resultId).payload.url.split("/").at(-1);
+    await writeFile(path, "<h1>Changed after capture</h1>");
+    const output = await previews.document(id);
+    assert(output.includes(image));
+    assert(output.includes("Gallery"));
+    assert(!output.includes("Changed after capture"));
+    const capture = f.store.db.prepare("SELECT * FROM artifact_captures WHERE path=?").get(path);
+    f.store.db
+      .prepare("UPDATE artifacts SET bytes=? WHERE id=?")
+      .run(32 * 1024 ** 2 + 1, capture.artifactId);
+    await assert.rejects(f.generated.preview(capture.id), { code: "PREVIEW_TOO_LARGE" });
+  } finally {
+    await f.close();
+  }
+});
 test("Codex exports long blocks once, keeps short blocks inline and binds exact source bytes", async () => {
   const f = await fixture();
   try {

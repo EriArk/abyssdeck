@@ -39,6 +39,8 @@ export function previewMarkup(html: string): string {
     icons.after
   );
 }
+// Automatic message blocks keep their separate storage budget.
+const INLINE_PREVIEW_LIMIT = 2 * 1024 ** 2;
 type Source = { title: string; path?: string; html?: string; captureId?: string };
 const obj = (value: unknown): Record<string, unknown> =>
   value && typeof value === "object" ? (value as Record<string, unknown>) : {};
@@ -94,7 +96,7 @@ export class Previews {
     private artifacts?: Artifacts,
   ) {}
   inline(scope: string, itemId: string, html: string): string | undefined {
-    if (!html || Buffer.byteLength(html) > PREVIEW_LIMIT) return;
+    if (!html || Buffer.byteLength(html) > INLINE_PREVIEW_LIMIT) return;
     const source = { title: "Интерактивное демо", html };
     const id = createHash("sha256")
       .update(JSON.stringify([scope, itemId, source]))
@@ -112,7 +114,7 @@ export class Previews {
   observe(thread: ThreadRecord, turnId: string | null, item: Record<string, unknown>): string[] {
     const results: string[] = [];
     for (const source of previewSources(item)) {
-      if (source.html && Buffer.byteLength(source.html) > PREVIEW_LIMIT) continue;
+      if (source.html && Buffer.byteLength(source.html) > INLINE_PREVIEW_LIMIT) continue;
       try {
         if (source.path) {
           const target = this.target(thread.id);
@@ -181,7 +183,11 @@ export class Previews {
                   return readMachinePreview(target.machine, target.root, source.path ?? "");
                 })();
         if (bytes.length > PREVIEW_LIMIT)
-          throw new HubError(413, "PREVIEW_TOO_LARGE", "Демо больше 2 МБ.");
+          throw new HubError(
+            413,
+            "PREVIEW_TOO_LARGE",
+            "HTML-файл больше 32 МБ. Скачай оригинал для просмотра.",
+          );
         html = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
         if (source.path) {
           const target = this.target(String(row.threadId));

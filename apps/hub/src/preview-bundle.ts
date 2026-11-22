@@ -1,3 +1,4 @@
+import { PREVIEW_LIMIT } from "@codex-web/machines";
 import { HubError } from "@codex-web/shared";
 import { parse as imports, init } from "es-module-lexer/minimal";
 import { parse, parseFragment, serialize, type DefaultTreeAdapterTypes as Tree } from "parse5";
@@ -5,7 +6,7 @@ import postcss from "postcss";
 import values from "postcss-value-parser";
 
 // Automatic preview budgets, unrelated to original file upload/download limits.
-export const PREVIEW_BUNDLE_BYTES = 16 * 1024 ** 2;
+export const PREVIEW_BUNDLE_BYTES = PREVIEW_LIMIT;
 const origin = "https://preview.invalid/";
 const mime: Record<string, string> = {
   css: "text/css",
@@ -49,6 +50,7 @@ export async function bundlePreview(
   read: (path: string) => Promise<Buffer>,
   image?: (path: string) => string,
 ) {
+  if (Buffer.byteLength(html) > PREVIEW_BUNDLE_BYTES) throw failure();
   const base = new URL(
     entry.replace(/\\/g, "/").split("/").map(encodeURIComponent).join("/"),
     origin,

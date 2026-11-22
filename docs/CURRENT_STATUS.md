@@ -1,4 +1,16 @@
-# Текущий статус — 15 ноября 2026
+# Текущий статус — 22 ноября 2026
+
+## HTML gallery preview size (2026-11-22)
+
+The reported 21-image gallery is 2,220,873 bytes: a saved artifact was available,
+but the HTML preview rejected it at 2 MiB. Explicit file previews now share a
+32 MiB source/asset ceiling across captured artifacts and machine readers,
+including the Windows base64 transport guard. The bundle admits 32 MiB of sources
+and retains its bounded 64 MiB packed-output ceiling. Oversized entry HTML is
+rejected before parsing. Automatic inline message blocks retain their 2 MiB
+storage budget. Authenticated iframe isolation and exact source bytes are unchanged.
+
+Activation and installed gallery verification are recorded after completion.
 
 ## Linux live-turn recovery after Hub reboot (2026-11-15)
 
