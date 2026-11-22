@@ -21,12 +21,30 @@ GeneratedArtifacts and Previews using an isolated in-memory database and read-on
 production assets: 2,220,873 bytes, unchanged SHA-256, 21 images. Runtime revision
 and schema compatibility were verified. Source is integrated into main.
 
-Activation is queued behind the standard installer. Installed engine remains
-`9df9b289`: the separate GPT service returns HTTP 503 from both `/active` and
-`/bridge-health`, so ordinary admission reports `GPT_STATUS_UNAVAILABLE`.
-An exact-release owner confirmation for `47937e26` was requested; until it arrives
-(or ordinary admission succeeds), do not claim the new limit is installed.
-The current Codex process and live turns have not been restarted.
+Engine/gateway revision `47937e26` is now installed and healthy. The owner's
+explicit in-app force receipt matched the pending revision and installation ID.
+The original ordinary blocker was HTTP 503 from the separate GPT service's
+`/active` and `/bridge-health`; this update does not claim to repair that service.
+
+The apparent subsequent stall was checkpoint preparation and SQLite validation
+on the backup HDD. Final stopped-service checks took much longer than expected:
+recorded downtime was 965 seconds. A bounded read-only mapping of the checkpoint
+DB kept its pages resident and allowed validation to finish; no integrity check
+was bypassed. All 57 pre-existing thread identities and history/attachment counts
+were retained. The installed engine itself opened the exact original gallery
+through GeneratedArtifacts/Previews: unchanged checksum, 2,220,873 bytes, 21 images.
+The PC Codex process remains PID 13479 from November 14 and its live turn recovered.
+
+The host installer now distinguishes `BACKUP_PREPARING` from `WAITING_FOR_IDLE`.
+The owner notice shows backup preparation, admission waiting and installation
+separately; accepting force no longer claims installation has already started.
+Both Chromium/WebKit owner-notice tests and all 28 checkpoint/admission cases pass.
+Compatible web-only revision `88d24980` is published as release
+`5cfdfe470a923ae7f0523ec6b070184f9de0b6ccf78e85567654deacd7646ca5`,
+entry `index-D6FNoNLN.js`. Gateway-served HTML and entry bytes match that release.
+The web publication required no second engine restart. Physical iPhone acceptance
+remains the owner's next use; no phone test is inferred from headless WebKit.
+
 
 ## Linux live-turn recovery after Hub reboot (2026-11-15)
 
