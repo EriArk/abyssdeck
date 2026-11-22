@@ -12,7 +12,7 @@ import {
 const failure = "Обновление не загрузилось. Попробуй ещё раз.";
 type Deployment = {
   ownerForceAllowed: boolean;
-  maintenance: { revision: string; startedAt: number; state: string } | null;
+  maintenance: { revision: string; startedAt: number; state: string; code?: string } | null;
 };
 export function UpdateNotice({ visible, busy }: { visible: boolean; busy: boolean }) {
   const [deployment, setDeployment] = useState<Deployment | null>(null);
@@ -63,7 +63,7 @@ export function UpdateNotice({ visible, busy }: { visible: boolean; busy: boolea
       });
       setMessage(
         force
-          ? "Начинаем жёсткое обновление…"
+          ? "Жёсткое обновление подтверждено. Ожидаем установщик…"
           : "Обновление установится после завершения активной работы.",
       );
     } catch (error) {
@@ -82,7 +82,9 @@ export function UpdateNotice({ visible, busy }: { visible: boolean; busy: boolea
             <span>
               {pending.state === "installing"
                 ? "Устанавливаем обновление сервера…"
-                : message || "Готово обновление сервера"}
+                : pending.code === "BACKUP_PREPARING"
+                  ? "Готовим и проверяем резервную копию…"
+                  : message || "Ждём допуска к обновлению сервера"}
             </span>
             {pending.state === "waiting" && (
               <>

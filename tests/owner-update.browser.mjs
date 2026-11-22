@@ -32,6 +32,7 @@ try {
       for (const owner of [false, true]) {
         const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
         let sent = [];
+        let code = "BACKUP_PREPARING";
         await page.route("https://update.test/**", (route) => {
           const path = new URL(route.request().url()).pathname;
           if (path === "/")
@@ -49,7 +50,7 @@ try {
           return route.fulfill({
             json: {
               ownerForceAllowed: owner,
-              maintenance: { state: "waiting", revision: "abcdef2", startedAt: 123 },
+              maintenance: { state: "waiting", revision: "abcdef2", startedAt: 123, code },
             },
           });
         });
@@ -58,6 +59,10 @@ try {
           await page.waitForTimeout(300);
           await expect(page.getByText("Обновить жёстко", { exact: true })).toHaveCount(0);
         } else {
+          await expect(page.getByText("Готовим и проверяем резервную копию…")).toBeVisible();
+          code = "WAITING_FOR_IDLE";
+          await page.reload();
+          await expect(page.getByText("Ждём допуска к обновлению сервера")).toBeVisible();
           const button = page.getByRole("button", { name: "Обновить жёстко", exact: true });
           await expect(button).toBeEnabled();
           page.once("dialog", (dialog) => dialog.dismiss());
@@ -65,7 +70,9 @@ try {
           assert.equal(sent.length, 0);
           page.once("dialog", (dialog) => dialog.accept());
           await button.click();
-          await expect(page.getByText("Начинаем жёсткое обновление…")).toBeVisible();
+          await expect(
+            page.getByText("Жёсткое обновление подтверждено. Ожидаем установщик…"),
+          ).toBeVisible();
           assert.deepEqual(sent, [
             { revision: "abcdef2", startedAt: 123, force: true, confirm: true },
           ]);

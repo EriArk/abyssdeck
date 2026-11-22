@@ -195,7 +195,7 @@ def main():
                         assert hashlib.sha256(source.read_bytes()).digest() == hashlib.sha256(target.read_bytes()).digest()
                     else:
                         shutil.copyfile(source, target)
-        status('waiting')
+        status('waiting', code='BACKUP_PREPARING' if enabled_team else 'WAITING_FOR_IDLE')
         prepared = None
         preparation_started = time.monotonic()
         if enabled_team:
@@ -206,6 +206,7 @@ def main():
                 status('failed', code='BACKUP_PREPARATION_FAILED')
                 raise  # Public gateway and engine are still running.
         preparation_ms = round((time.monotonic() - preparation_started) * 1000)
+        status('waiting', code='WAITING_FOR_IDLE')
         while True:
             force = forced()
             if not force and not idle():
