@@ -10,7 +10,23 @@ and retains its bounded 64 MiB packed-output ceiling. Oversized entry HTML is
 rejected before parsing. Automatic inline message blocks retain their 2 MiB
 storage budget. Authenticated iframe isolation and exact source bytes are unchanged.
 
-Activation and installed gallery verification are recorded after completion.
+Source revision `47937e26` and its image are staged. All 24 focused preview/
+capture/image tests, 28 checkpoint/admission tests, build/typecheck and repository
+checks passed. Chromium and WebKit loaded all 21 images and exercised enlargement
+at a phone viewport using the exact reported gallery. Both browsers also passed
+bundle and iframe-isolation coverage (six browser runs total).
+
+The actual candidate image read the existing saved capture through
+GeneratedArtifacts and Previews using an isolated in-memory database and read-only
+production assets: 2,220,873 bytes, unchanged SHA-256, 21 images. Runtime revision
+and schema compatibility were verified. Source is integrated into main.
+
+Activation is queued behind the standard installer. Installed engine remains
+`9df9b289`: the separate GPT service returns HTTP 503 from both `/active` and
+`/bridge-health`, so ordinary admission reports `GPT_STATUS_UNAVAILABLE`.
+An exact-release owner confirmation for `47937e26` was requested; until it arrives
+(or ordinary admission succeeds), do not claim the new limit is installed.
+The current Codex process and live turns have not been restarted.
 
 ## Linux live-turn recovery after Hub reboot (2026-11-15)
 
